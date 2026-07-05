@@ -1,4 +1,7 @@
-GLDN Ops v3.4.13
+GLDN Ops v3.4.14
+
+v3.4.14 Move .99 scan count tolerance:
+- Stops treating eBay's reported filtered count as a hard abort when all available pages were scanned.
 
 v3.4.13 update button:
 - Adds a Get Latest Update button in the popup for unpacked-extension installs.

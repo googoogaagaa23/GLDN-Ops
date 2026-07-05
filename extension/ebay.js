@@ -4772,14 +4772,14 @@
         const normalizedPages = dedupeMove99Pages(pages);
         const scanned = uniqueMove99InspectedCount(normalizedPages);
         const expectedTotal = Number(state.filteredCount || 0);
-        if (!verifying && expectedTotal && scanned !== expectedTotal) {
-          throw new Error(`The full scan expected ${expectedTotal.toLocaleString()} unique listings but found ${scanned.toLocaleString()} unique item numbers. No category changes were attempted.`);
-        }
+        const scanCountMismatch = !verifying && expectedTotal && scanned !== expectedTotal
+          ? { expectedTotal, scanned }
+          : null;
         if (!verifying) {
           const duplicateRowsIgnored = Math.max(0, rawScanned - scanned);
-          const summaryState = { ...state, active: true, phase: "scan-summary", scanPages: normalizedPages, currentPage: scan.page, duplicateRowsIgnored };
+          const summaryState = { ...state, active: true, phase: "scan-summary", scanPages: normalizedPages, currentPage: scan.page, duplicateRowsIgnored, scanCountMismatch };
           await storageSet({ pendingMove99Run: summaryState, lastMove99Scan: summaryState });
-          renderStatus(`Full scan complete — ${flattenMove99Pages(normalizedPages).length} .99 listings found across ${scanned} unique listings${duplicateRowsIgnored ? `; ${duplicateRowsIgnored} duplicate rows ignored` : ""}.`, "completed");
+          renderStatus(`Full scan complete — ${flattenMove99Pages(normalizedPages).length} .99 listings found across ${scanned} unique listings${scanCountMismatch ? `; eBay reported ${expectedTotal.toLocaleString()}` : ""}${duplicateRowsIgnored ? `; ${duplicateRowsIgnored} duplicate rows ignored` : ""}.`, "completed");
           showMove99ScanSummary(summaryState, false);
           return;
         }
@@ -4979,7 +4979,7 @@
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
-        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.13</span></div>
+        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.14</span></div>
         <div class="gldn-drag-grip" aria-hidden="true">⋮⋮</div>
       </div>
       <div class="gldn-panel-identity"></div>
