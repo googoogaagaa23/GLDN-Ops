@@ -1,4 +1,8 @@
-GLDN Ops v3.4.15
+GLDN Ops v3.4.16
+
+v3.4.16 Move .99 page batches:
+- Uses page-sized Bulk Edit batches for every scanned page.
+- Adds a Store category picker fallback when eBay shows Selected category with the picker collapsed.
 
 v3.4.15 update download link:
 - Changes Get Latest Update to use codeload.github.com to avoid stale GitHub ZIP downloads.

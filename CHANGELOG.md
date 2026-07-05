@@ -2,6 +2,12 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.16 - 2026-07-05
+
+### Fixed
+- Move .99 now uses page-sized Bulk Edit batches for every scanned page instead of trying to carry selections across pages in one eBay Bulk Edit workspace.
+- Move .99 now clicks the selected Store category row when eBay opens the category modal with the picker collapsed.
+
 ## v3.4.15 - 2026-07-05
 
 ### Fixed

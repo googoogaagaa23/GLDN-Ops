@@ -3225,6 +3225,26 @@
     return roots[0] || null;
   }
 
+  function findSelectedStoreCategoryChooser(root, minY, maxY) {
+    const candidates = queryAllDeep('button, [role="button"], div, span', root)
+      .filter(U.isVisible)
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const text = normalizedElementText(element);
+        let score = 0;
+        if (text.includes("selected category")) score = 100;
+        else if (text.includes(U.normalizeText(MOVE99_DESTINATION_CATEGORY))) score = 80;
+        else if (text && rect.width > 120 && rect.height > 20) score = 20;
+        return { element, rect, score, text };
+      })
+      .filter((item) => item.score > 0 && item.rect.top >= minY && item.rect.top <= maxY)
+      .sort((a, b) => (b.score - a.score) || (b.rect.width - a.rect.width));
+    const candidate = candidates[0]?.element || null;
+    if (!candidate) return null;
+    const row = candidate.closest?.('button, [role="button"], label, div') || candidate;
+    return row;
+  }
+
   async function choosePrimaryStoreCategory(expectedCount = 0) {
     const bulkEdit = await U.waitFor(() => findSmallestExactText("Bulk edit", "button, [role='button']"), 10000, 180);
     if (!bulkEdit) throw new Error("I selected the .99 listings but could not find Bulk edit.");
@@ -3250,7 +3270,12 @@
     if (!changeTo) throw new Error("The Primary Store category Change to option was not found.");
     clickDeepText(changeTo);
 
-    const picker = await U.waitFor(() => findPickerContainingDestination(), 30000, 250);
+    let picker = await U.waitFor(() => findPickerContainingDestination(), 2500, 150);
+    if (!picker) {
+      const chooser = findSelectedStoreCategoryChooser(categoryDialog, primaryTop, maxY);
+      if (chooser) clickElement(chooser);
+      picker = await U.waitFor(() => findPickerContainingDestination(), 30000, 250);
+    }
     if (!picker) throw new Error("The Store category picker did not open.");
     const destination = queryAllDeep('label, span, div, li, [role="option"], [role="radio"], button', picker)
       .filter(U.isVisible)
@@ -4480,7 +4505,7 @@
           ...state,
           active: true,
           confirmed: true,
-          phase: applyCount > 0 && applyCount <= 200 ? "apply-all-pages" : "apply-page",
+          phase: "apply-page",
           applySourcePages: sourcePages,
           applyPages,
           applyIndex: 0,
@@ -4979,7 +5004,7 @@
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
-        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.15</span></div>
+        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.16</span></div>
         <div class="gldn-drag-grip" aria-hidden="true">⋮⋮</div>
       </div>
       <div class="gldn-panel-identity"></div>
