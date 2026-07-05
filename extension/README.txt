@@ -1,4 +1,8 @@
-GLDN Ops v3.4.19
+GLDN Ops v3.4.20
+
+v3.4.20 Move .99 pagination/filter drawer:
+- Fixes Active Listings page detection when eBay only shows "Results: 1-200 of X" instead of a page counter.
+- Allows Move .99 scan to continue when eBay leaves the filter drawer visible after See results.
 
 v3.4.19 Move .99 continuation:
 - Splits large selected Move .99 batches at eBay's 200-listing selected-edit limit and resumes the remaining listings after approved Submit.

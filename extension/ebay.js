@@ -2398,13 +2398,20 @@
       // eBay currently closes the right-side panel and changes the chip to
       // “All filters (2)”. Older layouts used “Categories (2)”. Either state
       // confirms that both source categories were applied.
-      if (!panelStillOpen && tableVisible && result) {
+      if (tableVisible && result) {
         return result ? Number(result[1].replace(/,/g, "")) : -1;
       }
       if (filterChip && !panelStillOpen && tableVisible) return -1;
       return null;
     }, 60000, 250);
     if (ready === null) throw new Error("The source category filter did not finish applying.");
+    const remainingPanel = findMove99FilterPanel();
+    if (remainingPanel) {
+      const close = findExactWithin(remainingPanel, "×", "button, [role='button'], span")
+        || findExactWithin(remainingPanel, "Close", "button, [role='button'], span");
+      if (close) clickElement(clickableForTextElement(close));
+      await new Promise((resolve) => setTimeout(resolve, 450));
+    }
     return ready;
   }
 
@@ -3906,6 +3913,16 @@
         if (match) return { current: Number(pageInput.value || 1), total: Number(match[1]) };
       }
     }
+    const results = body.match(/Results?:\s*([\d,]+)\s*-\s*([\d,]+)\s+of\s+([\d,]+)/i);
+    if (results) {
+      const end = Number(results[2].replace(/,/g, ""));
+      const total = Number(results[3].replace(/,/g, ""));
+      if (Number.isFinite(end) && Number.isFinite(total) && end > 0 && total > 0) {
+        return { current: Math.max(1, Math.ceil(end / 200)), total: Math.max(1, Math.ceil(total / 200)) };
+      }
+    }
+    const count = visibleFilteredListingCount();
+    if (Number.isFinite(count) && count > 0) return { current: 1, total: Math.max(1, Math.ceil(count / 200)) };
     return { current: 1, total: 1 };
   }
 
@@ -3915,6 +3932,7 @@
 
   async function goToActivePage(targetPage) {
     const info = activePageInfo();
+    if (targetPage === 1 && info.total < 1) return true;
     if (info.current === targetPage) return true;
     if (targetPage < 1 || targetPage > info.total) {
       throw new Error(`Active Listings page ${targetPage} is no longer available. eBay currently shows ${info.total} pages.`);
@@ -5131,7 +5149,7 @@
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
-        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.19</span></div>
+        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.20</span></div>
         <div class="gldn-drag-grip" aria-hidden="true">⋮⋮</div>
       </div>
       <div class="gldn-panel-identity"></div>

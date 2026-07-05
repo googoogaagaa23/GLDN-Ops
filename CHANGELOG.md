@@ -2,6 +2,12 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.20 - 2026-07-05
+
+### Fixed
+- Move .99 now derives Active Listings page count from the visible Results range when eBay does not show the normal page counter.
+- Move .99 now tolerates and closes the filter drawer if eBay leaves it open after **See results**.
+
 ## v3.4.19 - 2026-07-05
 
 ### Fixed
