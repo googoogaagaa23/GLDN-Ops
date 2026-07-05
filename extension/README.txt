@@ -1,4 +1,7 @@
-GLDN Ops v3.4.16
+GLDN Ops v3.4.17
+
+v3.4.17 reverse sale cleanup:
+- Adds Move Non-.99 Out of Sale using the saved Move .99 categories in reverse.
 
 v3.4.16 Move .99 page batches:
 - Uses page-sized Bulk Edit batches for every scanned page.

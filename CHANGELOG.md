@@ -2,6 +2,12 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.17 - 2026-07-05
+
+### Added
+- Added **Move Non-.99 Out of Sale** cleanup workflow.
+- The cleanup scans the configured sale category and moves listings whose price does not end in `.99` back to the configured non-sale source category.
+
 ## v3.4.16 - 2026-07-05
 
 ### Fixed

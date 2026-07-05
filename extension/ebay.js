@@ -39,6 +39,7 @@
   let MOVE99_SOURCE_CATEGORIES = [...MOVE99_DEFAULT_CONFIG.sourceCategories];
   let MOVE99_DESTINATION_CATEGORY = MOVE99_DEFAULT_CONFIG.destinationCategory;
   let MOVE99_BACKBURNER_ITEM_IDS = new Set(MOVE99_DEFAULT_CONFIG.backburnerItemIds);
+  let MOVE99_SCAN_MODE = "price99";
   let move99Running = false;
 
   const storageGet = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
@@ -100,6 +101,20 @@
     MOVE99_DESTINATION_CATEGORY = config.destinationCategory;
     MOVE99_BACKBURNER_ITEM_IDS = new Set(config.backburnerItemIds);
     return config;
+  }
+
+  function move99QualifiesByMode(entry, itemId) {
+    if (MOVE99_BACKBURNER_ITEM_IDS.has(itemId)) return false;
+    const is99 = priceEndsIn99(entry.price);
+    return MOVE99_SCAN_MODE === "non99" ? !is99 : is99;
+  }
+
+  function move99WorkflowLabel() {
+    return MOVE99_SCAN_MODE === "non99" ? "Move Non-.99 Out of Sale" : "Move .99 Listings";
+  }
+
+  function move99FoundLabel() {
+    return MOVE99_SCAN_MODE === "non99" ? "non-.99 found" : ".99 found";
   }
 
 
@@ -3994,12 +4009,12 @@
           sourceCategory: MOVE99_SOURCE_CATEGORIES.join(" / "),
           destinationCategory: MOVE99_DESTINATION_CATEGORY,
           backburner: MOVE99_BACKBURNER_ITEM_IDS.has(itemId),
-          qualifies: priceEndsIn99(entry.price) && !MOVE99_BACKBURNER_ITEM_IDS.has(itemId)
+          qualifies: move99QualifiesByMode(entry, itemId)
         });
       }
 
       const qualifyingCount = [...inspected.values()].filter((record) => record.qualifies).length;
-      renderStatus(`${label} page ${page}: ${inspected.size}${expected ? ` / ${expected}` : ""} current-page rows; ${qualifyingCount} .99 found`, "ready");
+      renderStatus(`${label} page ${page}: ${inspected.size}${expected ? ` / ${expected}` : ""} current-page rows; ${qualifyingCount} ${move99FoundLabel()}`, "ready");
 
       // Once every expected current-page item has been captured, stop immediately.
       // Waiting for eBay's retained rows to disappear caused the former endless loop.
@@ -4451,7 +4466,7 @@
     const overlay = document.createElement("div");
     overlay.id = "gldn-move99-preview";
     overlay.className = "gldn-modal-backdrop";
-    const title = completed ? "Move .99 Listings — Completed" : "Move .99 Listings — Scan Complete";
+    const title = completed ? `${move99WorkflowLabel()} — Completed` : `${move99WorkflowLabel()} — Scan Complete`;
     const actionLabel = completed ? (remaining ? `Retry ${remaining.toLocaleString()} Remaining` : "Done") : `Apply ${records.length.toLocaleString()} Changes`;
     overlay.innerHTML = `
       <div class="gldn-modal gldn-move99-summary">
@@ -4460,7 +4475,7 @@
         <p>${completed ? "The final verification pass is complete." : "All filtered Active Listings pages were scanned before any category changes."}</p>
         <div class="gldn-grid">
           <div><strong>Listings scanned</strong><span>${scanned.toLocaleString()}</span></div>
-          <div><strong>${completed ? "Still qualifying" : ".99 listings found"}</strong><span>${records.length.toLocaleString()}</span></div>
+          <div><strong>${completed ? "Still qualifying" : move99FoundLabel()}</strong><span>${records.length.toLocaleString()}</span></div>
           <div><strong>Source categories</strong><span>${MOVE99_SOURCE_CATEGORIES.map(escapeHtml).join(" + ")}</span></div>
           <div><strong>Destination</strong><span>${escapeHtml(MOVE99_DESTINATION_CATEGORY)}</span></div>
           ${completed ? `<div><strong>Batches submitted</strong><span>${Number(state.totals?.batches || 0).toLocaleString()}</span></div><div><strong>eBay-reported failures</strong><span>${Number(state.totals?.failed || 0).toLocaleString()}</span></div>` : ""}
@@ -4478,7 +4493,7 @@
       overlay.remove();
       if (!completed) {
         await storageSet({ pendingMove99Run: { ...state, active: false, phase: "scan-summary", lastScanSaved: true } });
-        renderStatus(`Scan saved — ${records.length} .99 listings found.`, "completed");
+        renderStatus(`Scan saved — ${records.length} ${move99FoundLabel()}.`, "completed");
       } else {
         await storageSet({ pendingMove99Run: null });
         renderStatus(`Move .99 verification saved — ${remaining || 0} listings remain.`, remaining ? "error" : "completed");
@@ -4726,6 +4741,10 @@
       const stored = await storageGet(["pendingMove99Run", "computerLabel", "ebayAccountLabel"]);
       applyMove99AccountConfig(stored.pendingMove99Run?.ebayAccountLabel || stored.ebayAccountLabel || "");
       const state = stored.pendingMove99Run;
+      MOVE99_SCAN_MODE = state?.scanMode === "non99" ? "non99" : "price99";
+      if (state?.sourceCategories?.length) MOVE99_SOURCE_CATEGORIES = asStringArray(state.sourceCategories);
+      if (state?.destinationCategory) MOVE99_DESTINATION_CATEGORY = String(state.destinationCategory).trim();
+      if (state?.sourceStoreCategoryIds) MOVE99_SOURCE_STORE_CATEGORY_IDS = asStringArray(state.sourceStoreCategoryIds);
       if (!state?.active && state?.phase !== "scan-summary" && state?.phase !== "completed") return;
 
       if (state.phase === "active-prepare") {
@@ -5004,7 +5023,7 @@
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
-        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.16</span></div>
+        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.17</span></div>
         <div class="gldn-drag-grip" aria-hidden="true">⋮⋮</div>
       </div>
       <div class="gldn-panel-identity"></div>

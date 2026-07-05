@@ -463,6 +463,14 @@ document.getElementById('saveMove99Categories').addEventListener('click', () => 
 });
 
 document.getElementById('openMove99Workflow').addEventListener('click', () => {
+  startMove99Workflow('price99');
+});
+
+document.getElementById('openNon99Workflow').addEventListener('click', () => {
+  startMove99Workflow('non99');
+});
+
+function startMove99Workflow(scanMode) {
   const account = normalizeEbayAccount(ebayInput.value);
   chrome.storage.local.get(['move99AccountSettings'], (result) => {
     const settings = currentMove99SettingsForAccount(account, result.move99AccountSettings || {});
@@ -471,13 +479,17 @@ document.getElementById('openMove99Workflow').addEventListener('click', () => {
       return;
     }
 
-    const activeUrl = buildMove99ActiveUrl(settings.sourceStoreCategoryIds);
+    const sourceCategories = scanMode === 'non99' ? [settings.destinationCategory] : settings.sourceCategories;
+    const destinationCategory = scanMode === 'non99' ? settings.sourceCategories[0] : settings.destinationCategory;
+    const sourceStoreCategoryIds = scanMode === 'non99' ? [] : settings.sourceStoreCategoryIds;
+    const activeUrl = buildMove99ActiveUrl(sourceStoreCategoryIds);
     chrome.storage.local.set({
       gldnStopRequested: false,
       pendingMove99Run: {
         active: true,
         confirmed: true,
         phase: 'active-prepare',
+        scanMode,
         ebayAccountLabel: account,
         currentPage: 1,
         scanPages: {},
@@ -486,17 +498,17 @@ document.getElementById('openMove99Workflow').addEventListener('click', () => {
         processedIds: [],
         totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
         startedAt: new Date().toISOString(),
-        sourceCategories: settings.sourceCategories,
-        destinationCategory: settings.destinationCategory,
-        sourceStoreCategoryIds: settings.sourceStoreCategoryIds,
+        sourceCategories,
+        destinationCategory,
+        sourceStoreCategoryIds,
         backburnerItemIds: settings.backburnerItemIds
       }
     }, () => {
       chrome.tabs.create({ url: activeUrl });
-      setMessage('Move .99 workflow started. The opened eBay tab will scan first.');
+      setMessage(scanMode === 'non99' ? 'Non-.99 cleanup started. The opened eBay tab will scan first.' : 'Move .99 workflow started. The opened eBay tab will scan first.');
     });
   });
-});
+}
 
 document.getElementById('openAmazonBestSellers').addEventListener('click', () => {
   chrome.tabs.create({ url: 'https://www.amazon.com/gp/bestsellers' });
