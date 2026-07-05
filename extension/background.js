@@ -45,6 +45,7 @@ self.addEventListener('unhandledrejection', (event) => {
 
 function cleanWebAppUrl(value) {
   const raw = String(value || '').trim();
+  if (/YOUR_SCRIPT_ID/i.test(raw)) return '';
   if (!raw) return '';
   try {
     const url = new URL(raw);
@@ -64,7 +65,7 @@ async function getDashboardConfig() {
   const config = globalThis.GLDN_CONFIG || {};
   const url = cleanWebAppUrl(config.dashboardUrl);
   const key = String(config.dashboardKey || '').trim();
-  if (!url || !key) {
+  if (!url || !key || /^YOUR_/i.test(key)) {
     throw new Error('The built-in shared dashboard connection is missing from config.js.');
   }
   return { url, key };

@@ -23,8 +23,13 @@ const diagnosticLogElement = document.getElementById('diagnosticLog');
 const localHelperCard = document.getElementById('localHelperCard');
 const localHelperBadge = document.getElementById('localHelperBadge');
 const localHelperText = document.getElementById('localHelperText');
-const BUILTIN_DASHBOARD_URL = String(globalThis.GLDN_CONFIG?.dashboardUrl || '').trim();
-const BUILTIN_DASHBOARD_KEY = String(globalThis.GLDN_CONFIG?.dashboardKey || '').trim();
+function cleanConfigValue(value) {
+  const text = String(value || '').trim();
+  return /^YOUR_/i.test(text) || /YOUR_SCRIPT_ID/i.test(text) ? '' : text;
+}
+
+const BUILTIN_DASHBOARD_URL = cleanConfigValue(globalThis.GLDN_CONFIG?.dashboardUrl);
+const BUILTIN_DASHBOARD_KEY = cleanConfigValue(globalThis.GLDN_CONFIG?.dashboardKey);
 
 const COMPUTER_OPTIONS = ['0', '2', 'M0', '6', 'M1'];
 const EBAY_ACCOUNT_OPTIONS = ['FAK12', 'CLICKNCARRY', 'FINTIME', 'FANCYFI', 'HEARTSTONE'];

@@ -28,6 +28,7 @@ All notable extension releases should be recorded here before they are deployed 
 - Fixed false-positive EcomSniper progress when the label changed from `0 new` to `+0 new`.
 - Fixed helper coordinate rejection by clamping screen coordinates before sending them to the local click helper.
 - Added retry recovery for stalled local helper click attempts.
+- Fixed fresh installs treating placeholder dashboard values as a real Apps Script connection.
 
 ### Known Limits
 - Bulk Listing Workflow is partially live-tested: Amazon handoff and the first EcomSniper helper click worked, but a full multi-page/product run still needs verification after v3.4.8.

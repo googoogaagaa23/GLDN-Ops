@@ -40,6 +40,15 @@ if (-not (Test-Path $configFile)) {
   Write-Host "Config already exists: $configFile"
 }
 
+$configText = Get-Content -LiteralPath $configFile -Raw
+if ($configText -match 'YOUR_SCRIPT_ID|YOUR_PRIVATE_DASHBOARD_KEY') {
+  $configText = $configText `
+    -replace 'https://script\.google\.com/macros/s/YOUR_SCRIPT_ID/exec', '' `
+    -replace 'YOUR_PRIVATE_DASHBOARD_KEY', ''
+  Set-Content -LiteralPath $configFile -Value $configText -Encoding UTF8
+  Write-Host "Removed placeholder dashboard values from config.js."
+}
+
 Write-Host ""
 Write-Host "Install values:"
 Write-Host "  Computer: $Computer"
