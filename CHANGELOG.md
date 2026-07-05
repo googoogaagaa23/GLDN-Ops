@@ -2,6 +2,11 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.15 - 2026-07-05
+
+### Fixed
+- Changed **Get Latest Update** to use the direct GitHub codeload ZIP URL to avoid stale archive downloads.
+
 ## v3.4.14 - 2026-07-05
 
 ### Fixed

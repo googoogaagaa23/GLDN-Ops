@@ -631,7 +631,7 @@ document.getElementById('reloadExtension').addEventListener('click', async () =>
 });
 
 document.getElementById('openLatestUpdate').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'https://github.com/googoogaagaa23/GLDN-Ops/archive/refs/heads/main.zip' });
+  chrome.tabs.create({ url: 'https://codeload.github.com/googoogaagaa23/GLDN-Ops/zip/refs/heads/main' });
   setMessage('Latest GLDN Ops ZIP opened. Extract it, replace the local folder, then reload the unpacked extension.');
 });
 

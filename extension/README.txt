@@ -1,4 +1,7 @@
-GLDN Ops v3.4.14
+GLDN Ops v3.4.15
+
+v3.4.15 update download link:
+- Changes Get Latest Update to use codeload.github.com to avoid stale GitHub ZIP downloads.
 
 v3.4.14 Move .99 scan count tolerance:
 - Stops treating eBay's reported filtered count as a hard abort when all available pages were scanned.
