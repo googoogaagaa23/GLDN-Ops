@@ -90,7 +90,7 @@ process.stdout.write(id);
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 $version = [string]$manifest.version
 $extensionId = Get-ExtensionIdFromPem $pemPath
-$crxUrl = "https://github.com/googoogaagaa23/GLDN-Ops/raw/main/dist/GLDN-Ops.crx"
+$crxUrl = "https://raw.githubusercontent.com/googoogaagaa23/GLDN-Ops/main/dist/GLDN-Ops.crx"
 
 $updateXml = @"
 <?xml version="1.0" encoding="UTF-8"?>

@@ -2,6 +2,11 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.12 - 2026-07-05
+
+### Fixed
+- Changed the CRX update URL to direct `raw.githubusercontent.com` hosting to avoid Chrome update redirect issues.
+
 ## v3.4.11 - 2026-07-05
 
 ### Fixed

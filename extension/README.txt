@@ -1,4 +1,7 @@
-GLDN Ops v3.4.11
+GLDN Ops v3.4.12
+
+v3.4.12 CRX update URL fix:
+- Uses the direct raw.githubusercontent.com CRX URL in update.xml to avoid Chrome update redirect issues.
 
 v3.4.11 Move .99 filter and guide visibility:
 - Fixes Move .99 popup source-category URL startup.
