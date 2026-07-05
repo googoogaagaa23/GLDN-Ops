@@ -2,6 +2,7 @@ param(
   [string]$InstallRoot = "$env:USERPROFILE\Desktop\GLDN-Ops",
   [string]$Computer = "",
   [string]$EbayAccount = "",
+  [string]$DashboardSetupCode = "",
   [switch]$StartHelper
 )
 
@@ -25,6 +26,10 @@ if ($Computer) {
 
 if ($EbayAccount) {
   $args += @("-EbayAccount", "`"$EbayAccount`"")
+}
+
+if ($DashboardSetupCode) {
+  $args += @("-DashboardSetupCode", "`"$DashboardSetupCode`"")
 }
 
 if ($StartHelper) {
