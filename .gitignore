@@ -10,3 +10,5 @@ apps-script-live*/
 evidence/*.mp4
 evidence/competitor-scanner-video-frames/
 .installer-build/
+.crx-build/
+dist/*.pem

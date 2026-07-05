@@ -2,7 +2,8 @@ param(
   [string]$InstallRoot = "$env:USERPROFILE\Desktop\GLDN-Ops",
   [string]$Computer = "",
   [string]$EbayAccount = "",
-  [string]$DashboardSetupCode = "",
+  [string]$DashboardSetupCode = "GLDN2026",
+  [switch]$InstallChromePolicy,
   [switch]$StartHelper
 )
 
@@ -20,16 +21,12 @@ $args = @(
   "-InstallRoot", "`"$InstallRoot`""
 )
 
-if ($Computer) {
-  $args += @("-Computer", "`"$Computer`"")
-}
-
-if ($EbayAccount) {
-  $args += @("-EbayAccount", "`"$EbayAccount`"")
-}
-
 if ($DashboardSetupCode) {
   $args += @("-DashboardSetupCode", "`"$DashboardSetupCode`"")
+}
+
+if ($InstallChromePolicy) {
+  $args += "-InstallChromePolicy"
 }
 
 if ($StartHelper) {

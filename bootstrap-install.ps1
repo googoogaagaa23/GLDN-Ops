@@ -3,6 +3,7 @@ param(
   [string]$Computer = "",
   [string]$EbayAccount = "",
   [string]$DashboardSetupCode = "",
+  [switch]$InstallChromePolicy,
   [switch]$StartHelper
 )
 
@@ -13,6 +14,8 @@ $repoGit = "https://github.com/googoogaagaa23/GLDN-Ops.git"
 $dashboardCode = "GLDN2026"
 $dashboardUrl = "https://script.google.com/macros/s/AKfycbziGWXqyZ-bW5MLKhRkkRghH1hT1X6kUCPO5sgEI1pWjuKzMT4aOcivG3ITqCUpjAhUhw/exec"
 $dashboardKey = "GLDN-Private-Seller-Level-2026-8291"
+$crxExtensionId = "pakkpebfmneoedaaknfdlbkclheekefb"
+$crxUpdateUrl = "https://raw.githubusercontent.com/googoogaagaa23/GLDN-Ops/main/dist/update.xml"
 $tempRoot = Join-Path $env:TEMP ("gldn-ops-install-" + [guid]::NewGuid().ToString("N"))
 $zipPath = Join-Path $tempRoot "GLDN-Ops-main.zip"
 $extractRoot = Join-Path $tempRoot "extract"
@@ -111,16 +114,8 @@ if ($git) {
   Install-With-Zip
 }
 
-if (-not $Computer) {
-  $Computer = Ask-Value "Computer number/name shown on the task sheet" "0"
-}
-
-if (-not $EbayAccount) {
-  $EbayAccount = Ask-Value "eBay account label for this computer" "FAK12"
-}
-
 if (-not $DashboardSetupCode) {
-  $DashboardSetupCode = Ask-Value "Dashboard setup code (blank = local only)" ""
+  $DashboardSetupCode = "GLDN2026"
 }
 
 $extensionRoot = Join-Path $InstallRoot "extension"
@@ -157,6 +152,13 @@ if ($StartHelper) {
   Write-Host "Started local click helper."
 }
 
+if ($InstallChromePolicy) {
+  $policyRoot = "HKCU:\Software\Policies\Google\Chrome\ExtensionInstallForcelist"
+  New-Item -Path $policyRoot -Force | Out-Null
+  New-ItemProperty -Path $policyRoot -Name "1" -Value "$crxExtensionId;$crxUpdateUrl" -PropertyType String -Force | Out-Null
+  Write-Host "Chrome auto-install policy added for this Windows user."
+}
+
 $chrome = Find-Chrome
 Start-Process $chrome "chrome://extensions"
 
@@ -169,10 +171,14 @@ Write-Host "Chrome extension folder to load:"
 Write-Host "  $extensionRoot"
 Write-Host ""
 Write-Host "Chrome steps:"
-Write-Host "  1. Turn on Developer mode"
-Write-Host "  2. Click Load unpacked"
-Write-Host "  3. Select the extension folder shown above"
+if ($InstallChromePolicy) {
+  Write-Host "  1. Close and reopen Chrome completely"
+  Write-Host "  2. Open chrome://policy and click Reload policies"
+  Write-Host "  3. GLDN Ops should auto-install in Chrome profiles for this Windows user"
+} else {
+  Write-Host "  1. Turn on Developer mode"
+  Write-Host "  2. Click Load unpacked"
+  Write-Host "  3. Select the extension folder shown above"
+}
 Write-Host ""
-Write-Host "Computer: $Computer"
-Write-Host "eBay account: $EbayAccount"
 Write-Host "Dashboard sync: $(if ($DashboardSetupCode -eq $dashboardCode) { 'Enabled' } else { 'Local-only' })"
