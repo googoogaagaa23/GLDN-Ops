@@ -2,6 +2,11 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.13 - 2026-07-05
+
+### Added
+- Added **Get Latest Update** in the popup to open the latest GitHub ZIP download for unpacked installs.
+
 ## v3.4.12 - 2026-07-05
 
 ### Fixed

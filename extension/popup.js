@@ -630,6 +630,11 @@ document.getElementById('reloadExtension').addEventListener('click', async () =>
   }
 });
 
+document.getElementById('openLatestUpdate').addEventListener('click', () => {
+  chrome.tabs.create({ url: 'https://github.com/googoogaagaa23/GLDN-Ops/archive/refs/heads/main.zip' });
+  setMessage('Latest GLDN Ops ZIP opened. Extract it, replace the local folder, then reload the unpacked extension.');
+});
+
 document.getElementById('copyErrorLog').addEventListener('click', async () => {
   chrome.storage.local.get(['gldnErrorLog'], async (result) => {
     const entries = Array.isArray(result.gldnErrorLog) ? result.gldnErrorLog : [];

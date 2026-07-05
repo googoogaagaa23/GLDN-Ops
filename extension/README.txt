@@ -1,4 +1,7 @@
-GLDN Ops v3.4.12
+GLDN Ops v3.4.13
+
+v3.4.13 update button:
+- Adds a Get Latest Update button in the popup for unpacked-extension installs.
 
 v3.4.12 CRX update URL fix:
 - Uses the direct raw.githubusercontent.com CRX URL in update.xml to avoid Chrome update redirect issues.
