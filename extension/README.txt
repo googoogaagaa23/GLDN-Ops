@@ -1,4 +1,8 @@
-GLDN Ops v3.4.9
+GLDN Ops v3.4.10
+
+v3.4.10 ZIP install fix:
+- Makes GitHub ZIP installs load without requiring a separate ignored config.js file.
+- Includes the shared dashboard connection in the file Chrome actually loads for ZIP installs.
 
 v3.4.9 Move .99 popup launch fix:
 - Fixes Open Move .99 Workflow so it starts the saved Move .99 scan instead of only opening Active Listings.

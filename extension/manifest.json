@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.4.9",
+  "version": "3.4.10",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",
@@ -31,7 +31,7 @@
         "https://*.amazon.com/*"
       ],
       "js": [
-        "config.js",
+        "config.example.js",
         "shared.js",
         "amazon.js"
       ],
@@ -45,7 +45,7 @@
         "https://*.ebay.com/*"
       ],
       "js": [
-        "config.js",
+        "config.example.js",
         "shared.js",
         "ebay.js"
       ],
@@ -59,7 +59,7 @@
         "https://ecomsniper.io/*"
       ],
       "js": [
-        "config.js",
+        "config.example.js",
         "shared.js",
         "ecomsniper.js"
       ],

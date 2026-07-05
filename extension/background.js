@@ -1,4 +1,4 @@
-importScripts('config.js');
+importScripts('config.example.js');
 
 const DASHBOARD_URL_KEY = 'sellerDashboardUrl';
 const DASHBOARD_SECRET_KEY = 'sellerDashboardKey';
@@ -66,7 +66,7 @@ async function getDashboardConfig() {
   const url = cleanWebAppUrl(config.dashboardUrl);
   const key = String(config.dashboardKey || '').trim();
   if (!url || !key || /^YOUR_/i.test(key)) {
-    throw new Error('The built-in shared dashboard connection is missing from config.js.');
+    throw new Error('The built-in shared dashboard connection is missing from config.example.js.');
   }
   return { url, key };
 }

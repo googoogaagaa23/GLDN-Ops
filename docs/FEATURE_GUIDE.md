@@ -257,10 +257,11 @@ For managed CRX installs:
 
 For unpacked local installs:
 
-1. Pull or copy the latest GLDN Ops folder.
+1. Pull or download/extract the latest GLDN Ops folder.
 2. Open `chrome://extensions`.
 3. Find GLDN Ops.
-4. Click **Reload**.
-5. Refresh the active work page.
+4. If it is not installed, click **Load unpacked** and select `GLDN-Ops-main\extension`.
+5. If it is already installed, click **Reload**.
+6. Refresh the active work page.
 
 Use rollback only if a newer version breaks a workflow that was working before.

@@ -1,8 +1,7 @@
-// GLDN Ops built-in configuration template.
-// Copy this file to config.js for each local unpacked extension install.
+// GLDN Ops built-in configuration.
 globalThis.GLDN_CONFIG = Object.freeze({
-  dashboardUrl: "",
-  dashboardKey: "",
+  dashboardUrl: "https://script.google.com/macros/s/AKfycbziGWXqyZ-bW5MLKhRkkRghH1hT1X6kUCPO5sgEI1pWjuKzMT4aOcivG3ITqCUpjAhUhw/exec",
+  dashboardKey: "GLDN-Private-Seller-Level-2026-8291",
   move99Accounts: {
     FAK12: {
       sourceStoreCategoryIds: ["44678633011", "1"],

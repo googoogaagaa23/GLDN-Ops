@@ -2,6 +2,13 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.10 - 2026-07-05
+
+### Fixed
+- Fixed GitHub ZIP unpacked installs failing with `Could not load javascript 'config.js'`.
+- The extension now loads the included safe default config file, while CRX builds inject the live dashboard values during packaging.
+- GitHub ZIP installs now include the shared dashboard connection in the loaded config file.
+
 ## v3.4.9 - 2026-07-05
 
 ### Fixed

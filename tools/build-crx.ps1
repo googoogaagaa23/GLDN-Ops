@@ -13,7 +13,7 @@ $pemPath = Join-Path $distRoot "GLDN-Ops.pem"
 $crxPath = Join-Path $distRoot "GLDN-Ops.crx"
 $updateXmlPath = Join-Path $distRoot "update.xml"
 $manifestPath = Join-Path $extensionRoot "manifest.json"
-$configPath = Join-Path $packRoot "config.js"
+$configPath = Join-Path $packRoot "config.example.js"
 
 $dashboardUrl = "https://script.google.com/macros/s/AKfycbziGWXqyZ-bW5MLKhRkkRghH1hT1X6kUCPO5sgEI1pWjuKzMT4aOcivG3ITqCUpjAhUhw/exec"
 $dashboardKey = "GLDN-Private-Seller-Level-2026-8291"
