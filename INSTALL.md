@@ -1,5 +1,26 @@
 # GLDN Ops Install
 
+## Easiest install
+
+Download and run:
+
+[GLDN-Ops-Setup.exe](https://github.com/googoogaagaa23/GLDN-Ops/raw/main/dist/GLDN-Ops-Setup.exe)
+
+The installer downloads the newest GLDN Ops folder to:
+
+```text
+Desktop\GLDN-Ops
+```
+
+Then it opens Chrome extensions. In Chrome:
+
+1. Turn on Developer mode.
+2. Click Load unpacked.
+3. Select:
+   ```text
+   Desktop\GLDN-Ops\extension
+   ```
+
 ## One-command install without Git
 
 Open PowerShell and run:
