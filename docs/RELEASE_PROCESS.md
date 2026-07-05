@@ -44,6 +44,21 @@ Update these before sharing a build:
 
 Each computer should pull the approved GitHub release or tag, then reload the unpacked extension.
 
+For first install on a new computer:
+
+```powershell
+git clone https://github.com/googoogaagaa23/GLDN-Ops.git
+cd GLDN-Ops
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1 -StartHelper
+```
+
+For normal updates:
+
+```powershell
+cd GLDN-Ops
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\update.ps1
+```
+
 Each computer also needs its own local helper running:
 
 ```powershell
@@ -66,4 +81,3 @@ For local snapshots, rollback can use:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\extension-version.ps1 -Action Restore -Version vX.Y.Z -ReloadAfter
 ```
-

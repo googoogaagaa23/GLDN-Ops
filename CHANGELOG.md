@@ -12,6 +12,9 @@ All notable extension releases should be recorded here before they are deployed 
   - Open Move .99 Workflow
 - Added 60-day per-computer bulk product history so the same Amazon product is not reused too soon on the same computer.
 - Added local helper support for automatic EcomSniper Extract Sellers clicks without Chrome debugger permission.
+- Added installer/update scripts for new computers:
+  - `tools/install.ps1`
+  - `tools/update.ps1`
 
 ### Changed
 - Removed rarely used workflow buttons from the floating daily eBay/Amazon panels:
@@ -29,4 +32,3 @@ All notable extension releases should be recorded here before they are deployed 
 ### Known Limits
 - Bulk Listing Workflow is partially live-tested: Amazon handoff and the first EcomSniper helper click worked, but a full multi-page/product run still needs verification after v3.4.8.
 - The local helper must be running on each computer for automatic EcomSniper clicks.
-
