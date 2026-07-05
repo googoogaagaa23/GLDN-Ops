@@ -163,7 +163,7 @@
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
-        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.17</span></div>
+        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.18</span></div>
         <div class="gldn-drag-grip" aria-hidden="true">::</div>
       </div>
       <button type="button" data-action="run-scanner" class="gldn-primary">Run Scanner Settings</button>

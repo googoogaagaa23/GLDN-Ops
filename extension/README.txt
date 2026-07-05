@@ -1,4 +1,7 @@
-GLDN Ops v3.4.17
+GLDN Ops v3.4.18
+
+v3.4.18 update button placement:
+- Moves Get Latest Update to the top of the popup above Instructions.
 
 v3.4.17 reverse sale cleanup:
 - Adds Move Non-.99 Out of Sale using the saved Move .99 categories in reverse.

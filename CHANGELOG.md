@@ -2,6 +2,11 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.18 - 2026-07-05
+
+### Changed
+- Moved **Get Latest Update** to the top of the popup above the guide/instructions card.
+
 ## v3.4.17 - 2026-07-05
 
 ### Added
