@@ -1,0 +1,107 @@
+You are taking ownership of an existing Manifest V3 Chrome extension named GLDN Ops Assistant.
+
+Work directly in this project folder. Use the connected Chrome browser and the signed-in eBay session to reproduce, diagnose, fix, and retest the extension. Do not merely speculate from screenshots. Inspect the source, visible DOM, browser behavior, extension state, console errors, and navigation transitions.
+
+Primary goal:
+Make every GLDN Ops Assistant function reliable, especially Move .99 Listings, with no repeated manual patch cycle.
+
+Before editing:
+1. Create a Git repository if one does not exist.
+2. Commit the current code as "baseline before Codex repair".
+3. Read every extension source file.
+4. Read evidence/bug-notes.txt.
+5. Review evidence/workflow-recording.mp4.
+6. Produce a short architecture and failure analysis.
+7. Identify duplicated, obsolete, and conflicting automation code.
+
+Safety rules:
+- Work only on the FAK12 pilot account.
+- Do not submit irreversible listing changes until the workflow has reached the final review stage and I explicitly approve the submission.
+- Never alter title, price, quantity, shipping policy, eBay marketplace category, promoted listing settings, item specifics, or SKU.
+- Move .99 Listings may change only the listing's primary Store category.
+- Source Store categories are exactly "Not .99" and "Other".
+- Destination Store category is exactly "Abra Cadabra .99".
+- Any Buy It Now price whose cents equal .99 qualifies.
+- Quantity and stock status do not affect qualification.
+- Continue past individual listing failures and record them.
+- Stop safely when browser state cannot be verified.
+- Never guess a URL or click an ambiguous option.
+- Require semantic and visible-state verification after every important action.
+
+Move .99 Listings required workflow:
+1. Start from the filtered Active Listings page containing only "Not .99" and "Other".
+2. Determine the authoritative total from the visible eBay Results range and pagination.
+3. Scan all pages exactly once.
+4. Deduplicate using eBay item number.
+5. Do not depend on stale hidden DOM rows.
+6. Collect item number, title, price, source category, page, and processing status.
+7. Show a scan summary before modification.
+8. Process qualifying listings in safe page-sized batches.
+9. Select the exact saved item numbers for each batch.
+10. Verify eBay's selected count equals the intended batch count.
+11. Open Edit selected.
+12. Verify Bulk Edit contains exactly the intended number of listings.
+13. Select all actual listing rows in Bulk Edit.
+14. Open the correct Store category editor, not the marketplace Category editor.
+15. Change only the primary Store category to "Abra Cadabra .99".
+16. Apply the bulk field change.
+17. Pause before the final irreversible submission until I approve it.
+18. After approval, submit and record success or failure by item number.
+19. Return to Active Listings and continue remaining batches.
+20. Run a final verification scan.
+21. Provide an audit CSV and Retry Failed Only function.
+
+Important:
+The current code has repeatedly failed because of stale DOM rows, SPA navigation, duplicate click events, virtualized Bulk Edit rows, incorrect menu wrappers, incorrect checkbox identification, loading modals, and confusing marketplace Category with Store category. Replace brittle timing-based logic with an explicit state machine and verified postconditions.
+
+Architecture requirements:
+- Create one central task state machine.
+- Give every state a name, entry condition, action, success condition, retry limit, timeout, and failure message.
+- Persist only the minimum state needed across eBay SPA navigation.
+- Add structured logs with timestamps.
+- Add a downloadable diagnostic log.
+- Add Stop Task and Reset Automation.
+- Prevent two workflows from running simultaneously.
+- Prevent double clicks and duplicate event listeners.
+- Use MutationObserver only where appropriate; do not create uncontrolled polling loops.
+- Add maximum page scan attempts and maximum elapsed times.
+- Detect eBay URL and DOM state changes explicitly.
+- Prefer item-number identity over row position.
+- Add a dry-run mode.
+- Add a debug mode showing detected page number, expected row count, visible unique rows, qualifying count, selected count, current state, and elapsed time.
+
+Other required features:
+- Mark as Shipped must select all Awaiting Shipment orders, choose Shipping > Mark as shipped, click Continue once, verify success, and close any leftover confirmation modal.
+- Confirm Listings must show active, in-stock, out-of-stock, in-stock percentage, subscription listing limit, monthly dollar usage, and correctly formatted currency.
+- Seller Level scan must reliably collect all required metrics.
+- Dashboard sync URL and key are already embedded.
+- Dashboard current tabs must contain only the newest record per computer.
+- Historical records must be stored separately.
+- All GLDN windows must support dark mode, dragging, and one global transparency slider.
+- Computer and eBay account names must display uppercase.
+
+Testing requirements:
+- Test each workflow separately.
+- For Move .99 Listings, first use dry-run mode.
+- Confirm all pages are scanned exactly once.
+- Confirm unique item totals equal the authoritative eBay total.
+- Confirm qualifying prices are correct by manually sampling at least 10 rows.
+- Confirm selection totals match intended batches.
+- Stop before final submission and show me the state.
+- Do not declare success from syntax checks alone.
+- A test passes only when the live Chrome workflow reaches its stated postcondition.
+- After each fix, reload the extension and retest in Chrome.
+- Continue working toward the goal rather than returning after the first error.
+
+Deliverables:
+1. Working extension source.
+2. Versioned ZIP.
+3. CHANGELOG.md.
+4. ARCHITECTURE.md describing the state machine.
+5. TEST_RESULTS.md containing live test evidence.
+6. Audit CSV format.
+7. Diagnostic logging.
+8. No known infinite loops.
+9. No irreversible action without my approval.
+
+Begin by inspecting the code and reproducing the current Store category failure. Do not modify code until you explain whether the extension is opening eBay marketplace Category instead of Store category and identify the correct live eBay workflow.

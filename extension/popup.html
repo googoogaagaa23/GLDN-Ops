@@ -1,0 +1,273 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GLDN Ops</title>
+  <style>
+    * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
+    body { margin: 0; width: 390px; max-height: 600px; overflow-y: auto; padding: 14px; color: #111827; background: #fff; }
+    .header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .logo { width:42px; height:42px; border-radius:10px; }
+    h1 { margin: 0; font-size: 18px; }
+    .subtitle { margin-top:2px; font-size:11px; color:#64748b; }
+    h2 { margin: 16px 0 8px; font-size: 14px; }
+    .hint { margin: 0 0 12px; font-size: 12px; line-height: 1.4; color: #475569; }
+    .section { border-top:1px solid #e2e8f0; margin-top:14px; padding-top:2px; }
+    .section-card { border:1px solid #e2e8f0; border-radius:10px; padding:10px; margin-top:10px; background:#fff; }
+    .section-card.due { border-color:#dc2626; background:#fff1f2; }
+    .section-card.confirmed { border-color:#16a34a; background:#f0fdf4; }
+    .helper-card { border:1px solid #f59e0b; border-radius:10px; padding:10px; margin-top:10px; background:#fffbeb; font-size:12px; line-height:1.35; }
+    .helper-card.ready { border-color:#16a34a; background:#f0fdf4; }
+    .helper-title { display:flex; justify-content:space-between; gap:8px; font-weight:700; margin-bottom:5px; }
+    .helper-badge { white-space:nowrap; color:#92400e; }
+    .helper-card.ready .helper-badge { color:#166534; }
+    label { display:block; margin:10px 0 6px; font-size:12px; font-weight:700; }
+    input, select { width:100%; height:38px; border:1px solid #94a3b8; border-radius:8px; padding:8px 10px; font-size:14px; background:#fff; }
+    input[readonly] { background:#f1f5f9; color:#334155; }
+    button { width:100%; min-height:38px; margin-top:9px; border:0; border-radius:8px; padding:8px 10px; font-size:13px; font-weight:700; cursor:pointer; }
+    .primary { background:#2563eb; color:#fff; }
+    .success { background:#15803d; color:#fff; }
+    .danger { background:#dc2626; color:#fff; }
+    .secondary { background:#e2e8f0; color:#0f172a; }
+    #status { min-height:18px; margin-top:9px; font-size:12px; color:#166534; }
+    .current { margin:10px 0 0; padding:9px; border-radius:8px; background:#f1f5f9; font-size:12px; overflow-wrap:anywhere; }
+    .identity-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .identity-card { padding:9px; border-radius:8px; background:#f8fafc; font-size:12px; }
+    .identity-card span { display:block; color:#64748b; margin-bottom:3px; }
+    .identity-card strong { display:block; overflow-wrap:anywhere; }
+    .row { display:flex; justify-content:space-between; gap:10px; padding:7px 8px; border-radius:7px; font-size:12px; }
+    .row:nth-child(even) { background:#f8fafc; }
+    .value { font-weight:700; text-align:right; }
+    .good { color:#166534; }
+    .warning { color:#b45309; }
+    .critical { color:#b91c1c; }
+    .unknown { color:#64748b; }
+    .time { margin-top:8px; font-size:11px; color:#64748b; }
+    .sync-line { margin-top:8px; padding:8px; border-radius:7px; background:#f8fafc; font-size:11px; color:#475569; overflow-wrap:anywhere; }
+    .button-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .button-row button { margin-top:9px; }
+    .limits-status { margin-top:9px; padding:9px; border-radius:8px; font-size:12px; font-weight:700; }
+    .limits-status.due { background:#fee2e2; color:#991b1b; }
+    .limits-status.confirmed { background:#dcfce7; color:#166534; }
+    .checklist { display:grid; gap:7px; margin-top:10px; }
+    .checkline { display:flex; align-items:flex-start; gap:8px; padding:8px; border-radius:8px; background:#f8fafc; font-size:12px; line-height:1.25; }
+    .checkline input { width:16px; height:16px; margin:0; flex:0 0 auto; }
+    .counter-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .counter-grid input { height:34px; }
+    textarea { width:100%; min-height:70px; resize:vertical; border:1px solid #94a3b8; border-radius:8px; padding:8px 10px; font-size:13px; background:#fff; }
+    .preset-box { margin-top:9px; padding:9px; border-radius:8px; background:#f8fafc; font-size:11px; line-height:1.35; color:#334155; }
+    .diagnostic-log { max-height:160px; overflow:auto; margin-top:8px; padding:8px; border-radius:8px; background:#0f172a; color:#e5e7eb; font:11px/1.35 Consolas, Monaco, monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .diagnostic-empty { background:#f8fafc; color:#64748b; font-family:Arial, Helvetica, sans-serif; }
+    .version-pill { display:inline-block; margin-top:5px; padding:3px 7px; border-radius:999px; background:#e2e8f0; color:#334155; font-size:11px; font-weight:700; }
+
+    html[data-theme="dark"] body { color:#e5e7eb; background:#0f172a; }
+    html[data-theme="dark"] .subtitle,
+    html[data-theme="dark"] .hint,
+    html[data-theme="dark"] .time,
+    html[data-theme="dark"] .identity-card span { color:#94a3b8; }
+    html[data-theme="dark"] .section { border-top-color:#334155; }
+    html[data-theme="dark"] .section-card { border-color:#334155; background:#111827; }
+    html[data-theme="dark"] .section-card.due { border-color:#ef4444; background:#2a1115; }
+    html[data-theme="dark"] .section-card.confirmed { border-color:#22c55e; background:#0d2418; }
+    html[data-theme="dark"] .helper-card { border-color:#f59e0b; background:#2a2110; }
+    html[data-theme="dark"] .helper-card.ready { border-color:#22c55e; background:#0d2418; }
+    html[data-theme="dark"] input,
+    html[data-theme="dark"] select { color:#e5e7eb; background:#111827; border-color:#64748b; }
+    html[data-theme="dark"] input[readonly] { color:#cbd5e1; background:#1e293b; }
+    html[data-theme="dark"] .secondary { color:#e5e7eb; background:#334155; }
+    html[data-theme="dark"] .current,
+    html[data-theme="dark"] .identity-card,
+    html[data-theme="dark"] .sync-line,
+    html[data-theme="dark"] .version-pill,
+    html[data-theme="dark"] .checkline,
+    html[data-theme="dark"] .preset-box,
+    html[data-theme="dark"] .row:nth-child(even) { background:#1e293b; }
+    html[data-theme="dark"] textarea { color:#e5e7eb; background:#111827; border-color:#64748b; }
+    html[data-theme="dark"] .preset-box { color:#cbd5e1; }
+    html[data-theme="dark"] .limits-status.due { color:#fecaca; background:#3f151a; }
+    html[data-theme="dark"] .limits-status.confirmed { color:#bbf7d0; background:#12351f; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <img class="logo" src="icons/icon48.png" alt="GLDN Ops logo">
+    <div>
+      <h1>GLDN Ops</h1>
+      <div class="subtitle">Order actions, Seller Level and monthly limits</div>
+      <div id="currentVersion" class="version-pill">Version</div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Computer &amp; eBay account</h2>
+    <p class="hint">Set these once in the eBay Chrome profile.</p>
+    <label for="computer">Computer</label>
+    <select id="computer">
+      <option value="0">0</option>
+      <option value="2">2</option>
+      <option value="M0">M0</option>
+      <option value="6">6</option>
+      <option value="M1">M1</option>
+    </select>
+    <label for="ebayAccount">eBay account</label>
+    <select id="ebayAccount">
+      <option value="FAK12">FAK12</option>
+      <option value="CLICKNCARRY">CLICKNCARRY</option>
+      <option value="FINTIME">FINTIME</option>
+      <option value="FANCYFI">FANCYFI</option>
+      <option value="HEARTSTONE">HEARTSTONE</option>
+    </select>
+    <button id="saveIdentity" class="primary" type="button">Save Computer &amp; eBay Account</button>
+    <div class="identity-row current">
+      <div class="identity-card"><span>Computer</span><strong id="currentComputer">Not set</strong></div>
+      <div class="identity-card"><span>eBay account</span><strong id="currentEbay">Not set</strong></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>EcomSniper Automation</h2>
+    <p class="hint">GLDN Ops only drives the handoffs. EcomSniper still does the scanner, Product Hunter and listing work.</p>
+    <button id="openAmazonBestSellers" class="primary" type="button">Open Amazon Best Sellers</button>
+    <button id="startBulkListingWorkflow" class="secondary" type="button">Start Bulk Listing Workflow</button>
+    <button id="startSnipingWorkflow" class="secondary" type="button">Start Sniping Workflow</button>
+    <button id="openEcomSniperCompetitorScanner" class="secondary" type="button">Open EcomSniper Competitor Scanner</button>
+    <button id="openEcomSniperProductHunter" class="secondary" type="button">Open EcomSniper Product Hunter</button>
+    <div id="localHelperCard" class="helper-card">
+      <div class="helper-title">
+        <span>Local click helper</span>
+        <span id="localHelperBadge" class="helper-badge">Check needed</span>
+      </div>
+      <div id="localHelperText">Required for automatic EcomSniper Extract Sellers clicks. If it is off, Bulk Listing Workflow will pause or fail at that step.</div>
+      <button id="checkLocalHelper" class="secondary" type="button">Check Local Helper</button>
+    </div>
+    <div class="preset-box">
+      Start on Amazon. Use Bulk Listing Workflow for broad Amazon Best Sellers sourcing, or Sniping Workflow from one Amazon product with a visible price.
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Move .99 categories</h2>
+    <p class="hint">Set these for the selected eBay account. Use the exact Store category names shown inside that account.</p>
+    <label for="move99SourceCategories">Source Store categories</label>
+    <input id="move99SourceCategories" type="text" placeholder="Example: Not .99, Other" autocomplete="off">
+    <label for="move99DestinationCategory">Destination Store category</label>
+    <input id="move99DestinationCategory" type="text" placeholder="Example: Abra Cadabra .99" autocomplete="off">
+    <label for="move99SourceCategoryIds">Optional source category IDs</label>
+    <input id="move99SourceCategoryIds" type="text" placeholder="Only if known. Example: 44678633011, 1" autocomplete="off">
+    <label for="move99BackburnerIds">Backburner item IDs</label>
+    <input id="move99BackburnerIds" type="text" placeholder="Example: 318521296686" autocomplete="off">
+    <button id="saveMove99Categories" class="primary" type="button">Save .99 Categories for This eBay</button>
+    <button id="openMove99Workflow" class="secondary" type="button">Open Move .99 Workflow</button>
+    <div class="current">Current .99 destination: <strong id="currentMove99Destination">Not set</strong></div>
+  </section>
+
+  <section class="section">
+    <h2>Interface</h2>
+    <p class="hint">Controls the transparency of every GLDN Ops page panel and review window.</p>
+    <label for="uiTheme">Theme</label>
+    <select id="uiTheme">
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+    </select>
+    <label for="uiOpacity">Window transparency: <span id="uiOpacityValue">75%</span></label>
+    <input id="uiOpacity" type="range" min="65" max="100" step="1" value="75">
+  </section>
+
+  <section class="section">
+    <h2>Automation controls</h2>
+    <p class="hint">Stop requests finish at the next safe checkpoint. Reset clears any saved unfinished workflow.</p>
+    <div class="button-row">
+      <button id="stopCurrentTask" class="danger" type="button">Stop Current Task</button>
+      <button id="resetAutomation" class="secondary" type="button">Reset Automation</button>
+    </div>
+    <button id="reloadExtension" class="secondary" type="button">Reload Extension Update</button>
+  </section>
+
+  <section class="section">
+    <h2>Diagnostics</h2>
+    <p class="hint">Newest extension errors and warnings from eBay, Amazon, popup and background.</p>
+    <div class="button-row">
+      <button id="copyErrorLog" class="secondary" type="button">Copy Error Log</button>
+      <button id="clearErrorLog" class="secondary" type="button">Clear Error Log</button>
+    </div>
+    <div id="diagnosticLog" class="diagnostic-log diagnostic-empty">No errors recorded.</div>
+  </section>
+
+  <section class="section">
+    <h2>Listing confirmation settings</h2>
+    <p class="hint">These limits are normally detected from eBay. Confirm them once each month; this section turns red when confirmation is due.</p>
+    <div id="limitsSection" class="section-card due">
+      <label for="storePlan">Store subscription &amp; listing limit</label>
+      <select id="storePlan">
+        <option value="Premium">Premium — 10,000 listings</option>
+        <option value="Anchor">Anchor — 25,000 listings</option>
+        <option value="Custom">Custom listing limit</option>
+      </select>
+      <div id="customListingLimitWrap" style="display:none">
+        <label for="freeListings">Custom listing limit</label>
+        <input id="freeListings" type="number" min="0" step="1" placeholder="Enter custom limit">
+      </div>
+      <label for="monthlyDollarPreset">Monthly dollar limit</label>
+      <select id="monthlyDollarPreset">
+        <option value="1000000">$1,000,000</option>
+        <option value="custom">Custom amount</option>
+      </select>
+      <div id="customDollarLimitWrap" style="display:none">
+        <label for="monthlyDollarLimit">Custom monthly dollar limit</label>
+        <input id="monthlyDollarLimit" type="number" min="0" step="1" placeholder="Enter custom amount">
+      </div>
+      <button id="saveLimits" class="secondary" type="button">Save Settings</button>
+      <button id="confirmLimits" class="danger" type="button">Confirm Listings Under Limit</button>
+      <button id="openLimitsPage" class="secondary" type="button">Open Seller Hub Overview</button>
+      <div id="limitsStatus" class="limits-status due">Not confirmed this month.</div>
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>Amazon profile</h2>
+    <p class="hint">Set this only inside an Amazon Chrome profile. Each Amazon profile keeps its own permanent name.</p>
+    <label for="profile">Amazon profile name</label>
+    <input id="profile" type="text" placeholder="Example: RF2 or Lmad" autocomplete="off">
+    <button id="saveAmazon" class="primary" type="button">Save Amazon Profile</button>
+    <button id="clearAmazon" class="secondary" type="button">Clear Amazon Profile</button>
+    <div class="current">Current Amazon profile: <strong id="currentAmazon">Not set</strong></div>
+  </section>
+
+  <div id="status"></div>
+
+  <section class="section">
+    <h2>Shared dashboard</h2>
+    <p class="hint">The dashboard connection is built into this extension. No URL or key entry is required.</p>
+    <div class="button-row">
+      <button id="testDashboard" class="secondary" type="button">Test Connection</button>
+      <button id="openDashboard" class="secondary" type="button">Open Dashboard</button>
+    </div>
+    <div id="dashboardSync" class="sync-line">Built-in connection ready.</div>
+  </section>
+
+  <section class="section">
+    <h2>Latest Mark as Shipped</h2>
+    <div id="shippingRows"><div class="hint">No Mark as Shipped run recorded in this Chrome profile.</div></div>
+    <div id="shippingTime" class="time"></div>
+  </section>
+
+  <section class="section">
+    <h2>Latest Listing Confirmation</h2>
+    <div id="listingRows"><div class="hint">No listing confirmation saved in this Chrome profile.</div></div>
+    <div id="listingTime" class="time"></div>
+  </section>
+
+  <section class="section">
+    <h2>Latest Seller Level Check</h2>
+    <div class="identity-row current">
+      <div class="identity-card"><span>Computer</span><strong id="healthComputer">Not recorded</strong></div>
+      <div class="identity-card"><span>eBay account</span><strong id="healthEbay">Not recorded</strong></div>
+    </div>
+    <div id="healthRows"><div class="hint">No Seller Level check saved in this Chrome profile.</div></div>
+    <div id="healthTime" class="time"></div>
+  </section>
+  <script src="config.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+{
+  "manifest_version": 3,
+  "name": "GLDN Ops",
+  "version": "3.4.8",
+  "description": "Workflow assistant for internal marketplace operations.",
+  "permissions": [
+    "storage",
+    "clipboardRead",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://*.ebay.com/*",
+    "https://*.amazon.com/*",
+    "https://script.google.com/*",
+    "https://script.googleusercontent.com/*",
+    "https://ecomsniper.io/*",
+    "http://127.0.0.1:18765/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.amazon.com/*"
+      ],
+      "js": [
+        "config.js",
+        "shared.js",
+        "amazon.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.ebay.com/*"
+      ],
+      "js": [
+        "config.js",
+        "shared.js",
+        "ebay.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://ecomsniper.io/*"
+      ],
+      "js": [
+        "config.js",
+        "shared.js",
+        "ecomsniper.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "GLDN Ops",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/icon16.png",
+        "icons/icon32.png",
+        "icons/icon48.png",
+        "icons/icon128.png",
+        "reload.html",
+        "reload.js"
+      ],
+      "matches": [
+        "https://*.ebay.com/*",
+        "https://*.amazon.com/*",
+        "https://ecomsniper.io/*"
+      ]
+    }
+  ]
+}

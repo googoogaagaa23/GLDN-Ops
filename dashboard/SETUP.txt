@@ -1,0 +1,19 @@
+GLDN Ops Dashboard v2.9 Upgrade
+
+1. Open the Google Sheet used by the GLDN dashboard.
+2. Open Extensions > Apps Script.
+3. Replace the entire existing Code.gs file with the included Code.gs.
+4. Save the project.
+5. Run setupSellerLevelDashboard() once and authorize it if prompted.
+   This removes duplicate current rows by Computer while preserving all History tabs.
+6. Open Deploy > Manage deployments.
+7. Edit the existing web app deployment.
+8. Choose New version and click Deploy.
+
+Keep the same deployment URL. The extension already contains that URL and the matching key.
+
+Current dashboard behavior:
+- One latest Seller Level row per Computer.
+- One latest Listing Status row per Computer.
+- Newest computers appear first.
+- Every sync continues to append to the Seller Level History and Listing Status History tabs.

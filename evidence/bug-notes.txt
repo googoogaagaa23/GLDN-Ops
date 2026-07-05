@@ -1,0 +1,29 @@
+GLDN Ops Assistant — Current live issue summary
+
+Current baseline: extension v2.9.5.
+Pilot eBay account: FAK12 only.
+
+Primary required behavior:
+- Source Store categories: Not .99 and Other.
+- Destination Store category: Abra Cadabra .99.
+- Any Buy It Now price ending in .99 qualifies.
+- Stock quantity does not matter.
+- Change only the primary Store category.
+- Never change title, price, quantity, shipping, marketplace category, SKU, item specifics, or promoted listing settings.
+
+Observed failures across previous builds:
+1. eBay Active Listings keeps stale/hidden rows in the DOM during SPA pagination.
+2. The 955 filtered listings span five pages: 200, 200, 200, 200, 155.
+3. Earlier scans counted stale rows or looped indefinitely.
+4. Selection now works on Active Listings and can open Edit selected.
+5. Bulk Edit opens with 0 of N selected by design; the real listing-table header checkbox must be used.
+6. The latest failure occurred after Bulk Edit opened the marketplace Category editor rather than the Store category editor, or searched before the modal finished loading.
+7. Do not assume a modal titled Category is the Store category editor.
+8. The correct manual workflow is shown in workflow-recording.mp4.
+9. Live testing must stop before irreversible submission unless the user explicitly approves it.
+
+Other known requirements:
+- Mark as Shipped should select all Awaiting Shipment orders, use Shipping > Mark as shipped, click Continue once, verify success, and close any leftover modal.
+- Dashboard current views should show only the newest row per computer; older rows belong in history.
+- Dark mode, draggable windows, and one global transparency slider are required.
+- Dashboard URL and key are embedded in extension/config.js.

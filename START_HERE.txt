@@ -1,0 +1,23 @@
+GLDN OPS ASSISTANT — EASY CODEX SETUP
+
+This folder is already organized. You do NOT need to create or move files.
+
+1. Extract this ZIP to your Desktop.
+2. Install/open the Codex app for Windows and sign in.
+3. In Codex, choose Open Project/Open Folder and select:
+   Desktop\GLDN-Ops-Assistant-Codex-Project
+4. Connect the Codex Chrome extension/plugin when Codex offers it.
+5. Keep Chrome open and signed into the FAK12 eBay account.
+6. In Chrome, open chrome://extensions, enable Developer mode, choose Load unpacked, and select the extension folder inside this project.
+7. In Codex, open CODEX_PROMPT.txt, copy all text, and paste it into a new Codex task/thread.
+8. When Codex reaches the final eBay submission screen, it must stop and wait for your approval.
+
+The project already includes:
+- latest extension source
+- dashboard code
+- manual workflow recording
+- latest failure screenshot
+- bug notes
+- complete Codex prompt
+
+Do not share this project publicly because extension/config.js contains the private dashboard connection key.
