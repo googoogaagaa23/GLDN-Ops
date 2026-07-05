@@ -1,4 +1,7 @@
-GLDN Ops v3.4.8
+GLDN Ops v3.4.9
+
+v3.4.9 Move .99 popup launch fix:
+- Fixes Open Move .99 Workflow so it starts the saved Move .99 scan instead of only opening Active Listings.
 
 v3.1.6 reload, rollback and diagnostics:
 - Adds a popup Reload Extension Update button and a reload.html trigger page for local update helpers.

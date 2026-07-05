@@ -72,10 +72,28 @@ function defaultMove99ForAccount(account) {
   };
 }
 
-function renderMove99Settings(allSettings, account) {
+function buildMove99ActiveUrl(sourceStoreCategoryIds) {
+  const ids = Array.isArray(sourceStoreCategoryIds) ? sourceStoreCategoryIds.filter(Boolean) : [];
+  if (!ids.length) return 'https://www.ebay.com/sh/lst/active';
+
+  const params = new URLSearchParams({
+    action: 'search',
+    status: 'ACTIVE',
+    category_type: 'storeCategories',
+    category_ids: ids.join(',')
+  });
+
+  return `https://www.ebay.com/sh/lst/active?${params.toString()}`;
+}
+
+function currentMove99SettingsForAccount(account, allSettings = {}) {
   const defaults = defaultMove99ForAccount(account);
   const stored = allSettings?.[account] || {};
-  const settings = { ...defaults, ...stored };
+  return { ...defaults, ...stored };
+}
+
+function renderMove99Settings(allSettings, account) {
+  const settings = currentMove99SettingsForAccount(account, allSettings);
   move99SourceCategoriesInput.value = arrayToCsv(settings.sourceCategories);
   move99DestinationCategoryInput.value = settings.destinationCategory || '';
   move99SourceCategoryIdsInput.value = arrayToCsv(settings.sourceStoreCategoryIds);
@@ -446,8 +464,39 @@ document.getElementById('saveMove99Categories').addEventListener('click', () => 
 });
 
 document.getElementById('openMove99Workflow').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'https://www.ebay.com/sh/lst/active' });
-  setMessage('Active Listings opened. Move .99 stays in the extension popup/tools area, not the everyday page panel.');
+  const account = normalizeEbayAccount(ebayInput.value);
+  chrome.storage.local.get(['move99AccountSettings'], (result) => {
+    const settings = currentMove99SettingsForAccount(account, result.move99AccountSettings || {});
+    if (!settings.sourceCategories?.length || !settings.destinationCategory) {
+      setMessage('Save source and destination .99 categories first.', true);
+      return;
+    }
+
+    const activeUrl = buildMove99ActiveUrl(settings.sourceStoreCategoryIds);
+    chrome.storage.local.set({
+      gldnStopRequested: false,
+      pendingMove99Run: {
+        active: true,
+        confirmed: true,
+        phase: 'active-prepare',
+        ebayAccountLabel: account,
+        currentPage: 1,
+        scanPages: {},
+        verificationPages: {},
+        failedIds: [],
+        processedIds: [],
+        totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
+        startedAt: new Date().toISOString(),
+        sourceCategories: settings.sourceCategories,
+        destinationCategory: settings.destinationCategory,
+        sourceStoreCategoryIds: settings.sourceStoreCategoryIds,
+        backburnerItemIds: settings.backburnerItemIds
+      }
+    }, () => {
+      chrome.tabs.create({ url: activeUrl });
+      setMessage('Move .99 workflow started. The opened eBay tab will scan first.');
+    });
+  });
 });
 
 document.getElementById('openAmazonBestSellers').addEventListener('click', () => {

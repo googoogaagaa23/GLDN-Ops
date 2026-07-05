@@ -2,6 +2,16 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.9 - 2026-07-05
+
+### Fixed
+- Fixed the popup **Open Move .99 Workflow** button so it starts the saved Move .99 scan instead of only opening Active Listings.
+
+### Added
+- Added a full feature guide in `docs/FEATURE_GUIDE.md`.
+- Added an in-extension feature guide section.
+- Updated the extension icon set.
+
 ## v3.4.8 - 2026-07-05
 
 ### Added
