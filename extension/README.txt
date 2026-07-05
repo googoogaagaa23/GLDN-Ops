@@ -1,4 +1,9 @@
-GLDN Ops v3.4.18
+GLDN Ops v3.4.19
+
+v3.4.19 Move .99 continuation:
+- Splits large selected Move .99 batches at eBay's 200-listing selected-edit limit and resumes the remaining listings after approved Submit.
+- Improves Store category picker opening when eBay shows the selected category row but keeps the picker collapsed.
+- Treats an already-selected destination Store category as valid instead of failing.
 
 v3.4.18 update button placement:
 - Moves Get Latest Update to the top of the popup above Instructions.

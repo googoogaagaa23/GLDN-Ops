@@ -41,6 +41,7 @@
   let MOVE99_BACKBURNER_ITEM_IDS = new Set(MOVE99_DEFAULT_CONFIG.backburnerItemIds);
   let MOVE99_SCAN_MODE = "price99";
   let move99Running = false;
+  const MOVE99_BULK_BATCH_LIMIT = 200;
 
   const storageGet = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
   const storageSet = (values) => new Promise((resolve) => chrome.storage.local.set(values, resolve));
@@ -3260,6 +3261,35 @@
     return row;
   }
 
+  function storeCategoryAlreadySelected(root, minY, maxY) {
+    const destination = U.normalizeText(MOVE99_DESTINATION_CATEGORY);
+    return queryAllDeep('button, [role="button"], div, span', root)
+      .filter(U.isVisible)
+      .some((element) => {
+        const rect = element.getBoundingClientRect();
+        if (rect.top < minY || rect.top > maxY) return false;
+        const text = normalizedElementText(element);
+        return text.includes("selected category") && text.includes(destination);
+      });
+  }
+
+  async function openSelectedStoreCategoryChooser(root, minY, maxY) {
+    const chooser = findSelectedStoreCategoryChooser(root, minY, maxY);
+    if (!chooser) return false;
+    const attempts = [chooser];
+    const rect = chooser.getBoundingClientRect();
+    const rightEdgeTarget = document.elementFromPoint(rect.right - 18, rect.top + (rect.height / 2));
+    if (rightEdgeTarget && !attempts.includes(rightEdgeTarget)) attempts.push(rightEdgeTarget);
+    const actionTarget = chooser.querySelector?.('button, [role="button"], [tabindex], svg, path');
+    if (actionTarget && !attempts.includes(actionTarget)) attempts.push(actionTarget);
+    for (const target of attempts) {
+      clickElement(target);
+      const opened = await U.waitFor(() => findPickerContainingDestination(), 1400, 120);
+      if (opened) return true;
+    }
+    return false;
+  }
+
   async function choosePrimaryStoreCategory(expectedCount = 0) {
     const bulkEdit = await U.waitFor(() => findSmallestExactText("Bulk edit", "button, [role='button']"), 10000, 180);
     if (!bulkEdit) throw new Error("I selected the .99 listings but could not find Bulk edit.");
@@ -3286,33 +3316,38 @@
     clickDeepText(changeTo);
 
     let picker = await U.waitFor(() => findPickerContainingDestination(), 2500, 150);
-    if (!picker) {
-      const chooser = findSelectedStoreCategoryChooser(categoryDialog, primaryTop, maxY);
-      if (chooser) clickElement(chooser);
+    let alreadySelected = false;
+    if (!picker && storeCategoryAlreadySelected(categoryDialog, primaryTop, maxY)) {
+      alreadySelected = true;
+    }
+    if (!picker && !alreadySelected) {
+      await openSelectedStoreCategoryChooser(categoryDialog, primaryTop, maxY);
       picker = await U.waitFor(() => findPickerContainingDestination(), 30000, 250);
     }
-    if (!picker) throw new Error("The Store category picker did not open.");
-    const destination = queryAllDeep('label, span, div, li, [role="option"], [role="radio"], button', picker)
-      .filter(U.isVisible)
-      .filter((element) => normalizedElementText(element) === U.normalizeText(MOVE99_DESTINATION_CATEGORY))
-      .sort((a, b) => {
-        const ar = a.getBoundingClientRect();
-        const br = b.getBoundingClientRect();
-        return (ar.width * ar.height) - (br.width * br.height);
-    })[0] || null;
-    if (!destination) throw new Error(`The destination category “${MOVE99_DESTINATION_CATEGORY}” was not found.`);
-    clickDeepText(destination);
+    if (!picker && !alreadySelected) throw new Error("The Store category picker did not open.");
+    if (picker) {
+      const destination = queryAllDeep('label, span, div, li, [role="option"], [role="radio"], button', picker)
+        .filter(U.isVisible)
+        .filter((element) => normalizedElementText(element) === U.normalizeText(MOVE99_DESTINATION_CATEGORY))
+        .sort((a, b) => {
+          const ar = a.getBoundingClientRect();
+          const br = b.getBoundingClientRect();
+          return (ar.width * ar.height) - (br.width * br.height);
+      })[0] || null;
+      if (!destination) throw new Error(`The destination category “${MOVE99_DESTINATION_CATEGORY}” was not found.`);
+      clickDeepText(destination);
 
-    const selected = await U.waitFor(() => {
-      const currentPicker = findPickerContainingDestination();
-      const done = currentPicker && findEnabledExactButton("Done", currentPicker);
-      if (done) return { done };
-      const dialog = findCategoryEditorDialog();
-      const apply = dialog && findEnabledExactButton("Apply", dialog);
-      return apply ? { applyReady: true } : null;
-    }, 15000, 180);
-    if (!selected) throw new Error("The destination was selected, but eBay did not enable Done or Apply.");
-    if (selected.done) clickElement(selected.done);
+      const selected = await U.waitFor(() => {
+        const currentPicker = findPickerContainingDestination();
+        const done = currentPicker && findEnabledExactButton("Done", currentPicker);
+        if (done) return { done };
+        const dialog = findCategoryEditorDialog();
+        const apply = dialog && findEnabledExactButton("Apply", dialog);
+        return apply ? { applyReady: true } : null;
+      }, 15000, 180);
+      if (!selected) throw new Error("The destination was selected, but eBay did not enable Done or Apply.");
+      if (selected.done) clickElement(selected.done);
+    }
 
     const apply = await U.waitFor(() => {
       const dialog = findCategoryEditorDialog();
@@ -3644,6 +3679,55 @@
       }
     });
     renderStatus(`eBay Submit is ready. Store category is ${MOVE99_DESTINATION_CATEGORY}. Waiting for approval before Submit.`, "completed");
+  }
+
+  function nextMove99BatchState(state) {
+    const applyPages = Array.isArray(state.applyPages) ? state.applyPages : [];
+    const applyIndex = Number(state.applyIndex || 0);
+    const currentOffset = Number(state.currentBatchOffset || state.pageBatchOffset || 0);
+    const selectedCount = Number(state.currentBatchCount || state.currentBatchIds?.length || 0);
+    const pageTotal = Number(state.currentPageTotalIds || 0);
+    const nextOffset = currentOffset + selectedCount;
+    if (pageTotal && nextOffset < pageTotal) {
+      return {
+        ...state,
+        active: true,
+        phase: "apply-page",
+        reviewReady: false,
+        pageBatchOffset: nextOffset,
+        currentBatchIds: [],
+        currentBatchCount: 0,
+        currentBatchOffset: 0,
+        currentPageTotalIds: pageTotal
+      };
+    }
+    return {
+      ...state,
+      active: true,
+      phase: "apply-page",
+      reviewReady: false,
+      applyIndex: applyIndex + 1,
+      pageBatchOffset: 0,
+      currentBatchIds: [],
+      currentBatchCount: 0,
+      currentBatchOffset: 0,
+      currentPageTotalIds: 0,
+      completedApplyPages: [...new Set([...(state.completedApplyPages || []), applyPages[applyIndex]].filter(Boolean))]
+    };
+  }
+
+  async function resumeMove99AfterManualSubmit(state) {
+    if (state.phase !== "awaiting-submit-approval") return false;
+    if (findMove99SubmitButton()) return false;
+    const next = nextMove99BatchState(state);
+    await storageSet({ pendingMove99Run: next });
+    renderStatus("Submit completed. Continuing the next saved batch...", "ready");
+    if (!isMove99ActiveListingsPage()) {
+      location.assign(next.filteredUrl || MOVE99_ACTIVE_URL);
+      return true;
+    }
+    setTimeout(runMove99Automation, 700);
+    return true;
   }
 
   async function choosePrimaryStoreCategoryOneByOne(expectedCount = 0) {
@@ -4901,16 +4985,32 @@
         const targetPage = Number(applyPages[applyIndex]);
         if (activePageInfo().current !== targetPage) await goToActivePage(targetPage);
         const pageRecord = state.applySourcePages?.[String(targetPage)];
-        const targetIds = (pageRecord?.qualifying || []).map((record) => String(record.itemId));
+        const allTargetIds = (pageRecord?.qualifying || []).map((record) => String(record.itemId));
+        const pageBatchOffset = Number(state.pageBatchOffset || 0);
+        const targetIds = allTargetIds.slice(pageBatchOffset, pageBatchOffset + MOVE99_BULK_BATCH_LIMIT);
+        if (!targetIds.length) {
+          await storageSet({ pendingMove99Run: { ...state, applyIndex: applyIndex + 1, pageBatchOffset: 0 } });
+          setTimeout(() => { move99Running = false; runMove99Automation(); }, 300);
+          return;
+        }
         renderStatus(`Applying saved scan: page ${targetPage}, batch ${applyIndex + 1} of ${applyPages.length}…`, "ready");
         const selection = await selectSavedIdsOnActivePage(targetIds);
         const failedIds = [...new Set([...(state.failedIds || []).map(String), ...selection.missingIds])];
         if (!selection.selectedIds.length) {
-          await storageSet({ pendingMove99Run: { ...state, failedIds, applyIndex: applyIndex + 1 } });
+          await storageSet({ pendingMove99Run: { ...state, failedIds, applyIndex: applyIndex + 1, pageBatchOffset: 0 } });
           setTimeout(() => { move99Running = false; runMove99Automation(); }, 300);
           return;
         }
-        const nextState = { ...state, failedIds, currentBatchIds: selection.selectedIds, currentBatchCount: selection.selectedIds.length, currentBatchPage: targetPage };
+        const nextState = {
+          ...state,
+          failedIds,
+          currentBatchIds: selection.selectedIds,
+          currentBatchCount: selection.selectedIds.length,
+          currentBatchPage: targetPage,
+          currentBatchOffset: pageBatchOffset,
+          currentPageTotalIds: allTargetIds.length,
+          pageBatchOffset
+        };
         await openSelectedListingsInBulkEditor(selection.selectedIds, nextState);
         return;
       }
@@ -4926,6 +5026,11 @@
         await pauseMove99AtReviewScreen(categoryUpdate, state, batchCount);
         return;
         renderStatus(`Batch complete — ${result.live} live, ${batchFailed} failed. Continuing saved scan…`, batchFailed ? "error" : "ready");
+      }
+
+      if (state.phase === "awaiting-submit-approval") {
+        await resumeMove99AfterManualSubmit(state);
+        return;
       }
 
       if (state.phase === "completed") {
@@ -4987,6 +5092,9 @@
     if (result.pendingReviewMonthlyLimits && (isActiveListingsPage() || /\/sh\/ovw/i.test(location.href))) {
       setTimeout(reviewMonthlyLimits, 700);
     }
+    if (result.pendingMove99Run?.phase === "awaiting-submit-approval") {
+      setTimeout(() => resumeMove99AfterManualSubmit(result.pendingMove99Run), 900);
+    }
     if (result.pendingMove99Run?.active && (isMove99ActiveListingsPage() || isMove99BulkEditorPage())) {
       setTimeout(runMove99Automation, 900);
     }
@@ -5023,7 +5131,7 @@
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
-        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.18</span></div>
+        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.19</span></div>
         <div class="gldn-drag-grip" aria-hidden="true">⋮⋮</div>
       </div>
       <div class="gldn-panel-identity"></div>

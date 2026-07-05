@@ -2,6 +2,13 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.19 - 2026-07-05
+
+### Fixed
+- Move .99 now continues leftover listings when eBay caps the selected Bulk Edit workspace at 200 listings.
+- Move .99 resumes the next saved batch after the user manually approves and submits the current eBay review screen.
+- Store category selection now retries by clicking the selected-category row/chevron and accepts an already-selected destination category.
+
 ## v3.4.18 - 2026-07-05
 
 ### Changed
