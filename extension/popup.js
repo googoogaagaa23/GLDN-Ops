@@ -77,10 +77,9 @@ function buildMove99ActiveUrl(sourceStoreCategoryIds) {
   if (!ids.length) return 'https://www.ebay.com/sh/lst/active';
 
   const params = new URLSearchParams({
-    action: 'search',
-    status: 'ACTIVE',
-    category_type: 'storeCategories',
-    category_ids: ids.join(',')
+    storeCatIds: ids.join(','),
+    source: 'filterpanel',
+    action: 'search'
   });
 
   return `https://www.ebay.com/sh/lst/active?${params.toString()}`;
@@ -501,6 +500,10 @@ document.getElementById('openMove99Workflow').addEventListener('click', () => {
 
 document.getElementById('openAmazonBestSellers').addEventListener('click', () => {
   chrome.tabs.create({ url: 'https://www.amazon.com/gp/bestsellers' });
+});
+
+document.getElementById('openFeatureGuide').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('guide.html') });
 });
 
 document.getElementById('startBulkListingWorkflow').addEventListener('click', () => {

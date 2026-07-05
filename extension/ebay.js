@@ -2284,7 +2284,8 @@
     try {
       if (!MOVE99_SOURCE_STORE_CATEGORY_IDS.length) return false;
       const url = new URL(location.href);
-      const ids = new Set((url.searchParams.get("storeCatIds") || "")
+      const rawIds = url.searchParams.get("storeCatIds") || url.searchParams.get("category_ids") || "";
+      const ids = new Set(rawIds
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean));
@@ -2381,11 +2382,12 @@
       // eBay currently closes the right-side panel and changes the chip to
       // “All filters (2)”. Older layouts used “Categories (2)”. Either state
       // confirms that both source categories were applied.
-      if (filterChip && !panelStillOpen && tableVisible) {
+      if (!panelStillOpen && tableVisible && result) {
         return result ? Number(result[1].replace(/,/g, "")) : -1;
       }
+      if (filterChip && !panelStillOpen && tableVisible) return -1;
       return null;
-    }, 30000, 250);
+    }, 60000, 250);
     if (ready === null) throw new Error("The source category filter did not finish applying.");
     return ready;
   }
@@ -4977,7 +4979,7 @@
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
-        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.10</span></div>
+        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.11</span></div>
         <div class="gldn-drag-grip" aria-hidden="true">⋮⋮</div>
       </div>
       <div class="gldn-panel-identity"></div>

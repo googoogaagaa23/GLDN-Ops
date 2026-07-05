@@ -2,6 +2,16 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.11 - 2026-07-05
+
+### Fixed
+- Fixed Move .99 popup launches using a different source-category URL format than the eBay workflow expected.
+- Made Move .99 filter-apply detection tolerate eBay accounts that do not show the same filter chip text.
+
+### Added
+- Added a visible **Instructions** card at the top of the popup.
+- Added a standalone in-extension full feature guide page.
+
 ## v3.4.10 - 2026-07-05
 
 ### Fixed

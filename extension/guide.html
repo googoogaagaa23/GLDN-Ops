@@ -1,0 +1,145 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GLDN Ops Feature Guide</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0f172a; color: #e5e7eb; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; }
+    main { max-width: 980px; margin: 0 auto; padding: 28px 18px 60px; }
+    header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+    img { width: 54px; height: 54px; }
+    h1 { margin: 0; font-size: 28px; }
+    h2 { margin: 26px 0 10px; padding-top: 18px; border-top: 1px solid #334155; font-size: 20px; }
+    h3 { margin: 18px 0 8px; font-size: 16px; color: #bfdbfe; }
+    p, li { color: #cbd5e1; }
+    ol { margin: 8px 0 0 22px; padding: 0; }
+    li { margin: 5px 0; }
+    .card { background: #111827; border: 1px solid #334155; border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+    .warn { border-color: #f59e0b; background: #2a2110; }
+    code { background: #1e293b; padding: 2px 5px; border-radius: 5px; color: #f8fafc; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <img src="icons/icon48.png" alt="GLDN Ops">
+    <div>
+      <h1>GLDN Ops Feature Guide</h1>
+      <p>Step-by-step instructions for every current feature.</p>
+    </div>
+  </header>
+
+  <section class="card warn">
+    <strong>Safety rule:</strong> GLDN Ops should stop before final eBay listing Submit actions unless the operator approves.
+  </section>
+
+  <h2>Setup</h2>
+  <ol>
+    <li>Install GLDN Ops in the correct Chrome profile.</li>
+    <li>Open the GLDN Ops popup.</li>
+    <li>Select the computer number.</li>
+    <li>Select the eBay account for that Chrome profile.</li>
+    <li>Click <strong>Save Computer & eBay Account</strong>.</li>
+    <li>Click <strong>Check Local Helper</strong> if using EcomSniper automation.</li>
+  </ol>
+
+  <h2>Floating Panel</h2>
+  <ol>
+    <li>Use <strong>Side</strong> to move the panel out of the way.</li>
+    <li>Use the minus button to minimize it.</li>
+    <li>Use <strong>Dashboard</strong> to open the shared dashboard.</li>
+    <li>Use <strong>Stop Task</strong> to stop a running workflow at the next safe checkpoint.</li>
+    <li>Use <strong>Reset</strong> after a crash or stuck workflow.</li>
+    <li>Use <strong>Reload Ext</strong> after updating the extension.</li>
+  </ol>
+
+  <h2>Mark as Shipped</h2>
+  <ol>
+    <li>Open the eBay awaiting-shipment orders page.</li>
+    <li>Click <strong>Mark as Shipped</strong>.</li>
+    <li>Review any eBay confirmation dialog.</li>
+    <li>Continue only if the selected orders are correct.</li>
+    <li>GLDN Ops records the run locally and syncs it to the dashboard when available.</li>
+  </ol>
+
+  <h2>Prepare Order Note</h2>
+  <ol>
+    <li>Open the Amazon checkout or order page.</li>
+    <li>Click <strong>Review & Copy Amazon Info</strong>.</li>
+    <li>Review total and ETA, then copy the info.</li>
+    <li>Open the matching eBay order details page.</li>
+    <li>Click <strong>Prepare Order Note</strong>.</li>
+    <li>Review the editable note.</li>
+    <li>Click <strong>Fill Add Note Box</strong>.</li>
+    <li>GLDN Ops opens More actions, opens Add note, pastes the note, and waits for manual Save.</li>
+  </ol>
+
+  <h2>Scan Seller Level</h2>
+  <ol>
+    <li>Open Seller Hub performance or click <strong>Scan Seller Level</strong>.</li>
+    <li>Review the detected metrics.</li>
+    <li>Click <strong>Save Seller Level Check</strong>.</li>
+    <li>GLDN Ops syncs values to the dashboard and Tasks sheet.</li>
+    <li>Tasks sheet alerts show <code>CHECK computer</code> when a metric crosses threshold.</li>
+  </ol>
+
+  <h2>Confirm Listings Under Limit</h2>
+  <ol>
+    <li>Open Seller Hub Overview.</li>
+    <li>Click <strong>Confirm Listings Under Limit</strong>.</li>
+    <li>Review active listings, in-stock quantity, monthly dollar amount, and limits.</li>
+    <li>Click <strong>Confirm Listings This Month</strong>.</li>
+    <li>GLDN Ops records the monthly confirmation and syncs it.</li>
+  </ol>
+
+  <h2>Move .99 Listings</h2>
+  <ol>
+    <li>Open the GLDN Ops popup.</li>
+    <li>Set exact source Store category names.</li>
+    <li>Set exact destination Store category name.</li>
+    <li>Optional: add source category IDs.</li>
+    <li>Click <strong>Save .99 Categories for This eBay</strong>.</li>
+    <li>Click <strong>Open Move .99 Workflow</strong>.</li>
+    <li>GLDN Ops opens Active Listings and scans matching listings.</li>
+    <li>Review the scan summary before applying.</li>
+    <li>GLDN Ops pauses at the eBay review screen before final Submit.</li>
+  </ol>
+
+  <h2>Bulk Listing Workflow</h2>
+  <ol>
+    <li>Open the popup and click <strong>Start Bulk Listing Workflow</strong>.</li>
+    <li>Use broad Amazon Best Sellers product/category research.</li>
+    <li>Avoid clothing, shoes, and excluded categories.</li>
+    <li>GLDN Ops assists the eBay search and EcomSniper Extract Sellers handoff.</li>
+    <li>Continue scanner, Product Hunter, and listing work inside EcomSniper.</li>
+  </ol>
+
+  <h2>Sniping Workflow</h2>
+  <ol>
+    <li>Open an Amazon product with visible price.</li>
+    <li>Click <strong>Start Sniping Workflow</strong>.</li>
+    <li>GLDN Ops searches eBay from that product context.</li>
+    <li>Keep only likely dropshippers with enough markup.</li>
+    <li>Use EcomSniper to scan competitors and identify winners.</li>
+  </ol>
+
+  <h2>Diagnostics</h2>
+  <ol>
+    <li>Open the popup after an error.</li>
+    <li>Click <strong>Copy Error Log</strong>.</li>
+    <li>Send the copied log with the page and button used.</li>
+    <li>Click <strong>Clear Error Log</strong> after the issue is captured.</li>
+  </ol>
+
+  <h2>Updating</h2>
+  <ol>
+    <li>For unpacked installs, download/extract the newest GitHub ZIP.</li>
+    <li>Open <code>chrome://extensions</code>.</li>
+    <li>Click <strong>Reload</strong> on GLDN Ops, or load the new <code>extension</code> folder.</li>
+    <li>Refresh the eBay/Amazon/EcomSniper work tab.</li>
+  </ol>
+</main>
+</body>
+</html>

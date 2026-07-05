@@ -1,4 +1,9 @@
-GLDN Ops v3.4.10
+GLDN Ops v3.4.11
+
+v3.4.11 Move .99 filter and guide visibility:
+- Fixes Move .99 popup source-category URL startup.
+- Makes the source filter applied check less dependent on exact eBay chip text.
+- Adds a visible Instructions card and standalone feature guide page.
 
 v3.4.10 ZIP install fix:
 - Makes GitHub ZIP installs load without requiring a separate ignored config.js file.
