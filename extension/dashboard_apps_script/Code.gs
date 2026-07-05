@@ -411,8 +411,8 @@ function applyTasksMetricAlerts_(sheet) {
   const casesRow = findTaskRowByContains_(sheet, 'Cases Closed without seller Resolution');
 
   applyTasksMetricRow_(sheet, transactionRow, (value) => parseTaskPercent_(value) > 0);
-  applyTasksMetricRow_(sheet, lateRow, (value) => parseTaskPercent_(value) > 2.4);
-  applyTasksMetricRow_(sheet, trackingRow, (value) => parseTaskPercent_(value) < 80);
+  applyTasksMetricRow_(sheet, lateRow, (value) => parseTaskPercent_(value) > 1.5);
+  applyTasksMetricRow_(sheet, trackingRow, (value) => parseTaskPercent_(value) < 90);
   applyTasksMetricRow_(sheet, casesRow, (value) => parseTaskPercent_(value) > 0);
 }
 
@@ -420,14 +420,15 @@ function applyTasksMetricRow_(sheet, row, isBad) {
   if (!row) return;
   const range = sheet.getRange(row, 5, 1, 5);
   const values = range.getValues()[0];
-  let needsCheck = false;
+  const headers = sheet.getRange(3, 5, 1, 5).getDisplayValues()[0];
+  const computers = [];
   values.forEach((value, index) => {
     if (value === '' || value === null || typeof value === 'boolean') return;
-    if (isBad(value)) needsCheck = true;
+    if (isBad(value)) computers.push(headers[index]);
   });
   const alertCell = sheet.getRange(row, 11);
-  if (needsCheck) {
-    alertCell.setValue('CHECK').setBackground('#ff0000').setFontColor('#000000').setFontWeight('bold');
+  if (computers.length) {
+    alertCell.setValue('CHECK ' + computers.join(' & ')).setBackground('#ff0000').setFontColor('#000000').setFontWeight('bold');
   } else {
     alertCell.clearContent().setBackground('#ffffff').setFontColor('#000000').setFontWeight('normal');
   }
