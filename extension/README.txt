@@ -1,4 +1,20 @@
-GLDN Ops v3.4.20
+GLDN Ops v3.4.24
+
+v3.4.24 internal Non-.99 cleanup starter:
+- Adds `start-move99.html?mode=non99` for live cleanup diagnostics.
+- Scans the sale category and moves non-.99 listings back to the configured source category, stopping at the normal Submit safety pause.
+
+v3.4.23 internal Move .99 auto-apply:
+- The internal starter can continue from scan summary into the normal apply flow without a manual click.
+- The normal final eBay Submit safety pause is unchanged.
+
+v3.4.22 internal Move .99 starter:
+- Adds a local extension page that starts the saved Move .99 workflow for live testing.
+- Keeps the normal eBay final Submit safety pause.
+
+v3.4.21 Move .99 category diagnostics:
+- Records visible eBay Category dialog evidence when the primary Store category controls cannot be verified.
+- Keeps the workflow stopped safely before any live Submit action.
 
 v3.4.20 Move .99 pagination/filter drawer:
 - Fixes Active Listings page detection when eBay only shows "Results: 1-200 of X" instead of a page counter.

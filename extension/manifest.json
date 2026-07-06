@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.4.20",
+  "version": "3.4.24",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",
@@ -52,7 +52,7 @@
       "css": [
         "styles.css"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_end"
     },
     {
       "matches": [
@@ -87,7 +87,9 @@
         "icons/icon48.png",
         "icons/icon128.png",
         "reload.html",
-        "reload.js"
+        "reload.js",
+        "start-move99.html",
+        "start-move99.js"
       ],
       "matches": [
         "https://*.ebay.com/*",

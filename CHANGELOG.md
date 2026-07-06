@@ -2,6 +2,26 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.24 - 2026-07-05
+
+### Added
+- Internal diagnostic starter now supports Non-.99 cleanup mode with `?mode=non99`.
+
+## v3.4.23 - 2026-07-05
+
+### Added
+- Internal Move .99 starter can auto-continue from scan summary into the existing apply flow for live diagnostics.
+
+## v3.4.22 - 2026-07-05
+
+### Added
+- Added an internal Move .99 starter page so Codex can start the live workflow after installing a local diagnostic build.
+
+## v3.4.21 - 2026-07-05
+
+### Added
+- Move .99 now records a diagnostic snapshot when eBay's Category dialog does not expose the expected primary Store category controls.
+
 ## v3.4.20 - 2026-07-05
 
 ### Fixed

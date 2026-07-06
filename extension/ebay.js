@@ -2450,16 +2450,28 @@
   function findEditAllListingsMenuItem() {
     const candidates = [...document.querySelectorAll('button, a, li, [role="menuitem"], [role="option"], div, span')]
       .filter((element) => U.isVisible(element))
-      .filter((element) => /^Edit all [\d,]+ listings$/i.test((element.innerText || element.textContent || "").trim()))
+      .map((element) => {
+        const text = (element.innerText || element.textContent || "").trim().replace(/\s+/g, " ");
+        const allMatch = text.match(/^Edit all ([\d,]+) listings$/i);
+        const chunkMatch = text.match(/^Edit listings ([\d,]+)\s*-\s*([\d,]+)$/i);
+        if (!allMatch && !chunkMatch) return null;
+        const start = chunkMatch ? Number(chunkMatch[1].replace(/,/g, "")) : 1;
+        const end = chunkMatch ? Number(chunkMatch[2].replace(/,/g, "")) : Number(allMatch[1].replace(/,/g, ""));
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return null;
+        return { element, text, rangeStart: start, rangeEnd: end, count: end - start + 1, chunked: Boolean(chunkMatch) };
+      })
+      .filter(Boolean)
       .map((label) => {
-        const target = label.closest('button, a, li, [role="menuitem"], [role="option"], [tabindex]') || label;
-        const rect = label.getBoundingClientRect();
+        const target = label.element.closest('button, a, li, [role="menuitem"], [role="option"], [tabindex]') || label.element;
+        const rect = label.element.getBoundingClientRect();
         const targetRect = target.getBoundingClientRect();
         const actionable = target.matches('button, a, [role="menuitem"], [role="option"]') ? 0 : 1;
-        return { label, target, rect, targetRect, actionable };
+        return { ...label, label: label.element, target, rect, targetRect, actionable };
       })
       .sort((a, b) => {
         if (a.actionable !== b.actionable) return a.actionable - b.actionable;
+        if (a.chunked !== b.chunked) return a.chunked ? 1 : -1;
+        if (a.rangeStart !== b.rangeStart) return a.rangeStart - b.rangeStart;
         return (a.targetRect.width * a.targetRect.height) - (b.targetRect.width * b.targetRect.height);
       });
     return candidates[0] || null;
@@ -2551,7 +2563,7 @@
       try {
         const state = await storageGet(["pendingMove99Run"]);
         if (!state.pendingMove99Run?.active) return;
-        if (state.pendingMove99Run.phase !== "bulk-editor") return;
+        if (!["bulk-editor", "bulk-editor-scan"].includes(state.pendingMove99Run.phase)) return;
         if (findSavedBulkEditContinueButton()) {
           await clickSavedBulkEditContinueIfPresent();
         }
@@ -2564,7 +2576,7 @@
     const interval = setInterval(async () => {
       try {
         const state = await storageGet(["pendingMove99Run"]);
-        if (!state.pendingMove99Run?.active || state.pendingMove99Run.phase !== "bulk-editor") return;
+        if (!state.pendingMove99Run?.active || !["bulk-editor", "bulk-editor-scan"].includes(state.pendingMove99Run.phase)) return;
         if (findSavedBulkEditContinueButton()) {
           await clickSavedBulkEditContinueIfPresent();
         }
@@ -2573,7 +2585,7 @@
     window.addEventListener("beforeunload", () => clearInterval(interval), { once: true });
   }
 
-  async function openAllFilteredListingsInBulkEditor(filteredCount) {
+  async function openAllFilteredListingsInBulkEditor(filteredCount, currentState = {}) {
     const editButton = await U.waitFor(() => {
       return [...document.querySelectorAll('button, [role="button"]')].find((element) => {
         if (!U.isVisible(element)) return false;
@@ -2585,20 +2597,27 @@
     clickElement(editButton);
 
     const item = await U.waitFor(findEditAllListingsMenuItem, 8000, 150);
-    if (!item) throw new Error("The Edit menu opened, but the Edit all listings option was not found.");
+    if (!item) throw new Error("The Edit menu opened, but no Edit all/listings range option was found.");
 
     const editAllText = (item.label.innerText || item.label.textContent || "").trim();
-    const parsedCount = Number((editAllText.match(/Edit all\s+([\d,]+)\s+listings/i)?.[1] || "0").replace(/,/g, ""));
+    const allMatch = editAllText.match(/Edit all\s+([\d,]+)\s+listings/i);
+    const rangeMatch = editAllText.match(/Edit listings\s+([\d,]+)\s*-\s*([\d,]+)/i);
+    const parsedCount = rangeMatch
+      ? Number(rangeMatch[2].replace(/,/g, "")) - Number(rangeMatch[1].replace(/,/g, "")) + 1
+      : Number((allMatch?.[1] || "0").replace(/,/g, ""));
     const actualFilteredCount = parsedCount || (filteredCount > 0 ? filteredCount : 0);
 
     await storageSet({
       pendingMove99Run: {
+        ...currentState,
         active: true,
-        phase: "bulk-editor",
+        confirmed: true,
+        phase: "bulk-editor-scan",
         startedAt: new Date().toISOString(),
         filteredCount: actualFilteredCount,
-        sourceCategories: MOVE99_SOURCE_CATEGORIES,
-        destinationCategory: MOVE99_DESTINATION_CATEGORY
+        sourceCategories: asStringArray(currentState.sourceCategories).length ? asStringArray(currentState.sourceCategories) : MOVE99_SOURCE_CATEGORIES,
+        destinationCategory: currentState.destinationCategory || MOVE99_DESTINATION_CATEGORY,
+        bulkScanStartedAt: new Date().toISOString()
       }
     });
 
@@ -2829,14 +2848,30 @@
       candidates.push(element);
     }
 
+    for (const element of document.querySelectorAll('div, section, main, article, table, tbody, [role="grid"], [role="table"], [role="rowgroup"]')) {
+      if (!U.isVisible(element)) continue;
+      const rect = element.getBoundingClientRect();
+      if (rect.width < 350 || rect.height < 120) continue;
+      const text = U.normalizeText(element.innerText || element.textContent || "");
+      if (!text.includes("buy it now") && !text.includes("store category") && !text.includes("item category")) continue;
+      candidates.push(element);
+      let parent = element.parentElement;
+      for (let depth = 0; parent && depth < 8; depth += 1, parent = parent.parentElement) {
+        const parentRect = parent.getBoundingClientRect?.() || { width: 0, height: 0 };
+        if (parentRect.width >= 350 && parentRect.height >= 120) candidates.push(parent);
+      }
+    }
+
     const unique = [...new Set(candidates)]
       .filter((element) => element !== document.body && element !== document.documentElement)
       .sort((a, b) => {
-        const aRange = Number(a.scrollHeight || 0) - Number(a.clientHeight || 0);
-        const bRange = Number(b.scrollHeight || 0) - Number(b.clientHeight || 0);
+        const aRange = Math.max(0, Number(a.scrollHeight || 0) - Number(a.clientHeight || 0));
+        const bRange = Math.max(0, Number(b.scrollHeight || 0) - Number(b.clientHeight || 0));
         const aRows = a.querySelectorAll('input[type="checkbox"], [role="checkbox"]').length;
         const bRows = b.querySelectorAll('input[type="checkbox"], [role="checkbox"]').length;
-        return ((bRows * 1000000) + bRange) - ((aRows * 1000000) + aRange);
+        const aArea = (a.getBoundingClientRect?.().width || 0) * (a.getBoundingClientRect?.().height || 0);
+        const bArea = (b.getBoundingClientRect?.().width || 0) * (b.getBoundingClientRect?.().height || 0);
+        return ((bRows * 1000000) + (bRange * 1000) + bArea) - ((aRows * 1000000) + (aRange * 1000) + aArea);
       });
 
     const result = unique.slice(0, 6).map((element, index) => makeElementScroller(element, `element-${index + 1}`));
@@ -2856,7 +2891,14 @@
         scanState.allRows.add(signature);
         newlySeen += 1;
       }
-      if (!priceEndsIn99(priceInput.value)) continue;
+      const itemId = signature.startsWith("item:") ? signature.slice(5) : "";
+      if (!move99QualifiesByMode({ price: priceInput.value }, itemId)) {
+        if (controlChecked(checkbox)) {
+          try { row.scrollIntoView?.({ block: "nearest", inline: "nearest", behavior: "auto" }); } catch (_) {}
+          clickElement(checkbox);
+        }
+        continue;
+      }
       if (!scanState.qualifyingRows.has(signature)) {
         scanState.qualifyingRows.add(signature);
         newlyQualified += 1;
@@ -2999,21 +3041,55 @@
     return { scanState, scrollerKinds: triedKinds, iterations: totalCycles };
   }
 
+  async function clearBulkEditorSelections() {
+    for (let attempt = 1; attempt <= 4; attempt += 1) {
+      const current = bulkEditorSelectionProgress();
+      if (!current.selected) return true;
+      const selectAll = bulkEditorSelectAllControl();
+      if (!selectAll?.target && !selectAll?.control) break;
+      renderStatus(`Clearing ${current.selected.toLocaleString()} pre-selected Bulk Edit rows before scanning...`, "ready");
+      for (const target of bulkSelectAllClickTargets(selectAll)) {
+        clickElement(target);
+        const cleared = await U.waitFor(() => bulkEditorSelectionProgress().selected === 0, 2500, 150);
+        if (cleared) return true;
+      }
+      await settleVirtualRows(350);
+    }
+    const current = bulkEditorSelectionProgress();
+    if (current.selected) {
+      throw new Error(`Safety stop: eBay opened Bulk Edit with ${current.selected} rows pre-selected, and I could not clear them before scanning.`);
+    }
+    return true;
+  }
+
   async function selectAll99Listings() {
     const processed = await U.waitFor(() => {
       const progress = parseProcessedProgress();
-      return progress && progress.total > 0 && progress.processed >= progress.total ? progress : null;
+      if (progress && progress.total > 0 && progress.processed >= progress.total) return progress;
+      const selection = bulkEditorSelectionProgress();
+      const rowCount = renderedBulkRows({ visibleOnly: true }).length || renderedBulkRows().length;
+      if (selection.total > 0 && rowCount > 0) {
+        return { processed: selection.total, total: selection.total, source: "selection-summary" };
+      }
+      return null;
     }, 180000, 500);
     if (!processed) throw new Error("eBay Bulk Edit did not finish processing all filtered listings.");
 
     renderStatus(`Preparing to scan all ${processed.total.toLocaleString()} Bulk Edit rows…`, "ready");
+    await clearBulkEditorSelections();
     const { scanState, scrollerKinds } = await scanVirtualizedBulkRows(processed.total);
 
     const selectedText = document.body?.innerText || "";
     const selectedMatch = selectedText.match(/([\d,]+)\s+of\s+[\d,]+\s+item\(s\) selected/i);
     const uiSelected = selectedMatch ? Number(selectedMatch[1].replace(/,/g, "")) : 0;
-    const qualifyingCount = Math.max(scanState.qualifyingRows.size, uiSelected);
+    const qualifyingCount = scanState.qualifyingRows.size;
     const scannedRows = scanState.allRows.size;
+
+    if (uiSelected !== qualifyingCount) {
+      throw new Error(
+        `Safety stop: Bulk Edit shows ${uiSelected.toLocaleString()} selected rows, but the ${move99WorkflowLabel()} scan found ${qualifyingCount.toLocaleString()} qualifying rows. No category changes were attempted.`
+      );
+    }
 
     const minimumExpected = Math.min(processed.total, Math.max(50, Math.floor(processed.total * 0.92)));
     if (processed.total >= 50 && scannedRows < minimumExpected) {
@@ -3029,6 +3105,18 @@
       scannedRows,
       scrollerKind: scrollerKinds.join(", ") || "document"
     };
+  }
+
+  async function ensureBulkSelectionMatchesScan(expectedCount) {
+    const selection = await U.waitFor(() => {
+      const current = bulkEditorSelectionProgress();
+      return current.selected === expectedCount ? current : null;
+    }, 12000, 250);
+    if (!selection) {
+      const current = bulkEditorSelectionProgress();
+      throw new Error(`Safety stop: Bulk Edit selected ${current.selected} listings, but the scan found ${expectedCount}. No category changes were attempted.`);
+    }
+    return selection;
   }
 
   function showMove99Confirmation(summary) {
@@ -3183,6 +3271,47 @@
     return "";
   }
 
+  function categoryEditorDiagnostic(dialog) {
+    const visibleText = String(dialog?.innerText || dialog?.textContent || document.body?.innerText || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 1800);
+    const headings = queryAllDeep('h1, h2, h3, h4, [role="heading"]', dialog || document)
+      .filter(U.isVisible)
+      .map((element) => normalizedElementText(element))
+      .filter(Boolean)
+      .slice(0, 20);
+    const buttons = queryAllDeep('button, [role="button"], [role="menuitem"], [role="option"]', dialog || document)
+      .filter(U.isVisible)
+      .map((element) => normalizedElementText(element))
+      .filter(Boolean)
+      .slice(0, 30);
+    return JSON.stringify({
+      url: location.href,
+      headings,
+      buttons,
+      text: visibleText
+    });
+  }
+
+  async function recordMove99Diagnostic(message, dialog = null) {
+    const detail = categoryEditorDiagnostic(dialog);
+    try {
+      await runtimeMessage({
+        type: "recordExtensionLog",
+        entry: {
+          source: "move99",
+          level: "error",
+          message,
+          detail,
+          page: location.href
+        }
+      });
+    } catch (_) {
+      U.recordExtensionLog?.({ source: "move99", level: "error", message, detail });
+    }
+  }
+
   async function waitForCategoryEditorReady(timeoutMs = 120000) {
     const openedAt = Date.now();
     let dialog = null;
@@ -3200,8 +3329,10 @@
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
     if (dialog) {
+      await recordMove99Diagnostic("Move .99 could not verify the Store category editor inside eBay Category.", dialog);
       throw new Error("eBay's Category editor was still loading after 2 minutes. The selected batch was not changed. Close the Category window and retry.");
     }
+    await recordMove99Diagnostic("Move .99 clicked Bulk edit > Category, but no Category dialog appeared.");
     throw new Error("The Category editor did not open. The selected batch was not changed.");
   }
 
@@ -3314,12 +3445,18 @@
     const storeTop = storeHeading.getBoundingClientRect().top;
     const primary = findTextBetweenY("Primary category", storeTop, window.innerHeight, categoryDialog)
       || findExactTextDeep("Primary category", categoryDialog);
-    if (!primary) throw new Error("The Store category editor loaded, but its Primary category section was not found.");
+    if (!primary) {
+      await recordMove99Diagnostic("Move .99 found Store category text, but no Primary category section.", categoryDialog);
+      throw new Error("The Store category editor loaded, but its Primary category section was not found.");
+    }
     const primaryTop = primary.getBoundingClientRect().top;
     const secondary = findTextBetweenY("Secondary category", primaryTop + 1, window.innerHeight, categoryDialog);
     const maxY = secondary ? secondary.getBoundingClientRect().top - 1 : Math.min(window.innerHeight, primaryTop + 260);
     const changeTo = findTextBetweenY("Change to", primaryTop, maxY, categoryDialog);
-    if (!changeTo) throw new Error("The Primary Store category Change to option was not found.");
+    if (!changeTo) {
+      await recordMove99Diagnostic("Move .99 found Primary category, but no Change to option.", categoryDialog);
+      throw new Error("The Primary Store category Change to option was not found.");
+    }
     clickDeepText(changeTo);
 
     let picker = await U.waitFor(() => findPickerContainingDestination(), 2500, 150);
@@ -3331,7 +3468,10 @@
       await openSelectedStoreCategoryChooser(categoryDialog, primaryTop, maxY);
       picker = await U.waitFor(() => findPickerContainingDestination(), 30000, 250);
     }
-    if (!picker && !alreadySelected) throw new Error("The Store category picker did not open.");
+    if (!picker && !alreadySelected) {
+      await recordMove99Diagnostic("Move .99 could not open the Store category picker.", categoryDialog);
+      throw new Error("The Store category picker did not open.");
+    }
     if (picker) {
       const destination = queryAllDeep('label, span, div, li, [role="option"], [role="radio"], button', picker)
         .filter(U.isVisible)
@@ -3341,7 +3481,10 @@
           const br = b.getBoundingClientRect();
           return (ar.width * ar.height) - (br.width * br.height);
       })[0] || null;
-      if (!destination) throw new Error(`The destination category “${MOVE99_DESTINATION_CATEGORY}” was not found.`);
+      if (!destination) {
+        await recordMove99Diagnostic(`Move .99 Store category picker did not contain ${MOVE99_DESTINATION_CATEGORY}.`, picker);
+        throw new Error(`The destination category “${MOVE99_DESTINATION_CATEGORY}” was not found.`);
+      }
       clickDeepText(destination);
 
       const selected = await U.waitFor(() => {
@@ -4634,6 +4777,9 @@
       });
       runMove99Automation();
     });
+    if (!completed && state.autoApply) {
+      setTimeout(() => overlay.querySelector("[data-action='apply']")?.click(), 600);
+    }
   }
 
   function bulkEditorSelectionProgress() {
@@ -4841,7 +4987,7 @@
     move99Running = true;
     try {
       const stored = await storageGet(["pendingMove99Run", "computerLabel", "ebayAccountLabel"]);
-      applyMove99AccountConfig(stored.pendingMove99Run?.ebayAccountLabel || stored.ebayAccountLabel || "");
+      await applyMove99AccountConfig(stored.pendingMove99Run?.ebayAccountLabel || stored.ebayAccountLabel || "");
       const state = stored.pendingMove99Run;
       MOVE99_SCAN_MODE = state?.scanMode === "non99" ? "non99" : "price99";
       if (state?.sourceCategories?.length) MOVE99_SOURCE_CATEGORIES = asStringArray(state.sourceCategories);
@@ -4860,6 +5006,12 @@
         if (filteredCount === 0) {
           await saveMove99Result({ status: "Completed", filteredCount: 0, qualifyingCount: 0 });
           renderStatus("No listings found in the source categories.", "completed");
+          return;
+        }
+        if (state.useEditAllBulkScan) {
+          const filteredUrl = location.href;
+          renderStatus(`Opening Edit all for ${filteredCount.toLocaleString()} filtered listings...`, "ready");
+          await openAllFilteredListingsInBulkEditor(filteredCount, { ...state, filteredUrl });
           return;
         }
         const filteredUrl = location.href;
@@ -5033,12 +5185,45 @@
         return;
       }
 
+      if (state.phase === "bulk-editor-scan") {
+        if (!isMove99BulkEditorPage()) return;
+        renderStatus(`Scanning Edit all Bulk Edit rows for ${move99FoundLabel()}...`, "ready");
+        const summary = await selectAll99Listings();
+        if (!summary.qualifyingCount) {
+          await saveMove99Result({
+            status: "Completed",
+            filteredCount: summary.processedTotal,
+            qualifyingCount: 0,
+            scannedRows: summary.scannedRows
+          });
+          renderStatus(`Bulk Edit scan complete - no ${move99FoundLabel()}.`, "completed");
+          return;
+        }
+        await ensureBulkSelectionMatchesScan(summary.qualifyingCount);
+        const nextState = {
+          ...state,
+          active: true,
+          confirmed: true,
+          phase: "bulk-editor",
+          selectionSource: "bulk-editor-scan",
+          currentBatchCount: summary.qualifyingCount,
+          currentBatchIds: [],
+          bulkScanSummary: summary
+        };
+        await storageSet({ pendingMove99Run: nextState });
+        renderStatus(`Changing Store category for ${summary.qualifyingCount.toLocaleString()} scanned Bulk Edit rows...`, "ready");
+        const categoryUpdate = await choosePrimaryStoreCategory(summary.qualifyingCount);
+        await pauseMove99AtReviewScreen(categoryUpdate, nextState, summary.qualifyingCount);
+        return;
+      }
+
       if (state.phase === "bulk-editor") {
         if (!isMove99BulkEditorPage()) return;
         const batchCount = Number(state.currentBatchCount || state.currentBatchIds?.length || 0);
         if (!batchCount) throw new Error("The selected batch information was lost. Restart Move .99 Listings.");
         renderStatus(`Verifying the ${batchCount}-listing Bulk Edit batch…`, "ready");
-        await ensureBulkWorkspaceMatchesBatch(batchCount);
+        if (state.selectionSource === "bulk-editor-scan") await ensureBulkSelectionMatchesScan(batchCount);
+        else await ensureBulkWorkspaceMatchesBatch(batchCount);
         renderStatus("Changing the primary Store category for this batch…", "ready");
         const categoryUpdate = await choosePrimaryStoreCategory(batchCount);
         await pauseMove99AtReviewScreen(categoryUpdate, state, batchCount);
@@ -5149,7 +5334,7 @@
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
-        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.20</span></div>
+        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.24</span></div>
         <div class="gldn-drag-grip" aria-hidden="true">⋮⋮</div>
       </div>
       <div class="gldn-panel-identity"></div>

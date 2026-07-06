@@ -346,7 +346,9 @@ function syncTasksSellerMetrics_(record) {
 
   const parentRow = findTaskRowByContains_(sheet, 'Check Performance of Each Store and Check Late Shipment Rate');
   if (parentRow && updates.length === 4) {
-    sheet.getRange(parentRow, computerCol).setValue(true);
+    const parentCell = sheet.getRange(parentRow, computerCol);
+    parentCell.insertCheckboxes();
+    parentCell.setValue(true);
   }
 
   clearComputerHeaderNotes_(sheet);
@@ -412,7 +414,7 @@ function applyTasksMetricAlerts_(sheet) {
 
   applyTasksMetricRow_(sheet, transactionRow, (value) => parseTaskPercent_(value) > 0);
   applyTasksMetricRow_(sheet, lateRow, (value) => parseTaskPercent_(value) > 1.5);
-  applyTasksMetricRow_(sheet, trackingRow, (value) => parseTaskPercent_(value) < 90);
+  applyTasksMetricRow_(sheet, trackingRow, (value) => parseTaskPercent_(value) < 85);
   applyTasksMetricRow_(sheet, casesRow, (value) => parseTaskPercent_(value) > 0);
 }
 
