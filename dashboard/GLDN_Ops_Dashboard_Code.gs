@@ -317,6 +317,8 @@ function syncTasksSellerMetrics_(record) {
   const sheet = ss.getSheetByName(TASKS_SHEET);
   if (!sheet) return;
 
+  const checkedAt = validDate_(record.savedAt || record.capturedAt || new Date());
+  const checkedNote = 'Last checked: ' + Utilities.formatDate(checkedAt, Session.getScriptTimeZone(), 'MM/dd/yyyy hh:mm:ss a');
   const computerCol = findComputerColumn_(sheet, record.computerLabel);
   if (!computerCol) return;
   if (!isEbayMetricColumn_(sheet, computerCol)) return;
@@ -341,14 +343,14 @@ function syncTasksSellerMetrics_(record) {
     const cell = sheet.getRange(row, computerCol);
     cell.setValue(value);
     cell.setNumberFormat('0.00%');
-    cell.clearNote();
+    cell.setNote(checkedNote);
   });
 
   const parentRow = findTaskRowByContains_(sheet, 'Check Performance of Each Store and Check Late Shipment Rate');
   if (parentRow && updates.length === 4) {
     const parentCell = sheet.getRange(parentRow, computerCol);
     parentCell.insertCheckboxes();
-    parentCell.setValue(true);
+    parentCell.setValue(true).setNote(checkedNote);
   }
 
   clearComputerHeaderNotes_(sheet);
