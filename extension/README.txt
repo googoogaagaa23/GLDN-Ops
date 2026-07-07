@@ -1,4 +1,10 @@
-GLDN Ops v3.4.24
+GLDN Ops v3.4.25
+
+v3.4.25 seller metrics and computer mapping:
+- Seller Level scan reads metrics even when eBay renders the Seller Level box below the visible page area.
+- Tracking uploaded on time warns below 85%, matching the Tasks sheet rule.
+- Computer selection now derives the eBay account automatically.
+- Computer 7 is FarPosh / Poshmark-only, so eBay-only workflows are blocked for it.
 
 v3.4.24 internal Non-.99 cleanup starter:
 - Adds `start-move99.html?mode=non99` for live cleanup diagnostics.

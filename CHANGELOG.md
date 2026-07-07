@@ -2,6 +2,13 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.4.25 - 2026-07-06
+
+### Fixed
+- Seller Level scan now reads the eBay Seller Level box even when it is below the visible part of the page.
+- Tracking uploaded on time is only warning below 85%.
+- Computer selection now controls the eBay account automatically, and computer 7 is treated as FarPosh / Poshmark-only.
+
 ## v3.4.24 - 2026-07-05
 
 ### Added

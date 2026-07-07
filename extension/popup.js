@@ -31,8 +31,16 @@ function cleanConfigValue(value) {
 const BUILTIN_DASHBOARD_URL = cleanConfigValue(globalThis.GLDN_CONFIG?.dashboardUrl);
 const BUILTIN_DASHBOARD_KEY = cleanConfigValue(globalThis.GLDN_CONFIG?.dashboardKey);
 
-const COMPUTER_OPTIONS = ['0', '2', 'M0', '6', 'M1'];
-const EBAY_ACCOUNT_OPTIONS = ['FAK12', 'CLICKNCARRY', 'FINTIME', 'FANCYFI', 'HEARTSTONE'];
+const COMPUTER_ACCOUNT_MAP = Object.freeze({
+  M0: { ebayAccountLabel: 'CLICKNCARRY', display: 'M0 - ClickNCarry' },
+  '6': { ebayAccountLabel: 'FINTIME', display: '6 - Fintime' },
+  '0': { ebayAccountLabel: 'FAK12', display: '0 - FAK12' },
+  M1: { ebayAccountLabel: 'HEARTSTONE', display: 'M1 - Heartstone' },
+  '2': { ebayAccountLabel: 'FANCYFI', display: '2 - FancyFi' },
+  '7': { ebayAccountLabel: '', display: '7 - FarPosh', poshmarkOnly: true }
+});
+const COMPUTER_OPTIONS = Object.keys(COMPUTER_ACCOUNT_MAP);
+const EBAY_ACCOUNT_OPTIONS = Object.values(COMPUTER_ACCOUNT_MAP).map((entry) => entry.ebayAccountLabel).filter(Boolean);
 const STORE_PLAN_LIMITS = { Premium: 10000, Anchor: 25000 };
 
 function normalizeComputer(value) {
@@ -40,9 +48,25 @@ function normalizeComputer(value) {
   return COMPUTER_OPTIONS.find((option) => option.toLowerCase() === cleaned) || '0';
 }
 
+function accountForComputer(value) {
+  const computer = normalizeComputer(value);
+  return COMPUTER_ACCOUNT_MAP[computer] || COMPUTER_ACCOUNT_MAP['0'];
+}
+
 function normalizeEbayAccount(value) {
   const cleaned = String(value || '').trim().toLowerCase();
   return EBAY_ACCOUNT_OPTIONS.find((option) => option.toLowerCase() === cleaned) || 'FAK12';
+}
+
+function selectedComputerAccount() {
+  const computerLabel = normalizeComputer(computerInput.value);
+  const account = accountForComputer(computerLabel);
+  return { computerLabel, ebayAccountLabel: account.ebayAccountLabel, poshmarkOnly: Boolean(account.poshmarkOnly) };
+}
+
+function syncDerivedEbayInput() {
+  const account = accountForComputer(computerInput.value);
+  ebayInput.value = account.poshmarkOnly ? 'FarPosh - Poshmark only' : account.ebayAccountLabel;
 }
 
 function csvToArray(value) {
@@ -379,11 +403,12 @@ function refresh() {
     'gldnErrorLog'
   ], (result) => {
     const computer = normalizeComputer(result.computerLabel);
-    const ebay = normalizeEbayAccount(result.ebayAccountLabel);
+    const mapped = accountForComputer(computer);
+    const ebay = mapped.ebayAccountLabel || '';
     const amazon = (result.amazonProfileLabel || '').trim();
 
     computerInput.value = computer;
-    ebayInput.value = ebay;
+    syncDerivedEbayInput();
     amazonInput.value = amazon;
     const opacity = Number(result.gldnUiOpacity || globalThis.GLDN_CONFIG?.defaultUiOpacity || 75);
     const theme = String(result.gldnUiTheme || globalThis.GLDN_CONFIG?.defaultUiTheme || 'dark').toLowerCase() === 'light' ? 'light' : 'dark';
@@ -393,7 +418,7 @@ function refresh() {
     document.documentElement.dataset.theme = theme;
 
     document.getElementById('currentComputer').textContent = computer || 'Not set';
-    document.getElementById('currentEbay').textContent = ebay || 'Not set';
+    document.getElementById('currentEbay').textContent = ebay || 'Poshmark only';
     document.getElementById('currentAmazon').textContent = amazon || 'Not set';
     renderMove99Settings(result.move99AccountSettings || {}, ebay);
 
@@ -417,34 +442,36 @@ monthlyDollarPresetInput.addEventListener('change', () => {
 });
 
 document.getElementById('saveIdentity').addEventListener('click', () => {
-  const computerLabel = computerInput.value.trim();
-  const ebayAccountLabel = ebayInput.value.trim();
-  if (!computerLabel || !ebayAccountLabel) {
-    setMessage('Enter both the computer and eBay account labels.', true);
+  const { computerLabel, ebayAccountLabel, poshmarkOnly } = selectedComputerAccount();
+  if (!computerLabel) {
+    setMessage('Choose the computer first.', true);
     return;
   }
   chrome.storage.local.set({ computerLabel, ebayAccountLabel }, () => {
     document.getElementById('currentComputer').textContent = computerLabel;
-    document.getElementById('currentEbay').textContent = ebayAccountLabel;
-    setMessage('Computer and eBay account saved.');
+    document.getElementById('currentEbay').textContent = poshmarkOnly ? 'Poshmark only' : ebayAccountLabel;
+    setMessage(poshmarkOnly ? 'Computer saved as Poshmark-only.' : `Computer saved. eBay account is ${ebayAccountLabel}.`);
   });
 });
 
-ebayInput.addEventListener('change', () => {
+computerInput.addEventListener('change', () => {
+  syncDerivedEbayInput();
   chrome.storage.local.get(['move99AccountSettings'], (result) => {
-    renderMove99Settings(result.move99AccountSettings || {}, normalizeEbayAccount(ebayInput.value));
+    const account = selectedComputerAccount();
+    renderMove99Settings(result.move99AccountSettings || {}, account.ebayAccountLabel || 'FAK12');
   });
 });
 
 document.getElementById('saveMove99Categories').addEventListener('click', () => {
-  const account = normalizeEbayAccount(ebayInput.value);
+  const selected = selectedComputerAccount();
+  const account = selected.ebayAccountLabel;
   const sourceCategories = csvToArray(move99SourceCategoriesInput.value);
   const destinationCategory = move99DestinationCategoryInput.value.trim();
   const sourceStoreCategoryIds = csvToArray(move99SourceCategoryIdsInput.value);
   const backburnerItemIds = csvToArray(move99BackburnerIdsInput.value);
 
   if (!account) {
-    setMessage('Choose the eBay account first.', true);
+    setMessage('Computer 7 is Poshmark-only and does not have .99 eBay categories.', true);
     return;
   }
   if (!sourceCategories.length || !destinationCategory) {
@@ -471,7 +498,12 @@ document.getElementById('openNon99Workflow').addEventListener('click', () => {
 });
 
 function startMove99Workflow(scanMode) {
-  const account = normalizeEbayAccount(ebayInput.value);
+  const selected = selectedComputerAccount();
+  const account = selected.ebayAccountLabel;
+  if (!account) {
+    setMessage('Computer 7 is Poshmark-only. Move .99 is disabled for it.', true);
+    return;
+  }
   chrome.storage.local.get(['move99AccountSettings'], (result) => {
     const settings = currentMove99SettingsForAccount(account, result.move99AccountSettings || {});
     if (!settings.sourceCategories?.length || !settings.destinationCategory) {
@@ -550,8 +582,7 @@ async function saveLimits() {
   const monthlySellerDollarLimit = monthlyDollarPresetInput.value === 'custom'
     ? numberOrNull(monthlyDollarInput.value)
     : numberOrNull(monthlyDollarPresetInput.value);
-  const computerLabel = computerInput.value.trim();
-  const ebayAccountLabel = ebayInput.value.trim();
+  const { computerLabel, ebayAccountLabel } = selectedComputerAccount();
 
   if (!storePlan) {
     setMessage('Choose the Store subscription.', true);
@@ -562,7 +593,7 @@ async function saveLimits() {
     return;
   }
   if (!computerLabel || !ebayAccountLabel) {
-    setMessage('Save the computer and eBay account first.', true);
+    setMessage('This computer is Poshmark-only. Listing limit checks require an eBay computer.', true);
     return;
   }
 

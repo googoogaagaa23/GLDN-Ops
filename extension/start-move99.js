@@ -1,10 +1,28 @@
 const statusElement = document.getElementById('status');
 
-const EBAY_ACCOUNT_OPTIONS = ['FAK12', 'CLICKNCARRY', 'FINTIME', 'FANCYFI', 'HEARTSTONE'];
+const COMPUTER_ACCOUNT_MAP = Object.freeze({
+  M0: { ebayAccountLabel: 'CLICKNCARRY' },
+  '6': { ebayAccountLabel: 'FINTIME' },
+  '0': { ebayAccountLabel: 'FAK12' },
+  M1: { ebayAccountLabel: 'HEARTSTONE' },
+  '2': { ebayAccountLabel: 'FANCYFI' },
+  '7': { ebayAccountLabel: '', poshmarkOnly: true }
+});
+const EBAY_ACCOUNT_OPTIONS = Object.values(COMPUTER_ACCOUNT_MAP).map((entry) => entry.ebayAccountLabel).filter(Boolean);
 
 function normalizeEbayAccount(value) {
   const cleaned = String(value || '').trim().toLowerCase();
   return EBAY_ACCOUNT_OPTIONS.find((option) => option.toLowerCase() === cleaned) || 'FAK12';
+}
+
+function normalizeComputer(value) {
+  const cleaned = String(value || '').trim().toLowerCase().replace(/^comp\s*/, '');
+  return Object.keys(COMPUTER_ACCOUNT_MAP).find((option) => option.toLowerCase() === cleaned) || '0';
+}
+
+function accountForComputer(value) {
+  const computer = normalizeComputer(value);
+  return COMPUTER_ACCOUNT_MAP[computer] || COMPUTER_ACCOUNT_MAP['0'];
 }
 
 function asArray(value) {
@@ -38,8 +56,12 @@ function configuredAccount(account) {
 async function start() {
   const params = new URLSearchParams(location.search);
   const scanMode = params.get('mode') === 'non99' ? 'non99' : 'price99';
-  const stored = await getStorage(['ebayAccountLabel', 'move99AccountSettings']);
-  const account = normalizeEbayAccount(stored.ebayAccountLabel);
+  const stored = await getStorage(['computerLabel', 'ebayAccountLabel', 'move99AccountSettings']);
+  const mapped = accountForComputer(stored.computerLabel);
+  if (!mapped.ebayAccountLabel) {
+    throw new Error('Computer 7 is Poshmark-only. Move .99 is disabled for it.');
+  }
+  const account = normalizeEbayAccount(mapped.ebayAccountLabel || stored.ebayAccountLabel);
   const configured = configuredAccount(account);
   const saved = stored.move99AccountSettings?.[account] || {};
   const settings = {

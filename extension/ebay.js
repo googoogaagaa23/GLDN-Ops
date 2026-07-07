@@ -15,8 +15,16 @@
   const SELLER_HUB_OVERVIEW_URL = "https://www.ebay.com/sh/ovw";
   const ACTIVE_LISTINGS_URL = "https://www.ebay.com/sh/lst/active";
   const PRUNE_THRESHOLD = 0.95;
-  const COMPUTER_OPTIONS = ["0", "2", "M0", "6", "M1"];
-  const EBAY_ACCOUNT_OPTIONS = ["FAK12", "CLICKNCARRY", "FINTIME", "FANCYFI", "HEARTSTONE"];
+  const COMPUTER_ACCOUNT_MAP = Object.freeze({
+    M0: { ebayAccountLabel: "CLICKNCARRY", display: "M0 - ClickNCarry" },
+    "6": { ebayAccountLabel: "FINTIME", display: "6 - Fintime" },
+    "0": { ebayAccountLabel: "FAK12", display: "0 - FAK12" },
+    M1: { ebayAccountLabel: "HEARTSTONE", display: "M1 - Heartstone" },
+    "2": { ebayAccountLabel: "FANCYFI", display: "2 - FancyFi" },
+    "7": { ebayAccountLabel: "", display: "7 - FarPosh", poshmarkOnly: true }
+  });
+  const COMPUTER_OPTIONS = Object.keys(COMPUTER_ACCOUNT_MAP);
+  const EBAY_ACCOUNT_OPTIONS = Object.values(COMPUTER_ACCOUNT_MAP).map((entry) => entry.ebayAccountLabel).filter(Boolean);
   const STORE_PLAN_LIMITS = { Premium: 10000, Anchor: 25000 };
   const DEFAULT_DOLLAR_LIMIT = 1000000;
 
@@ -1019,9 +1027,16 @@
     return source;
   }
 
+  function isRenderedAnywhere(element) {
+    if (!element || !(element instanceof Element)) return false;
+    const style = getComputedStyle(element);
+    if (style.visibility === "hidden" || style.display === "none" || Number(style.opacity) === 0) return false;
+    return [...element.getClientRects()].some((rect) => rect.width > 0 && rect.height > 0);
+  }
+
   function findMetricElement(labelPattern) {
     const candidates = [...document.querySelectorAll("body *")]
-      .filter((element) => U.isVisible(element))
+      .filter((element) => isRenderedAnywhere(element))
       .map((element) => ({
         element,
         text: cleanLine(element.innerText || element.textContent || "")
@@ -1043,7 +1058,7 @@
 
     const candidateTexts = [];
     const addCandidate = (node) => {
-      if (!node || !(node instanceof Element) || !U.isVisible(node)) return;
+      if (!node || !(node instanceof Element) || !isRenderedAnywhere(node)) return;
       const text = cleanLine(node.innerText || node.textContent || "");
       if (!text || candidateTexts.includes(text)) return;
       candidateTexts.push(text);
@@ -1136,7 +1151,7 @@
     }
     if (metric === "trackingOnTime") {
       if (number < 80) return "critical";
-      if (number < 84) return "warning";
+      if (number < 85) return "warning";
       return "good";
     }
     if (metric === "casesClosed") return number > 0 ? "critical" : "good";
@@ -1162,9 +1177,35 @@
     return COMPUTER_OPTIONS.find((option) => option.toLowerCase() === cleaned) || "0";
   }
 
+  function accountForComputer(value) {
+    const computer = normalizedComputer(value);
+    return COMPUTER_ACCOUNT_MAP[computer] || COMPUTER_ACCOUNT_MAP["0"];
+  }
+
+  function normalizedIdentity(computerValue, accountValue = "") {
+    const computerLabel = normalizedComputer(computerValue);
+    const mapped = accountForComputer(computerLabel);
+    return {
+      computerLabel,
+      ebayAccountLabel: mapped.ebayAccountLabel || "",
+      poshmarkOnly: Boolean(mapped.poshmarkOnly),
+      display: mapped.display,
+      storedAccountMismatch: Boolean(accountValue && mapped.ebayAccountLabel && normalizedEbayAccount(accountValue) !== mapped.ebayAccountLabel)
+    };
+  }
+
   function normalizedEbayAccount(value) {
     const cleaned = String(value || "").trim().toLowerCase();
     return EBAY_ACCOUNT_OPTIONS.find((option) => option.toLowerCase() === cleaned) || "FAK12";
+  }
+
+  function derivedAccountField(label, id, identity) {
+    const value = identity.poshmarkOnly ? "Poshmark only" : identity.ebayAccountLabel;
+    return `
+      <div class="gldn-health-field">
+        <label class="gldn-label" for="${id}">${escapeHtml(label)}</label>
+        <input id="${id}" class="gldn-text-input" value="${escapeHtml(value)}" readonly>
+      </div>`;
   }
 
   function normalizedStorePlan(plan, limit) {
@@ -1240,6 +1281,7 @@
   }
 
   function showHealthPreview(metrics) {
+    const initialIdentity = normalizedIdentity(metrics.computerLabel, metrics.ebayAccountLabel);
     document.getElementById("gldn-health-preview")?.remove();
     const overlay = document.createElement("div");
     overlay.id = "gldn-health-preview";
@@ -1250,8 +1292,8 @@
         <h2>Review Seller Level</h2>
         <p class="gldn-help-text">The values below come only from eBay's Seller level box. Correct anything before saving.</p>
         <div class="gldn-health-grid gldn-identity-grid">
-          ${selectField("Computer", "gldn-health-computer", normalizedComputer(metrics.computerLabel), COMPUTER_OPTIONS)}
-          ${selectField("eBay account", "gldn-health-ebay-account", normalizedEbayAccount(metrics.ebayAccountLabel), EBAY_ACCOUNT_OPTIONS)}
+          ${selectField("Computer", "gldn-health-computer", initialIdentity.computerLabel, COMPUTER_OPTIONS)}
+          ${derivedAccountField("eBay account", "gldn-health-ebay-account", initialIdentity)}
         </div>
         <div class="gldn-health-grid">
           ${healthField("Current seller level", "gldn-health-current-level", metrics.currentSellerLevel)}
@@ -1271,6 +1313,12 @@
       </div>`;
     document.documentElement.appendChild(overlay);
     makeReviewModalDraggable(overlay);
+    const computerSelect = overlay.querySelector("#gldn-health-computer");
+    const accountInput = overlay.querySelector("#gldn-health-ebay-account");
+    computerSelect.addEventListener("change", () => {
+      const identity = normalizedIdentity(computerSelect.value);
+      accountInput.value = identity.poshmarkOnly ? "Poshmark only" : identity.ebayAccountLabel;
+    });
 
     const close = () => overlay.remove();
     overlay.querySelector(".gldn-close").addEventListener("click", close);
@@ -1278,16 +1326,15 @@
     overlay.querySelector("[data-action='save-health']").addEventListener("click", async () => {
       const read = (id) => overlay.querySelector(id).value.trim();
       const parseOptionalNumber = (value) => value === "" ? null : Number.parseFloat(value.replace(/[^0-9.-]/g, ""));
-      const computerLabel = read("#gldn-health-computer");
-      const ebayAccountLabel = read("#gldn-health-ebay-account");
-      if (!computerLabel || !ebayAccountLabel) {
-        overlay.querySelector(".gldn-modal-status").textContent = "Enter both the computer and eBay account before saving.";
+      const identity = normalizedIdentity(read("#gldn-health-computer"));
+      if (!identity.computerLabel || !identity.ebayAccountLabel) {
+        overlay.querySelector(".gldn-modal-status").textContent = "This computer is Poshmark-only. Seller Level checks require an eBay computer.";
         return;
       }
       const record = {
         ...metrics,
-        computerLabel,
-        ebayAccountLabel,
+        computerLabel: identity.computerLabel,
+        ebayAccountLabel: identity.ebayAccountLabel,
         currentSellerLevel: read("#gldn-health-current-level"),
         evaluatedToday: read("#gldn-health-evaluated-today"),
         transactionDefectRate: parseOptionalNumber(read("#gldn-health-defect")),
@@ -1309,8 +1356,8 @@
       const history = Array.isArray(result.accountHealthHistory) ? result.accountHealthHistory : [];
       history.push(record);
       await storageSet({
-        computerLabel,
-        ebayAccountLabel,
+        computerLabel: identity.computerLabel,
+        ebayAccountLabel: identity.ebayAccountLabel,
         latestAccountHealth: record,
         accountHealthHistory: history.slice(-1000)
       });
@@ -1336,9 +1383,10 @@
   }
 
   async function scanHealthPage() {
-    const identity = await storageGet(["computerLabel", "ebayAccountLabel"]);
+    const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel"]);
+    const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
     if (!identity.computerLabel || !identity.ebayAccountLabel) {
-      alert("Set the Computer and eBay account in the extension popup first.");
+      alert("This computer is Poshmark-only or is not configured. Seller Level checks require an eBay computer.");
       await storageSet({ pendingSellerLevelScan: false });
       return;
     }
@@ -1685,9 +1733,10 @@
 
   async function startMarkShipped() {
     await storageSet({ gldnStopRequested: false });
-    const identity = await storageGet(["computerLabel", "ebayAccountLabel"]);
+    const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel"]);
+    const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
     if (!identity.computerLabel || !identity.ebayAccountLabel) {
-      alert("Set the Computer and eBay account in the extension popup first.");
+      alert("This computer is Poshmark-only or is not configured. Mark as Shipped requires an eBay computer.");
       return;
     }
     await storageSet({
@@ -1887,6 +1936,7 @@
       "computerLabel", "ebayAccountLabel", "storePlan", "freeFixedPriceLimit",
       "monthlySellerQuantityLimit", "monthlySellerDollarLimit", "limitsConfirmedMonth"
     ]);
+    const initialIdentity = normalizedIdentity(stored.computerLabel, stored.ebayAccountLabel);
     const detected = scanListingsOverview();
     if (activeSummary?.activeListings != null) detected.activeListings = activeSummary.activeListings;
     detected.inStockQuantity = activeSummary?.inStockQuantity ?? null;
@@ -1908,8 +1958,8 @@
         <h2>Confirm Listings Under Limit</h2>
         <p class="gldn-help-text">This reads Active listings and the monthly dollar amount from Seller Hub Overview. Confirm the account's fixed limits once each month.</p>
         <div class="gldn-health-grid gldn-identity-grid">
-          ${selectField("Computer", "gldn-listings-computer", normalizedComputer(stored.computerLabel), COMPUTER_OPTIONS)}
-          ${selectField("eBay account", "gldn-listings-account", normalizedEbayAccount(stored.ebayAccountLabel), EBAY_ACCOUNT_OPTIONS)}
+          ${selectField("Computer", "gldn-listings-computer", initialIdentity.computerLabel, COMPUTER_OPTIONS)}
+          ${derivedAccountField("eBay account", "gldn-listings-account", initialIdentity)}
         </div>
         <div class="gldn-health-grid">
           ${selectField("Store subscription & listing limit", "gldn-listings-plan", storePlan, [
@@ -1952,6 +2002,8 @@
     makeReviewModalDraggable(overlay);
 
     const planSelect = overlay.querySelector("#gldn-listings-plan");
+    const computerSelect = overlay.querySelector("#gldn-listings-computer");
+    const accountInput = overlay.querySelector("#gldn-listings-account");
     const customListingWrap = overlay.querySelector("#gldn-custom-listing-wrap");
     const listingLimitInput = overlay.querySelector("#gldn-listings-limit");
     const dollarPreset = overlay.querySelector("#gldn-dollar-preset");
@@ -1962,6 +2014,10 @@
 
     const selectedListingLimit = () => STORE_PLAN_LIMITS[planSelect.value] ?? Number(listingLimitInput.value);
     const selectedDollarLimit = () => dollarPreset.value === "custom" ? Number(dollarLimitInput.value) : Number(dollarPreset.value);
+    computerSelect.addEventListener("change", () => {
+      const identity = normalizedIdentity(computerSelect.value);
+      accountInput.value = identity.poshmarkOnly ? "Poshmark only" : identity.ebayAccountLabel;
+    });
 
     const refreshUsage = () => {
       const active = parseNumericText(overlay.querySelector("#gldn-listings-active").value);
@@ -2012,8 +2068,7 @@
         const raw = read(id).replace(/[^0-9.-]/g, "");
         return raw === "" ? null : Number(raw);
       };
-      const computerLabel = read("#gldn-listings-computer");
-      const ebayAccountLabel = read("#gldn-listings-account");
+      const identity = normalizedIdentity(read("#gldn-listings-computer"));
       const selectedPlan = read("#gldn-listings-plan");
       const activeListings = number("#gldn-listings-active");
       const inStockQuantity = number("#gldn-listings-in-stock");
@@ -2023,8 +2078,8 @@
         ? number("#gldn-listings-dollar-limit")
         : Number(read("#gldn-dollar-preset"));
 
-      if (!computerLabel || !ebayAccountLabel || !selectedPlan || confirmedSubscriptionLimit == null || confirmedDollarLimit == null) {
-        overlay.querySelector(".gldn-modal-status").textContent = "Computer, eBay account, Store subscription, listing limit, and dollar limit are required.";
+      if (!identity.computerLabel || !identity.ebayAccountLabel || !selectedPlan || confirmedSubscriptionLimit == null || confirmedDollarLimit == null) {
+        overlay.querySelector(".gldn-modal-status").textContent = "This computer is Poshmark-only or the listing limits are incomplete. eBay listing checks require an eBay computer.";
         return;
       }
 
@@ -2037,8 +2092,8 @@
         : detectedLimitChanged ? "LIMIT CHANGED" : "GOOD";
 
       const record = {
-        computerLabel,
-        ebayAccountLabel,
+        computerLabel: identity.computerLabel,
+        ebayAccountLabel: identity.ebayAccountLabel,
         storePlan: selectedPlan,
         activeListings,
         inStockQuantity,
@@ -2066,8 +2121,8 @@
       const history = Array.isArray(previous.listingStatusHistory) ? previous.listingStatusHistory : [];
       history.push(record);
       await storageSet({
-        computerLabel,
-        ebayAccountLabel,
+        computerLabel: identity.computerLabel,
+        ebayAccountLabel: identity.ebayAccountLabel,
         storePlan: selectedPlan,
         freeFixedPriceLimit: confirmedSubscriptionLimit,
         monthlySellerQuantityLimit: record.monthlySellerQuantityLimit,
@@ -2089,9 +2144,13 @@
   }
 
   async function reviewMonthlyLimits() {
-    const identity = await storageGet(["computerLabel", "ebayAccountLabel", "pendingReviewMonthlyLimits"]);
+    const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel", "pendingReviewMonthlyLimits"]);
+    const identity = {
+      ...normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel),
+      pendingReviewMonthlyLimits: storedIdentity.pendingReviewMonthlyLimits
+    };
     if (!identity.computerLabel || !identity.ebayAccountLabel) {
-      alert("Set the Computer and eBay account in the extension popup first.");
+      alert("This computer is Poshmark-only or is not configured. Listing limit checks require an eBay computer.");
       await storageSet({ pendingReviewMonthlyLimits: false });
       return;
     }
@@ -5256,9 +5315,10 @@
 
   async function startMove99Listings() {
     await storageSet({ gldnStopRequested: false });
-    const identity = await storageGet(["computerLabel", "ebayAccountLabel"]);
+    const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel"]);
+    const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
     if (!identity.ebayAccountLabel) {
-      alert("Set the eBay account in the extension popup before using Move .99 Listings.");
+      alert("This computer is Poshmark-only or is not configured. Move .99 requires an eBay computer.");
       return;
     }
     const accountConfig = await applyMove99AccountConfig(identity.ebayAccountLabel);
@@ -5320,9 +5380,10 @@
 
   async function refreshPanelIdentity() {
     if (!panelIdentityElement) return;
-    const identity = await storageGet(["computerLabel", "ebayAccountLabel"]);
-    const computer = normalizedComputer(identity.computerLabel || "0");
-    const account = identity.ebayAccountLabel ? normalizedEbayAccount(identity.ebayAccountLabel) : "eBay account not set";
+    const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel"]);
+    const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
+    const computer = identity.computerLabel;
+    const account = identity.poshmarkOnly ? "Poshmark only" : identity.ebayAccountLabel || "eBay account not set";
     panelIdentityElement.innerHTML = `<span>Computer: <strong>${escapeHtml(computer)}</strong></span><span>eBay account: <strong>${escapeHtml(account)}</strong></span>`;
   }
 
@@ -5334,7 +5395,7 @@
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
-        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.24</span></div>
+        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.25</span></div>
         <div class="gldn-drag-grip" aria-hidden="true">⋮⋮</div>
       </div>
       <div class="gldn-panel-identity"></div>
