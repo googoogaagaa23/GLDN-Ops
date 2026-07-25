@@ -2,6 +2,14 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.10.1 - 2026-07-24
+
+- Fixed the real Windows PowerShell 5.1 installer path rejecting GitHub's UTF-8 BOM in `latest.json`.
+- Stable metadata is now written without a BOM, and the updater defensively strips one before JSON parsing.
+- Added a regression contract for BOM-tolerant stable metadata.
+- Supersedes the v3.10.0 installer, which correctly stopped before updater registration when metadata parsing failed.
+- The complete release gate passes `227/227`, the updater transaction fixture passes, and the one-time installer fixture passes.
+
 ## v3.10.0 - 2026-07-24
 
 - Added a one-time, no-admin Windows updater for unpacked GLDN Ops installations.
