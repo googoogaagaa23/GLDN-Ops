@@ -9,6 +9,7 @@ All notable extension releases should be recorded here before they are deployed 
 - Added a regression contract for BOM-tolerant stable metadata.
 - Supersedes the v3.10.0 installer, which correctly stopped before updater registration when metadata parsing failed.
 - The complete release gate passes `227/227`, the updater transaction fixture passes, and the one-time installer fixture passes.
+- The public Windows installer and public-package update/rollback round trip now pass with private configuration preserved.
 
 ## v3.10.0 - 2026-07-24
 
