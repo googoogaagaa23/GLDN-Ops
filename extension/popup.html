@@ -4,9 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>GLDN Ops</title>
+  <link rel="stylesheet" href="themes.css">
   <style>
     * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
-    body { margin: 0; width: 390px; max-height: 600px; overflow-y: auto; padding: 14px; color: #111827; background: #fff; }
+    body { margin: 0; width: 430px; max-height: 600px; overflow-y: auto; padding: 12px; color: #111827; background: #f8fafc; scrollbar-width:thin; scrollbar-color:#64748b transparent; }
+    body::-webkit-scrollbar, .diagnostic-log::-webkit-scrollbar { width:7px; height:7px; }
+    body::-webkit-scrollbar-track, .diagnostic-log::-webkit-scrollbar-track { background:transparent; }
+    body::-webkit-scrollbar-thumb, .diagnostic-log::-webkit-scrollbar-thumb { background:rgba(100,116,139,.72); border:2px solid transparent; border-radius:999px; background-clip:padding-box; }
     .header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
     .logo { width:42px; height:42px; border-radius:10px; }
     h1 { margin: 0; font-size: 18px; }
@@ -14,7 +18,7 @@
     h2 { margin: 16px 0 8px; font-size: 14px; }
     .hint { margin: 0 0 12px; font-size: 12px; line-height: 1.4; color: #475569; }
     .section { border-top:1px solid #e2e8f0; margin-top:14px; padding-top:2px; }
-    .section-card { border:1px solid #e2e8f0; border-radius:10px; padding:10px; margin-top:10px; background:#fff; }
+    .section-card { border:1px solid #e2e8f0; border-radius:8px; padding:10px; margin-top:10px; background:#fff; }
     .section-card.due { border-color:#dc2626; background:#fff1f2; }
     .section-card.confirmed { border-color:#16a34a; background:#f0fdf4; }
     .helper-card { border:1px solid #f59e0b; border-radius:10px; padding:10px; margin-top:10px; background:#fffbeb; font-size:12px; line-height:1.35; }
@@ -60,6 +64,21 @@
     .diagnostic-log { max-height:160px; overflow:auto; margin-top:8px; padding:8px; border-radius:8px; background:#0f172a; color:#e5e7eb; font:11px/1.35 Consolas, Monaco, monospace; white-space:pre-wrap; overflow-wrap:anywhere; }
     .diagnostic-empty { background:#f8fafc; color:#64748b; font-family:Arial, Helvetica, sans-serif; }
     .version-pill { display:inline-block; margin-top:5px; padding:3px 7px; border-radius:999px; background:#e2e8f0; color:#334155; font-size:11px; font-weight:700; }
+    .quick-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0 10px; }
+    .quick-actions button { margin:0; }
+    #updateExtension, #openFeatureTour, #updaterStatus { grid-column:1 / -1; }
+    #updaterStatus { margin:0; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; color:#475569; background:#f8fafc; font-size:11px; line-height:1.35; }
+    #updaterStatus.ready { color:#166534; border-color:#86efac; background:#f0fdf4; }
+    #updaterStatus.error { color:#991b1b; border-color:#fca5a5; background:#fff1f2; }
+    .popup-nav { position:sticky; top:0; z-index:20; display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; background:rgba(248,250,252,.96); backdrop-filter:blur(10px); }
+    .popup-tab { min-height:36px; margin:0; padding:7px 5px; border:1px solid transparent; background:transparent; color:#475569; }
+    .popup-tab[aria-selected="true"] { border-color:#1d4ed8; background:#2563eb; color:#fff; }
+    [data-popup-section][hidden] { display:none !important; }
+    #status { position:sticky; top:50px; z-index:19; min-height:0; margin:8px 0 0; padding:0; border-radius:8px; font-size:12px; color:#166534; background:transparent; }
+    #status:not(:empty) { min-height:34px; padding:9px 10px; border:1px solid #86efac; background:#f0fdf4; }
+    .section-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .section-heading h2 { margin-bottom:4px; }
+    .section-kicker { font-size:10px; font-weight:700; text-transform:uppercase; color:#64748b; }
 
     html[data-theme="dark"] body { color:#e5e7eb; background:#0f172a; }
     html[data-theme="dark"] .subtitle,
@@ -87,6 +106,94 @@
     html[data-theme="dark"] .preset-box { color:#cbd5e1; }
     html[data-theme="dark"] .limits-status.due { color:#fecaca; background:#3f151a; }
     html[data-theme="dark"] .limits-status.confirmed { color:#bbf7d0; background:#12351f; }
+    html[data-theme="dark"] body { background:#0b1120; }
+    html[data-theme="dark"] .popup-nav { border-color:#334155; background:rgba(15,23,42,.96); }
+    html[data-theme="dark"] .popup-tab { color:#cbd5e1; }
+    html[data-theme="dark"] #status:not(:empty) { border-color:#166534; background:#0d2418; color:#bbf7d0; }
+    html[data-theme="graphite"] body { color:#f8fafc; background:#18181b; }
+    html[data-theme="graphite"] .section-card { border-color:#3f3f46; background:#27272a; }
+    html[data-theme="graphite"] .section,
+    html[data-theme="graphite"] .popup-nav { border-color:#3f3f46; }
+    html[data-theme="graphite"] .popup-nav { background:rgba(24,24,27,.96); }
+    html[data-theme="graphite"] .popup-tab,
+    html[data-theme="graphite"] .hint,
+    html[data-theme="graphite"] .subtitle,
+    html[data-theme="graphite"] .time { color:#d4d4d8; }
+    html[data-theme="graphite"] input,
+    html[data-theme="graphite"] select,
+    html[data-theme="graphite"] textarea { color:#fafafa; background:#18181b; border-color:#71717a; }
+    html[data-theme="graphite"] .current,
+    html[data-theme="graphite"] .identity-card,
+    html[data-theme="graphite"] .sync-line,
+    html[data-theme="graphite"] .checkline,
+    html[data-theme="graphite"] .preset-box,
+    html[data-theme="graphite"] .row:nth-child(even) { color:#e4e4e7; background:#3f3f46; }
+    html[data-theme="graphite"] .helper-card { color:#fef3c7; border-color:#b45309; background:#3a250d; }
+    html[data-theme="graphite"] .helper-card.ready { color:#dcfce7; border-color:#16a34a; background:#102a1b; }
+    html[data-theme="graphite"] .helper-card.ready .helper-badge { color:#86efac; }
+    html[data-theme="signal"] body { color:#ecfeff; background:#071313; }
+    html[data-theme="signal"] .section-card { border-color:#155e75; background:#0f2526; }
+    html[data-theme="signal"] .section,
+    html[data-theme="signal"] .popup-nav { border-color:#155e75; }
+    html[data-theme="signal"] .popup-nav { background:rgba(7,19,19,.96); }
+    html[data-theme="signal"] .popup-tab,
+    html[data-theme="signal"] .hint,
+    html[data-theme="signal"] .subtitle,
+    html[data-theme="signal"] .time { color:#a5f3fc; }
+    html[data-theme="signal"] .popup-tab[aria-selected="true"] { border-color:#f97316; background:#c2410c; }
+    html[data-theme="signal"] input,
+    html[data-theme="signal"] select,
+    html[data-theme="signal"] textarea { color:#ecfeff; background:#071313; border-color:#0e7490; }
+    html[data-theme="signal"] .current,
+    html[data-theme="signal"] .identity-card,
+    html[data-theme="signal"] .sync-line,
+    html[data-theme="signal"] .checkline,
+    html[data-theme="signal"] .preset-box,
+    html[data-theme="signal"] .row:nth-child(even) { color:#cffafe; background:#164e63; }
+    html[data-theme="signal"] .helper-card { color:#fef3c7; border-color:#f59e0b; background:#30220a; }
+    html[data-theme="signal"] .helper-card.ready { color:#d1fae5; border-color:#10b981; background:#0b3026; }
+    html[data-theme="signal"] .helper-card.ready .helper-badge { color:#6ee7b7; }
+    html[data-theme="midnight"] body { color:#e0f2fe; background:#07111f; }
+    html[data-theme="midnight"] .section-card { border-color:#1e4f78; background:#0b1c2f; }
+    html[data-theme="midnight"] .section,
+    html[data-theme="midnight"] .popup-nav { border-color:#1e4f78; }
+    html[data-theme="midnight"] .popup-nav { background:rgba(7,17,31,.96); }
+    html[data-theme="midnight"] .popup-tab,
+    html[data-theme="midnight"] .hint,
+    html[data-theme="midnight"] .subtitle,
+    html[data-theme="midnight"] .time { color:#93c5fd; }
+    html[data-theme="midnight"] input,
+    html[data-theme="midnight"] select,
+    html[data-theme="midnight"] textarea { color:#e0f2fe; background:#081525; border-color:#2563eb; }
+    html[data-theme="midnight"] .current,
+    html[data-theme="midnight"] .identity-card,
+    html[data-theme="midnight"] .sync-line,
+    html[data-theme="midnight"] .checkline,
+    html[data-theme="midnight"] .preset-box,
+    html[data-theme="midnight"] .row:nth-child(even) { color:#dbeafe; background:#102a46; }
+    html[data-theme="crimson"] body { color:#fff1f2; background:#17090c; }
+    html[data-theme="crimson"] .section-card { border-color:#7f1d1d; background:#260d13; }
+    html[data-theme="crimson"] .section,
+    html[data-theme="crimson"] .popup-nav { border-color:#7f1d1d; }
+    html[data-theme="crimson"] .popup-nav { background:rgba(23,9,12,.96); }
+    html[data-theme="crimson"] .popup-tab,
+    html[data-theme="crimson"] .hint,
+    html[data-theme="crimson"] .subtitle,
+    html[data-theme="crimson"] .time { color:#fda4af; }
+    html[data-theme="crimson"] .popup-tab[aria-selected="true"] { border-color:#fb7185; background:#9f1239; }
+    html[data-theme="crimson"] input,
+    html[data-theme="crimson"] select,
+    html[data-theme="crimson"] textarea { color:#fff1f2; background:#190b10; border-color:#be123c; }
+    html[data-theme="crimson"] .current,
+    html[data-theme="crimson"] .identity-card,
+    html[data-theme="crimson"] .sync-line,
+    html[data-theme="crimson"] .checkline,
+    html[data-theme="crimson"] .preset-box,
+    html[data-theme="crimson"] .row:nth-child(even) { color:#ffe4e6; background:#3f111c; }
+    @media (min-width: 700px) {
+      body { width:min(920px, 100%); max-height:none; min-height:100vh; margin:0 auto; padding:20px; }
+      .header, .quick-actions, .popup-nav, #status, [data-popup-section] { max-width:760px; margin-left:auto; margin-right:auto; }
+    }
   </style>
 </head>
 <body>
@@ -99,23 +206,27 @@
     </div>
   </div>
 
-  <section class="section-card">
-    <h2>Updates</h2>
-    <p class="hint">Download the latest GLDN Ops ZIP, replace the local folder, then reload the unpacked extension.</p>
-    <button id="openLatestUpdate" class="primary" type="button">Get Latest Update</button>
-  </section>
+  <div class="quick-actions" aria-label="Extension utilities">
+    <button id="updateExtension" class="primary" type="button">Update &amp; Reload</button>
+    <div id="updaterStatus" role="status">Checking automatic updater...</div>
+    <button id="reloadExtension" class="secondary" type="button">Reload Current Files</button>
+    <button id="openFeatureGuide" class="secondary" type="button">Open Guide</button>
+    <button id="openFeatureTour" class="secondary" type="button">Start Feature Tour</button>
+  </div>
 
-  <section class="section-card">
-    <h2>Instructions</h2>
-    <p class="hint">Open the full step-by-step guide for every GLDN Ops feature.</p>
-    <button id="openFeatureGuide" class="primary" type="button">Open Full Feature Guide</button>
-  </section>
+  <nav class="popup-nav" role="tablist" aria-label="GLDN Ops sections">
+    <button class="popup-tab" type="button" role="tab" aria-selected="true" data-popup-tab="workflows">Workflows</button>
+    <button class="popup-tab" type="button" role="tab" aria-selected="false" data-popup-tab="status">Status</button>
+    <button class="popup-tab" type="button" role="tab" aria-selected="false" data-popup-tab="settings">Settings</button>
+  </nav>
+  <div id="status" role="status" aria-live="polite"></div>
 
-  <section>
-    <h2>Computer &amp; eBay account</h2>
-    <p class="hint">Set these once in the eBay Chrome profile.</p>
+  <section class="section-card" data-popup-section="settings" hidden>
+    <h2>Computer profile</h2>
+    <p class="hint">Choose the computer once per Chrome profile. The marketplace account is derived automatically.</p>
     <label for="computer">Computer</label>
     <select id="computer">
+      <option value="">Select computer</option>
       <option value="0">0</option>
       <option value="2">2</option>
       <option value="M0">M0</option>
@@ -123,7 +234,7 @@
       <option value="M1">M1</option>
       <option value="7">7</option>
     </select>
-    <label for="ebayAccount">eBay account</label>
+    <label for="ebayAccount">Marketplace account</label>
     <input id="ebayAccount" type="text" readonly>
     <button id="saveIdentity" class="primary" type="button">Save Computer</button>
     <div class="identity-row current">
@@ -132,28 +243,44 @@
     </div>
   </section>
 
-  <section class="section">
-    <h2>EcomSniper Automation</h2>
-    <p class="hint">GLDN Ops only drives the handoffs. EcomSniper still does the scanner, Product Hunter and listing work.</p>
-    <button id="openAmazonBestSellers" class="primary" type="button">Open Amazon Best Sellers</button>
-    <button id="startBulkListingWorkflow" class="secondary" type="button">Start Bulk Listing Workflow</button>
+  <section id="ecomSniperSection" class="section-card" data-platform="ebay" data-popup-section="workflows">
+    <h2>EcomSniper Handoffs</h2>
+    <p class="hint">GLDN Ops verifies its seller-extraction counts and handoff tabs. EcomSniper still owns Scanner, Product Hunter, Bulk Poster, and all listing work.</p>
     <button id="startSnipingWorkflow" class="secondary" type="button">Start Sniping Workflow</button>
     <button id="openEcomSniperCompetitorScanner" class="secondary" type="button">Open EcomSniper Competitor Scanner</button>
+    <button id="prepareProductHunterClipboard" class="primary" type="button">Filter Titles &amp; Open Product Hunter</button>
     <button id="openEcomSniperProductHunter" class="secondary" type="button">Open EcomSniper Product Hunter</button>
-    <div id="localHelperCard" class="helper-card">
+    <div id="localHelperCard" class="helper-card ready">
       <div class="helper-title">
-        <span>Local click helper</span>
-        <span id="localHelperBadge" class="helper-badge">Check needed</span>
+        <span>EcomSniper click mode</span>
+        <span id="localHelperBadge" class="helper-badge">Automatic</span>
       </div>
-      <div id="localHelperText">Required for automatic EcomSniper Extract Sellers clicks. If it is off, Bulk Listing Workflow will pause or fail at that step.</div>
-      <button id="checkLocalHelper" class="secondary" type="button">Check Local Helper</button>
+      <div id="localHelperText">Built-in automation targets EcomSniper's visible Extract Sellers control and waits for confirmation.</div>
+      <button id="checkLocalHelper" class="secondary" type="button">Verify EcomSniper Automation</button>
     </div>
+    <div id="ecomSniperMonitorCard" class="helper-card">
+      <div class="helper-title">
+        <span>Handoff monitor</span>
+        <span id="ecomSniperMonitorBadge" class="helper-badge">Idle</span>
+      </div>
+      <div id="ecomSniperMonitorText">No GLDN-observable EcomSniper handoff is active.</div>
+      <div class="button-row">
+        <button id="refreshEcomSniperMonitor" class="secondary" type="button">Refresh Status</button>
+        <button id="stopEcomSniperAssist" class="danger" type="button">Stop GLDN Assist</button>
+      </div>
+    </div>
+    <div class="preset-box" id="ecomSniperVerifiedCounts">
+      <strong>Verified seller counts</strong>
+      <div id="lastEcomSniperStep">Latest step: Not recorded</div>
+      <div id="lastEcomSniperRun">Complete run: Not recorded</div>
+    </div>
+    <div class="preset-box" id="productHunterClipboardReport">Product Hunter titles: Not prepared</div>
     <div class="preset-box">
-      Start on Amazon. Use Bulk Listing Workflow for broad Amazon Best Sellers sourcing, or Sniping Workflow from one Amazon product with a visible price.
+      GLDN can report seller extraction and whether its EcomSniper handoff tab is open or closed. Progress inside EcomSniper's private pages is not readable and remains operator-controlled.
     </div>
   </section>
 
-  <section class="section">
+  <section id="move99Section" class="section-card" data-platform="ebay" data-popup-section="workflows">
     <h2>Move .99 categories</h2>
     <p class="hint">Set these for the selected eBay account. Use the exact Store category names shown inside that account.</p>
     <label for="move99SourceCategories">Source Store categories</label>
@@ -170,14 +297,33 @@
     <div class="current">Current .99 destination: <strong id="currentMove99Destination">Not set</strong></div>
   </section>
 
-  <section class="section">
+  <section id="poshmarkSection" class="section-card" data-platform="poshmark" data-popup-section="workflows" style="display:none">
+    <h2>Poshmark tools</h2>
+    <p class="hint">Use these from any Poshmark Chrome profile. Computer 7 is Poshmark-only, while M0 can also have Poshmark work.</p>
+    <button id="openPoshmarkStats" class="primary" type="button">Open Poshmark Stats</button>
+    <button id="openPoshmarkOrders" class="secondary" type="button">Open Poshmark Orders</button>
+    <label for="poshmarkBackfillScope">Historical profit range</label>
+    <select id="poshmarkBackfillScope">
+      <option value="pilot">Pilot - 10 sales</option>
+      <option value="incremental">New since last sync</option>
+      <option value="last90">Last 90 days</option>
+      <option value="all">All sales</option>
+    </select>
+    <button id="startPoshmarkBackfill" class="primary" type="button">Start Historical Profit Backfill</button>
+    <button id="resumePoshmarkBackfill" class="secondary" type="button">Resume / Open Review</button>
+    <button id="stopPoshmarkBackfill" class="warning" type="button">Pause at Safe Checkpoint</button>
+    <div id="poshmarkBackfillStatus" class="preset-box">Historical profit: no checkpoint</div>
+    <div class="preset-box">The worker reads Poshmark earnings and exact SKU-linked Amazon order-item costs. It never uses EcomSniper markup or a current product-page price. Dashboard sync remains a separate approval step.</div>
+  </section>
+
+  <section class="section" hidden aria-hidden="true">
     <h2>Feature guide</h2>
     <p class="hint">Short operator steps for the main GLDN Ops workflows.</p>
     <details>
       <summary>Daily panel</summary>
       <ol>
         <li>Use Side or minimize when the panel blocks the page.</li>
-        <li>Use Reload Ext after updates.</li>
+        <li>Use Update &amp; Reload to install a verified stable release. Use Reload Current Files only when a panel is stale.</li>
         <li>Use Stop Task to stop at the next safe checkpoint.</li>
         <li>Use Reset only when a saved workflow is stuck.</li>
         <li>Use Dashboard to open the shared dashboard.</li>
@@ -199,6 +345,7 @@
         <li>Click Prepare Order Note.</li>
         <li>Review the note, then Fill Add Note Box.</li>
         <li>Manually click eBay Save after reviewing.</li>
+        <li>The same values are saved to the per-computer profit sheet when dashboard sync is reachable.</li>
       </ol>
     </details>
     <details>
@@ -206,6 +353,7 @@
       <ol>
         <li>Open Seller Hub performance or overview.</li>
         <li>Run Scan Seller Level or Confirm Listings Under Limit.</li>
+        <li>Use Scan Sales Snapshot from Seller Hub Overview for sales, feedback, traffic, and advertising data.</li>
         <li>Review detected values before saving.</li>
         <li>Saved values sync to the dashboard and Tasks sheet.</li>
         <li>Metric alert rows show CHECK plus the affected computer names.</li>
@@ -222,12 +370,27 @@
       </ol>
     </details>
     <details>
-      <summary>Bulk listing and sniping</summary>
+      <summary>EcomSniper handoffs and sniping</summary>
       <ol>
-        <li>Use Bulk Listing Workflow for broad Amazon Best Sellers sourcing.</li>
+        <li>Use the Handoff monitor for GLDN-observable seller extraction and EcomSniper tab status.</li>
         <li>Use Sniping Workflow from a specific Amazon product with a visible price.</li>
         <li>Keep EcomSniper responsible for scanner, Product Hunter, and listing work.</li>
-        <li>Keep the local helper running for automatic EcomSniper clicks.</li>
+        <li>GLDN Ops clicks EcomSniper Extract Sellers and continues only when the before total, after total, and new-seller count reconcile.</li>
+        <li>Do not treat an open EcomSniper tab as proof that Bulk Poster is running or complete.</li>
+        <li>If it does not continue, use Copy Full Diagnostic Report before resetting.</li>
+      </ol>
+    </details>
+    <details>
+      <summary>Poshmark tools</summary>
+      <ol>
+        <li>Save computer 7 for the Poshmark Chrome profile.</li>
+        <li>Open Poshmark Stats and run Scan Posh Stats for closet performance values.</li>
+        <li>Use Capture Visible Sales on a Poshmark sales list to log visible order rows.</li>
+        <li>For full profit, open the Poshmark sale order and click Capture Order Profit.</li>
+        <li>If Amazon is not matched yet, use Open Amazon Orders for the decoded SKU ASIN.</li>
+        <li>Open the matching Amazon order, then click Review & Copy Amazon Info.</li>
+        <li>Return to the Poshmark sale order and click Capture Order Profit again.</li>
+        <li>Review earnings, Amazon total, profit, SKU, and order number before saving.</li>
       </ol>
     </details>
     <details>
@@ -236,13 +399,14 @@
         <li>Open Amazon Best Sellers starts manual product research.</li>
         <li>Open EcomSniper Competitor Scanner opens EcomSniper research.</li>
         <li>Open EcomSniper Product Hunter opens the EcomSniper product tool.</li>
-        <li>Check Local Helper confirms automatic EcomSniper clicks are available.</li>
+        <li>Check EcomSniper Mode confirms automatic semantic-click mode.</li>
+        <li>Run Feature Health Check tests dashboard access, EcomSniper page routing, click mode, and saved identity.</li>
       </ol>
     </details>
     <details>
       <summary>Settings</summary>
       <ol>
-        <li>Save Computer and eBay Account once per Chrome profile.</li>
+        <li>Save Computer once per Chrome profile. The eBay/Poshmark account is derived from the computer.</li>
         <li>Set Interface theme and transparency for GLDN Ops windows.</li>
         <li>Save Amazon Profile inside Amazon Chrome profiles only.</li>
         <li>Use Test Connection before trusting dashboard sync on a new install.</li>
@@ -252,37 +416,46 @@
       <summary>Diagnostics</summary>
       <ol>
         <li>Open this popup after an error.</li>
+        <li>Click Copy Full Diagnostic Report for cross-computer issues, dashboard failures, EcomSniper stalls, and install/update problems.</li>
         <li>Click Copy Error Log.</li>
         <li>Send the copied text with the page and button used.</li>
       </ol>
     </details>
+    <details>
+      <summary>Settings backup</summary>
+      <ol>
+        <li>Click Copy Settings Backup before updating or moving a Chrome profile.</li>
+        <li>After reinstalling or updating, click Restore From Clipboard.</li>
+        <li>Confirm the computer, Amazon profile, listing limits, UI settings, and Move .99 categories still look right.</li>
+      </ol>
+    </details>
   </section>
 
-  <section class="section">
+  <section class="section-card" data-popup-section="settings" hidden>
     <h2>Interface</h2>
     <p class="hint">Controls the transparency of every GLDN Ops page panel and review window.</p>
     <label for="uiTheme">Theme</label>
-    <select id="uiTheme">
-      <option value="light">Light</option>
-      <option value="dark">Dark</option>
-    </select>
+    <select id="uiTheme"></select>
+    <div id="uiThemePreview" class="gldn-theme-preview" aria-live="polite"></div>
     <label for="uiOpacity">Window transparency: <span id="uiOpacityValue">75%</span></label>
     <input id="uiOpacity" type="range" min="65" max="100" step="1" value="75">
   </section>
 
-  <section class="section">
+  <section class="section-card" data-popup-section="workflows">
     <h2>Automation controls</h2>
     <p class="hint">Stop requests finish at the next safe checkpoint. Reset clears any saved unfinished workflow.</p>
     <div class="button-row">
       <button id="stopCurrentTask" class="danger" type="button">Stop Current Task</button>
       <button id="resetAutomation" class="secondary" type="button">Reset Automation</button>
     </div>
-    <button id="reloadExtension" class="secondary" type="button">Reload Extension Update</button>
   </section>
 
-  <section class="section">
+  <section class="section-card" data-popup-section="status" hidden>
     <h2>Diagnostics</h2>
     <p class="hint">Newest extension errors and warnings from eBay, Amazon, popup and background.</p>
+    <button id="runHealthCheck" class="primary" type="button">Run Feature Health Check</button>
+    <button id="retryDashboardQueue" class="secondary" type="button">Retry Queued Dashboard Records</button>
+    <button id="copyDiagnosticReport" class="secondary" type="button">Copy Full Diagnostic Report</button>
     <div class="button-row">
       <button id="copyErrorLog" class="secondary" type="button">Copy Error Log</button>
       <button id="clearErrorLog" class="secondary" type="button">Clear Error Log</button>
@@ -290,19 +463,36 @@
     <div id="diagnosticLog" class="diagnostic-log diagnostic-empty">No errors recorded.</div>
   </section>
 
-  <section class="section">
-    <h2>Listing confirmation settings</h2>
-    <p class="hint">These limits are normally detected from eBay. Confirm them once each month; this section turns red when confirmation is due.</p>
+  <section class="section-card" data-popup-section="settings" hidden>
+    <h2>Settings backup</h2>
+    <p class="hint">Use this before updates or when moving a Chrome profile. It preserves computer, Amazon profile, limits, theme, and .99 category settings.</p>
+    <div class="button-row">
+      <button id="copySettingsBackup" class="secondary" type="button">Copy Settings Backup</button>
+      <button id="restoreSettingsBackup" class="secondary" type="button">Restore From Clipboard</button>
+    </div>
+  </section>
+
+  <section class="section-card" data-popup-section="settings" hidden>
+    <h2>Version recovery</h2>
+    <p class="hint">Restore a previous verified local version. Chrome profile settings and saved .99 categories stay in Chrome storage.</p>
+    <label for="rollbackVersion">Available backup</label>
+    <select id="rollbackVersion"><option value="">Checking backups...</option></select>
+    <button id="rollbackExtension" class="warning" type="button">Roll Back &amp; Reload</button>
+  </section>
+
+  <section id="limitsSettingsSection" class="section-card" data-platform="ebay" data-popup-section="settings" hidden>
+    <h2>Monthly allowance and selling limits</h2>
+    <p class="hint">GLDN Ops detects the Store insertion allowance, seller quantity limit, and seller dollar limit from eBay. Confirm them once each month.</p>
     <div id="limitsSection" class="section-card due">
-      <label for="storePlan">Store subscription &amp; listing limit</label>
+      <label for="storePlan">Store monthly zero-insertion allowance</label>
       <select id="storePlan">
-        <option value="Premium">Premium — 10,000 listings</option>
-        <option value="Anchor">Anchor — 25,000 listings</option>
-        <option value="Custom">Custom listing limit</option>
+        <option value="Premium">Premium - 10,000 fixed-price insertions</option>
+        <option value="Anchor">Anchor - 25,000 fixed-price insertions</option>
+        <option value="Custom">Custom monthly allowance</option>
       </select>
       <div id="customListingLimitWrap" style="display:none">
-        <label for="freeListings">Custom listing limit</label>
-        <input id="freeListings" type="number" min="0" step="1" placeholder="Enter custom limit">
+        <label for="freeListings">Custom monthly insertion allowance</label>
+        <input id="freeListings" type="number" min="0" step="1" placeholder="Enter monthly allowance">
       </div>
       <label for="monthlyDollarPreset">Monthly dollar limit</label>
       <select id="monthlyDollarPreset">
@@ -320,7 +510,7 @@
     </div>
   </section>
 
-  <section class="section">
+  <section class="section-card" data-popup-section="settings" hidden>
     <h2>Amazon profile</h2>
     <p class="hint">Set this only inside an Amazon Chrome profile. Each Amazon profile keeps its own permanent name.</p>
     <label for="profile">Amazon profile name</label>
@@ -330,31 +520,31 @@
     <div class="current">Current Amazon profile: <strong id="currentAmazon">Not set</strong></div>
   </section>
 
-  <div id="status"></div>
-
-  <section class="section">
+  <section class="section-card" data-popup-section="status" hidden>
     <h2>Shared dashboard</h2>
-    <p class="hint">The dashboard connection is built into this extension. No URL or key entry is required.</p>
+    <p class="hint">The private GLDN Ops package configures this connection automatically in every Chrome profile.</p>
+    <div id="dashboardAutoSetup" class="current">Checking automatic connection...</div>
     <div class="button-row">
       <button id="testDashboard" class="secondary" type="button">Test Connection</button>
       <button id="openDashboard" class="secondary" type="button">Open Dashboard</button>
     </div>
+    <button id="repairDashboardSetup" class="secondary" type="button">Repair Automatic Connection</button>
     <div id="dashboardSync" class="sync-line">Built-in connection ready.</div>
   </section>
 
-  <section class="section">
+  <section id="latestShippingSection" class="section-card" data-platform="ebay" data-popup-section="status" hidden>
     <h2>Latest Mark as Shipped</h2>
     <div id="shippingRows"><div class="hint">No Mark as Shipped run recorded in this Chrome profile.</div></div>
     <div id="shippingTime" class="time"></div>
   </section>
 
-  <section class="section">
+  <section id="latestListingSection" class="section-card" data-platform="ebay" data-popup-section="status" hidden>
     <h2>Latest Listing Confirmation</h2>
     <div id="listingRows"><div class="hint">No listing confirmation saved in this Chrome profile.</div></div>
     <div id="listingTime" class="time"></div>
   </section>
 
-  <section class="section">
+  <section id="latestSellerLevelSection" class="section-card" data-platform="ebay" data-popup-section="status" hidden>
     <h2>Latest Seller Level Check</h2>
     <div class="identity-row current">
       <div class="identity-card"><span>Computer</span><strong id="healthComputer">Not recorded</strong></div>
@@ -364,6 +554,8 @@
     <div id="healthTime" class="time"></div>
   </section>
   <script src="config.example.js"></script>
+  <script src="theme-catalog.js"></script>
+  <script src="foundation.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

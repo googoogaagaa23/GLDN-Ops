@@ -1,0 +1,135 @@
+html[data-gldn-theme-ready="true"] body {
+  color: var(--gldn-theme-text);
+  background-color: var(--gldn-theme-body);
+  background-image: var(--gldn-theme-pattern);
+  background-size: 34px 34px;
+}
+
+html[data-gldn-theme-ready="true"] .section,
+html[data-gldn-theme-ready="true"] .popup-nav {
+  border-color: var(--gldn-theme-border);
+}
+
+html[data-gldn-theme-ready="true"] .popup-nav {
+  background: var(--gldn-theme-window);
+  box-shadow: 0 8px 22px var(--gldn-theme-shadow);
+}
+
+html[data-gldn-theme-ready="true"] .section-card,
+html[data-gldn-theme-ready="true"] .feature,
+html[data-gldn-theme-ready="true"] .legend-row,
+html[data-gldn-theme-ready="true"] .index a,
+html[data-gldn-theme-ready="true"] .tour-card {
+  color: var(--gldn-theme-text);
+  border-color: var(--gldn-theme-border);
+  background: var(--gldn-theme-window);
+}
+
+html[data-gldn-theme-ready="true"] .current,
+html[data-gldn-theme-ready="true"] .identity-card,
+html[data-gldn-theme-ready="true"] .sync-line,
+html[data-gldn-theme-ready="true"] .version-pill,
+html[data-gldn-theme-ready="true"] .checkline,
+html[data-gldn-theme-ready="true"] .preset-box,
+html[data-gldn-theme-ready="true"] .row:nth-child(even),
+html[data-gldn-theme-ready="true"] .feature summary:hover,
+html[data-gldn-theme-ready="true"] .guide-grid section,
+html[data-gldn-theme-ready="true"] .gldn-onboarding-page section {
+  color: var(--gldn-theme-text);
+  border-color: var(--gldn-theme-border);
+  background: var(--gldn-theme-surface);
+}
+
+html[data-gldn-theme-ready="true"] .subtitle,
+html[data-gldn-theme-ready="true"] .hint,
+html[data-gldn-theme-ready="true"] .time,
+html[data-gldn-theme-ready="true"] .identity-card span,
+html[data-gldn-theme-ready="true"] .matrix,
+html[data-gldn-theme-ready="true"] .progress-line {
+  color: var(--gldn-theme-muted);
+}
+
+html[data-gldn-theme-ready="true"] input,
+html[data-gldn-theme-ready="true"] select,
+html[data-gldn-theme-ready="true"] textarea {
+  color: var(--gldn-theme-text);
+  border-color: var(--gldn-theme-border);
+  background: var(--gldn-theme-surface);
+}
+
+html[data-gldn-theme-ready="true"] input[readonly] {
+  color: var(--gldn-theme-muted);
+  background: var(--gldn-theme-raised);
+}
+
+html[data-gldn-theme-ready="true"] .secondary,
+html[data-gldn-theme-ready="true"] button:not(.primary, .success, .danger, .ghost) {
+  color: var(--gldn-theme-text);
+  background: var(--gldn-theme-raised);
+}
+
+html[data-gldn-theme-ready="true"] .primary,
+html[data-gldn-theme-ready="true"] .popup-tab[aria-selected="true"],
+html[data-gldn-theme-ready="true"] progress {
+  color: var(--gldn-theme-accent-text);
+  background: var(--gldn-theme-accent);
+  accent-color: var(--gldn-theme-accent);
+}
+
+html[data-gldn-theme-ready="true"] .popup-tab,
+html[data-gldn-theme-ready="true"] .ghost {
+  color: var(--gldn-theme-muted);
+}
+
+html[data-gldn-theme-ready="true"] a,
+html[data-gldn-theme-ready="true"] h3 {
+  color: var(--gldn-theme-link);
+}
+
+html[data-gldn-theme-ready="true"] .good { color: var(--gldn-theme-success); }
+html[data-gldn-theme-ready="true"] .warning { color: var(--gldn-theme-warning); }
+html[data-gldn-theme-ready="true"] .critical { color: var(--gldn-theme-danger); }
+
+html[data-gldn-theme-ready="true"] header,
+html[data-gldn-theme-ready="true"] footer {
+  color: var(--gldn-theme-text);
+  border-color: var(--gldn-theme-border);
+  background: var(--gldn-theme-window);
+}
+
+html[data-gldn-theme-ready="true"] .feature-body {
+  border-color: var(--gldn-theme-border);
+}
+
+html[data-gldn-theme-ready="true"] li {
+  color: var(--gldn-theme-text);
+}
+
+.gldn-theme-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  margin-top: 7px;
+  padding: 6px 8px;
+  border: 1px solid var(--gldn-theme-border, #64748b);
+  border-radius: 7px;
+  color: var(--gldn-theme-muted, #64748b);
+  background: var(--gldn-theme-raised, #e2e8f0);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.gldn-theme-swatches {
+  display: inline-flex;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--gldn-theme-border, #64748b);
+  border-radius: 4px;
+}
+
+.gldn-theme-swatches i {
+  display: block;
+  width: 15px;
+  height: 15px;
+}

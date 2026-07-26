@@ -15,6 +15,29 @@
     statusElement.dataset.type = type;
   }
 
+  async function runFeatureHealthFromPanel() {
+    try {
+      status("Running GLDN Ops health check...", "ready");
+      const health = await U.runFeatureHealthCheck();
+      status(health.message, health.ok ? "completed" : "error");
+      return health;
+    } catch (error) {
+      const message = error?.message || "Unknown health-check failure.";
+      status(`Health failed: ${message}`, "error");
+      return { ok: false, message };
+    }
+  }
+
+  async function setupDashboardFromPanel() {
+    const saved = await U.promptAndSaveDashboardSetup();
+    if (!saved.ok) {
+      status(`Dashboard setup failed: ${saved.error}`, "error");
+      return;
+    }
+    status("Dashboard setup saved. Running health check...", "ready");
+    await runFeatureHealthFromPanel();
+  }
+
   function visibleControls() {
     return [...document.querySelectorAll("button, a, input, select, textarea, [role='button']")]
       .filter((element) => U.isVisible(element));
@@ -163,12 +186,14 @@
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
-        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v3.4.25</span></div>
+        <div class="gldn-panel-title">GLDN Ops <span class="gldn-version">v${chrome.runtime.getManifest().version}</span></div>
         <div class="gldn-drag-grip" aria-hidden="true">::</div>
       </div>
       <button type="button" data-action="run-scanner" class="gldn-primary">Run Scanner Settings</button>
       <button type="button" data-action="copy-titles" class="gldn-secondary">Copy Scanner Titles</button>
       <button type="button" data-action="product-hunter" class="gldn-warning">Prep Product Hunter</button>
+      <button type="button" data-action="dashboard-setup" class="gldn-secondary">Dashboard Setup</button>
+      <button type="button" data-action="feature-health" class="gldn-secondary">Health Check</button>
       <div class="gldn-status">EcomSniper tools ready.</div>
     `;
     document.documentElement.appendChild(panel);
@@ -177,6 +202,8 @@
     panel.querySelector("[data-action='run-scanner']").addEventListener("click", runCompetitorScanner);
     panel.querySelector("[data-action='copy-titles']").addEventListener("click", copyScannerTitles);
     panel.querySelector("[data-action='product-hunter']").addEventListener("click", prepProductHunter);
+    panel.querySelector("[data-action='dashboard-setup']").addEventListener("click", setupDashboardFromPanel);
+    panel.querySelector("[data-action='feature-health']").addEventListener("click", runFeatureHealthFromPanel);
   }
 
   createPanel();

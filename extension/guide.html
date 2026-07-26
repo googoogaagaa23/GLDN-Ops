@@ -1,157 +1,390 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>GLDN Ops Feature Guide</title>
+  <link rel="stylesheet" href="themes.css">
   <style>
-    * { box-sizing: border-box; }
-    body { margin: 0; background: #0f172a; color: #e5e7eb; font-family: Arial, Helvetica, sans-serif; line-height: 1.45; }
-    main { max-width: 980px; margin: 0 auto; padding: 28px 18px 60px; }
-    header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
-    img { width: 54px; height: 54px; }
-    h1 { margin: 0; font-size: 28px; }
-    h2 { margin: 26px 0 10px; padding-top: 18px; border-top: 1px solid #334155; font-size: 20px; }
-    h3 { margin: 18px 0 8px; font-size: 16px; color: #bfdbfe; }
-    p, li { color: #cbd5e1; }
-    ol { margin: 8px 0 0 22px; padding: 0; }
-    li { margin: 5px 0; }
-    .card { background: #111827; border: 1px solid #334155; border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
-    .warn { border-color: #f59e0b; background: #2a2110; }
-    code { background: #1e293b; padding: 2px 5px; border-radius: 5px; color: #f8fafc; }
+    * { box-sizing:border-box; }
+    :root { color-scheme:dark; --bg:#101113; --panel:#1b1d21; --panel2:#24272d; --line:#3f434c; --ink:#f7f7f5; --muted:#b9bec8; --gold:#d7b354; --blue:#2f6feb; --green:#15803d; --amber:#b45309; --red:#b91c1c; }
+    body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 Arial,Helvetica,sans-serif; }
+    main { width:min(1080px,100%); margin:0 auto; padding:24px 18px 64px; }
+    header { display:flex; align-items:center; gap:14px; padding:8px 0 18px; }
+    header img { width:48px; height:48px; }
+    h1 { margin:0; font-size:28px; letter-spacing:0; }
+    h2 { margin:26px 0 10px; font-size:18px; letter-spacing:0; }
+    h3 { margin:0 0 7px; font-size:13px; color:#f1d991; letter-spacing:0; text-transform:uppercase; }
+    p { margin:6px 0; }
+    .subtitle,.matrix { color:var(--muted); }
+    .safety { border:1px solid var(--red); background:#321719; padding:13px 15px; border-radius:8px; }
+    .legend { display:grid; gap:8px; }
+    .legend-row { display:grid; grid-template-columns:minmax(190px,auto) 1fr; gap:12px; align-items:center; padding:9px 10px; border:1px solid var(--line); border-radius:7px; background:var(--panel); }
+    .index { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .index a { display:flex; justify-content:space-between; gap:10px; align-items:center; min-height:48px; padding:9px 11px; color:var(--ink); text-decoration:none; border:1px solid var(--line); border-radius:7px; background:var(--panel); }
+    .index a:hover { border-color:var(--gold); }
+    .status { display:inline-flex; align-items:center; justify-content:center; min-height:25px; padding:4px 7px; border-radius:5px; color:#fff; font-size:11px; font-weight:700; text-align:center; }
+    .status.live { background:var(--green); }
+    .status.pending { background:var(--amber); }
+    .status.partial { background:#475569; }
+    .status.unproven { background:var(--red); }
+    .feature { margin:10px 0; border:1px solid var(--line); border-radius:8px; background:var(--panel); overflow:hidden; scroll-margin-top:12px; }
+    .feature summary { display:flex; justify-content:space-between; align-items:center; gap:12px; min-height:58px; padding:12px 14px; cursor:pointer; font-size:17px; font-weight:700; }
+    .feature summary:hover { background:var(--panel2); }
+    .feature-body { padding:0 14px 16px; border-top:1px solid var(--line); }
+    .purpose { font-size:16px; font-weight:700; }
+    .guide-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+    .guide-grid section { padding:12px; border:1px solid var(--line); border-radius:7px; background:var(--panel2); }
+    .guide-grid .steps { grid-column:1 / -1; }
+    .guide-grid .approval { border-color:#ef4444; background:#321719; }
+    .guide-grid .evidence { border-color:#3b82f6; background:#15243c; }
+    ol,ul { margin:4px 0 0; padding-left:21px; }
+    li { margin:5px 0; color:#e1e4e8; }
+    @media (max-width:700px) { .index,.guide-grid { grid-template-columns:1fr; } .guide-grid .steps { grid-column:auto; } .legend-row { grid-template-columns:1fr; } .feature summary { align-items:flex-start; flex-direction:column; } }
   </style>
 </head>
-<body>
+<body class="gldn-guide-page">
 <main>
-  <header>
-    <img src="icons/icon48.png" alt="GLDN Ops">
-    <div>
-      <h1>GLDN Ops Feature Guide</h1>
-      <p>Step-by-step instructions for every current feature.</p>
-    </div>
-  </header>
+  <header><img src="icons/icon48.png" alt=""><div><h1>GLDN Ops Feature Guide</h1><p class="subtitle">v3.10.3 | Exact steps, safety stops, recovery, and proof status</p></div></header>
+  <div class="safety"><strong>Safety rule:</strong> Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.</div>
+  <h2>Evidence labels</h2>
+  <div class="legend"><div class="legend-row"><span class="status live">LIVE PASS</span><span>Current signed-in evidence and exact readback prove the documented result.</span></div><div class="legend-row"><span class="status live">LIVE PASS WITH BOUNDARY</span><span>The documented result passed live, but a named external or manual boundary remains.</span></div><div class="legend-row"><span class="status pending">PENDING USER REVIEW</span><span>Recorded evidence exists, but the user has not accepted the gate.</span></div><div class="legend-row"><span class="status partial">PARTIAL</span><span>Only the stated portion is proven. Do not assume the entire workflow works.</span></div><div class="legend-row"><span class="status unproven">IMPLEMENTED, UNPROVEN</span><span>Code exists, but no valid current live proof exists.</span></div></div>
+  <h2>Feature index</h2>
+  <nav class="index" aria-label="Feature guide index"><a href="#setup"><span>First-Time Setup</span><span class="status partial">PARTIAL</span></a><a href="#panel"><span>Floating Panel</span><span class="status live">LIVE PASS</span></a><a href="#dashboard"><span>Dashboard and Sync Queue</span><span class="status partial">PARTIAL</span></a><a href="#deployment"><span>Local Update and Rollback</span><span class="status partial">PARTIAL</span></a><a href="#mark-shipped"><span>Mark as Shipped</span><span class="status live">LIVE PASS</span></a><a href="#ebay-note-profit"><span>eBay Order Note and Profit</span><span class="status live">LIVE PASS</span></a><a href="#seller-metrics"><span>Seller Level and Tasks Metrics</span><span class="status live">LIVE PASS</span></a><a href="#listing-limits"><span>Confirm Listings Under Limit</span><span class="status live">LIVE PASS</span></a><a href="#ebay-snapshot"><span>eBay Sales Snapshot</span><span class="status live">LIVE PASS</span></a><a href="#store-categories"><span>Store Category Configuration</span><span class="status live">LIVE PASS</span></a><a href="#move99"><span>Move .99 Listings Into Sale</span><span class="status live">LIVE PASS WITH BOUNDARY</span></a><a href="#reverse99"><span>Move Non-.99 Listings Out of Sale</span><span class="status unproven">IMPLEMENTED, UNPROVEN</span></a><a href="#move99-recovery"><span>Move Category Recovery</span><span class="status live">LIVE PASS</span></a><a href="#ecomsniper-handoffs"><span>EcomSniper Handoffs and Status</span><span class="status partial">PARTIAL</span></a><a href="#sniping"><span>Sniping Workflow</span><span class="status pending">PENDING USER REVIEW</span></a><a href="#poshmark-stats"><span>Poshmark Stats</span><span class="status live">LIVE PASS</span></a><a href="#poshmark-profit"><span>Poshmark Sales and Profit</span><span class="status partial">PARTIAL</span></a><a href="#poshmark-profit-backfill"><span>Historical Poshmark Profit Backfill</span><span class="status live">LIVE PASS</span></a><a href="#tasks-automation"><span>Tasks Reminders and Auto-Completion</span><span class="status live">LIVE PASS</span></a><a href="#diagnostics"><span>Diagnostics, Backup, and Interface Settings</span><span class="status partial">PARTIAL</span></a><a href="#onboarding-interface"><span>Feature Tour, Themes, and Universal Access</span><span class="status partial">PARTIAL</span></a><a href="#walmart"><span>Walmart Order Helper</span><span class="status unproven">IMPLEMENTED, UNPROVEN</span></a></nav>
+  <h2>Step-by-step guides</h2>
 
-  <section class="card warn">
-    <strong>Safety rule:</strong> GLDN Ops should stop before final eBay listing Submit actions unless the operator approves.
-  </section>
-
-  <h2>Setup</h2>
-  <ol>
-    <li>Install GLDN Ops in the correct Chrome profile.</li>
-    <li>Open the GLDN Ops popup.</li>
-    <li>Select the computer number.</li>
-    <li>Select the eBay account for that Chrome profile.</li>
-    <li>Click <strong>Save Computer & eBay Account</strong>.</li>
-    <li>Click <strong>Check Local Helper</strong> if using EcomSniper automation.</li>
-  </ol>
-
-  <h2>Floating Panel</h2>
-  <ol>
-    <li>Use <strong>Side</strong> to move the panel out of the way.</li>
-    <li>Use the minus button to minimize it.</li>
-    <li>Use <strong>Dashboard</strong> to open the shared dashboard.</li>
-    <li>Use <strong>Stop Task</strong> to stop a running workflow at the next safe checkpoint.</li>
-    <li>Use <strong>Reset</strong> after a crash or stuck workflow.</li>
-    <li>Use <strong>Reload Ext</strong> after updating the extension.</li>
-  </ol>
-
-  <h2>Mark as Shipped</h2>
-  <ol>
-    <li>Open the eBay awaiting-shipment orders page.</li>
-    <li>Click <strong>Mark as Shipped</strong>.</li>
-    <li>Review any eBay confirmation dialog.</li>
-    <li>Continue only if the selected orders are correct.</li>
-    <li>GLDN Ops records the run locally and syncs it to the dashboard when available.</li>
-  </ol>
-
-  <h2>Prepare Order Note</h2>
-  <ol>
-    <li>Open the Amazon checkout or order page.</li>
-    <li>Click <strong>Review & Copy Amazon Info</strong>.</li>
-    <li>Review total and ETA, then copy the info.</li>
-    <li>Open the matching eBay order details page.</li>
-    <li>Click <strong>Prepare Order Note</strong>.</li>
-    <li>Review the editable note.</li>
-    <li>Click <strong>Fill Add Note Box</strong>.</li>
-    <li>GLDN Ops opens More actions, opens Add note, pastes the note, and waits for manual Save.</li>
-  </ol>
-
-  <h2>Scan Seller Level</h2>
-  <ol>
-    <li>Open Seller Hub performance or click <strong>Scan Seller Level</strong>.</li>
-    <li>Review the detected metrics.</li>
-    <li>Click <strong>Save Seller Level Check</strong>.</li>
-    <li>GLDN Ops syncs values to the dashboard and Tasks sheet.</li>
-    <li>Tasks sheet alerts show <code>CHECK computer</code> when a metric crosses threshold.</li>
-  </ol>
-
-  <h2>Confirm Listings Under Limit</h2>
-  <ol>
-    <li>Open Seller Hub Overview.</li>
-    <li>Click <strong>Confirm Listings Under Limit</strong>.</li>
-    <li>Review active listings, in-stock quantity, monthly dollar amount, and limits.</li>
-    <li>Click <strong>Confirm Listings This Month</strong>.</li>
-    <li>GLDN Ops records the monthly confirmation and syncs it.</li>
-  </ol>
-
-  <h2>Move .99 Listings</h2>
-  <ol>
-    <li>Open the GLDN Ops popup.</li>
-    <li>Set exact source Store category names.</li>
-    <li>Set exact destination Store category name.</li>
-    <li>Optional: add source category IDs.</li>
-    <li>Click <strong>Save .99 Categories for This eBay</strong>.</li>
-    <li>Click <strong>Open Move .99 Workflow</strong>.</li>
-    <li>GLDN Ops opens Active Listings and scans matching listings.</li>
-    <li>Review the scan summary before applying.</li>
-    <li>GLDN Ops pauses at the eBay review screen before final Submit.</li>
-  </ol>
-
-  <h2>Move Non-.99 Out of Sale</h2>
-  <ol>
-    <li>Open the GLDN Ops popup.</li>
-    <li>Confirm the saved Move .99 categories are correct.</li>
-    <li>Click <strong>Move Non-.99 Out of Sale</strong>.</li>
-    <li>GLDN Ops scans the sale category for prices that do not end in .99.</li>
-    <li>It moves those listings back to the configured non-sale source category.</li>
-    <li>Review every eBay screen before final Submit.</li>
-  </ol>
-
-  <h2>Bulk Listing Workflow</h2>
-  <ol>
-    <li>Open the popup and click <strong>Start Bulk Listing Workflow</strong>.</li>
-    <li>Use broad Amazon Best Sellers product/category research.</li>
-    <li>Avoid clothing, shoes, and excluded categories.</li>
-    <li>GLDN Ops assists the eBay search and EcomSniper Extract Sellers handoff.</li>
-    <li>Continue scanner, Product Hunter, and listing work inside EcomSniper.</li>
-  </ol>
-
-  <h2>Sniping Workflow</h2>
-  <ol>
-    <li>Open an Amazon product with visible price.</li>
-    <li>Click <strong>Start Sniping Workflow</strong>.</li>
-    <li>GLDN Ops searches eBay from that product context.</li>
-    <li>Keep only likely dropshippers with enough markup.</li>
-    <li>Use EcomSniper to scan competitors and identify winners.</li>
-  </ol>
-
-  <h2>Diagnostics</h2>
-  <ol>
-    <li>Open the popup after an error.</li>
-    <li>Click <strong>Copy Error Log</strong>.</li>
-    <li>Send the copied log with the page and button used.</li>
-    <li>Click <strong>Clear Error Log</strong> after the issue is captured.</li>
-  </ol>
-
-  <h2>Updating</h2>
-  <ol>
-    <li>Open the popup and click <strong>Get Latest Update</strong>.</li>
-    <li>Download and extract the newest GitHub ZIP.</li>
-    <li>Replace the old local <code>GLDN-Ops-main</code> folder with the new one.</li>
-    <li>Open <code>chrome://extensions</code>.</li>
-    <li>Click <strong>Reload</strong> on GLDN Ops, or load the new <code>extension</code> folder.</li>
-    <li>Refresh the eBay/Amazon/EcomSniper work tab.</li>
-  </ol>
+    <details class="feature" id="setup" open>
+      <summary><span>First-Time Setup</span><span class="status partial">PARTIAL</span></summary>
+      <div class="feature-body">
+        <p class="matrix">F-02, F-05, F-06, F-08, F-12</p>
+        <p class="purpose">Configure one Chrome profile without guessing its marketplace identity.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The private GLDN Ops package is loaded unpacked in the intended Chrome profile.</li><li>The operator knows the Tasks-sheet computer label.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open the popup and choose only the computer label.</li><li>Confirm the derived marketplace account before saving.</li><li>Click Save Computer.</li><li>Open Status and confirm Automatic connection ready.</li><li>Click Test Connection, then Run Feature Health Check.</li><li>Copy Settings Backup before an update or profile move.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>None. Setup must not start a marketplace workflow.</p></section>
+          <section><h3>Expected output</h3><p>Saved computer/account mapping, dashboard connection, health report, and settings backup.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>If the account is wrong, stop and correct the computer label instead of editing the derived account.</li><li>If automatic setup is unavailable, update from the private GLDN Ops package and click Repair Automatic Connection.</li><li>If dashboard testing fails, copy the full diagnostic report before clearing anything.</li><li>A clean-computer installation is still a final deployment gate.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Identity mapping and health diagnostics are live-proven in Profile 2. Automatic private-package seeding is implemented and contract-tested; clean-computer proof remains pending.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="panel" >
+      <summary><span>Floating Panel</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">U-01</p>
+        <p class="purpose">Use the compact everyday controls without blocking marketplace pages.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>A supported eBay, Amazon, Poshmark, or Walmart page is open.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Use Side to dock the panel to the right edge.</li><li>Use the minus control to minimize it.</li><li>Drag the resize handle while expanded.</li><li>Open the three-dot settings menu to change theme, transparency, or reset layout.</li><li>Use Stop Task for a safe checkpoint and Reset only for abandoned state.</li><li>Use Reload Ext after local files are updated.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>Panel layout actions require no marketplace approval.</p></section>
+          <section><h3>Expected output</h3><p>A saved per-profile panel mode, size, position, theme, and transparency.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Use Reset panel layout if the panel is off-screen or awkwardly sized.</li><li>Use Reload Ext when page controls are stale after an update.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Profile 2 proved Graphite at 75%, persisted resize, normal reload persistence, and right-edge docking.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="dashboard" >
+      <summary><span>Dashboard and Sync Queue</span><span class="status partial">PARTIAL</span></summary>
+      <div class="feature-body">
+        <p class="matrix">F-08, F-09</p>
+        <p class="purpose">Open shared results and retry records that could not sync immediately.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The computer identity is saved and Status shows Automatic connection ready.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open Status in the popup.</li><li>Click Test Connection.</li><li>Click Open Dashboard to review saved results.</li><li>If the popup reports queued records, click Retry Queued Dashboard Records.</li><li>Confirm the sent and remaining counts.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>None. Dashboard reads and sync retries do not authorize marketplace actions.</p></section>
+          <section><h3>Expected output</h3><p>A rendered dashboard plus idempotent sync receipts or a retained retry queue.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Never clear queued data to hide a failure.</li><li>Copy the diagnostic report if retries remain.</li><li>Retry only after confirming whether the original sync ID already succeeded.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Dashboard opening and the production queue timeout path are live-proven in Profile 2. One record queued, duplicate enqueue remained one, the same sync ID retried once through dashboard ping, and the final queue was zero. Drive proof: https://drive.google.com/file/d/1Hl_ro2zabXd7zJARXkijq7IT3W6AFW0y/view?usp=drivesdk</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="deployment" >
+      <summary><span>Local Update and Rollback</span><span class="status partial">PARTIAL</span></summary>
+      <div class="feature-body">
+        <p class="matrix">F-01, F-02, F-03, F-04, F-14</p>
+        <p class="purpose">Update the unpacked local build while preserving settings and rollback data.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The current extension folder is known.</li><li>A settings backup has been copied.</li><li>No marketplace confirmation dialog is active.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Run Update-GLDN-Ops.cmd from the project folder.</li><li>Wait for validation, snapshot creation, and matching-profile reload.</li><li>Refresh active marketplace tabs.</li><li>Confirm the panel and popup show the expected version.</li><li>Run Feature Health Check.</li><li>Use the local manager rollback only for a confirmed broken release.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>A real rollback in an active signed-in profile requires explicit approval because it changes runtime files.</p></section>
+          <section><h3>Expected output</h3><p>Validated local files, preserved settings, a timestamped snapshot, and reloaded matching profiles.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Do not use Chrome policy or a Web Store path for this local build.</li><li>If validation fails, keep the current working files and copy diagnostics.</li><li>Real Profile 2 rollback remains intentionally untested.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Clean install/update fixtures pass. Another physical computer and a real Profile 2 rollback remain pending.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="mark-shipped" >
+      <summary><span>Mark as Shipped</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">E-01</p>
+        <p class="purpose">Select every awaiting order, pause once, and sync the exact completion count.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The signed-in eBay Awaiting shipment page is open.</li><li>The complete Results total is visible.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Click Mark as Shipped.</li><li>Wait while GLDN Ops verifies every visible row, the master checkbox, and the awaiting total.</li><li>Review eBay&#39;s exact confirmation count.</li><li>Approve Continue only when the selected count equals the intended awaiting total.</li><li>After Continue, wait for eBay success and zero remaining results.</li><li>Confirm the dashboard and matching Tasks checkbox update.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>STOP at eBay Continue. Continue requires explicit action-time approval for the exact count shown.</p></section>
+          <section><h3>Expected output</h3><p>Exact awaiting, selected, shipped, remaining, status, dashboard history, and Tasks completion.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>If eBay omits a confirmation number, GLDN Ops may reuse only the exact pre-confirm count.</li><li>Any count mismatch stops safely.</li><li>Copy diagnostics before Reset if the confirmation remains stale.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Profile 2 live proof completed 3 of 3 orders and read back zero remaining plus exact dashboard and Tasks rows.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="ebay-note-profit" >
+      <summary><span>eBay Order Note and Profit</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">E-04, E-05</p>
+        <p class="purpose">Match the exact Amazon order item to the eBay SKU, fill the note, and sync one profit row.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The exact Amazon order-details card is open, not checkout or a product page.</li><li>The matching eBay order has a visible EcomSniper Custom label SKU.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>On Amazon order details, click Review &amp; Copy Amazon Info.</li><li>Verify order ID, ASIN, item-row cost or Grand Total, ETA, and evidence source.</li><li>Copy the Amazon info.</li><li>Open the matching eBay order and click Prepare Order Note.</li><li>Confirm the decoded ASIN exactly matches the Amazon evidence.</li><li>Click Fill Add Note Box or Fill Edit Note Box.</li><li>Review the real eBay textarea and approve Save only when the note is correct.</li><li>After eBay visibly saves, confirm one dashboard profit row.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>STOP at eBay Save. Saving the note requires explicit action-time approval.</p></section>
+          <section><h3>Expected output</h3><p>Saved eBay note plus one upserted profit row with supplier order, ASIN, cost, profit, and margin evidence.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Checkout, product-page, stale, wrong-order, or mismatched-ASIN evidence must fail closed.</li><li>Do not sync profit before eBay Save.</li><li>An already matching saved note may refresh the same row without another Save.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Profile 2 matched an exact Amazon order and ASIN, filled the real eBay note, and later read back one deduplicated profit row.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="seller-metrics" >
+      <summary><span>Seller Level and Tasks Metrics</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">E-02, T-01, T-02, T-03</p>
+        <p class="purpose">Read four seller metrics, review them, and update the correct Tasks computer column and warnings.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The signed-in eBay seller performance page is open.</li><li>The correct computer identity is saved.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Click Scan Seller Level.</li><li>Review transaction defects, late shipment, tracking, unresolved cases, seller level, and evaluation date.</li><li>Click Save Seller Level Check.</li><li>Confirm all four metrics receive timestamp notes in the correct Tasks computer column.</li><li>Confirm the parent performance checkbox updates only after all four metrics save.</li><li>Review CHECK warnings and threshold colors.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>Saving reviewed metrics needs operator confirmation in the review window but performs no marketplace write.</p></section>
+          <section><h3>Expected output</h3><p>Dashboard current/history rows, Tasks metric values and notes, parent checkbox, and CHECK warnings.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Missing values remain Not detected and must not become zero.</li><li>Poshmark-only columns stay grey and empty.</li><li>Copy diagnostics if the review values do not match eBay.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Exact Profile 2 values, dashboard rows, Tasks H14:H18, grey Poshmark-only cells, and threshold boundaries are live-proven.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="listing-limits" >
+      <summary><span>Confirm Listings Under Limit</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">E-03</p>
+        <p class="purpose">Evaluate Store insertion allowance, seller quantity, and seller dollar limits independently.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>Seller Hub Overview is fully loaded.</li><li>The Store plan and monthly dollar limit are saved.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Click Confirm Listings Under Limit.</li><li>Review active listings and available quantity as inventory information only.</li><li>Review Store allowance used/left.</li><li>Review seller quantity used/limit.</li><li>Review seller dollar used/limit.</li><li>Click Confirm Listings This Month only when all detected values match eBay.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>The review confirmation is required; it does not change listings.</p></section>
+          <section><h3>Expected output</h3><p>Monthly confirmation, dashboard history, and the matching Tasks completion row.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Never treat active listings as the Store insertion allowance.</li><li>Missing Store allowance data cannot produce GOOD.</li><li>Reopen Seller Hub Overview if a card is incomplete.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Profile 2 exact Store, quantity, dollar, dashboard, history, receipt, and Tasks readbacks are live-proven.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="ebay-snapshot" >
+      <summary><span>eBay Sales Snapshot</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">E-06</p>
+        <p class="purpose">Capture sales, traffic, advertising, and feedback with card-scoped values.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>Seller Hub Overview cards are visible.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Click Scan Sales Snapshot.</li><li>Review sales today, 7, 31, and 90 days plus change direction.</li><li>Review traffic impressions and page views.</li><li>Review advertising values that eBay actually displays.</li><li>Review positive, neutral, and negative feedback counts.</li><li>Click Save eBay Snapshot only when the review matches the page.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>The review save needs confirmation but performs no marketplace write.</p></section>
+          <section><h3>Expected output</h3><p>Dashboard snapshot and history rows for the saved computer/account.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>A missing card stays blank instead of borrowing a nearby number.</li><li>Reload Seller Hub once if cards are incomplete.</li><li>Do not invent ad cost when eBay does not display it.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Profile 2 source, review, dashboard, history, and receipt values are live-proven.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="store-categories" >
+      <summary><span>Store Category Configuration</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">E-07</p>
+        <p class="purpose">Save exact source and destination Store categories per eBay account.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The intended eBay account is signed in.</li><li>Exact Store category names are known.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open Store Categories from the eBay panel settings or popup Settings.</li><li>Confirm the displayed eBay account.</li><li>Enter exact source category names and one exact destination name.</li><li>Optionally enter numeric source IDs and backburner item IDs.</li><li>Click Save and Verify.</li><li>Copy a category/settings backup before moving computers or profiles.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>Saving configuration changes extension settings only and must not launch a listing workflow.</p></section>
+          <section><h3>Expected output</h3><p>Validated, account-bound category names, IDs, and backburner IDs preserved across updates.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Duplicate, overlapping, malformed, or empty settings fail closed.</li><li>Restore only a backup for the same account.</li><li>Recheck exact category names after eBay renames a Store category.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Profile 2 FAK12 exact categories, IDs, backup, restore, and reload persistence are live-proven.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="move99" >
+      <summary><span>Move .99 Listings Into Sale</span><span class="status live">LIVE PASS WITH BOUNDARY</span></summary>
+      <div class="feature-body">
+        <p class="matrix">E-08</p>
+        <p class="purpose">Scan exact item IDs, select only exact .99 listings, change only primary Store category, and pause before Submit.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>Exact source/destination categories are saved for the signed-in eBay account.</li><li>The operator has reviewed any backburner exclusions.</li><li>No other Move .99 run is active.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open Workflows in the popup and click Open Move .99 Workflow.</li><li>Wait for the complete filtered Active Listings exact-ID scan.</li><li>Review total scanned, qualifying, omitted, and failed counts.</li><li>Apply only the verified exact-ID batches, each capped at 500.</li><li>Confirm eBay&#39;s native selected count matches the intended batch.</li><li>Confirm only Primary Store category changed to the exact destination.</li><li>Approve Submit only for the exact reviewed batch.</li><li>After eBay reports success, let GLDN Ops rescan from the first remaining range.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>STOP before every eBay Submit. Each exact batch requires separate action-time approval.</p></section>
+          <section><h3>Expected output</h3><p>Per-batch selected/submitted result, final remaining/failed counts, audit data, and Tasks completion only after exact zero remaining and zero failed.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Any incomplete scan, mixed price, selected-count mismatch, missing picker, or uncertain submit result stops safely.</li><li>Do not alter item specifics to force category failures through.</li><li>Six known FAK12 failures remain backburnered and must not be resubmitted without new approval.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Profile 2 moved 2,564 successful exact .99 listings in approved batches and isolated six persistent backburner failures without changing other fields.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="reverse99" >
+      <summary><span>Move Non-.99 Listings Out of Sale</span><span class="status unproven">IMPLEMENTED, UNPROVEN</span></summary>
+      <div class="feature-body">
+        <p class="matrix">E-09</p>
+        <p class="purpose">Find valid non-.99 prices in the sale category and return them to the configured non-sale category.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The sale and non-sale categories are configured for the signed-in account.</li><li>Backburner exclusions are current.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open Workflows and click Move Non-.99 Out of Sale.</li><li>Review the complete sale-category scan summary.</li><li>Confirm every selected listing has a valid non-.99 price.</li><li>Confirm backburner items are excluded.</li><li>Verify only Primary Store category changes to the configured non-sale destination.</li><li>Approve each final Submit separately.</li><li>Run a final clean rescan.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>STOP before every eBay Submit and approve only the exact reviewed count.</p></section>
+          <section><h3>Expected output</h3><p>Submitted batch results and a final zero-mismatch rescan.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Missing or ambiguous prices are excluded.</li><li>Any uncertain submission returns to read-only reconciliation.</li><li>Do not use the reverse workflow on Poshmark.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>The older FAK12 proof corrected 62 listings, but a later M0 / CLICKNCARRY failure report exposed reverse category-ID persistence corrupting forward settings. v3.10.3 repairs that account-generic defect and passes automated contracts; M0 still needs a fresh BALK to BEST SELLERS signed-in scan and final-review proof.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="move99-recovery" >
+      <summary><span>Move Category Recovery</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">E-10</p>
+        <p class="purpose">Recover from reloads, picker delays, uncertain submission, and per-item failures without guessing.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>A saved Move .99 checkpoint exists.</li><li>The same signed-in eBay account and configured categories are active.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Reload the extension only when the current page is stable.</li><li>Use Run Move .99 or Apply to reclaim the verified checkpoint.</li><li>If submission outcome is uncertain, allow the read-only reconciliation scan.</li><li>Review processed, failed, remaining, and recovery history.</li><li>Export audit data before Reset.</li><li>Use Retry Failed Only only with a new explicit approval.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>Recovery never grants Submit approval. Retrying or submitting any remaining item requires a new action-time approval.</p></section>
+          <section><h3>Expected output</h3><p>Idempotent checkpoint, reconciliation result, processed/failed lists, and audit export.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Generic or non-numeric Store category tokens are rejected.</li><li>Never shift the saved page after eBay omits a row.</li><li>When outcome is unknown, rescan instead of assuming success.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Profile 2 recovered a cancelled review into a complete read-only scan and exported exact Remaining / Retry rows with zero batches submitted.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="ecomsniper-handoffs" >
+      <summary><span>EcomSniper Handoffs and Status</span><span class="status partial">PARTIAL</span></summary>
+      <div class="feature-body">
+        <p class="matrix">C-01, C-02, C-04</p>
+        <p class="purpose">Verify GLDN seller-extraction counts and handoff-tab state without claiming that GLDN runs or reads EcomSniper Bulk Poster.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>eBay and EcomSniper are signed in in the same Chrome profile.</li><li>EcomSniper&#39;s visible Extract Sellers control is present on an eBay search-results page for seller extraction.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open Workflows and review EcomSniper Handoffs.</li><li>Use Open EcomSniper Competitor Scanner or Filter Titles &amp; Open Product Hunter only for the handoff you intend.</li><li>Click Refresh Status to read current GLDN-observable state.</li><li>Treat Extracting as seller extraction on eBay only; confirm the before total, after total, and reported new count reconcile.</li><li>Treat Handoff open or Handoff closed as tab-lifecycle information only.</li><li>Do not infer Bulk Poster progress, item counts, completion, or failure from the handoff monitor.</li><li>Use Stop GLDN Assist to request a safe stop of GLDN&#39;s seller-extraction queue; stop EcomSniper work from EcomSniper itself.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>GLDN Ops cannot approve or click EcomSniper&#39;s private Scanner, Product Hunter, export, Bulk Poster, or listing controls. Any listing action requires explicit approval.</p></section>
+          <section><h3>Expected output</h3><p>Verified seller-count progression plus honest open, closed, stopped, or unknown handoff state.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Missing, stale, wrong-page, mismatched, or timed-out seller counts stop safely.</li><li>An open or closed private EcomSniper tab never proves processing completion.</li><li>Copy the full diagnostic report before Reset.</li><li>No Windows local helper is required.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Profile 2 previously reconciled seller extraction from 892 to 1,607. The new v3.10.2 handoff monitor is contract-tested but still requires one signed-in Profile 2 UI proof; EcomSniper private-page progress remains unreadable by Chrome design.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="sniping" >
+      <summary><span>Sniping Workflow</span><span class="status pending">PENDING USER REVIEW</span></summary>
+      <div class="feature-body">
+        <p class="matrix">C-03</p>
+        <p class="purpose">Choose close competitors, verify exact products, enforce economics, and stop at a read-only review.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>An exact Amazon product page shows a valid ASIN and price.</li><li>The user is prepared to manually confirm product identity and EcomSniper private-page steps.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Click Start Sniping Workflow from the exact Amazon product.</li><li>Review the capped eBay candidate set returned to Amazon.</li><li>Open source links and manually confirm title/brand, image, pack, size, color, and variant.</li><li>Save one verified seller only when it looks like a matching dropshipper.</li><li>Scan that seller in EcomSniper and select a proven recent-selling winner.</li><li>Capture the winner on eBay and open the exact Product Hunter match.</li><li>Review markup, exact $0.05 undercut, fee, spread, and conservative profit.</li><li>Save Read-Only Review only after exact identity confirmation.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>The workflow must stop at read-only review. It cannot create, edit, or submit an eBay listing.</p></section>
+          <section><h3>Expected output</h3><p>A saved read-only seller/winner/product/economics review with no listing action.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Markup alone never proves an Amazon match.</li><li>A mismatch or unprofitable result cannot advance.</li><li>EcomSniper continuation remains unverified and must stay manual.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>A recorded Profile 2 candidate and 80.1% markup proof exists, but the user deferred review and EcomSniper continuation remains unverified.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="poshmark-stats" >
+      <summary><span>Poshmark Stats</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">P-01, P-02</p>
+        <p class="purpose">Review requested closet statistics and save one snapshot per Chicago day with deltas.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The signed-in My Posh Stats page is open.</li><li>Computer 7, M0, or the combined computer 0 profile is saved correctly.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open My Posh Stats.</li><li>Click Scan Posh Stats.</li><li>Review shipped orders, days to ship, cancellations, returns, removed listings, profile and available listings, ratings, and requested totals.</li><li>Click Save Poshmark Stats.</li><li>Confirm the dashboard latest row and daily history/deltas.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>Saving reviewed stats needs confirmation but performs no marketplace write.</p></section>
+          <section><h3>Expected output</h3><p>One latest snapshot and one upserted daily history row for dashboard computer 7.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Do not save if the signed-in closet identity is wrong.</li><li>Same-day saves update one row instead of adding duplicates.</li><li>Legacy same-day duplicates are repaired before deltas rebuild.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>All requested Profile 2 metrics and dashboard/history readbacks are live-proven.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="poshmark-profit" >
+      <summary><span>Poshmark Sales and Profit</span><span class="status partial">PARTIAL</span></summary>
+      <div class="feature-body">
+        <p class="matrix">P-03, P-04, P-05, P-06, P-07</p>
+        <p class="purpose">Decode the sale SKU, find the exact Amazon order-item cost, and save deduplicated profit evidence.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The signed-in Poshmark sale order shows earnings and an EcomSniper SKU.</li><li>Signed-in Amazon Orders is available in the same Chrome profile.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open the Poshmark sale order and click Capture Order Profit.</li><li>If needed, click Open Amazon Orders for ASIN.</li><li>Verify the decoded SKU ASIN against an exact Amazon order-details item row.</li><li>On Amazon, click Review &amp; Copy Amazon Info.</li><li>Return to Poshmark and click Capture Order Profit again.</li><li>Review earnings, per-item Amazon cost, profit, margin, SKU, ASIN, and supplier order.</li><li>Click Save Profit only when every identity matches.</li><li>Use Capture Visible Sales separately for the quick sales list import.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>Saving reviewed profit needs confirmation but performs no marketplace write or purchase.</p></section>
+          <section><h3>Expected output</h3><p>One upserted Marketplace Profit History row and computer 7 profit row with exact supplier evidence.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Never use EcomSniper markup, product-page price, checkout total, or a different order.</li><li>A missing, stale, redirected, extra, or mismatched ASIN blocks Save.</li><li>Visible Sales import remains partial and must not be treated as full profit proof.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Ten exact Profile 2 order-cost/profit matches are live-proven. The separate visible-sales import lacks current-version dashboard readback.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="poshmark-profit-backfill" >
+      <summary><span>Historical Poshmark Profit Backfill</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">P-08</p>
+        <p class="purpose">Index paginated Poshmark sales, read each exact SKU-linked order, allocate exact Amazon purchase units once, and stage a review before dashboard sync.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>Use the Chrome profile already signed into both Poshmark and Amazon.</li><li>The saved computer must be Poshmark-enabled.</li><li>Set the Amazon profile label if supplier-profile reporting is required.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open Workflows in the popup, or click Historical Profit Backfill on a Poshmark page, and choose Pilot, New since last sync, Last 90 days, or All sales. On one sale-detail page, Current sale only is also available for an exact audit or retry.</li><li>Click Start Historical Profit Backfill or Start New Run.</li><li>Let the single background worker switch Poshmark to Show 100 and index every available sales page in the selected range, or open the selected current sale directly.</li><li>Let the worker open each Poshmark sale detail and decode every EcomSniper SKU into an exact ASIN.</li><li>Let it search all matching Amazon order result pages and open each exact order detail in the same worker tab.</li><li>Review Exact, Needs Review, Missing SKU, and Amazon Not Found counts.</li><li>Inspect earnings, Amazon item cost, supplier order, and profit rows.</li><li>Click Sync Exact Profits only after approving the exact review count; ambiguous rows remain unsynced.</li><li>Use New since last sync for later incremental runs.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>STOP at the review. Sync Exact Profits requires a separate confirmation and is the only step that writes historical rows to the shared dashboard.</p></section>
+          <section><h3>Expected output</h3><p>A resumable local checkpoint, one-use Amazon unit ledger, exact profit rows, quarantined ambiguous rows, and idempotent Profit - 7 and Marketplace Profit History upserts after approval.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Pause at Safe Checkpoint before closing the worker tab.</li><li>Resume recreates one worker tab if the old worker was closed.</li><li>A missing SKU, missing purchase date, multiple matching Amazon orders, or differing costs cannot become an exact row.</li><li>Never substitute EcomSniper markup, a product-page price, cart total, checkout total, or a different Amazon order.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>v3.9.1 has 14 focused allocation and workflow contracts within a 217-test passing suite. Signed-in Profile 2 matched Poshmark order 6a49c5d84fab7b10343cc819 at $29.17 earnings to Amazon order 114-5900136-8324212, ASIN B07T88F8B2, and exact $19.96 item cost, producing $9.21 profit. The in-panel approval synced it once to row 32 in Profit - 7 and Marketplace Profit History, Apps Script receipt row 72 confirmed one upsert, the local checkpoint refreshed to Already synced 1, and the sync button disabled. Phone-readable proof: https://drive.google.com/file/d/1qJllE5jCt5pUE3JSNruWQsMjes7YqFNi/view?usp=drivesdk</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="tasks-automation" >
+      <summary><span>Tasks Reminders and Auto-Completion</span><span class="status live">LIVE PASS</span></summary>
+      <div class="feature-body">
+        <p class="matrix">F-10, T-04, T-05, T-06</p>
+        <p class="purpose">Keep task order safe, show stale warnings, and check only exact proven workflow completions.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The shared Tasks sheet retains its task labels and computer headers.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Run the read-only schema audit after changing task labels or computer headers.</li><li>Require every header and target label to match exactly once before a Tasks write.</li><li>Review daily stale warnings after more than three days.</li><li>Review NEED TO SNIPE after more than five days since the latest computer timestamp.</li><li>Review the Subscribe &amp; Save reminder beginning one day before month end.</li><li>Allow only seller metrics, listing limits, Mark as Shipped, and exact zero-remaining Move .99 proof to auto-check their allowlisted rows.</li><li>Keep the second-round row manual.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>No Tasks checkbox may stand in for marketplace approval. Review-ready or partial states cannot auto-check completion.</p></section>
+          <section><h3>Expected output</h3><p>Label-based warnings and idempotent, computer-specific checkbox updates.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>A missing or duplicate task label/header must stop the write until the schema is corrected.</li><li>Row moves are safe only because integrations locate unique task labels.</li><li>Poshmark-only cells remain grey.</li><li>Reverse cleanup, EcomSniper handoffs, sniping, and second-round tasks never auto-check.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Production schema audit, threshold, stale reminder, layout, allowlist, temporary-sheet cleanup, and exact computer-column proofs are live-passed. F-10 proof: https://drive.google.com/file/d/1LL8bus-SnrpPITUglPoX6K2uFi8Bz4uB/view?usp=drivesdk</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="diagnostics" >
+      <summary><span>Diagnostics, Backup, and Interface Settings</span><span class="status partial">PARTIAL</span></summary>
+      <div class="feature-body">
+        <p class="matrix">F-11, F-12, U-02</p>
+        <p class="purpose">Capture failures before resetting and preserve per-profile settings across updates.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>The popup can open.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Use Settings to choose theme and transparency.</li><li>Click Copy Settings Backup before updates or profile moves.</li><li>Use Status to run Feature Health Check.</li><li>After a failure, click Copy Full Diagnostic Report before Reset.</li><li>Use Copy Error Log for a shorter page-error report.</li><li>Clear Error Log only after the issue is captured.</li><li>Restore settings from the copied backup and verify identity and categories.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>Diagnostics and settings must not trigger marketplace actions.</p></section>
+          <section><h3>Expected output</h3><p>Health report, error log, diagnostic report, and restorable settings backup.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Do not clear evidence before copying it.</li><li>F-11 controlled error storage and export are live-proven in Profile 2.</li><li>U-02 installed-popup tab persistence still needs manual confirmation.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Health diagnostics and the exact controlled error-log storage/export path are live-proven in Profile 2. Popup behavior and visuals are contract-proven; U-02 installed-popup tab persistence remains pending.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="onboarding-interface" >
+      <summary><span>Feature Tour, Themes, and Universal Access</span><span class="status partial">PARTIAL</span></summary>
+      <div class="feature-body">
+        <p class="matrix">U-01, U-02, U-03</p>
+        <p class="purpose">Teach every catalog feature, keep the panel readable, and expose safe global controls on ordinary webpages.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>GLDN Ops is loaded in the intended Chrome profile.</li><li>The page is an ordinary http or https webpage; Chrome internal pages cannot run extension content scripts.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>On first installation, use Next and Previous to review every feature, or click Skip for now.</li><li>Restart the tour from Start Feature Tour in the popup or the three-dot panel settings menu.</li><li>Open the full feature guide for exact recovery steps and evidence labels.</li><li>Choose a saved theme from Core, Limited Editions, or Retired Editions in Settings.</li><li>Use the three-swatch preview to confirm the selected window, surface, and accent palette.</li><li>Use each review window&#39;s 0%-100% transparency slider to reveal the webpage behind its shell, tables, fields, and controls.</li><li>Drag a review window by its title; double-click the title to reset its saved position.</li><li>Resize a review window from its lower-right corner and resize the floating panel from its handle.</li><li>Minimize or dock the panel to the right edge when it obstructs a webpage.</li><li>On unsupported sites, use only the safe global controls; marketplace actions appear only on their supported sites.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>Theme, layout, tour, guide, dashboard, diagnostics, and stop controls perform no marketplace write. Marketplace approval boundaries remain unchanged.</p></section>
+          <section><h3>Expected output</h3><p>A skippable feature-by-feature tour, complete guide, 49 persisted themes, independently transparent, draggable and resizable review windows, seamless scrollbars, and a safe panel on ordinary webpages.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Use Reset panel layout if a saved panel size or position is awkward.</li><li>Reopen the tour from the popup after skipping it.</li><li>Chrome pages such as chrome://extensions cannot display the webpage panel; use the toolbar popup there.</li><li>If a supported marketplace shows only global controls, reload that tab once after reloading the extension.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>v3.8.2 proved all 49 theme options in signed-in Profile 2. v3.8.3 proved independent Poshmark and eBay review-window opacity, translucent inner surfaces, dragging, and saved position. v3.8.4 proved Poshmark Stats at true 0%: modal shell, inner table, theme pattern, and page backdrop all reached zero alpha while the everyday panel remained at 65%; 0% persisted after reopen; live money rows displayed $33,642.00 and $94,165.15; large counts used separators; and a clean repeat produced no new warnings or errors. The review was restored to 65% and closed without Save, with zero marketplace actions. Evidence: evidence/profile2-modal-opacity-currency-v384-2026-07-23/.</p></section>
+        </div>
+      </div>
+    </details>
+    <details class="feature" id="walmart" >
+      <summary><span>Walmart Order Helper</span><span class="status unproven">IMPLEMENTED, UNPROVEN</span></summary>
+      <div class="feature-body">
+        <p class="matrix">U-04</p>
+        <p class="purpose">Carry encoded order details into Walmart cart/checkout while preserving a manual final purchase.</p>
+        <div class="guide-grid">
+          <section><h3>Prerequisites</h3><ul><li>A Walmart link contains the intended auto-order details from a reviewed eBay handoff.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open the encoded Walmart product link.</li><li>Confirm GLDN Ops removes customer data from the address bar after storing it locally.</li><li>Review the product and quantity.</li><li>Use Add / Checkout only on safe cart controls.</li><li>Use Fill Delivery Info at checkout.</li><li>Review customer, item, shipping, total, and payment values manually.</li></ol></section>
+          <section class="approval"><h3>Approval stop</h3><p>GLDN Ops must never click Place order or another final purchase control.</p></section>
+          <section><h3>Expected output</h3><p>A prepared Walmart checkout with no purchase submitted.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Stop if the item, quantity, address, price, shipping, or payment differs.</li><li>This feature has syntax and package coverage only and must be treated as unproven until a dedicated gate.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Implemented and packaged, but no current signed-in live proof exists.</p></section>
+        </div>
+      </div>
+    </details>
 </main>
+<script src="theme-catalog.js"></script>
+<script src="theme-page.js"></script>
 </body>
 </html>

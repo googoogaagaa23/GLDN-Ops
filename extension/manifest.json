@@ -1,20 +1,25 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.4.25",
+  "version": "3.10.3",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",
+    "alarms",
+    "scripting",
     "clipboardRead",
     "clipboardWrite"
   ],
   "host_permissions": [
     "https://*.ebay.com/*",
     "https://*.amazon.com/*",
+    "https://*.walmart.com/*",
+    "https://*.poshmark.com/*",
     "https://script.google.com/*",
     "https://script.googleusercontent.com/*",
     "https://ecomsniper.io/*",
-    "http://127.0.0.1:18765/*"
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -32,8 +37,29 @@
       ],
       "js": [
         "config.example.js",
+        "theme-catalog.js",
+        "foundation.js",
         "shared.js",
+        "profit-audit.js",
+        "profit-backfill.js",
+        "sniping-audit.js",
         "amazon.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.walmart.com/*"
+      ],
+      "js": [
+        "config.example.js",
+        "theme-catalog.js",
+        "foundation.js",
+        "shared.js",
+        "walmart.js"
       ],
       "css": [
         "styles.css"
@@ -46,7 +72,11 @@
       ],
       "js": [
         "config.example.js",
+        "theme-catalog.js",
+        "foundation.js",
         "shared.js",
+        "profit-audit.js",
+        "sniping-audit.js",
         "ebay.js"
       ],
       "css": [
@@ -56,12 +86,56 @@
     },
     {
       "matches": [
+        "https://*.poshmark.com/*"
+      ],
+      "js": [
+        "config.example.js",
+        "theme-catalog.js",
+        "foundation.js",
+        "shared.js",
+        "profit-audit.js",
+        "profit-backfill.js",
+        "poshmark.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
         "https://ecomsniper.io/*"
       ],
       "js": [
         "config.example.js",
+        "theme-catalog.js",
+        "foundation.js",
         "shared.js",
         "ecomsniper.js"
+      ],
+      "css": [
+        "styles.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "exclude_matches": [
+        "https://*.amazon.com/*",
+        "https://*.walmart.com/*",
+        "https://*.ebay.com/*",
+        "https://*.poshmark.com/*",
+        "https://ecomsniper.io/*"
+      ],
+      "js": [
+        "config.example.js",
+        "theme-catalog.js",
+        "foundation.js",
+        "shared.js",
+        "universal.js"
       ],
       "css": [
         "styles.css"
@@ -92,9 +166,8 @@
         "start-move99.js"
       ],
       "matches": [
-        "https://*.ebay.com/*",
-        "https://*.amazon.com/*",
-        "https://ecomsniper.io/*"
+        "http://*/*",
+        "https://*/*"
       ]
     }
   ]

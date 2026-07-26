@@ -20,9 +20,32 @@ const move99SourceCategoryIdsInput = document.getElementById('move99SourceCatego
 const move99BackburnerIdsInput = document.getElementById('move99BackburnerIds');
 const currentMove99Destination = document.getElementById('currentMove99Destination');
 const diagnosticLogElement = document.getElementById('diagnosticLog');
+const updaterStatusElement = document.getElementById('updaterStatus');
+const updateExtensionButton = document.getElementById('updateExtension');
+const rollbackVersionInput = document.getElementById('rollbackVersion');
+const rollbackExtensionButton = document.getElementById('rollbackExtension');
 const localHelperCard = document.getElementById('localHelperCard');
 const localHelperBadge = document.getElementById('localHelperBadge');
 const localHelperText = document.getElementById('localHelperText');
+const lastEcomSniperStepElement = document.getElementById('lastEcomSniperStep');
+const lastEcomSniperRunElement = document.getElementById('lastEcomSniperRun');
+const productHunterClipboardReportElement = document.getElementById('productHunterClipboardReport');
+const ecomSniperMonitorCard = document.getElementById('ecomSniperMonitorCard');
+const ecomSniperMonitorBadge = document.getElementById('ecomSniperMonitorBadge');
+const ecomSniperMonitorText = document.getElementById('ecomSniperMonitorText');
+const dashboardAutoSetupElement = document.getElementById('dashboardAutoSetup');
+const ebayOnlySections = [...document.querySelectorAll('[data-platform="ebay"]')];
+const poshmarkOnlySections = [...document.querySelectorAll('[data-platform="poshmark"]')];
+const popupTabButtons = [...document.querySelectorAll('[data-popup-tab]')];
+const popupSections = [...document.querySelectorAll('[data-popup-section]')];
+const POPUP_TAB_KEY = 'gldnPopupTab';
+const POPUP_TABS = Object.freeze(['workflows', 'status', 'settings']);
+const EXTENSION_VERSION = chrome.runtime.getManifest().version;
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
 function cleanConfigValue(value) {
   const text = String(value || '').trim();
   return /^YOUR_/i.test(text) || /YOUR_SCRIPT_ID/i.test(text) ? '' : text;
@@ -30,32 +53,167 @@ function cleanConfigValue(value) {
 
 const BUILTIN_DASHBOARD_URL = cleanConfigValue(globalThis.GLDN_CONFIG?.dashboardUrl);
 const BUILTIN_DASHBOARD_KEY = cleanConfigValue(globalThis.GLDN_CONFIG?.dashboardKey);
+const DASHBOARD_URL_KEY = 'sellerDashboardUrl';
+const DASHBOARD_SECRET_KEY = 'sellerDashboardKey';
 
-const COMPUTER_ACCOUNT_MAP = Object.freeze({
-  M0: { ebayAccountLabel: 'CLICKNCARRY', display: 'M0 - ClickNCarry' },
-  '6': { ebayAccountLabel: 'FINTIME', display: '6 - Fintime' },
-  '0': { ebayAccountLabel: 'FAK12', display: '0 - FAK12' },
-  M1: { ebayAccountLabel: 'HEARTSTONE', display: 'M1 - Heartstone' },
-  '2': { ebayAccountLabel: 'FANCYFI', display: '2 - FancyFi' },
-  '7': { ebayAccountLabel: '', display: '7 - FarPosh', poshmarkOnly: true }
-});
-const COMPUTER_OPTIONS = Object.keys(COMPUTER_ACCOUNT_MAP);
-const EBAY_ACCOUNT_OPTIONS = Object.values(COMPUTER_ACCOUNT_MAP).map((entry) => entry.ebayAccountLabel).filter(Boolean);
+const FOUNDATION = globalThis.GLDN_FOUNDATION;
+const COMPUTER_ACCOUNT_MAP = FOUNDATION.computerAccounts;
+const COMPUTER_OPTIONS = FOUNDATION.computerOptions;
+const EBAY_ACCOUNT_OPTIONS = FOUNDATION.ebayAccountOptions;
 const STORE_PLAN_LIMITS = { Premium: 10000, Anchor: 25000 };
+const UI_THEMES = globalThis.GLDN_THEME_CATALOG?.ids || Object.freeze(['dark', 'light', 'graphite', 'signal', 'midnight', 'crimson']);
+const normalizeUiTheme = (value) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return UI_THEMES.includes(normalized) ? normalized : 'dark';
+};
+const applyPopupTheme = (value) => {
+  const theme = normalizeUiTheme(value);
+  if (globalThis.GLDN_THEME_CATALOG?.apply) globalThis.GLDN_THEME_CATALOG.apply(document.documentElement, theme);
+  else document.documentElement.dataset.theme = theme;
+  globalThis.GLDN_THEME_CATALOG?.renderPreview(document.getElementById('uiThemePreview'), theme);
+  return theme;
+};
+globalThis.GLDN_THEME_CATALOG?.populateSelect(uiThemeInput);
+const PANEL_LAYOUT_STORAGE_KEYS = Object.freeze([
+  'gldnEbayPanelPosition',
+  'gldnAmazonPanelPosition',
+  'gldnPoshmarkPanelPosition',
+  'gldnWalmartPanelPosition',
+  'gldnEcomSniperPanelPosition',
+  'gldnUniversalPanelPosition'
+].flatMap((key) => [key, `${key}Mode`, `${key}Size`]));
+const SETTINGS_BACKUP_KEYS = Object.freeze([
+  'settingsSchemaVersion',
+  'computerLabel',
+  'ebayAccountLabel',
+  'amazonProfileLabel',
+  'gldnUiOpacity',
+  'gldnUiTheme',
+  'gldnModalSizes',
+  'gldnModalPositions',
+  'gldnModalOpacities',
+  'gldnOnboardingState',
+  POPUP_TAB_KEY,
+  'storePlan',
+  'freeFixedPriceLimit',
+  'monthlySellerDollarLimit',
+  'limitsConfirmedMonth',
+  'limitsConfirmedAt',
+  'move99AccountSettings',
+  ...PANEL_LAYOUT_STORAGE_KEYS,
+  DASHBOARD_URL_KEY,
+  DASHBOARD_SECRET_KEY
+]);
+const DIAGNOSTIC_STORAGE_KEYS = Object.freeze([
+  ...SETTINGS_BACKUP_KEYS,
+  'lastDashboardSync',
+  'latestAccountHealth',
+  'latestListingStatus',
+  'lastMarkShippedResult',
+  'latestEbaySnapshot',
+  'latestPoshmarkStats',
+  'latestMarketplaceProfit',
+  'latestPoshmarkVisibleSales',
+  'latestPoshmarkOrderProfit',
+  'poshmarkProfitBackfill',
+  'poshmarkProfitKnownOrders',
+  'lastPreparedNote',
+  'pendingEcomSniperBulkExtract',
+  'pendingManualEcomSniperClick',
+  'lastEcomSniperExtractResult',
+  'lastEcomSniperWorkflowResult',
+  'lastProductHunterClipboardPrep',
+  'ecomSniperHandoffStatus',
+  'bulkLinksAmazonQueue',
+  'gldnDashboardQueue',
+  'lastSettingsMigration',
+  'gldnSettingsBackups',
+  'gldnErrorLog'
+]);
+
+function storageGet(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(keys, (result) => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve(result);
+    });
+  });
+}
+
+function storageSet(values) {
+  const payload = { ...values };
+  if (payload.pendingMove99Run && typeof payload.pendingMove99Run === 'object') {
+    payload.pendingMove99Run = {
+      ...payload.pendingMove99Run,
+      extensionVersion: EXTENSION_VERSION,
+      stateUpdatedAt: new Date().toISOString()
+    };
+  }
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set(payload, () => {
+      const error = chrome.runtime.lastError;
+      if (error) {
+        reject(new Error(error.message));
+        return;
+      }
+      resolve();
+    });
+  });
+}
 
 function normalizeComputer(value) {
-  const cleaned = String(value || '').trim().toLowerCase().replace(/^comp\s*/, '');
-  return COMPUTER_OPTIONS.find((option) => option.toLowerCase() === cleaned) || '0';
+  return FOUNDATION.normalizeComputer(value);
 }
+
+function normalizePopupTab(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  return POPUP_TABS.includes(normalized) ? normalized : 'workflows';
+}
+
+function activatePopupTab(value, { persist = true } = {}) {
+  const selected = normalizePopupTab(value);
+  popupTabButtons.forEach((button) => {
+    const active = button.dataset.popupTab === selected;
+    button.setAttribute('aria-selected', String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  popupSections.forEach((section) => {
+    section.hidden = section.dataset.popupSection !== selected;
+  });
+  if (persist) chrome.storage.local.set({ [POPUP_TAB_KEY]: selected });
+  return selected;
+}
+
+popupTabButtons.forEach((button, index) => {
+  button.addEventListener('click', () => {
+    activatePopupTab(button.dataset.popupTab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+  button.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    let nextIndex = index;
+    if (event.key === 'ArrowLeft') nextIndex = (index - 1 + popupTabButtons.length) % popupTabButtons.length;
+    if (event.key === 'ArrowRight') nextIndex = (index + 1) % popupTabButtons.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = popupTabButtons.length - 1;
+    const next = popupTabButtons[nextIndex];
+    activatePopupTab(next.dataset.popupTab);
+    next.focus();
+  });
+});
 
 function accountForComputer(value) {
   const computer = normalizeComputer(value);
-  return COMPUTER_ACCOUNT_MAP[computer] || COMPUTER_ACCOUNT_MAP['0'];
+  return COMPUTER_ACCOUNT_MAP[computer] || {};
 }
 
 function normalizeEbayAccount(value) {
-  const cleaned = String(value || '').trim().toLowerCase();
-  return EBAY_ACCOUNT_OPTIONS.find((option) => option.toLowerCase() === cleaned) || 'FAK12';
+  return FOUNDATION.normalizeEbayAccount(value);
 }
 
 function selectedComputerAccount() {
@@ -67,6 +225,16 @@ function selectedComputerAccount() {
 function syncDerivedEbayInput() {
   const account = accountForComputer(computerInput.value);
   ebayInput.value = account.poshmarkOnly ? 'FarPosh - Poshmark only' : account.ebayAccountLabel;
+  applyPlatformVisibility(Boolean(account.poshmarkOnly));
+}
+
+function applyPlatformVisibility(poshmarkOnly) {
+  ebayOnlySections.forEach((element) => {
+    element.style.display = poshmarkOnly ? 'none' : '';
+  });
+  poshmarkOnlySections.forEach((element) => {
+    element.style.display = '';
+  });
 }
 
 function csvToArray(value) {
@@ -87,13 +255,7 @@ function configuredMove99Account(account) {
 }
 
 function defaultMove99ForAccount(account) {
-  const configured = configuredMove99Account(account);
-  return {
-    sourceCategories: Array.isArray(configured.sourceCategories) ? configured.sourceCategories : ['Not .99', 'Other'],
-    destinationCategory: String(configured.destinationCategory || 'Abra Cadabra .99'),
-    sourceStoreCategoryIds: Array.isArray(configured.sourceStoreCategoryIds) ? configured.sourceStoreCategoryIds : [],
-    backburnerItemIds: Array.isArray(configured.backburnerItemIds) ? configured.backburnerItemIds : []
-  };
+  return FOUNDATION.move99DefaultSettingsForAccount(account);
 }
 
 function buildMove99ActiveUrl(sourceStoreCategoryIds) {
@@ -110,9 +272,7 @@ function buildMove99ActiveUrl(sourceStoreCategoryIds) {
 }
 
 function currentMove99SettingsForAccount(account, allSettings = {}) {
-  const defaults = defaultMove99ForAccount(account);
-  const stored = allSettings?.[account] || {};
-  return { ...defaults, ...stored };
+  return FOUNDATION.move99SettingsForAccount(account, allSettings?.[account] || {});
 }
 
 function renderMove99Settings(allSettings, account) {
@@ -122,6 +282,21 @@ function renderMove99Settings(allSettings, account) {
   move99SourceCategoryIdsInput.value = arrayToCsv(settings.sourceStoreCategoryIds);
   move99BackburnerIdsInput.value = arrayToCsv(settings.backburnerItemIds);
   currentMove99Destination.textContent = settings.destinationCategory || 'Not set';
+}
+
+function normalizeMove99BackupAccounts(allSettings) {
+  if (!allSettings || typeof allSettings !== 'object' || Array.isArray(allSettings)) {
+    throw new Error('Move .99 account settings are not a valid object.');
+  }
+  const normalized = {};
+  for (const [rawAccount, rawSettings] of Object.entries(allSettings)) {
+    const account = normalizeEbayAccount(rawAccount);
+    if (!account) throw new Error(`Move .99 settings contain an unknown eBay account: ${rawAccount}`);
+    const validation = FOUNDATION.validateMove99Settings(rawSettings);
+    if (!validation.ok) throw new Error(`${account}: ${validation.errors[0]}`);
+    normalized[account] = validation.settings;
+  }
+  return normalized;
 }
 
 function planFromStored(plan, limit) {
@@ -202,7 +377,11 @@ function recordPopupLog(message, detail = '') {
 function formatDiagnosticEntry(entry) {
   const date = new Date(entry.at || '');
   const time = Number.isNaN(date.getTime()) ? 'Unknown time' : date.toLocaleString();
-  const header = `[${time}] ${entry.level || 'error'} ${entry.source || 'extension'} v${entry.version || '?'}`;
+  const operation = entry.operation ? ` / ${entry.operation}` : '';
+  const identity = entry.computerLabel || entry.ebayAccountLabel
+    ? ` / ${entry.computerLabel || '?'} ${entry.ebayAccountLabel || ''}`.trimEnd()
+    : '';
+  const header = `[${time}] ${entry.level || 'error'} ${entry.source || 'extension'}${operation}${identity} v${entry.version || '?'}`;
   const page = entry.page ? `\n${entry.page}` : '';
   const detail = entry.detail ? `\n${entry.detail}` : '';
   return `${header}\n${entry.message || 'Unknown issue'}${page}${detail}`;
@@ -219,21 +398,176 @@ function renderDiagnostics(entries = []) {
   diagnosticLogElement.textContent = list.slice(0, 12).map(formatDiagnosticEntry).join('\n\n---\n\n');
 }
 
+function renderFeatureHealth(result) {
+  const lines = [];
+  lines.push(`GLDN Ops v${result?.version || '?'}`);
+  lines.push(`Computer: ${result?.identity?.computerLabel || 'not set'}`);
+  lines.push(`eBay account: ${result?.identity?.ebayAccountLabel || 'none / Poshmark-only'}`);
+  lines.push(`Dashboard: ${result?.dashboard?.ok ? 'OK' : `FAIL - ${result?.dashboard?.error || 'unknown'}`}`);
+  lines.push(`Deployment: ${result?.foundation?.deploymentMode || 'unknown'}`);
+  lines.push(`Settings schema: ${result?.foundation?.settingsSchemaVersion || 0}/${result?.foundation?.expectedSettingsSchemaVersion || '?'}`);
+  lines.push(`Queued dashboard records: ${result?.foundation?.dashboardQueuedRecords || 0}`);
+  lines.push(`Click mode: ${result?.localHelper?.ok ? 'Automatic semantic Extract Sellers click' : 'FAIL - automatic click mode unavailable'}`);
+  if (result?.ecomSniper?.ok) {
+    lines.push(`EcomSniper route: ${result.ecomSniper.id || 'unknown id'} (${result.ecomSniper.storeSafe ? 'Chrome extension safe' : 'detected'})`);
+  } else {
+    const prefix = result?.requirements?.ecomSniperRequired ? 'FAIL' : 'NOT REQUIRED';
+    lines.push(`EcomSniper: ${prefix} - ${result?.ecomSniper?.error || 'not found'}`);
+  }
+  diagnosticLogElement.classList.remove('diagnostic-empty');
+  diagnosticLogElement.textContent = lines.join('\n');
+}
+
+function pickKeys(source, keys) {
+  return Object.fromEntries(keys.filter((key) => Object.prototype.hasOwnProperty.call(source || {}, key)).map((key) => [key, source[key]]));
+}
+
+function safeJsonClone(value) {
+  return JSON.parse(JSON.stringify(value ?? null));
+}
+
+function redactedSettings(source) {
+  const copy = { ...(source || {}) };
+  if (copy[DASHBOARD_SECRET_KEY]) copy[DASHBOARD_SECRET_KEY] = '[saved]';
+  return copy;
+}
+
+function safeUrlHost(value) {
+  try {
+    return value ? new URL(value).host : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function buildSettingsBackup(storageValues) {
+  return {
+    type: 'gldn-ops-settings-backup',
+    schemaVersion: FOUNDATION.settingsSchemaVersion,
+    exportedAt: new Date().toISOString(),
+    extensionVersion: chrome.runtime.getManifest().version,
+    extensionId: chrome.runtime.id,
+    settings: safeJsonClone(pickKeys(storageValues, SETTINGS_BACKUP_KEYS))
+  };
+}
+
+function parseSettingsBackup(text) {
+  const parsed = JSON.parse(String(text || '').trim());
+  const rawSettings = parsed?.type === 'gldn-ops-settings-backup' ? parsed.settings : parsed;
+  if (!rawSettings || typeof rawSettings !== 'object' || Array.isArray(rawSettings)) {
+    throw new Error('Clipboard does not contain a GLDN Ops settings backup.');
+  }
+  const settings = pickKeys(rawSettings, SETTINGS_BACKUP_KEYS);
+  if (!Object.keys(settings).length) {
+    throw new Error('The backup did not contain any restorable GLDN Ops settings.');
+  }
+  const normalized = FOUNDATION.normalizeStoredSettings(settings);
+  if (settings.computerLabel && !normalized.computerLabel) {
+    throw new Error(`Backup contains an unknown computer: ${settings.computerLabel}`);
+  }
+  const hasMove99Settings = Object.prototype.hasOwnProperty.call(settings, 'move99AccountSettings');
+  const move99AccountSettings = hasMove99Settings
+    ? normalizeMove99BackupAccounts(settings.move99AccountSettings)
+    : undefined;
+  return {
+    ...settings,
+    settingsSchemaVersion: normalized.settingsSchemaVersion,
+    computerLabel: normalized.computerLabel,
+    ebayAccountLabel: normalized.ebayAccountLabel,
+    gldnUiOpacity: normalized.gldnUiOpacity,
+    gldnUiTheme: normalized.gldnUiTheme,
+    ...(hasMove99Settings ? { move99AccountSettings } : {})
+  };
+}
+
+async function copyTextToClipboard(text) {
+  await navigator.clipboard.writeText(text);
+}
+
+async function buildDiagnosticReport() {
+  const [storageValues, health] = await Promise.all([
+    storageGet(DIAGNOSTIC_STORAGE_KEYS),
+    chrome.runtime.sendMessage({ type: 'extensionHealthCheck' }).catch((error) => ({ ok: false, error: error.message }))
+  ]);
+  const manifest = chrome.runtime.getManifest();
+  const computer = normalizeComputer(storageValues.computerLabel);
+  const account = accountForComputer(computer);
+  const savedDashboardKey = String(storageValues[DASHBOARD_SECRET_KEY] || '').trim();
+  const dashboardKeyAvailable = Boolean(BUILTIN_DASHBOARD_KEY || savedDashboardKey);
+  return {
+    type: 'gldn-ops-diagnostic-report',
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    extension: {
+      id: chrome.runtime.id,
+      name: manifest.name,
+      version: manifest.version,
+      manifestVersion: manifest.manifest_version,
+      permissions: manifest.permissions || [],
+      hostPermissions: manifest.host_permissions || []
+    },
+    browser: {
+      userAgent: navigator.userAgent,
+      language: navigator.language
+    },
+    identity: {
+      savedComputer: storageValues.computerLabel || '',
+      normalizedComputer: computer,
+      savedEbayAccount: storageValues.ebayAccountLabel || '',
+      derivedEbayAccount: account.poshmarkOnly ? '' : account.ebayAccountLabel,
+      poshmarkOnly: Boolean(account.poshmarkOnly),
+      amazonProfile: storageValues.amazonProfileLabel || ''
+    },
+    dashboard: {
+      configured: Boolean(BUILTIN_DASHBOARD_URL && dashboardKeyAvailable),
+      host: safeUrlHost(BUILTIN_DASHBOARD_URL),
+      setupCodeSaved: Boolean(savedDashboardKey),
+      builtInSetupCode: Boolean(BUILTIN_DASHBOARD_KEY),
+      lastSync: storageValues.lastDashboardSync || null,
+      queue: Array.isArray(storageValues.gldnDashboardQueue)
+        ? {
+            count: storageValues.gldnDashboardQueue.length,
+            oldestAt: storageValues.gldnDashboardQueue[0]?.createdAt || '',
+            nextAttemptAt: storageValues.gldnDashboardQueue.map((item) => item?.nextAttemptAt).filter(Boolean).sort()[0] || ''
+          }
+        : { count: 0 },
+      health: health?.dashboard || null
+    },
+    ecomSniper: {
+      configuredId: String(globalThis.GLDN_CONFIG?.ecomSniperExtensionId || ''),
+      health: health?.ecomSniper || null,
+      pendingBulk: storageValues.pendingEcomSniperBulkExtract || null,
+      pendingManualClick: storageValues.pendingManualEcomSniperClick || null
+    },
+    clickMode: 'semantic-dom-extract-sellers',
+    settings: redactedSettings(pickKeys(storageValues, SETTINGS_BACKUP_KEYS)),
+    latestRecords: {
+      sellerLevel: storageValues.latestAccountHealth || null,
+      listingStatus: storageValues.latestListingStatus || null,
+      markShipped: storageValues.lastMarkShippedResult || null,
+      ebaySnapshot: storageValues.latestEbaySnapshot || null,
+      poshmarkStats: storageValues.latestPoshmarkStats || null,
+      marketplaceProfit: storageValues.latestMarketplaceProfit || null,
+      poshmarkVisibleSales: storageValues.latestPoshmarkVisibleSales || null,
+      poshmarkOrderProfit: storageValues.latestPoshmarkOrderProfit || null,
+      preparedNote: storageValues.lastPreparedNote || null
+    },
+    errorLog: Array.isArray(storageValues.gldnErrorLog) ? storageValues.gldnErrorLog.slice(0, 20) : []
+  };
+}
+
 async function checkLocalHelper(showMessage = false) {
   try {
     const response = await chrome.runtime.sendMessage({ type: 'localHelperHealth' });
-    const ok = Boolean(response?.ok);
-    localHelperCard.classList.toggle('ready', ok);
-    localHelperBadge.textContent = ok ? 'Running' : 'Not running';
-    localHelperText.textContent = ok
-      ? 'Ready. Bulk Listing Workflow can auto-click EcomSniper Extract Sellers through the local helper.'
-      : 'Required for automatic EcomSniper Extract Sellers clicks. Start tools\\local-click-helper.ps1 from the GLDN Ops folder.';
-    if (showMessage) setMessage(ok ? 'Local helper is running.' : 'Local helper is not running.', !ok);
+    localHelperCard.classList.add('ready');
+    localHelperBadge.textContent = response?.ok ? 'Automatic' : 'Check';
+    localHelperText.textContent = response?.message || 'Built-in automation waits for EcomSniper to confirm Extract Sellers.';
+    if (showMessage) setMessage(response?.message || 'Automatic EcomSniper click mode is ready.');
   } catch (error) {
     localHelperCard.classList.remove('ready');
-    localHelperBadge.textContent = 'Not running';
-    localHelperText.textContent = 'Required for automatic EcomSniper Extract Sellers clicks. Start tools\\local-click-helper.ps1 from the GLDN Ops folder.';
-    if (showMessage) setMessage(error.message || 'Could not check local helper.', true);
+    localHelperBadge.textContent = 'Check';
+    localHelperText.textContent = 'Automatic EcomSniper click mode could not be verified.';
+    if (showMessage) setMessage(error.message || 'Automatic click mode could not be verified.', true);
   }
 }
 
@@ -258,7 +592,7 @@ function renderSyncStatus(sync, hasConfig) {
     return;
   }
   const date = new Date(sync.at);
-  const time = Number.isNaN(date.getTime()) ? '' : ` — ${date.toLocaleString()}`;
+  const time = Number.isNaN(date.getTime()) ? '' : ` - ${date.toLocaleString()}`;
   if (sync.ok) {
     element.textContent = `${sync.message || 'Last sync succeeded'}${time}`;
     element.style.color = '#166534';
@@ -282,15 +616,15 @@ function renderLimits(settings = {}) {
 
   const confirmed = settings.limitsConfirmedMonth === currentMonthKey();
   const latestStatus = settings.latestListingStatus?.overallStatus || '';
-  const needsPrune = latestStatus === 'PRUNE LISTINGS' || latestStatus === 'LIMIT CHANGED';
+  const needsReview = Boolean(latestStatus && latestStatus !== 'GOOD');
   const due = !confirmed;
-  limitsSection.classList.toggle('due', due || needsPrune);
-  limitsSection.classList.toggle('confirmed', confirmed && !needsPrune);
-  limitsStatus.className = `limits-status ${(due || needsPrune) ? 'due' : 'confirmed'}`;
-  confirmLimitsButton.className = (due || needsPrune) ? 'danger' : 'success';
-  confirmLimitsButton.textContent = needsPrune ? latestStatus : due ? 'Confirm Listings Under Limit' : 'Run Limit Check';
+  limitsSection.classList.toggle('due', due || needsReview);
+  limitsSection.classList.toggle('confirmed', confirmed && !needsReview);
+  limitsStatus.className = `limits-status ${(due || needsReview) ? 'due' : 'confirmed'}`;
+  confirmLimitsButton.className = (due || needsReview) ? 'danger' : 'success';
+  confirmLimitsButton.textContent = needsReview ? latestStatus : due ? 'Confirm Listings Under Limit' : 'Run Limit Check';
 
-  if (needsPrune) {
+  if (needsReview) {
     limitsStatus.textContent = `${latestStatus}. Run Confirm Listings Under Limit on eBay to review current usage.`;
   } else if (confirmed) {
     const date = new Date(settings.limitsConfirmedAt || Date.now());
@@ -314,7 +648,10 @@ function renderShipping(record) {
     ['Computer', record.computerLabel || 'Not recorded'],
     ['eBay account', record.ebayAccountLabel || 'Not recorded'],
     ['Result', record.status || 'Unknown'],
+    ['Awaiting before', String(record.beforeCount ?? 'Not recorded')],
+    ['Selected', String(record.selectedCount ?? 'Not recorded')],
     ['Marked shipped', String(record.markedCount ?? 0)],
+    ['Remaining', String(record.remainingCount ?? 'Not recorded')],
     ['Batches', String(record.batchCount ?? 0)]
   ];
   if (record.error) values.push(['Error', record.error]);
@@ -336,17 +673,21 @@ function renderListing(record) {
     ['Computer', record.computerLabel || 'Not recorded'],
     ['eBay account', record.ebayAccountLabel || 'Not recorded'],
     ['Active listings', formatWhole(record.activeListings)],
-    ['In-stock quantity', formatWhole(record.inStockQuantity)],
-    ['Out of stock', formatWhole(record.outOfStockCount)],
-    ['In-stock rate', record.inStockPercent == null ? 'Not detected' : `${Number(record.inStockPercent).toFixed(1)}%`],
-    ['Subscription limit', formatWhole(record.subscriptionListingLimit)],
-    ['Listing status', record.subscriptionStatus || 'Unknown'],
+    ['Available item quantity', formatWhole(record.availableQuantity ?? record.inStockQuantity)],
+    ['Store allowance used', formatWhole(record.subscriptionUsedThisMonth)],
+    ['Store allowance left', formatWhole(record.subscriptionLeftThisMonth)],
+    ['Store monthly allowance', formatWhole(record.subscriptionListingLimit)],
+    ['Store allowance usage', record.subscriptionUsagePercent == null ? 'Not detected' : `${Number(record.subscriptionUsagePercent).toFixed(1)}%`],
+    ['Store allowance status', record.subscriptionStatus || 'Unknown'],
+    ['Seller quantity used', formatWhole(record.currentQuantityUsed)],
+    ['Seller quantity limit', formatWhole(record.monthlySellerQuantityLimit)],
+    ['Seller quantity status', record.sellerQuantityStatus || 'Unknown'],
     ['Dollar used', formatCurrency(record.currentDollarUsed)],
     ['Dollar limit', formatCurrency(record.monthlySellerDollarLimit)],
     ['Overall', record.overallStatus || 'Unknown']
   ];
   rows.innerHTML = values.map(([label, value]) => {
-    const critical = /PRUNE|CHANGED/i.test(String(value));
+    const critical = /CHECK|CHANGED|NOT DETECTED|PRUNE/i.test(String(value));
     return `<div class="row"><span>${label}</span><span class="value ${critical ? 'critical' : ''}">${value}</span></div>`;
   }).join('');
   const date = new Date(record.confirmedAt || record.capturedAt);
@@ -383,6 +724,118 @@ function renderHealth(record) {
   time.textContent = Number.isNaN(date.getTime()) ? '' : `Saved ${date.toLocaleString()}`;
 }
 
+function renderEcomSniperVerifiedCounts(step, run) {
+  if (lastEcomSniperStepElement) {
+    lastEcomSniperStepElement.textContent = step?.ok
+      ? `Latest step: ${Number(step.beforeTotal).toLocaleString()} -> ${Number(step.afterTotal).toLocaleString()} (+${Number(step.newSellers).toLocaleString()} new)`
+      : 'Latest step: Not recorded';
+  }
+  if (lastEcomSniperRunElement) {
+    lastEcomSniperRunElement.textContent = run?.ok
+      ? `Complete run: ${Number(run.startTotal).toLocaleString()} -> ${Number(run.finalTotal).toLocaleString()} (+${Number(run.newSellers).toLocaleString()} new across ${Number(run.verifiedSteps).toLocaleString()} steps)`
+      : 'Complete run: Not recorded';
+  }
+}
+
+function renderProductHunterClipboardReport(report) {
+  if (!productHunterClipboardReportElement) return;
+  productHunterClipboardReportElement.textContent = report?.preparedAt
+    ? `Product Hunter titles: ${Number(report.keptCount).toLocaleString()} ready, ${Number(report.excludedCount).toLocaleString()} excluded, ${Number(report.duplicatesRemoved || 0).toLocaleString()} duplicates removed`
+    : 'Product Hunter titles: Not prepared';
+}
+
+function relativeStatusTime(value) {
+  const timestamp = new Date(value || 0).getTime();
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
+  const seconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours}h ago`;
+  return new Date(timestamp).toLocaleString();
+}
+
+function renderEcomSniperMonitor(result = {}) {
+  if (!ecomSniperMonitorCard || !ecomSniperMonitorBadge || !ecomSniperMonitorText) return;
+  const pending = result.pendingEcomSniperBulkExtract || null;
+  const queue = result.bulkLinksAmazonQueue || null;
+  const handoff = result.ecomSniperHandoffStatus || null;
+  const lastRun = result.lastEcomSniperWorkflowResult || null;
+  let badge = 'Idle';
+  let text = 'No GLDN-observable EcomSniper handoff is active.';
+  let ready = false;
+
+  if (pending?.active) {
+    const index = Number(queue?.index || 0) + 1;
+    const total = Array.isArray(queue?.titles) ? queue.titles.length : 0;
+    const page = Number(pending.pagesDone || 0) + 1;
+    const maxPages = Number(pending.maxPages || 0);
+    const productProgress = total ? ` Product ${index}/${total}.` : '';
+    const pageProgress = maxPages ? ` Search page ${page}/${maxPages}.` : '';
+    badge = pending.phase === 'auto-click-failed' ? 'Stopped' : 'Extracting';
+    text = `${pending.query || 'Current eBay search'}.${productProgress}${pageProgress} Phase: ${pending.phase || 'waiting'}.`;
+    ready = pending.phase !== 'auto-click-failed';
+  } else if (handoff?.state === 'stop-requested') {
+    badge = 'Stop requested';
+    text = `GLDN Assist will stop at its next safe checkpoint. This does not stop controls running inside EcomSniper. ${relativeStatusTime(handoff.updatedAt)}`.trim();
+  } else if (handoff?.state === 'open') {
+    badge = 'Handoff open';
+    text = `${handoff.pageLabel || 'EcomSniper'} tab opened ${relativeStatusTime(handoff.openedAt)}. Internal EcomSniper progress is unknown.`;
+    ready = true;
+  } else if (handoff?.state === 'closed') {
+    badge = 'Handoff closed';
+    text = `${handoff.pageLabel || 'EcomSniper'} tab closed ${relativeStatusTime(handoff.closedAt)}. Closing the tab does not prove completion.`;
+  } else if (queue?.stoppedAt) {
+    badge = 'Stopped';
+    text = `GLDN seller-extraction assist stopped ${relativeStatusTime(queue.stoppedAt)}. EcomSniper private-page status is unknown.`;
+  } else if (lastRun?.ok) {
+    badge = 'Extraction done';
+    text = `Last verified extraction: ${Number(lastRun.startTotal).toLocaleString()} -> ${Number(lastRun.finalTotal).toLocaleString()} (+${Number(lastRun.newSellers).toLocaleString()}). Bulk Poster status is unknown.`;
+    ready = true;
+  }
+
+  ecomSniperMonitorBadge.textContent = badge;
+  ecomSniperMonitorText.textContent = text;
+  ecomSniperMonitorCard.classList.toggle('ready', ready);
+}
+
+function renderUpdaterStatus(result) {
+  updaterStatusElement.classList.remove('ready', 'error');
+  if (!result?.ok) {
+    updaterStatusElement.classList.add('error');
+    updaterStatusElement.textContent = result?.error || 'Automatic updater is not installed or running.';
+    return;
+  }
+  updaterStatusElement.classList.add('ready');
+  const current = result.currentVersion || EXTENSION_VERSION;
+  const latest = result.latestVersion || '';
+  updaterStatusElement.textContent = result.updateAvailable
+    ? `Update ready: v${current} -> v${latest}. Settings and .99 categories will be preserved.`
+    : latest
+      ? `Automatic updater ready. v${current} is the latest stable release.`
+      : `Automatic updater ready. Installed files: v${current}.`;
+}
+
+async function refreshUpdaterStatus({ refresh = false } = {}) {
+  try {
+    const [statusResult, versionsResult] = await Promise.all([
+      chrome.runtime.sendMessage({ type: 'getUpdaterStatus', refresh }),
+      chrome.runtime.sendMessage({ type: 'getUpdaterVersions' })
+    ]);
+    renderUpdaterStatus(statusResult);
+    const versions = Array.isArray(versionsResult?.versions) ? versionsResult.versions : [];
+    rollbackVersionInput.innerHTML = versions.length
+      ? versions.map((item) => `<option value="${escapeHtml(item.id)}">v${escapeHtml(item.version)} - ${escapeHtml(new Date(item.createdAt).toLocaleString())}</option>`).join('')
+      : '<option value="">No rollback version yet</option>';
+    rollbackExtensionButton.disabled = !versions.length;
+  } catch (error) {
+    renderUpdaterStatus({ ok: false, error: error.message });
+    rollbackVersionInput.innerHTML = '<option value="">Updater unavailable</option>';
+    rollbackExtensionButton.disabled = true;
+  }
+}
+
 function refresh() {
   chrome.storage.local.get([
     'computerLabel',
@@ -392,6 +845,7 @@ function refresh() {
     'latestListingStatus',
     'gldnUiOpacity',
     'gldnUiTheme',
+    POPUP_TAB_KEY,
     'lastDashboardSync',
     'storePlan',
     'freeFixedPriceLimit',
@@ -399,7 +853,15 @@ function refresh() {
     'limitsConfirmedMonth',
     'limitsConfirmedAt',
     'lastMarkShippedResult',
+    'lastEcomSniperExtractResult',
+    'lastEcomSniperWorkflowResult',
+    'lastProductHunterClipboardPrep',
+    'pendingEcomSniperBulkExtract',
+    'bulkLinksAmazonQueue',
+    'ecomSniperHandoffStatus',
     'move99AccountSettings',
+    DASHBOARD_URL_KEY,
+    DASHBOARD_SECRET_KEY,
     'gldnErrorLog'
   ], (result) => {
     const computer = normalizeComputer(result.computerLabel);
@@ -411,14 +873,17 @@ function refresh() {
     syncDerivedEbayInput();
     amazonInput.value = amazon;
     const opacity = Number(result.gldnUiOpacity || globalThis.GLDN_CONFIG?.defaultUiOpacity || 75);
-    const theme = String(result.gldnUiTheme || globalThis.GLDN_CONFIG?.defaultUiTheme || 'dark').toLowerCase() === 'light' ? 'light' : 'dark';
+    const theme = normalizeUiTheme(result.gldnUiTheme || globalThis.GLDN_CONFIG?.defaultUiTheme || 'dark');
     uiOpacityInput.value = String(opacity);
     uiOpacityValue.textContent = `${opacity}%`;
     uiThemeInput.value = theme;
-    document.documentElement.dataset.theme = theme;
+    applyPopupTheme(theme);
+    activatePopupTab(result[POPUP_TAB_KEY], { persist: false });
 
     document.getElementById('currentComputer').textContent = computer || 'Not set';
-    document.getElementById('currentEbay').textContent = ebay || 'Poshmark only';
+    document.getElementById('currentEbay').textContent = computer
+      ? (mapped.poshmarkOnly ? 'Poshmark only' : ebay || 'Not set')
+      : 'Not set';
     document.getElementById('currentAmazon').textContent = amazon || 'Not set';
     renderMove99Settings(result.move99AccountSettings || {}, ebay);
 
@@ -426,8 +891,11 @@ function refresh() {
     renderListing(result.latestListingStatus);
     renderHealth(result.latestAccountHealth);
     renderShipping(result.lastMarkShippedResult);
+    renderEcomSniperVerifiedCounts(result.lastEcomSniperExtractResult, result.lastEcomSniperWorkflowResult);
+    renderProductHunterClipboardReport(result.lastProductHunterClipboardPrep);
+    renderEcomSniperMonitor(result);
     renderDiagnostics(result.gldnErrorLog);
-    renderSyncStatus(result.lastDashboardSync, Boolean(BUILTIN_DASHBOARD_URL && BUILTIN_DASHBOARD_KEY));
+    renderSyncStatus(result.lastDashboardSync, Boolean(BUILTIN_DASHBOARD_URL && (BUILTIN_DASHBOARD_KEY || result[DASHBOARD_SECRET_KEY])));
   });
 }
 
@@ -458,11 +926,11 @@ computerInput.addEventListener('change', () => {
   syncDerivedEbayInput();
   chrome.storage.local.get(['move99AccountSettings'], (result) => {
     const account = selectedComputerAccount();
-    renderMove99Settings(result.move99AccountSettings || {}, account.ebayAccountLabel || 'FAK12');
+    renderMove99Settings(result.move99AccountSettings || {}, account.ebayAccountLabel || '');
   });
 });
 
-document.getElementById('saveMove99Categories').addEventListener('click', () => {
+document.getElementById('saveMove99Categories').addEventListener('click', async () => {
   const selected = selectedComputerAccount();
   const account = selected.ebayAccountLabel;
   const sourceCategories = csvToArray(move99SourceCategoriesInput.value);
@@ -474,106 +942,223 @@ document.getElementById('saveMove99Categories').addEventListener('click', () => 
     setMessage('Computer 7 is Poshmark-only and does not have .99 eBay categories.', true);
     return;
   }
-  if (!sourceCategories.length || !destinationCategory) {
-    setMessage('Enter at least one source category and one destination category.', true);
+  const validation = FOUNDATION.validateMove99Settings({
+    sourceCategories,
+    destinationCategory,
+    sourceStoreCategoryIds,
+    backburnerItemIds
+  });
+  if (!validation.ok) {
+    setMessage(validation.errors[0], true);
     return;
   }
 
-  chrome.storage.local.get(['move99AccountSettings'], (result) => {
-    const move99AccountSettings = result.move99AccountSettings || {};
-    move99AccountSettings[account] = { sourceCategories, destinationCategory, sourceStoreCategoryIds, backburnerItemIds };
-    chrome.storage.local.set({ move99AccountSettings }, () => {
-      currentMove99Destination.textContent = destinationCategory;
-      setMessage(`Saved .99 categories for ${account}.`);
-    });
-  });
+  try {
+    const result = await storageGet(['move99AccountSettings']);
+    const move99AccountSettings = { ...(result.move99AccountSettings || {}) };
+    move99AccountSettings[account] = JSON.parse(JSON.stringify(validation.settings));
+    await storageSet({ move99AccountSettings });
+    const verified = await storageGet(['move99AccountSettings']);
+    const saved = verified.move99AccountSettings?.[account];
+    const savedValidation = FOUNDATION.validateMove99Settings(saved || {});
+    if (!savedValidation.ok || JSON.stringify(savedValidation.settings) !== JSON.stringify(validation.settings)) {
+      throw new Error(`Saved .99 categories for ${account} could not be verified.`);
+    }
+    renderMove99Settings(verified.move99AccountSettings || {}, account);
+    setMessage(`Saved and verified .99 categories for ${account}.`);
+  } catch (error) {
+    recordPopupLog(error.message || 'Could not save Move .99 categories.', error.stack || '');
+    setMessage(error.message || 'Could not save Move .99 categories.', true);
+  }
 });
 
 document.getElementById('openMove99Workflow').addEventListener('click', () => {
-  startMove99Workflow('price99');
+  startMove99Workflow('price99').catch((error) => {
+    recordPopupLog(error.message || 'Could not start Move .99.', error.stack || '');
+    setMessage(error.message || 'Could not start Move .99.', true);
+  });
 });
 
 document.getElementById('openNon99Workflow').addEventListener('click', () => {
-  startMove99Workflow('non99');
+  startMove99Workflow('non99').catch((error) => {
+    recordPopupLog(error.message || 'Could not start Non-.99 cleanup.', error.stack || '');
+    setMessage(error.message || 'Could not start Non-.99 cleanup.', true);
+  });
 });
 
-function startMove99Workflow(scanMode) {
+async function startMove99Workflow(scanMode) {
   const selected = selectedComputerAccount();
   const account = selected.ebayAccountLabel;
   if (!account) {
     setMessage('Computer 7 is Poshmark-only. Move .99 is disabled for it.', true);
     return;
   }
-  chrome.storage.local.get(['move99AccountSettings'], (result) => {
-    const settings = currentMove99SettingsForAccount(account, result.move99AccountSettings || {});
-    if (!settings.sourceCategories?.length || !settings.destinationCategory) {
-      setMessage('Save source and destination .99 categories first.', true);
-      return;
+  const result = await storageGet(['move99AccountSettings']);
+  const settings = currentMove99SettingsForAccount(account, result.move99AccountSettings || {});
+  if (!settings.sourceCategories?.length || !settings.destinationCategory) {
+    throw new Error('Save source and destination .99 categories first.');
+  }
+
+  const sourceCategories = scanMode === 'non99' ? [settings.destinationCategory] : settings.sourceCategories;
+  const destinationCategory = scanMode === 'non99' ? settings.sourceCategories[0] : settings.destinationCategory;
+  const sourceStoreCategoryIds = scanMode === 'non99' ? [] : settings.sourceStoreCategoryIds;
+  const activeUrl = buildMove99ActiveUrl(sourceStoreCategoryIds);
+  const startedAt = new Date().toISOString();
+  const runId = globalThis.crypto?.randomUUID?.() || `move99-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  await storageSet({
+    gldnStopRequested: false,
+    pendingMove99Run: {
+      active: true,
+      confirmed: true,
+      runId,
+      phase: 'active-prepare',
+      scanMode,
+      scanStrategy: 'active-page-exact-id-v1',
+      ebayAccountLabel: account,
+      currentPage: 1,
+      scanPages: {},
+      verificationPages: {},
+      failedIds: [],
+      processedIds: [],
+      totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
+      startedAt,
+      sourceCategories,
+      destinationCategory,
+      sourceStoreCategoryIds,
+      backburnerItemIds: settings.backburnerItemIds
     }
-
-    const sourceCategories = scanMode === 'non99' ? [settings.destinationCategory] : settings.sourceCategories;
-    const destinationCategory = scanMode === 'non99' ? settings.sourceCategories[0] : settings.destinationCategory;
-    const sourceStoreCategoryIds = scanMode === 'non99' ? [] : settings.sourceStoreCategoryIds;
-    const activeUrl = buildMove99ActiveUrl(sourceStoreCategoryIds);
-    chrome.storage.local.set({
-      gldnStopRequested: false,
-      pendingMove99Run: {
-        active: true,
-        confirmed: true,
-        phase: 'active-prepare',
-        scanMode,
-        ebayAccountLabel: account,
-        currentPage: 1,
-        scanPages: {},
-        verificationPages: {},
-        failedIds: [],
-        processedIds: [],
-        totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
-        startedAt: new Date().toISOString(),
-        sourceCategories,
-        destinationCategory,
-        sourceStoreCategoryIds,
-        backburnerItemIds: settings.backburnerItemIds
-      }
-    }, () => {
-      chrome.tabs.create({ url: activeUrl });
-      setMessage(scanMode === 'non99' ? 'Non-.99 cleanup started. The opened eBay tab will scan first.' : 'Move .99 workflow started. The opened eBay tab will scan first.');
-    });
   });
+  chrome.tabs.create({ url: activeUrl });
+  setMessage(scanMode === 'non99' ? 'Non-.99 cleanup started. The opened eBay tab will scan first.' : 'Move .99 workflow started. The opened eBay tab will scan first.');
 }
-
-document.getElementById('openAmazonBestSellers').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'https://www.amazon.com/gp/bestsellers' });
-});
 
 document.getElementById('openFeatureGuide').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('guide.html') });
 });
 
-document.getElementById('startBulkListingWorkflow').addEventListener('click', () => {
-  chrome.storage.local.set({ pendingAmazonBulkWorkflowStart: { active: true, startedAt: Date.now() } }, () => {
-    chrome.tabs.create({ url: 'https://www.amazon.com/gp/bestsellers' });
-    setMessage('Bulk Listing Workflow will start on Amazon Best Sellers.');
-  });
+document.getElementById('openFeatureTour').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
 });
 
 document.getElementById('startSnipingWorkflow').addEventListener('click', () => {
-  chrome.storage.local.set({ pendingAmazonSnipingWorkflowStart: { active: true, startedAt: Date.now() } }, () => {
+  chrome.storage.local.set({
+    gldnStopRequested: false,
+    pendingAmazonSnipingWorkflowStart: { active: true, startedAt: Date.now() }
+  }, () => {
     chrome.tabs.create({ url: 'https://www.amazon.com/gp/bestsellers' });
     setMessage('Sniping Workflow will start from the opened Amazon page if a product and price are visible.');
   });
 });
 
 document.getElementById('openEcomSniperCompetitorScanner').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'chrome-extension://eohieelgcgopcnjjjanjgfjdaifolokm/Competitor_Research/index.html' });
+  openEcomSniperPage('competitorScanner', 'Opening EcomSniper Competitor Scanner...');
+});
+
+document.getElementById('prepareProductHunterClipboard').addEventListener('click', async () => {
+  setMessage('Filtering copied scanner titles...');
+  try {
+    const copied = await navigator.clipboard.readText();
+    const filtered = FOUNDATION.filterBulkProductTitles(copied);
+    if (!filtered.originalCount) throw new Error('Copy scanner titles first. The clipboard does not contain any titles.');
+    if (!filtered.kept.length) throw new Error(`All ${filtered.originalCount} copied titles were excluded as apparel, shoes, costumes, or fashion accessories.`);
+
+    await navigator.clipboard.writeText(filtered.kept.join('\n'));
+    const report = {
+      preparedAt: new Date().toISOString(),
+      originalCount: filtered.originalCount,
+      keptCount: filtered.kept.length,
+      excludedCount: filtered.excluded.length,
+      duplicatesRemoved: filtered.duplicatesRemoved,
+      excludedTitles: [...filtered.excluded],
+      keptTitles: [...filtered.kept]
+    };
+    await storageSet({ lastProductHunterClipboardPrep: report });
+    renderProductHunterClipboardReport(report);
+    await openEcomSniperPage('productHunter', 'Opening EcomSniper Product Hunter...');
+    setMessage(`Prepared ${report.keptCount} Product Hunter titles and excluded ${report.excludedCount}. Paste/import the filtered clipboard in Product Hunter.`);
+  } catch (error) {
+    recordPopupLog(error.message || 'Could not prepare Product Hunter titles.', error.stack || '');
+    setMessage(error.message || 'Could not prepare Product Hunter titles.', true);
+  }
 });
 
 document.getElementById('openEcomSniperProductHunter').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'chrome-extension://eohieelgcgopcnjjjanjgfjdaifolokm/Product_Finder/product_finder.html' });
+  openEcomSniperPage('productHunter', 'Opening EcomSniper Product Hunter...');
 });
+
+document.getElementById('openPoshmarkStats').addEventListener('click', () => {
+  chrome.tabs.create({ url: 'https://poshmark.com/users/self/closet_stats' });
+});
+
+document.getElementById('openPoshmarkOrders').addEventListener('click', () => {
+  chrome.tabs.create({ url: 'https://poshmark.com/order/sales' });
+});
+
+function formatPoshmarkBackfillStatus(summary) {
+  if (!summary) return 'Historical profit: no checkpoint';
+  return `Historical profit: ${summary.phase} | ${summary.salesIndexed} sales | ${summary.detailsCaptured} details | ${summary.exact} exact | ${summary.needsReview} review | ${summary.synced} synced`;
+}
+
+async function refreshPoshmarkBackfillStatus() {
+  const response = await chrome.runtime.sendMessage({ type: 'getPoshmarkProfitBackfill' });
+  const element = document.getElementById('poshmarkBackfillStatus');
+  if (element) element.textContent = response?.ok ? formatPoshmarkBackfillStatus(response.summary) : response?.error || 'Historical profit status unavailable.';
+  return response;
+}
+
+document.getElementById('startPoshmarkBackfill').addEventListener('click', async () => {
+  const scope = document.getElementById('poshmarkBackfillScope').value;
+  setMessage(`Starting ${scope} historical Poshmark profit worker...`);
+  const response = await chrome.runtime.sendMessage({ type: 'startPoshmarkProfitBackfill', options: { scope } });
+  setMessage(response?.ok ? 'Historical-profit worker started in one background tab.' : response?.error || 'Could not start historical-profit worker.', !response?.ok);
+  await refreshPoshmarkBackfillStatus();
+});
+
+document.getElementById('resumePoshmarkBackfill').addEventListener('click', async () => {
+  const response = await chrome.runtime.sendMessage({ type: 'resumePoshmarkProfitBackfill' });
+  setMessage(response?.ok ? `Historical-profit checkpoint is ${response.summary.phase}.` : response?.error || 'No checkpoint found.', !response?.ok);
+  await refreshPoshmarkBackfillStatus();
+});
+
+document.getElementById('stopPoshmarkBackfill').addEventListener('click', async () => {
+  const response = await chrome.runtime.sendMessage({ type: 'stopPoshmarkProfitBackfill' });
+  setMessage(response?.ok ? response.message : response?.error || 'Could not pause the historical-profit worker.', !response?.ok);
+  await refreshPoshmarkBackfillStatus();
+});
+
+async function openEcomSniperPage(page, workingMessage) {
+  setMessage(workingMessage);
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'openEcomSniperPage', page });
+    if (!response?.ok) throw new Error(response?.error || 'Could not open EcomSniper.');
+    setMessage(`Opened ${response.extension?.name || 'EcomSniper'}.`);
+  } catch (error) {
+    recordPopupLog(error.message || 'Could not open EcomSniper.', error.stack || '');
+    setMessage(error.message || 'Could not open EcomSniper.', true);
+  }
+}
 
 document.getElementById('checkLocalHelper').addEventListener('click', () => {
   checkLocalHelper(true);
+});
+
+document.getElementById('refreshEcomSniperMonitor').addEventListener('click', () => {
+  refresh();
+  setMessage('EcomSniper handoff status refreshed. Only GLDN-observable state is reported.');
+});
+
+document.getElementById('stopEcomSniperAssist').addEventListener('click', async () => {
+  const current = await storageGet(['ecomSniperHandoffStatus']);
+  await storageSet({
+    gldnStopRequested: true,
+    ecomSniperHandoffStatus: {
+      ...(current.ecomSniperHandoffStatus || {}),
+      state: 'stop-requested',
+      updatedAt: new Date().toISOString()
+    }
+  });
+  refresh();
+  setMessage('GLDN Assist stop requested. EcomSniper private-page controls remain operator-controlled.');
 });
 
 async function saveLimits() {
@@ -589,7 +1174,7 @@ async function saveLimits() {
     return;
   }
   if (freeFixedPriceLimit == null || monthlySellerDollarLimit == null) {
-    setMessage('Enter the custom listing or dollar limit.', true);
+    setMessage('Enter the custom Store allowance or dollar limit.', true);
     return;
   }
   if (!computerLabel || !ebayAccountLabel) {
@@ -598,7 +1183,7 @@ async function saveLimits() {
   }
 
   chrome.storage.local.set({ storePlan, freeFixedPriceLimit, monthlySellerDollarLimit }, () => {
-    setMessage('Listing settings saved. Use Confirm Listings Under Limit on eBay to scan and confirm the current month.');
+    setMessage('Limit settings saved. Use Confirm Listings Under Limit on eBay to scan and confirm the current month.');
     refresh();
   });
 }
@@ -635,8 +1220,7 @@ document.getElementById('clearAmazon').addEventListener('click', () => {
 
 
 uiThemeInput.addEventListener('change', () => {
-  const theme = uiThemeInput.value === 'dark' ? 'dark' : 'light';
-  document.documentElement.dataset.theme = theme;
+  const theme = applyPopupTheme(uiThemeInput.value);
   chrome.storage.local.set({ gldnUiTheme: theme });
 });
 
@@ -653,7 +1237,19 @@ document.getElementById('stopCurrentTask').addEventListener('click', () => {
 });
 
 document.getElementById('resetAutomation').addEventListener('click', () => {
-  const keys = ['pendingMarkShippedRun', 'pendingSellerLevelScan', 'pendingReviewMonthlyLimits', 'pendingMove99Run'];
+  const keys = [
+    'pendingMarkShippedRun',
+    'pendingSellerLevelScan',
+    'pendingReviewMonthlyLimits',
+    'pendingEbaySnapshotScan',
+    'pendingMove99Run',
+    'pendingEcomSniperBulkExtract',
+    'pendingSnipingExtract',
+    'pendingManualEcomSniperClick',
+    'pendingAmazonBulkWorkflowStart',
+    'pendingAmazonSnipingWorkflowStart',
+    'bulkLinksAmazonQueue'
+  ];
   chrome.storage.local.remove(keys, () => {
     chrome.storage.local.set({ gldnStopRequested: false }, () => {
       setMessage('Automation state reset. Refresh the eBay page before starting another task.');
@@ -662,20 +1258,57 @@ document.getElementById('resetAutomation').addEventListener('click', () => {
 });
 
 document.getElementById('reloadExtension').addEventListener('click', async () => {
-  setMessage('Reloading extension update...');
+  const version = chrome.runtime.getManifest().version;
+  setMessage(`Reloading GLDN Ops v${version}...`);
   try {
     const response = await chrome.runtime.sendMessage({ type: 'reloadExtension' });
     if (!response?.ok) throw new Error(response?.error || 'Reload request failed.');
-    setMessage('Extension reload requested. Refresh open eBay/Amazon tabs after it reloads.');
+    setMessage('Reload requested. Open marketplace tabs will refresh automatically.');
   } catch (error) {
     recordPopupLog(error.message || 'Reload request failed.', error.stack || '');
     setMessage(error.message || 'Reload request failed.', true);
   }
 });
 
-document.getElementById('openLatestUpdate').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'https://codeload.github.com/googoogaagaa23/GLDN-Ops/zip/refs/heads/main' });
-  setMessage('Latest GLDN Ops ZIP opened. Extract it, replace the local folder, then reload the unpacked extension.');
+document.getElementById('updateExtension').addEventListener('click', async () => {
+  updateExtensionButton.disabled = true;
+  setMessage('Downloading and verifying the latest stable GLDN Ops release...');
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'updateExtension' });
+    if (!response?.ok) throw new Error(response?.error || 'Verified update failed.');
+    if (response.updated) {
+      setMessage(`Verified v${response.currentVersion}. Reloading GLDN Ops...`);
+    } else {
+      setMessage(response.message || 'GLDN Ops is already current.');
+      updateExtensionButton.disabled = false;
+      refreshUpdaterStatus({ refresh: true });
+    }
+  } catch (error) {
+    recordPopupLog(error.message || 'Verified update failed.', error.stack || '');
+    setMessage(error.message || 'Verified update failed.', true);
+    updateExtensionButton.disabled = false;
+    refreshUpdaterStatus();
+  }
+});
+
+document.getElementById('rollbackExtension').addEventListener('click', async () => {
+  const snapshotId = rollbackVersionInput.value;
+  if (!snapshotId) {
+    setMessage('No rollback version is available yet.', true);
+    return;
+  }
+  rollbackExtensionButton.disabled = true;
+  setMessage('Restoring the selected verified backup...');
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'rollbackExtension', snapshotId });
+    if (!response?.ok) throw new Error(response?.error || 'Rollback failed.');
+    setMessage(`Restored v${response.currentVersion}. Reloading GLDN Ops...`);
+  } catch (error) {
+    recordPopupLog(error.message || 'Rollback failed.', error.stack || '');
+    setMessage(error.message || 'Rollback failed.', true);
+    rollbackExtensionButton.disabled = false;
+    refreshUpdaterStatus();
+  }
 });
 
 document.getElementById('copyErrorLog').addEventListener('click', async () => {
@@ -695,6 +1328,78 @@ document.getElementById('copyErrorLog').addEventListener('click', async () => {
   });
 });
 
+document.getElementById('copyDiagnosticReport').addEventListener('click', async () => {
+  setMessage('Building diagnostic report...');
+  try {
+    const report = await buildDiagnosticReport();
+    await copyTextToClipboard(JSON.stringify(report, null, 2));
+    diagnosticLogElement.classList.remove('diagnostic-empty');
+    diagnosticLogElement.textContent = [
+      `Diagnostic report copied for GLDN Ops v${report.extension.version}.`,
+      `Computer: ${report.identity.normalizedComputer || 'not set'}`,
+      `Dashboard: ${report.dashboard.health?.ok ? 'OK' : 'CHECK'}`,
+      `Click mode: ${report.clickMode}`,
+      `Errors included: ${report.errorLog.length}`
+    ].join('\n');
+    setMessage('Full diagnostic report copied.');
+  } catch (error) {
+    recordPopupLog(error.message || 'Could not copy diagnostic report.', error.stack || '');
+    setMessage(error.message || 'Could not copy diagnostic report.', true);
+  }
+});
+
+document.getElementById('copySettingsBackup').addEventListener('click', async () => {
+  setMessage('Copying settings backup...');
+  try {
+    const values = await storageGet(SETTINGS_BACKUP_KEYS);
+    const backup = buildSettingsBackup(values);
+    await copyTextToClipboard(JSON.stringify(backup, null, 2));
+    setMessage('Settings backup copied.');
+  } catch (error) {
+    recordPopupLog(error.message || 'Could not copy settings backup.', error.stack || '');
+    setMessage(error.message || 'Could not copy settings backup.', true);
+  }
+});
+
+document.getElementById('restoreSettingsBackup').addEventListener('click', async () => {
+  setMessage('Reading settings backup from clipboard...');
+  try {
+    const text = await navigator.clipboard.readText();
+    const settings = parseSettingsBackup(text);
+    await storageSet(settings);
+    refresh();
+    setMessage(`Restored ${Object.keys(settings).length} GLDN Ops setting(s).`);
+  } catch (error) {
+    recordPopupLog(error.message || 'Could not restore settings backup.', error.stack || '');
+    setMessage(error.message || 'Could not restore settings backup.', true);
+  }
+});
+
+document.getElementById('runHealthCheck').addEventListener('click', async () => {
+  setMessage('Running feature health check...');
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'extensionHealthCheck' });
+    renderFeatureHealth(response);
+    setMessage(response?.ok ? 'Feature health check complete.' : 'Feature health check found issues.', !response?.ok);
+  } catch (error) {
+    recordPopupLog(error.message || 'Feature health check failed.', error.stack || '');
+    setMessage(error.message || 'Feature health check failed.', true);
+  }
+});
+
+document.getElementById('retryDashboardQueue').addEventListener('click', async () => {
+  setMessage('Retrying queued dashboard records...');
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'retryDashboardQueue' });
+    if (!response?.ok) throw new Error(response?.error || 'Dashboard retry failed.');
+    setMessage(`Dashboard retry complete: ${response.processed || 0} sent, ${response.remaining || 0} remaining.`);
+    refresh();
+  } catch (error) {
+    recordPopupLog(error.message || 'Dashboard retry failed.', error.stack || '');
+    setMessage(error.message || 'Dashboard retry failed.', true);
+  }
+});
+
 document.getElementById('clearErrorLog').addEventListener('click', () => {
   chrome.storage.local.remove(['gldnErrorLog'], () => {
     renderDiagnostics([]);
@@ -703,7 +1408,7 @@ document.getElementById('clearErrorLog').addEventListener('click', () => {
 });
 
 document.getElementById('testDashboard').addEventListener('click', async () => {
-  setMessage('Testing built-in dashboard connection...');
+  setMessage('Testing dashboard connection...');
   try {
     const response = await chrome.runtime.sendMessage({ type: 'testDashboard' });
     if (!response?.ok) throw new Error(response?.error || 'Connection failed.');
@@ -715,17 +1420,39 @@ document.getElementById('testDashboard').addEventListener('click', async () => {
   }
 });
 
-document.getElementById('openDashboard').addEventListener('click', () => {
-  if (!BUILTIN_DASHBOARD_URL || !BUILTIN_DASHBOARD_KEY) {
-    setMessage('The built-in dashboard connection is missing.', true);
-    return;
-  }
+async function ensureAutomaticDashboardSetup({ announce = false } = {}) {
+  if (dashboardAutoSetupElement) dashboardAutoSetupElement.textContent = 'Checking automatic connection...';
   try {
-    const dashboard = new URL(BUILTIN_DASHBOARD_URL);
-    dashboard.searchParams.set('key', BUILTIN_DASHBOARD_KEY);
-    chrome.tabs.create({ url: dashboard.toString() });
-  } catch (_) {
-    setMessage('The built-in dashboard URL is invalid.', true);
+    const response = await chrome.runtime.sendMessage({ type: 'seedDashboardSetupFromLocalConfig' });
+    if (!response?.ok) throw new Error(response?.error || 'Automatic dashboard setup failed.');
+    if (dashboardAutoSetupElement) {
+      dashboardAutoSetupElement.textContent = response.changed
+        ? 'Automatic connection configured from the private package.'
+        : 'Automatic connection ready.';
+    }
+    if (announce) setMessage('Automatic dashboard connection repaired.');
+    return true;
+  } catch (error) {
+    if (dashboardAutoSetupElement) {
+      dashboardAutoSetupElement.textContent = 'Automatic setup unavailable. Update from the private GLDN Ops package.';
+    }
+    if (announce) setMessage(error.message || 'Automatic dashboard setup failed.', true);
+    return false;
+  }
+}
+
+document.getElementById('repairDashboardSetup').addEventListener('click', async () => {
+  await ensureAutomaticDashboardSetup({ announce: true });
+  refresh();
+});
+
+document.getElementById('openDashboard').addEventListener('click', async () => {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'openDashboard' });
+    if (!response?.ok) throw new Error(response?.error || 'Dashboard could not open.');
+    setMessage('Dashboard opened.');
+  } catch (error) {
+    setMessage(error.message || 'Dashboard could not open.', true);
   }
 });
 
@@ -734,7 +1461,16 @@ document.getElementById('currentVersion').textContent = `v${chrome.runtime.getMa
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;
   if (changes.gldnErrorLog) renderDiagnostics(changes.gldnErrorLog.newValue);
+  if (changes.lastEcomSniperExtractResult || changes.lastEcomSniperWorkflowResult || changes.pendingEcomSniperBulkExtract || changes.bulkLinksAmazonQueue || changes.ecomSniperHandoffStatus) refresh();
+  if (changes.poshmarkProfitBackfill) refreshPoshmarkBackfillStatus();
 });
 
-refresh();
-checkLocalHelper(false);
+async function initializePopup() {
+  await ensureAutomaticDashboardSetup();
+  refresh();
+  refreshUpdaterStatus({ refresh: true });
+  checkLocalHelper(false);
+  refreshPoshmarkBackfillStatus();
+}
+
+initializePopup();

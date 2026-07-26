@@ -164,6 +164,16 @@ if ($LASTEXITCODE -ne 0) {
   throw "Universal release check failed."
 }
 
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "tools\build-private-extension.ps1") -Version $plainVersion
+if ($LASTEXITCODE -ne 0) {
+  throw "Private extension package build failed."
+}
+
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "tools\build-updater-metadata.ps1") -Version $plainVersion
+if ($LASTEXITCODE -ne 0) {
+  throw "Stable updater metadata build failed."
+}
+
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "tests\local-install-fixture.ps1") -PackagePath (Join-Path $repoRoot "dist\GLDN-Ops-latest.zip")
 if ($LASTEXITCODE -ne 0) {
   throw "Local clean-install/update fixture failed."

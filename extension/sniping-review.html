@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GLDN Ops - Sniping Seller Review</title>
+  <link rel="stylesheet" href="sniping-review.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icons/icon48.png" alt="GLDN Ops">
+      <div>
+        <strong>GLDN Ops</strong>
+        <span id="version"></span>
+      </div>
+    </div>
+    <span class="read-only-badge">READ ONLY</span>
+  </header>
+
+  <main class="review-shell">
+    <section class="intro">
+      <p class="eyebrow">SNIPING WORKFLOW</p>
+      <h1>Verify one competitor</h1>
+      <p>Compare the exact products before saving a seller. This step cannot create, edit, or submit an eBay listing.</p>
+    </section>
+
+    <section id="anchor" class="product-anchor" aria-label="Amazon anchor product"></section>
+
+    <section>
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">QUALIFIED RESULTS</p>
+          <h2>Seller candidates</h2>
+        </div>
+        <span id="candidateCount" class="count-badge"></span>
+      </div>
+      <div id="candidates" class="candidate-list"></div>
+    </section>
+
+    <section class="confirmation-panel">
+      <h2>Exact-match confirmation</h2>
+      <label><input type="checkbox" data-check="title"> Same product title and brand</label>
+      <label><input type="checkbox" data-check="image"> Same main product image</label>
+      <label><input type="checkbox" data-check="variant"> Same pack count, size, color, and variant</label>
+    </section>
+
+    <div class="actions">
+      <button id="closeReview" type="button" class="secondary">Close review</button>
+      <button id="saveSeller" type="button" class="primary" disabled>Save verified seller</button>
+    </div>
+    <div id="status" class="status" role="status">Select one candidate and complete all three checks.</div>
+  </main>
+
+  <script src="sniping-audit.js"></script>
+  <script src="sniping-review.js"></script>
+</body>
+</html>

@@ -1,28 +1,20 @@
 const statusElement = document.getElementById('status');
 
-const COMPUTER_ACCOUNT_MAP = Object.freeze({
-  M0: { ebayAccountLabel: 'CLICKNCARRY' },
-  '6': { ebayAccountLabel: 'FINTIME' },
-  '0': { ebayAccountLabel: 'FAK12' },
-  M1: { ebayAccountLabel: 'HEARTSTONE' },
-  '2': { ebayAccountLabel: 'FANCYFI' },
-  '7': { ebayAccountLabel: '', poshmarkOnly: true }
-});
-const EBAY_ACCOUNT_OPTIONS = Object.values(COMPUTER_ACCOUNT_MAP).map((entry) => entry.ebayAccountLabel).filter(Boolean);
+const FOUNDATION = globalThis.GLDN_FOUNDATION;
+const COMPUTER_ACCOUNT_MAP = FOUNDATION.computerAccounts;
+const EXTENSION_VERSION = chrome.runtime.getManifest().version;
 
 function normalizeEbayAccount(value) {
-  const cleaned = String(value || '').trim().toLowerCase();
-  return EBAY_ACCOUNT_OPTIONS.find((option) => option.toLowerCase() === cleaned) || 'FAK12';
+  return FOUNDATION.normalizeEbayAccount(value);
 }
 
 function normalizeComputer(value) {
-  const cleaned = String(value || '').trim().toLowerCase().replace(/^comp\s*/, '');
-  return Object.keys(COMPUTER_ACCOUNT_MAP).find((option) => option.toLowerCase() === cleaned) || '0';
+  return FOUNDATION.normalizeComputer(value);
 }
 
 function accountForComputer(value) {
   const computer = normalizeComputer(value);
-  return COMPUTER_ACCOUNT_MAP[computer] || COMPUTER_ACCOUNT_MAP['0'];
+  return COMPUTER_ACCOUNT_MAP[computer] || {};
 }
 
 function asArray(value) {
@@ -44,7 +36,32 @@ function getStorage(keys) {
 }
 
 function setStorage(values) {
-  return new Promise((resolve) => chrome.storage.local.set(values, resolve));
+  const payload = { ...values };
+  if (payload.pendingMove99Run && typeof payload.pendingMove99Run === 'object') {
+    payload.pendingMove99Run = {
+      ...payload.pendingMove99Run,
+      extensionVersion: EXTENSION_VERSION,
+      stateUpdatedAt: new Date().toISOString()
+    };
+  }
+  return new Promise((resolve) => chrome.storage.local.set(payload, resolve));
+}
+
+function createTab(url) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.create({ url }, (tab) => {
+      const error = chrome.runtime.lastError?.message;
+      if (error || !Number.isInteger(tab?.id)) {
+        reject(new Error(error || 'Chrome did not return the new eBay tab.'));
+        return;
+      }
+      resolve(tab);
+    });
+  });
+}
+
+function createRunId() {
+  return globalThis.crypto?.randomUUID?.() || `move99-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function configuredAccount(account) {
@@ -59,39 +76,32 @@ async function start() {
   const stored = await getStorage(['computerLabel', 'ebayAccountLabel', 'move99AccountSettings']);
   const mapped = accountForComputer(stored.computerLabel);
   if (!mapped.ebayAccountLabel) {
-    throw new Error('Computer 7 is Poshmark-only. Move .99 is disabled for it.');
+    if (mapped.poshmarkOnly) throw new Error('Computer 7 is Poshmark-only. Move .99 is disabled for it.');
+    throw new Error('Choose and save this computer in GLDN Ops before starting Move .99.');
   }
   const account = normalizeEbayAccount(mapped.ebayAccountLabel || stored.ebayAccountLabel);
-  const configured = configuredAccount(account);
   const saved = stored.move99AccountSettings?.[account] || {};
-  const settings = {
-    sourceCategories: ['Not .99', 'Other'],
-    destinationCategory: 'Abra Cadabra .99',
-    sourceStoreCategoryIds: account === 'FAK12' ? ['44678633011', '1'] : [],
-    backburnerItemIds: account === 'FAK12' ? ['318521296686'] : [],
-    ...configured,
-    ...saved
-  };
-  settings.sourceCategories = asArray(settings.sourceCategories);
-  settings.sourceStoreCategoryIds = asArray(settings.sourceStoreCategoryIds);
-  settings.backburnerItemIds = asArray(settings.backburnerItemIds);
-  settings.destinationCategory = String(settings.destinationCategory || '').trim();
-
-  if (!settings.sourceCategories.length || !settings.destinationCategory) {
-    throw new Error('Move .99 categories are not configured.');
-  }
+  const settings = FOUNDATION.move99SettingsForAccount(account, saved);
+  const validation = FOUNDATION.validateMove99Settings(settings);
+  if (!validation.ok) throw new Error(validation.errors[0] || 'Move .99 categories are not configured.');
+  Object.assign(settings, validation.settings);
 
   const sourceCategories = scanMode === 'non99' ? [settings.destinationCategory] : settings.sourceCategories;
   const destinationCategory = scanMode === 'non99' ? settings.sourceCategories[0] : settings.destinationCategory;
   const sourceStoreCategoryIds = scanMode === 'non99' ? [] : settings.sourceStoreCategoryIds;
   const activeUrl = buildMove99ActiveUrl(sourceStoreCategoryIds);
+  await setStorage({ gldnStopRequested: false, pendingMove99Run: null });
+  const runTab = await createTab(activeUrl);
+  const startedAt = new Date().toISOString();
+  const runId = createRunId();
   await setStorage({
     gldnStopRequested: false,
     pendingMove99Run: {
       active: true,
       confirmed: true,
-      autoApply: true,
-      useEditAllBulkScan: true,
+      runId,
+      ownerTabId: runTab.id,
+      scanStrategy: 'active-page-exact-id-v1',
       phase: 'active-prepare',
       scanMode,
       ebayAccountLabel: account,
@@ -101,7 +111,7 @@ async function start() {
       failedIds: [],
       processedIds: [],
       totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
-      startedAt: new Date().toISOString(),
+      startedAt,
       sourceCategories,
       destinationCategory,
       sourceStoreCategoryIds,
@@ -110,7 +120,6 @@ async function start() {
   });
 
   statusElement.textContent = `Started ${scanMode === 'non99' ? 'Non-.99 cleanup' : 'Move .99'} for ${account}.\nOpening ${activeUrl}`;
-  chrome.tabs.create({ url: activeUrl });
 }
 
 start().catch((error) => {

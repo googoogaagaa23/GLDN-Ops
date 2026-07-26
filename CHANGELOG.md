@@ -2,6 +2,14 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.10.3 - 2026-07-26
+
+- Computer `2` / `FANCYFI` now defaults Move .99 to source Store categories `SNI, SNIPO v2` and destination `DAILY`.
+- Existing Computer `2` installations using the old generic `Not .99, Other -> Abra Cadabra .99` defaults migrate automatically; genuine custom settings remain untouched.
+- Fixed **Move Non-.99 Out of Sale** saving its reversed sale-category ID over the account's forward Move .99 configuration.
+- Reverse category discovery now stays inside the current reverse run and cannot corrupt the saved forward source categories, destination, or IDs.
+- The complete automated suite passes `231/231`; M0 / CLICKNCARRY still requires a fresh `BALK -> BEST SELLERS` live scan and review proof before reverse cleanup returns to `LIVE PASS`.
+
 ## v3.10.2 - 2026-07-25
 
 - Removed the misleading **Start Bulk Listing Workflow** control. GLDN Ops does not run EcomSniper Bulk Poster.
