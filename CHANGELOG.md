@@ -2,6 +2,15 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.10.5 - 2026-07-26
+
+- Fixed GLDN themes partially forcing eBay Messages and Poshmark into dark mode.
+- Marketplace pages no longer receive GLDN's generic `data-theme`, root `color-scheme`, or short theme variables.
+- GLDN panels, modals, popup, onboarding, and guide pages retain their selected theme and local color scheme.
+- Older leaked root settings are removed after the updated content script runs on a refreshed page.
+- The complete automated suite passes `237/237`, including three host-theme isolation regressions.
+- Signed-in Profile 2 confirmed the pre-fix leak on Poshmark: GLDN had applied `data-theme="dark"`, `data-gldn-theme="dark"`, and inline/computed `color-scheme: dark` to the marketplace root. No marketplace action was performed.
+
 ## v3.10.4 - 2026-07-26
 
 - Fixed Move .99 final verification looping on the last filtered page when eBay retained a larger account-wide page count.

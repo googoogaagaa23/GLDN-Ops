@@ -154,10 +154,46 @@
   const apply = (element, value) => {
     const selected = get(value);
     if (!element?.style) return selected.id;
+    const previousTheme = String(element.dataset.gldnTheme || '');
+    const wasAppliedByGldn = element.dataset.gldnThemeReady === 'true' && Boolean(previousTheme);
+    const isExtensionPage = root.location?.protocol === 'chrome-extension:';
+    const extensionAliases = {
+      '--bg': 'body',
+      '--panel': 'surface',
+      '--panel2': 'raised',
+      '--line': 'border',
+      '--ink': 'text',
+      '--muted': 'muted',
+      '--gold': 'accent',
+      '--blue': 'accent'
+    };
+
+    // Generic root theme attributes can trigger a marketplace's own dark mode.
+    // Keep them on GLDN-owned pages and expose only namespaced tokens on websites.
+    if (isExtensionPage) {
+      element.dataset.theme = selected.id;
+      element.style.colorScheme = selected.mode;
+      for (const [variable, key] of Object.entries(extensionAliases)) {
+        element.style.setProperty(variable, selected[key]);
+      }
+    } else if (wasAppliedByGldn) {
+      if (element.dataset.theme === previousTheme) delete element.dataset.theme;
+      if (element.style.colorScheme === get(previousTheme).mode) {
+        if (typeof element.style.removeProperty === 'function') element.style.removeProperty('color-scheme');
+        else element.style.colorScheme = '';
+      }
+      if (typeof element.style.getPropertyValue === 'function' && typeof element.style.removeProperty === 'function') {
+        const previousSelected = get(previousTheme);
+        for (const [variable, key] of Object.entries(extensionAliases)) {
+          if (element.style.getPropertyValue(variable).trim() === String(previousSelected[key])) {
+            element.style.removeProperty(variable);
+          }
+        }
+      }
+    }
     element.dataset.gldnTheme = selected.id;
-    element.dataset.theme = selected.id;
     element.dataset.gldnThemeReady = 'true';
-    element.style.colorScheme = selected.mode;
+    element.style.setProperty('--gldn-color-scheme', selected.mode);
     for (const [key, variable] of Object.entries(cssVariables)) {
       element.style.setProperty(variable, selected[key]);
     }
@@ -165,14 +201,6 @@
     element.style.setProperty('--gldn-theme-surface-rgb', hexToRgb(selected.surface));
     element.style.setProperty('--gldn-theme-raised-rgb', hexToRgb(selected.raised));
     element.style.setProperty('--gldn-theme-pattern', PATTERNS[selected.pattern] || PATTERNS.grain);
-    element.style.setProperty('--bg', selected.body);
-    element.style.setProperty('--panel', selected.surface);
-    element.style.setProperty('--panel2', selected.raised);
-    element.style.setProperty('--line', selected.border);
-    element.style.setProperty('--ink', selected.text);
-    element.style.setProperty('--muted', selected.muted);
-    element.style.setProperty('--gold', selected.accent);
-    element.style.setProperty('--blue', selected.accent);
     return selected.id;
   };
 

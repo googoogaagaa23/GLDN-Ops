@@ -1,4 +1,10 @@
-GLDN Ops v3.10.4
+GLDN Ops v3.10.5
+
+v3.10.5 marketplace theme isolation:
+- Stops GLDN themes from setting generic `data-theme`, `color-scheme`, and short CSS variables on eBay, Poshmark, Amazon, Walmart, EcomSniper, or ordinary webpages.
+- Keeps the selected theme and color scheme scoped to GLDN panels, modals, popup, onboarding, and guide pages.
+- Cleans theme settings left on an open marketplace page by older GLDN content scripts after refresh.
+- Adds host-page isolation regression coverage; the complete automated suite passes 237/237.
 
 v3.10.4 Move .99 completion and update recovery:
 - Finishes the final filtered verification page from the filtered Results total instead of a stale account-wide page count.
