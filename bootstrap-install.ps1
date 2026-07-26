@@ -108,23 +108,11 @@ try {
   $extensionRoot = Join-Path $resolvedInstallRoot "extension"
   if ($savedConfig) {
     [System.IO.File]::WriteAllText((Join-Path $extensionRoot "config.js"), $savedConfig, [System.Text.UTF8Encoding]::new($false))
-  } elseif (Test-Path -LiteralPath (Join-Path $extensionRoot "config.js")) {
-    Write-Host "Automatic dashboard connection included in this private package."
   } elseif ($DashboardSetupCode) {
     New-LocalConfig $extensionRoot $DashboardSetupCode
   } else {
-    $agentScript = Join-Path $resolvedInstallRoot "tools\gldn-update-agent.ps1"
-    if (-not (Test-Path -LiteralPath $agentScript)) {
-      throw "This download does not include the automatic dashboard connection or updater."
-    }
-    Write-Host "Applying the verified private stable extension package..."
-    $privateUpdateArguments = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $agentScript, "-Action", "Update", "-InstallRoot", $resolvedInstallRoot, "-Force")
-    if ($ReleaseMetadataPath) { $privateUpdateArguments += @("-MetadataPath", $ReleaseMetadataPath) }
-    if ($PrivateExtensionZipPath) { $privateUpdateArguments += @("-SourceZipPath", $PrivateExtensionZipPath) }
-    & powershell.exe @privateUpdateArguments | Out-Null
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath (Join-Path $extensionRoot "config.js"))) {
-      throw "The verified private extension package did not install its automatic dashboard connection."
-    }
+    Write-Host "Dashboard setup stays in each Chrome profile and is preserved across extension updates."
+    Write-Host "Use Setup > Connect Dashboard once in a new Chrome profile."
   }
 
   $updaterInstaller = Join-Path $resolvedInstallRoot "tools\install-update-agent.ps1"

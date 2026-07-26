@@ -6,7 +6,7 @@ GLDN Ops is an internal marketplace operations assistant used by authorized team
 
 ## What The Extension Does
 
-GLDN Ops helps team members perform reviewed operational workflows on supported marketplace and supplier pages, including eBay, Amazon, Poshmark, EcomSniper, and an internal Google Apps Script dashboard.
+GLDN Ops helps team members perform reviewed operational workflows on supported marketplace and supplier pages, including eBay, Amazon, Walmart, Poshmark, EcomSniper, and an internal Google Apps Script dashboard.
 
 The extension assists workflows and stops before final marketplace actions that require operator approval.
 
@@ -16,6 +16,7 @@ GLDN Ops may read page content from supported sites only when needed for its vis
 
 - eBay order, listing, Seller Hub, performance, feedback, traffic, advertising, and Bulk Edit page data.
 - Amazon order, checkout, product, total, ETA, and profile label data.
+- Walmart product, cart, checkout, and customer delivery form data used for reviewed order handoffs.
 - Poshmark order, sales, earnings, closet stats, listing, and profile data.
 - EcomSniper workflow page controls needed for handoff status.
 - Local extension settings, diagnostics, and workflow state.
@@ -25,6 +26,7 @@ GLDN Ops may read page content from supported sites only when needed for its vis
 Data is used only to provide internal workflow assistance, including:
 
 - Preparing editable eBay order notes.
+- Filling reviewed Walmart checkout delivery fields from encoded eBay order handoff links.
 - Calculating marketplace profit from reviewed marketplace earnings and supplier cost.
 - Syncing reviewed seller, listing, sales, Poshmark stats, and profit records to the internal dashboard.
 - Preserving user settings and diagnostics for support.

@@ -147,8 +147,41 @@
     return null;
   };
 
+  let extensionContextInvalidated = false;
+
+  const extensionErrorMessage = (error) => String(error?.message || error || "");
+
+  const isExtensionContextInvalidated = (error) => (
+    extensionContextInvalidated
+    || /extension context invalidated|context invalidated/i.test(extensionErrorMessage(error))
+  );
+
+  const markExtensionContextInvalidated = (error) => {
+    if (!isExtensionContextInvalidated(error)) return false;
+    if (!extensionContextInvalidated) {
+      extensionContextInvalidated = true;
+      window.dispatchEvent(new CustomEvent("gldn-extension-context-invalidated", {
+        detail: { message: extensionErrorMessage(error) || "Extension context invalidated." }
+      }));
+    }
+    return true;
+  };
+
+  const extensionContextAvailable = () => {
+    if (extensionContextInvalidated) return false;
+    try {
+      return Boolean(globalThis.chrome?.runtime?.id);
+    } catch (_) {
+      return false;
+    }
+  };
+
   const recordExtensionLog = async (entry) => {
-    if (!globalThis.chrome?.storage?.local) return;
+    if (!globalThis.chrome?.storage?.local || !extensionContextAvailable()) return;
+    let version = "";
+    try {
+      version = chrome.runtime?.getManifest?.().version || "";
+    } catch (_) {}
     const payload = {
       at: new Date().toISOString(),
       source: entry?.source || "page",
@@ -157,46 +190,77 @@
       message: String(entry?.message || "Unknown extension issue").slice(0, 800),
       detail: String(entry?.detail || "").slice(0, 1200),
       page: location.href,
-      version: chrome.runtime?.getManifest?.().version || ""
+      version
     };
-    if (globalThis.chrome?.runtime?.sendMessage) {
+    if (globalThis.chrome?.runtime?.sendMessage && extensionContextAvailable()) {
       const response = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: "recordExtensionLog", entry: payload }, (result) => {
-          if (chrome.runtime.lastError) resolve(null);
-          else resolve(result || null);
-        });
+        try {
+          chrome.runtime.sendMessage({ type: "recordExtensionLog", entry: payload }, (result) => {
+            let error = null;
+            try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+            if (error) {
+              markExtensionContextInvalidated(error);
+              resolve(null);
+            } else resolve(result || null);
+          });
+        } catch (error) {
+          markExtensionContextInvalidated(error);
+          resolve(null);
+        }
       });
       if (response?.ok) return response.entry || payload;
     }
+    if (!extensionContextAvailable()) return;
     return new Promise((resolve) => {
-      chrome.storage.local.get(["gldnErrorLog", "computerLabel", "ebayAccountLabel"], (result) => {
-        const enriched = {
-          ...payload,
-          computerLabel: String(entry?.computerLabel || result.computerLabel || ""),
-          ebayAccountLabel: String(entry?.ebayAccountLabel || result.ebayAccountLabel || "")
-        };
-        const current = Array.isArray(result.gldnErrorLog) ? result.gldnErrorLog : [];
-        chrome.storage.local.set({ gldnErrorLog: [enriched, ...current].slice(0, 80) }, () => resolve(enriched));
-      });
+      try {
+        chrome.storage.local.get(["gldnErrorLog", "computerLabel", "ebayAccountLabel"], (result) => {
+          let error = null;
+          try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+          if (error) {
+            markExtensionContextInvalidated(error);
+            resolve(null);
+            return;
+          }
+          const enriched = {
+            ...payload,
+            computerLabel: String(entry?.computerLabel || result.computerLabel || ""),
+            ebayAccountLabel: String(entry?.ebayAccountLabel || result.ebayAccountLabel || "")
+          };
+          const current = Array.isArray(result.gldnErrorLog) ? result.gldnErrorLog : [];
+          chrome.storage.local.set({ gldnErrorLog: [enriched, ...current].slice(0, 80) }, () => resolve(enriched));
+        });
+      } catch (error) {
+        markExtensionContextInvalidated(error);
+        resolve(null);
+      }
     });
   };
 
   const runtimeMessage = (message, timeoutMs = 30000) => new Promise((resolve) => {
-    if (!globalThis.chrome?.runtime?.sendMessage) {
+    if (!globalThis.chrome?.runtime?.sendMessage || !extensionContextAvailable()) {
       resolve({ ok: false, error: "Chrome extension runtime is not available on this page." });
       return;
     }
     const timeout = setTimeout(() => {
       resolve({ ok: false, error: "Extension request timed out." });
     }, timeoutMs);
-    chrome.runtime.sendMessage(message, (response) => {
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        clearTimeout(timeout);
+        let error = null;
+        try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+        if (error) {
+          markExtensionContextInvalidated(error);
+          resolve({ ok: false, error: extensionErrorMessage(error) });
+          return;
+        }
+        resolve(response || { ok: false, error: "No response from extension background service." });
+      });
+    } catch (error) {
       clearTimeout(timeout);
-      if (chrome.runtime.lastError) {
-        resolve({ ok: false, error: chrome.runtime.lastError.message });
-        return;
-      }
-      resolve(response || { ok: false, error: "No response from extension background service." });
-    });
+      markExtensionContextInvalidated(error);
+      resolve({ ok: false, error: extensionErrorMessage(error) });
+    }
   });
 
   const summarizeFeatureHealth = (result) => {
@@ -224,6 +288,10 @@
     const dashboardUrl = String(globalThis.GLDN_CONFIG?.dashboardUrl || "").trim();
     if (!key) {
       resolve({ ok: false, error: "Dashboard setup code was not entered." });
+      return;
+    }
+    if (key.length < 24) {
+      resolve({ ok: false, error: "Dashboard setup code must be at least 24 characters." });
       return;
     }
     if (!dashboardUrl) {
@@ -262,6 +330,10 @@
 
   const installExtensionErrorLogging = (source) => {
     window.addEventListener("error", (event) => {
+      if (markExtensionContextInvalidated(event.error || event.message)) {
+        event.preventDefault();
+        return;
+      }
       recordExtensionLog({
         source,
         level: "error",
@@ -270,6 +342,10 @@
       });
     });
     window.addEventListener("unhandledrejection", (event) => {
+      if (markExtensionContextInvalidated(event.reason)) {
+        event.preventDefault();
+        return;
+      }
       recordExtensionLog({
         source,
         level: "error",
@@ -921,6 +997,9 @@
     applyUiTheme,
     clampUiOpacity,
     normalizeUiTheme,
-    enhanceModal
+    enhanceModal,
+    isExtensionContextInvalidated,
+    markExtensionContextInvalidated,
+    extensionContextAvailable
   };
 })();

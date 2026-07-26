@@ -156,7 +156,13 @@ function identityForComputer(value) {
 }
 
 function storageGet(keys) {
-  return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.get(keys, (result) => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(new Error(error.message));
+      else resolve(result);
+    });
+  });
 }
 
 function storageSet(values) {
@@ -168,14 +174,30 @@ function storageSet(values) {
       stateUpdatedAt: new Date().toISOString()
     };
   }
-  return new Promise((resolve) => chrome.storage.local.set(payload, resolve));
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.set(payload, () => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(new Error(error.message));
+      else resolve();
+    });
+  });
+}
+
+function storageRemove(keys) {
+  return new Promise((resolve, reject) => {
+    chrome.storage.local.remove(keys, () => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(new Error(error.message));
+      else resolve();
+    });
+  });
 }
 
 async function clearIncompatibleMove99State() {
   const stored = await storageGet(['pendingMove99Run']);
   const pending = stored.pendingMove99Run;
   if (!pending || String(pending.extensionVersion || '') === EXTENSION_VERSION) return false;
-  await new Promise((resolve) => chrome.storage.local.remove(['pendingMove99Run'], resolve));
+  await storageRemove(['pendingMove99Run']);
   recordExtensionLog({
     source: 'move99',
     level: 'info',
@@ -212,6 +234,18 @@ function claimMove99Tab(senderTabId, requestedRunId) {
       return { ok: false, owned: false, stale: true, ownerTabId: state.ownerTabId ?? null };
     }
 
+    if (state.phase === 'awaiting-submit-approval' || state.phase === 'approval-lost') {
+      const approvalTabId = Number(state.approvalTabId ?? state.ownerTabId);
+      return {
+        ok: Number.isInteger(approvalTabId),
+        owned: approvalTabId === senderTabId,
+        ownerTabId: Number.isInteger(approvalTabId) ? approvalTabId : null,
+        runId,
+        approvalLocked: true,
+        error: Number.isInteger(approvalTabId) ? '' : 'The saved Move .99 approval tab is missing.'
+      };
+    }
+
     let ownerTabId = Number(state.ownerTabId);
     if (Number.isInteger(ownerTabId) && ownerTabId !== senderTabId && !(await tabExists(ownerTabId))) {
       ownerTabId = NaN;
@@ -225,6 +259,117 @@ function claimMove99Tab(senderTabId, requestedRunId) {
   });
   move99ClaimQueue = claim.then(() => undefined, () => undefined);
   return claim;
+}
+
+function createChromeTab(createProperties) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.create(createProperties, (tab) => {
+      const error = chrome.runtime.lastError;
+      if (error || !Number.isInteger(tab?.id)) {
+        reject(new Error(error?.message || 'Chrome did not create the Move .99 tab.'));
+        return;
+      }
+      resolve(tab);
+    });
+  });
+}
+
+function updateChromeTab(tabId, updateProperties) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.update(tabId, updateProperties, (tab) => {
+      const error = chrome.runtime.lastError;
+      if (error || !tab) {
+        reject(new Error(error?.message || 'Chrome did not open eBay in the Move .99 tab.'));
+        return;
+      }
+      resolve(tab);
+    });
+  });
+}
+
+function closeChromeTab(tabId) {
+  return new Promise((resolve) => {
+    if (!Number.isInteger(tabId)) {
+      resolve();
+      return;
+    }
+    chrome.tabs.remove(tabId, () => {
+      void chrome.runtime.lastError;
+      resolve();
+    });
+  });
+}
+
+function move99ActiveUrl(sourceStoreCategoryIds) {
+  const ids = Array.isArray(sourceStoreCategoryIds)
+    ? sourceStoreCategoryIds.map(String).map((value) => value.trim()).filter(Boolean)
+    : [];
+  const url = new URL('https://www.ebay.com/sh/lst/active');
+  if (ids.length) {
+    url.searchParams.set('storeCatIds', ids.join(','));
+    url.searchParams.set('source', 'filterpanel');
+    url.searchParams.set('action', 'search');
+  }
+  return url.toString();
+}
+
+async function startMove99WorkflowFromExtension(message = {}) {
+  const scanMode = message.scanMode === 'non99' ? 'non99' : 'price99';
+  const stored = await storageGet(['computerLabel', 'ebayAccountLabel', 'move99AccountSettings']);
+  const identity = identityForComputer(stored.computerLabel);
+  const account = FOUNDATION.normalizeEbayAccount(identity.ebayAccountLabel || stored.ebayAccountLabel);
+  if (!account) {
+    throw new Error(identity.poshmarkOnly
+      ? 'Computer 7 is Poshmark-only. Move .99 is disabled for it.'
+      : 'Choose and save this computer before starting Move .99.');
+  }
+
+  const saved = stored.move99AccountSettings?.[account] || {};
+  const settings = FOUNDATION.move99SettingsForAccount(account, saved);
+  const validation = FOUNDATION.validateMove99Settings(settings);
+  if (!validation.ok) throw new Error(validation.errors[0] || 'Move .99 categories are not configured.');
+
+  const normalized = validation.settings;
+  const sourceCategories = scanMode === 'non99' ? [normalized.destinationCategory] : normalized.sourceCategories;
+  const destinationCategory = scanMode === 'non99' ? normalized.sourceCategories[0] : normalized.destinationCategory;
+  const sourceStoreCategoryIds = scanMode === 'non99' ? [] : normalized.sourceStoreCategoryIds;
+  const activeUrl = move99ActiveUrl(sourceStoreCategoryIds);
+  const runId = globalThis.crypto?.randomUUID?.() || `move99-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const startedAt = new Date().toISOString();
+  const runTab = await createChromeTab({ url: 'about:blank', active: true });
+
+  try {
+    await storageSet({
+      gldnStopRequested: false,
+      pendingMove99Run: {
+        active: true,
+        confirmed: true,
+        runId,
+        ownerTabId: runTab.id,
+        phase: 'active-prepare',
+        scanMode,
+        scanStrategy: 'active-page-exact-id-v1',
+        ebayAccountLabel: account,
+        currentPage: 1,
+        scanPages: {},
+        verificationPages: {},
+        failedIds: [],
+        processedIds: [],
+        totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
+        startedAt,
+        sourceCategories,
+        destinationCategory,
+        sourceStoreCategoryIds,
+        backburnerItemIds: normalized.backburnerItemIds
+      }
+    });
+    await updateChromeTab(runTab.id, { url: activeUrl, active: true });
+    return { ok: true, started: true, tabId: runTab.id, runId, account, scanMode, activeUrl };
+  } catch (error) {
+    await storageRemove(['pendingMove99Run']).catch(() => {});
+    await closeChromeTab(runTab.id);
+    throw error;
+  }
 }
 
 async function createMove99BulkWorkspace(tabId, request = {}) {
@@ -515,15 +660,16 @@ function cleanWebAppUrl(value) {
 }
 
 async function getDashboardConfig() {
-  // The private local package is the source of truth. Re-seed before every
-  // dashboard operation so a new Chrome profile or rotated key repairs itself.
-  await seedDashboardSetupFromLocalConfig();
   const config = globalThis.GLDN_CONFIG || {};
-  const stored = await storageGet([DASHBOARD_URL_KEY, DASHBOARD_SECRET_KEY]);
+  let stored = await storageGet([DASHBOARD_URL_KEY, DASHBOARD_SECRET_KEY]);
+  if (!String(stored[DASHBOARD_SECRET_KEY] || '').trim()) {
+    await seedDashboardSetupFromLocalConfig();
+    stored = await storageGet([DASHBOARD_URL_KEY, DASHBOARD_SECRET_KEY]);
+  }
   let url = cleanWebAppUrl(stored[DASHBOARD_URL_KEY] || config.dashboardUrl);
   let key = String(stored[DASHBOARD_SECRET_KEY] || config.dashboardKey || '').trim();
   if (!url || !key || /^YOUR_/i.test(key)) {
-    throw new Error('Automatic dashboard setup is unavailable. Reinstall or update from the private GLDN Ops package.');
+    throw new Error('Dashboard setup code is missing. Open GLDN Ops Setup and choose Connect Dashboard.');
   }
   return { url, key };
 }
@@ -539,6 +685,10 @@ async function openDashboardTab() {
 
 async function seedDashboardSetupFromLocalConfig() {
   try {
+    const stored = await storageGet([DASHBOARD_URL_KEY, DASHBOARD_SECRET_KEY]);
+    if (String(stored[DASHBOARD_SECRET_KEY] || '').trim()) {
+      return { ok: true, changed: false, source: 'saved-profile' };
+    }
     const response = await fetch(chrome.runtime.getURL('config.js'), { cache: 'no-store' });
     if (!response.ok) return { ok: false, error: 'Local config.js was not found.' };
 
@@ -552,7 +702,6 @@ async function seedDashboardSetupFromLocalConfig() {
       return { ok: false, error: 'Local config.js does not contain a dashboard setup code.' };
     }
 
-    const stored = await storageGet([DASHBOARD_URL_KEY, DASHBOARD_SECRET_KEY]);
     const changed = stored[DASHBOARD_URL_KEY] !== dashboardUrl || stored[DASHBOARD_SECRET_KEY] !== dashboardKey;
     if (changed) {
       await storageSet({
@@ -1087,9 +1236,18 @@ function scheduleDashboardRetry() {
   chrome.alarms.create(DASHBOARD_RETRY_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
 }
 
-const queryTabs = (queryInfo) => new Promise((resolve) => chrome.tabs.query(queryInfo, (tabs) => resolve(tabs || [])));
+const queryTabs = (queryInfo) => new Promise((resolve, reject) => {
+  chrome.tabs.query(queryInfo, (tabs) => {
+    const error = chrome.runtime.lastError;
+    if (error) reject(new Error(error.message));
+    else resolve(tabs || []);
+  });
+});
 const reloadTab = (tabId) => new Promise((resolve) => {
-  chrome.tabs.reload(tabId, () => resolve(!chrome.runtime.lastError));
+  chrome.tabs.reload(tabId, () => {
+    const error = chrome.runtime.lastError;
+    resolve({ tabId, ok: !error, error: error?.message || '' });
+  });
 });
 
 async function resumeExtensionReloadRequest() {
@@ -1112,17 +1270,29 @@ async function resumeExtensionReloadRequest() {
 
   const tabs = await queryTabs({ url: MARKETPLACE_TAB_PATTERNS });
   const tabIds = tabs.map((tab) => tab.id).filter(Number.isInteger);
+  const results = await Promise.all(tabIds.map(reloadTab));
+  const failed = results.filter((result) => !result.ok);
+  const attempts = Number(request.attempts || 0) + 1;
+  const shouldRetry = failed.length > 0 && attempts < 3;
   await storageSet({
     lastExtensionReloadRequest: {
       ...request,
-      pending: false,
-      completedAt: new Date().toISOString(),
-      reloadedTabCount: tabIds.length,
+      pending: shouldRetry,
+      attempts,
+      completedAt: shouldRetry ? '' : new Date().toISOString(),
+      reloadedTabCount: results.filter((result) => result.ok).length,
+      failedTabIds: failed.map((result) => result.tabId),
+      error: failed.length ? failed.map((result) => result.error).filter(Boolean).join('; ') : '',
       activeVersion: chrome.runtime.getManifest().version
     }
   });
-  const results = await Promise.all(tabIds.map(reloadTab));
-  return { ok: results.every(Boolean), reloadedTabCount: tabIds.length };
+  if (shouldRetry) setTimeout(() => resumeExtensionReloadRequest().catch(() => {}), 1200);
+  return {
+    ok: failed.length === 0,
+    retrying: shouldRetry,
+    reloadedTabCount: results.filter((result) => result.ok).length,
+    failedTabIds: failed.map((result) => result.tabId)
+  };
 }
 
 
@@ -1212,6 +1382,11 @@ setTimeout(() => {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || !message.type) return false;
 
+  if (sender?.id && sender.id !== chrome.runtime.id) {
+    sendResponse({ ok: false, error: 'Message sender is not GLDN Ops.' });
+    return false;
+  }
+
   if (message.type === 'currentTabInfo') {
     sendResponse({
       ok: Number.isInteger(sender?.tab?.id),
@@ -1224,6 +1399,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'claimMove99Tab') {
     claimMove99Tab(sender?.tab?.id, message.runId).then(sendResponse);
+    return true;
+  }
+
+  if (message.type === 'startMove99Workflow') {
+    startMove99WorkflowFromExtension(message)
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 

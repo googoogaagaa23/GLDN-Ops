@@ -45,7 +45,7 @@
 </head>
 <body class="gldn-guide-page">
 <main>
-  <header><img src="icons/icon48.png" alt=""><div><h1>GLDN Ops Feature Guide</h1><p class="subtitle">v3.10.3 | Exact steps, safety stops, recovery, and proof status</p></div></header>
+  <header><img src="icons/icon48.png" alt=""><div><h1>GLDN Ops Feature Guide</h1><p class="subtitle">v3.10.4 | Exact steps, safety stops, recovery, and proof status</p></div></header>
   <div class="safety"><strong>Safety rule:</strong> Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.</div>
   <h2>Evidence labels</h2>
   <div class="legend"><div class="legend-row"><span class="status live">LIVE PASS</span><span>Current signed-in evidence and exact readback prove the documented result.</span></div><div class="legend-row"><span class="status live">LIVE PASS WITH BOUNDARY</span><span>The documented result passed live, but a named external or manual boundary remains.</span></div><div class="legend-row"><span class="status pending">PENDING USER REVIEW</span><span>Recorded evidence exists, but the user has not accepted the gate.</span></div><div class="legend-row"><span class="status partial">PARTIAL</span><span>Only the stated portion is proven. Do not assume the entire workflow works.</span></div><div class="legend-row"><span class="status unproven">IMPLEMENTED, UNPROVEN</span><span>Code exists, but no valid current live proof exists.</span></div></div>
@@ -59,12 +59,12 @@
         <p class="matrix">F-02, F-05, F-06, F-08, F-12</p>
         <p class="purpose">Configure one Chrome profile without guessing its marketplace identity.</p>
         <div class="guide-grid">
-          <section><h3>Prerequisites</h3><ul><li>The private GLDN Ops package is loaded unpacked in the intended Chrome profile.</li><li>The operator knows the Tasks-sheet computer label.</li></ul></section>
-          <section class="steps"><h3>Exact steps</h3><ol><li>Open the popup and choose only the computer label.</li><li>Confirm the derived marketplace account before saving.</li><li>Click Save Computer.</li><li>Open Status and confirm Automatic connection ready.</li><li>Click Test Connection, then Run Feature Health Check.</li><li>Copy Settings Backup before an update or profile move.</li></ol></section>
+          <section><h3>Prerequisites</h3><ul><li>The credential-free GLDN Ops package is loaded unpacked in the intended Chrome profile.</li><li>The operator knows the Tasks-sheet computer label.</li></ul></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open the popup and choose only the computer label.</li><li>Confirm the derived marketplace account before saving.</li><li>Click Save Computer.</li><li>Open Status. If the dashboard is not connected in this Chrome profile, click Connect Dashboard once.</li><li>Click Test Connection, then Run Feature Health Check.</li><li>Copy Settings Backup before an update or profile move.</li></ol></section>
           <section class="approval"><h3>Approval stop</h3><p>None. Setup must not start a marketplace workflow.</p></section>
           <section><h3>Expected output</h3><p>Saved computer/account mapping, dashboard connection, health report, and settings backup.</p></section>
-          <section><h3>Failure recovery</h3><ul><li>If the account is wrong, stop and correct the computer label instead of editing the derived account.</li><li>If automatic setup is unavailable, update from the private GLDN Ops package and click Repair Automatic Connection.</li><li>If dashboard testing fails, copy the full diagnostic report before clearing anything.</li><li>A clean-computer installation is still a final deployment gate.</li></ul></section>
-          <section class="evidence"><h3>Evidence</h3><p>Identity mapping and health diagnostics are live-proven in Profile 2. Automatic private-package seeding is implemented and contract-tested; clean-computer proof remains pending.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>If the account is wrong, stop and correct the computer label instead of editing the derived account.</li><li>If the dashboard is not connected, use Connect Dashboard once in that Chrome profile; updates preserve it.</li><li>If dashboard testing fails, copy the full diagnostic report before clearing anything.</li><li>A clean-computer installation is still a final deployment gate.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Identity mapping and health diagnostics are live-proven in Profile 2. Saved-profile dashboard setup and credential-free packaging are contract-tested; clean-computer proof remains pending.</p></section>
         </div>
       </div>
     </details>
@@ -89,7 +89,7 @@
         <p class="matrix">F-08, F-09</p>
         <p class="purpose">Open shared results and retry records that could not sync immediately.</p>
         <div class="guide-grid">
-          <section><h3>Prerequisites</h3><ul><li>The computer identity is saved and Status shows Automatic connection ready.</li></ul></section>
+          <section><h3>Prerequisites</h3><ul><li>The computer identity is saved and Status shows the dashboard is connected.</li></ul></section>
           <section class="steps"><h3>Exact steps</h3><ol><li>Open Status in the popup.</li><li>Click Test Connection.</li><li>Click Open Dashboard to review saved results.</li><li>If the popup reports queued records, click Retry Queued Dashboard Records.</li><li>Confirm the sent and remaining counts.</li></ol></section>
           <section class="approval"><h3>Approval stop</h3><p>None. Dashboard reads and sync retries do not authorize marketplace actions.</p></section>
           <section><h3>Expected output</h3><p>A rendered dashboard plus idempotent sync receipts or a retained retry queue.</p></section>
@@ -210,11 +210,11 @@
         <p class="purpose">Scan exact item IDs, select only exact .99 listings, change only primary Store category, and pause before Submit.</p>
         <div class="guide-grid">
           <section><h3>Prerequisites</h3><ul><li>Exact source/destination categories are saved for the signed-in eBay account.</li><li>The operator has reviewed any backburner exclusions.</li><li>No other Move .99 run is active.</li></ul></section>
-          <section class="steps"><h3>Exact steps</h3><ol><li>Open Workflows in the popup and click Open Move .99 Workflow.</li><li>Wait for the complete filtered Active Listings exact-ID scan.</li><li>Review total scanned, qualifying, omitted, and failed counts.</li><li>Apply only the verified exact-ID batches, each capped at 500.</li><li>Confirm eBay&#39;s native selected count matches the intended batch.</li><li>Confirm only Primary Store category changed to the exact destination.</li><li>Approve Submit only for the exact reviewed batch.</li><li>After eBay reports success, let GLDN Ops rescan from the first remaining range.</li></ol></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Open Workflows in the popup and click Open Move .99 Workflow.</li><li>Wait for the complete filtered Active Listings exact-ID scan.</li><li>Review total scanned, qualifying, omitted, and failed counts.</li><li>Apply only the verified exact-ID batches, each capped at 500.</li><li>Confirm eBay&#39;s native selected count matches the intended batch.</li><li>Confirm only Primary Store category changed to the exact destination.</li><li>Approve Submit only for the exact reviewed batch.</li><li>After a trusted Submit click and an explicit eBay success/failure result, let GLDN Ops continue from the saved checkpoint.</li></ol></section>
           <section class="approval"><h3>Approval stop</h3><p>STOP before every eBay Submit. Each exact batch requires separate action-time approval.</p></section>
           <section><h3>Expected output</h3><p>Per-batch selected/submitted result, final remaining/failed counts, audit data, and Tasks completion only after exact zero remaining and zero failed.</p></section>
-          <section><h3>Failure recovery</h3><ul><li>Any incomplete scan, mixed price, selected-count mismatch, missing picker, or uncertain submit result stops safely.</li><li>Do not alter item specifics to force category failures through.</li><li>Six known FAK12 failures remain backburnered and must not be resubmitted without new approval.</li></ul></section>
-          <section class="evidence"><h3>Evidence</h3><p>Profile 2 moved 2,564 successful exact .99 listings in approved batches and isolated six persistent backburner failures without changing other fields.</p></section>
+          <section><h3>Failure recovery</h3><ul><li>Any incomplete scan, mixed price, selected-count mismatch, missing picker, or uncertain submit result stops safely without opening another tab or batch.</li><li>If the review page disappears before a trusted Submit click or explicit eBay result, the run enters Approval Lost and requires manual reconciliation.</li><li>Do not alter item specifics to force category failures through.</li><li>Six known FAK12 failures remain backburnered and must not be resubmitted without new approval.</li></ul></section>
+          <section class="evidence"><h3>Evidence</h3><p>Profile 2 moved 2,564 successful exact .99 listings in earlier approved batches and isolated six persistent backburner failures. The v3.10.4 read-only retest scanned 232 listings over two pages, staged 5 exact matches, and held the same Submit (5) workspace through extension reload and repeated approval checks with no new tab; Submit remained untouched. Formal Drive video is pending.</p></section>
         </div>
       </div>
     </details>
@@ -229,7 +229,7 @@
           <section class="approval"><h3>Approval stop</h3><p>STOP before every eBay Submit and approve only the exact reviewed count.</p></section>
           <section><h3>Expected output</h3><p>Submitted batch results and a final zero-mismatch rescan.</p></section>
           <section><h3>Failure recovery</h3><ul><li>Missing or ambiguous prices are excluded.</li><li>Any uncertain submission returns to read-only reconciliation.</li><li>Do not use the reverse workflow on Poshmark.</li></ul></section>
-          <section class="evidence"><h3>Evidence</h3><p>The older FAK12 proof corrected 62 listings, but a later M0 / CLICKNCARRY failure report exposed reverse category-ID persistence corrupting forward settings. v3.10.3 repairs that account-generic defect and passes automated contracts; M0 still needs a fresh BALK to BEST SELLERS signed-in scan and final-review proof.</p></section>
+          <section class="evidence"><h3>Evidence</h3><p>The older FAK12 proof corrected 62 listings, but a later M0 / CLICKNCARRY failure report exposed reverse category-ID persistence corrupting forward settings. v3.10.4 retains that account-generic repair and passes automated contracts; M0 still needs a fresh BALK to BEST SELLERS signed-in scan and final-review proof.</p></section>
         </div>
       </div>
     </details>
@@ -237,13 +237,13 @@
       <summary><span>Move Category Recovery</span><span class="status live">LIVE PASS</span></summary>
       <div class="feature-body">
         <p class="matrix">E-10</p>
-        <p class="purpose">Recover from reloads, picker delays, uncertain submission, and per-item failures without guessing.</p>
+        <p class="purpose">Recover from reloads, picker delays, lost approval pages, and per-item failures without guessing.</p>
         <div class="guide-grid">
           <section><h3>Prerequisites</h3><ul><li>A saved Move .99 checkpoint exists.</li><li>The same signed-in eBay account and configured categories are active.</li></ul></section>
-          <section class="steps"><h3>Exact steps</h3><ol><li>Reload the extension only when the current page is stable.</li><li>Use Run Move .99 or Apply to reclaim the verified checkpoint.</li><li>If submission outcome is uncertain, allow the read-only reconciliation scan.</li><li>Review processed, failed, remaining, and recovery history.</li><li>Export audit data before Reset.</li><li>Use Retry Failed Only only with a new explicit approval.</li></ol></section>
+          <section class="steps"><h3>Exact steps</h3><ol><li>Reload the extension only when the current page is stable.</li><li>Use Run Move .99 or Apply to reclaim the verified checkpoint.</li><li>If the approval page or submission outcome is uncertain, keep the run stopped and manually reconcile the saved batch before starting another scan.</li><li>Review processed, failed, remaining, and recovery history.</li><li>Export audit data before Reset.</li><li>Use Retry Failed Only only with a new explicit approval.</li></ol></section>
           <section class="approval"><h3>Approval stop</h3><p>Recovery never grants Submit approval. Retrying or submitting any remaining item requires a new action-time approval.</p></section>
           <section><h3>Expected output</h3><p>Idempotent checkpoint, reconciliation result, processed/failed lists, and audit export.</p></section>
-          <section><h3>Failure recovery</h3><ul><li>Generic or non-numeric Store category tokens are rejected.</li><li>Never shift the saved page after eBay omits a row.</li><li>When outcome is unknown, rescan instead of assuming success.</li></ul></section>
+          <section><h3>Failure recovery</h3><ul><li>Generic or non-numeric Store category tokens are rejected.</li><li>Never shift the saved page after eBay omits a row.</li><li>When outcome is unknown, do not auto-rescan, navigate, or open another workspace; reconcile first and then start a new operator-approved scan.</li></ul></section>
           <section class="evidence"><h3>Evidence</h3><p>Profile 2 recovered a cancelled review into a complete read-only scan and exported exact Remaining / Retry rows with zero batches submitted.</p></section>
         </div>
       </div>

@@ -1,83 +1,60 @@
-# GLDN Ops Release Process
+# GLDN Ops Local Release Process
 
-Use this process when preparing GitHub releases for other computers.
+Chrome Web Store submission is out of scope. A release is a validated local runtime plus evidence, rollback and GitHub release notes.
 
-## Version Rules
+## Required release gate
 
-- Patch version: small bug fix, selector fix, wording change.
-- Minor version: workflow behavior change, new helper behavior, new dashboard behavior.
-- Major version: breaking install or data migration change.
-
-## Required Files Per Release
-
-Update these before sharing a build:
-
-- `extension/manifest.json`
-- visible version strings in `extension/amazon.js`, `extension/ebay.js`, `extension/ecomsniper.js`
-- `extension/README.txt`
-- `CHANGELOG.md`
-- `releases/vX.Y.Z.md`
-
-## GitHub Flow
-
-1. Make code changes.
-2. Run syntax checks.
-3. Test in Chrome when the workflow touches browser behavior.
-4. Update `CHANGELOG.md`.
-5. Create `releases/vX.Y.Z.md`.
-6. Commit with a message like:
-   ```text
-   Release vX.Y.Z
-   ```
-7. Tag the commit:
-   ```powershell
-   git tag vX.Y.Z
-   ```
-8. Push branch and tag:
-   ```powershell
-   git push
-   git push origin vX.Y.Z
-   ```
-9. Create a GitHub Release using `releases/vX.Y.Z.md` as the release notes.
-
-## Computer Update Model
-
-Each computer should pull the approved GitHub release or tag, then reload the unpacked extension.
-
-For first install on a new computer:
+1. Update `docs/MASTER_FEATURE_MATRIX.md` honestly. Syntax or fixtures never count as live proof.
+2. Change `extension/manifest.json` once.
+3. Add the same version to `CHANGELOG.md`, `extension/README.txt` and `releases/vX.Y.Z.md`.
+4. Run:
 
 ```powershell
-git clone https://github.com/googoogaagaa23/GLDN-Ops.git
-cd GLDN-Ops
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\install.ps1 -StartHelper
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\check-release.ps1
 ```
 
-For normal updates:
+For any release containing a signed-in live test, require its local MP4 and verified Drive link:
 
 ```powershell
-cd GLDN-Ops
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\update.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\check-release.ps1 -RequireLiveVideo
 ```
 
-Each computer also needs its own local helper running:
+5. Build the dependency-free local package:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\local-click-helper.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\build-local-package.ps1
 ```
 
-## Rollback Model
-
-Rollback should use GitHub tags:
+Build the private extension package, verified updater metadata, and one-time installer:
 
 ```powershell
-git fetch --tags
-git checkout vX.Y.Z
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\build-private-extension.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\build-updater-metadata.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\build-installer.ps1
 ```
 
-Then reload the unpacked extension.
+Publish the versioned extension ZIP, `latest.json`, full local bundle, installer,
+bootstrap scripts, and release notes together. Never update `latest.json` before
+all files it references are publicly reachable with the exact published hash.
 
-For local snapshots, rollback can use:
+6. Deploy changed Apps Script projects first and record their versions.
+7. Use only the existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) for live proof.
+8. For the stable deployment gate, use **Update & Reload** from the installed extension. **Reload Current Files** is only for a stale panel and is not update proof.
+9. Capture visible version, identity, exact output and dashboard/Sheet readback.
+10. Record the complete live test and upload an MP4 to Google Drive. Verify the returned Drive metadata and playable link.
+11. Stop at any marketplace submit/finalize control unless the user explicitly approves it.
+12. Update the matrix/evidence file with the local video path and verified Drive link.
+13. Ask for the user's green light before starting the next feature gate.
+14. Only then publish the reviewed files and release notes to GitHub.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File tools\extension-version.ps1 -Action Restore -Version vX.Y.Z -ReloadAfter
-```
+## Rollback rule
+
+Every verified update creates a pre-update snapshot. Restore through **Settings > Version recovery > Roll Back & Reload**. The updater creates another safety snapshot before rollback and never overwrites Chrome storage. The older local manager remains a developer recovery tool only.
+
+## Evidence labels
+
+- `FIXTURE PASS`: parser, state-machine or fake-page test.
+- `LIVE PASS`: signed-in Profile 2 end-to-end behavior, exact readback, and a verified Google Drive video link.
+- `PARTIAL`: anything between those states.
+
+No release note may claim a gate is complete when its matrix row is not `LIVE PASS`. No live browser test is complete without its Drive-viewable proof video.

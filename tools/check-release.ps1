@@ -164,9 +164,9 @@ if ($LASTEXITCODE -ne 0) {
   throw "Universal release check failed."
 }
 
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "tools\build-private-extension.ps1") -Version $plainVersion
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "tools\build-extension-package.ps1") -Version $plainVersion
 if ($LASTEXITCODE -ne 0) {
-  throw "Private extension package build failed."
+  throw "Credential-free extension package build failed."
 }
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "tools\build-updater-metadata.ps1") -Version $plainVersion

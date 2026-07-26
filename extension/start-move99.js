@@ -73,53 +73,11 @@ function configuredAccount(account) {
 async function start() {
   const params = new URLSearchParams(location.search);
   const scanMode = params.get('mode') === 'non99' ? 'non99' : 'price99';
-  const stored = await getStorage(['computerLabel', 'ebayAccountLabel', 'move99AccountSettings']);
-  const mapped = accountForComputer(stored.computerLabel);
-  if (!mapped.ebayAccountLabel) {
-    if (mapped.poshmarkOnly) throw new Error('Computer 7 is Poshmark-only. Move .99 is disabled for it.');
-    throw new Error('Choose and save this computer in GLDN Ops before starting Move .99.');
+  const response = await chrome.runtime.sendMessage({ type: 'startMove99Workflow', scanMode });
+  if (!response?.ok || !response.started || !Number.isInteger(response.tabId)) {
+    throw new Error(response?.error || 'Chrome did not verify the new Move .99 tab.');
   }
-  const account = normalizeEbayAccount(mapped.ebayAccountLabel || stored.ebayAccountLabel);
-  const saved = stored.move99AccountSettings?.[account] || {};
-  const settings = FOUNDATION.move99SettingsForAccount(account, saved);
-  const validation = FOUNDATION.validateMove99Settings(settings);
-  if (!validation.ok) throw new Error(validation.errors[0] || 'Move .99 categories are not configured.');
-  Object.assign(settings, validation.settings);
-
-  const sourceCategories = scanMode === 'non99' ? [settings.destinationCategory] : settings.sourceCategories;
-  const destinationCategory = scanMode === 'non99' ? settings.sourceCategories[0] : settings.destinationCategory;
-  const sourceStoreCategoryIds = scanMode === 'non99' ? [] : settings.sourceStoreCategoryIds;
-  const activeUrl = buildMove99ActiveUrl(sourceStoreCategoryIds);
-  await setStorage({ gldnStopRequested: false, pendingMove99Run: null });
-  const runTab = await createTab(activeUrl);
-  const startedAt = new Date().toISOString();
-  const runId = createRunId();
-  await setStorage({
-    gldnStopRequested: false,
-    pendingMove99Run: {
-      active: true,
-      confirmed: true,
-      runId,
-      ownerTabId: runTab.id,
-      scanStrategy: 'active-page-exact-id-v1',
-      phase: 'active-prepare',
-      scanMode,
-      ebayAccountLabel: account,
-      currentPage: 1,
-      scanPages: {},
-      verificationPages: {},
-      failedIds: [],
-      processedIds: [],
-      totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
-      startedAt,
-      sourceCategories,
-      destinationCategory,
-      sourceStoreCategoryIds,
-      backburnerItemIds: settings.backburnerItemIds
-    }
-  });
-
-  statusElement.textContent = `Started ${scanMode === 'non99' ? 'Non-.99 cleanup' : 'Move .99'} for ${account}.\nOpening ${activeUrl}`;
+  statusElement.textContent = `Started ${scanMode === 'non99' ? 'Non-.99 cleanup' : 'Move .99'} for ${response.account}.\nVerified tab ${response.tabId}.`;
 }
 
 start().catch((error) => {

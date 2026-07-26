@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.10.3. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.10.4. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -50,7 +50,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 ### Prerequisites
 
-- The private GLDN Ops package is loaded unpacked in the intended Chrome profile.
+- The credential-free GLDN Ops package is loaded unpacked in the intended Chrome profile.
 - The operator knows the Tasks-sheet computer label.
 
 ### Exact Steps
@@ -58,7 +58,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 1. Open the popup and choose only the computer label.
 2. Confirm the derived marketplace account before saving.
 3. Click Save Computer.
-4. Open Status and confirm Automatic connection ready.
+4. Open Status. If the dashboard is not connected in this Chrome profile, click Connect Dashboard once.
 5. Click Test Connection, then Run Feature Health Check.
 6. Copy Settings Backup before an update or profile move.
 
@@ -73,13 +73,13 @@ Saved computer/account mapping, dashboard connection, health report, and setting
 ### Failure Recovery
 
 - If the account is wrong, stop and correct the computer label instead of editing the derived account.
-- If automatic setup is unavailable, update from the private GLDN Ops package and click Repair Automatic Connection.
+- If the dashboard is not connected, use Connect Dashboard once in that Chrome profile; updates preserve it.
 - If dashboard testing fails, copy the full diagnostic report before clearing anything.
 - A clean-computer installation is still a final deployment gate.
 
 ### Evidence
 
-Identity mapping and health diagnostics are live-proven in Profile 2. Automatic private-package seeding is implemented and contract-tested; clean-computer proof remains pending.
+Identity mapping and health diagnostics are live-proven in Profile 2. Saved-profile dashboard setup and credential-free packaging are contract-tested; clean-computer proof remains pending.
 
 
 <a id="panel"></a>
@@ -133,7 +133,7 @@ Profile 2 proved Graphite at 75%, persisted resize, normal reload persistence, a
 
 ### Prerequisites
 
-- The computer identity is saved and Status shows Automatic connection ready.
+- The computer identity is saved and Status shows the dashboard is connected.
 
 ### Exact Steps
 
@@ -482,7 +482,7 @@ Profile 2 FAK12 exact categories, IDs, backup, restore, and reload persistence a
 5. Confirm eBay's native selected count matches the intended batch.
 6. Confirm only Primary Store category changed to the exact destination.
 7. Approve Submit only for the exact reviewed batch.
-8. After eBay reports success, let GLDN Ops rescan from the first remaining range.
+8. After a trusted Submit click and an explicit eBay success/failure result, let GLDN Ops continue from the saved checkpoint.
 
 ### Approval Stop
 
@@ -494,13 +494,14 @@ Per-batch selected/submitted result, final remaining/failed counts, audit data, 
 
 ### Failure Recovery
 
-- Any incomplete scan, mixed price, selected-count mismatch, missing picker, or uncertain submit result stops safely.
+- Any incomplete scan, mixed price, selected-count mismatch, missing picker, or uncertain submit result stops safely without opening another tab or batch.
+- If the review page disappears before a trusted Submit click or explicit eBay result, the run enters Approval Lost and requires manual reconciliation.
 - Do not alter item specifics to force category failures through.
 - Six known FAK12 failures remain backburnered and must not be resubmitted without new approval.
 
 ### Evidence
 
-Profile 2 moved 2,564 successful exact .99 listings in approved batches and isolated six persistent backburner failures without changing other fields.
+Profile 2 moved 2,564 successful exact .99 listings in earlier approved batches and isolated six persistent backburner failures. The v3.10.4 read-only retest scanned 232 listings over two pages, staged 5 exact matches, and held the same Submit (5) workspace through extension reload and repeated approval checks with no new tab; Submit remained untouched. Formal Drive video is pending.
 
 
 <a id="reverse99"></a>
@@ -543,7 +544,7 @@ Submitted batch results and a final zero-mismatch rescan.
 
 ### Evidence
 
-The older FAK12 proof corrected 62 listings, but a later M0 / CLICKNCARRY failure report exposed reverse category-ID persistence corrupting forward settings. v3.10.3 repairs that account-generic defect and passes automated contracts; M0 still needs a fresh BALK to BEST SELLERS signed-in scan and final-review proof.
+The older FAK12 proof corrected 62 listings, but a later M0 / CLICKNCARRY failure report exposed reverse category-ID persistence corrupting forward settings. v3.10.4 retains that account-generic repair and passes automated contracts; M0 still needs a fresh BALK to BEST SELLERS signed-in scan and final-review proof.
 
 
 <a id="move99-recovery"></a>
@@ -553,7 +554,7 @@ The older FAK12 proof corrected 62 listings, but a later M0 / CLICKNCARRY failur
 
 **Evidence status:** LIVE PASS
 
-**Purpose:** Recover from reloads, picker delays, uncertain submission, and per-item failures without guessing.
+**Purpose:** Recover from reloads, picker delays, lost approval pages, and per-item failures without guessing.
 
 ### Prerequisites
 
@@ -564,7 +565,7 @@ The older FAK12 proof corrected 62 listings, but a later M0 / CLICKNCARRY failur
 
 1. Reload the extension only when the current page is stable.
 2. Use Run Move .99 or Apply to reclaim the verified checkpoint.
-3. If submission outcome is uncertain, allow the read-only reconciliation scan.
+3. If the approval page or submission outcome is uncertain, keep the run stopped and manually reconcile the saved batch before starting another scan.
 4. Review processed, failed, remaining, and recovery history.
 5. Export audit data before Reset.
 6. Use Retry Failed Only only with a new explicit approval.
@@ -581,7 +582,7 @@ Idempotent checkpoint, reconciliation result, processed/failed lists, and audit 
 
 - Generic or non-numeric Store category tokens are rejected.
 - Never shift the saved page after eBay omits a row.
-- When outcome is unknown, rescan instead of assuming success.
+- When outcome is unknown, do not auto-rescan, navigate, or open another workspace; reconcile first and then start a new operator-approved scan.
 
 ### Evidence
 

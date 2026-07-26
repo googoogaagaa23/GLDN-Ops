@@ -1,56 +1,57 @@
-# GLDN Ops Install
+# Install GLDN Ops Locally
 
-## Easiest Install
+GLDN Ops uses one unpacked extension folder per Windows computer. Chrome Web Store approval, Chrome policy, Git, Node.js and the old click helper are not required.
 
-Download and run:
+## First computer/profile setup
 
-[GLDN-Ops-Setup.exe](https://github.com/googoogaagaa23/GLDN-Ops/raw/main/dist/GLDN-Ops-Setup.exe)
+1. Download and run `GLDN-Ops-Setup.exe` once on the Windows computer.
+2. The installer creates `%LOCALAPPDATA%\GLDN Ops` and starts the hidden automatic updater.
+3. Open `chrome://extensions` in the intended signed-in Chrome profile.
+4. Turn on **Developer mode**.
+5. Click **Load unpacked**.
+6. Select `%LOCALAPPDATA%\GLDN Ops\extension`.
+7. Open GLDN Ops and choose the computer once.
+8. Confirm **Automatic connection ready** in Status.
+9. Run **Test Connection** and **Run Feature Health Check**.
 
-The installer:
+Use the private GLDN Ops package for installation. It contains the local-only dashboard configuration and seeds every Chrome profile automatically; no dashboard code entry is required. The public source package intentionally excludes that private configuration.
 
-- downloads or updates GLDN Ops at `Desktop\GLDN-Ops`
-- enables shared dashboard sync
-- starts the local helper
-- installs Chrome policy for auto-install and auto-update
-- opens `chrome://extensions`
+The computer choice derives the marketplace identity automatically:
 
-Chrome policy installed:
+| Computer | eBay | Poshmark dashboard |
+|---|---|---|
+| M0 | CLICKNCARRY | M0 |
+| 2 | FANCYFI | - |
+| 6 | FINTIME | - |
+| 0 | FAK12 | 7 |
+| M1 | HEARTSTONE | - |
+| 7 | Poshmark only | 7 |
 
-```text
-pakkpebfmneoedaaknfdlbkclheekefb;https://raw.githubusercontent.com/googoogaagaa23/GLDN-Ops/main/dist/update.xml
-```
+## More Chrome profiles on the same computer
 
-After install, close and reopen Chrome completely. Then open:
+Repeat only the Chrome steps above in each intended profile and select the same `%LOCALAPPDATA%\GLDN Ops\extension` folder. The dashboard connection seeds automatically. Each Chrome profile keeps its own computer, Amazon profile, category settings and history. The files update once for the whole Windows computer.
 
-```text
-chrome://policy
-```
+## Update
 
-Click **Reload policies**. GLDN Ops should auto-install in Chrome profiles for that Windows user.
+Open GLDN Ops and click **Update & Reload**. No ZIP download, Git command, PowerShell command, or folder replacement is needed after the one-time setup.
 
-## Manual Fallback
+The updater:
 
-If a computer does not apply Chrome policy, load the same extension folder manually in each Chrome profile:
+1. reads the fixed GLDN Ops stable-release metadata;
+2. downloads into a temporary folder;
+3. verifies the published SHA-256 and manifest version before changing the install;
+4. saves a rollback snapshot;
+5. preserves `extension\config.js` and Chrome storage;
+6. replaces and validates the runtime files transactionally;
+7. reloads the current profile immediately and other shared-folder profiles within five minutes;
+8. restores the prior runtime automatically if any replacement step fails.
 
-1. Open the target Chrome profile.
-2. Go to `chrome://extensions`.
-3. Turn on Developer mode.
-4. Click Load unpacked.
-5. Select:
-   ```text
-   Desktop\GLDN-Ops\extension
-   ```
+**Reload Current Files** restarts the version already installed without downloading anything.
 
-## One-Command Install
+## Rollback
 
-Open PowerShell and run:
+Open the popup's **Settings** tab, choose an available backup under **Version recovery**, and click **Roll Back & Reload**. The latest ten snapshots are retained locally. A safety snapshot is created before rollback.
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass -Force; irm "https://raw.githubusercontent.com/googoogaagaa23/GLDN-Ops/main/install-latest.ps1" -OutFile "$env:TEMP\gldn-install.ps1"; powershell -NoProfile -ExecutionPolicy Bypass -File "$env:TEMP\gldn-install.ps1" -StartHelper -InstallChromePolicy
-```
+## Diagnose
 
-## Updates
-
-Run the installer again. If Git is available, it pulls latest with Git. If Git is not available, it downloads the latest ZIP and keeps the old folder as a timestamped backup.
-
-Packed CRX installs update through Chrome policy using `dist/update.xml`.
+Double-click `Diagnose-GLDN-Ops.cmd`. It reports the local version, dashboard setup, exact Chrome profile directory, discovered extension ID/path and EcomSniper presence without assuming a fixed ID.

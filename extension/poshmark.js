@@ -23,15 +23,7 @@
   });
   const storageRemove = (keys) => new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
   const AMAZON_MATCH_TTL_MS = 2 * 60 * 60 * 1000;
-  const runtimeMessage = (message) => new Promise((resolve) => {
-    chrome.runtime.sendMessage(message, (response) => {
-      if (chrome.runtime.lastError) {
-        resolve({ ok: false, error: chrome.runtime.lastError.message });
-        return;
-      }
-      resolve(response || { ok: false, error: "No response from extension background service." });
-    });
-  });
+  const runtimeMessage = U.runtimeMessage;
 
   async function savedComputerLabelValue(defaultValue = "") {
     const result = await storageGet(["computerLabel"]);
@@ -1205,4 +1197,12 @@
     }, 1200);
   });
   backfillObserver.observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener("gldn-extension-context-invalidated", () => {
+    backfillObserver.disconnect();
+    clearTimeout(backfillMutationTimer);
+    if (statusElement) {
+      statusElement.textContent = "GLDN Ops was updated. Refresh this Poshmark tab.";
+      statusElement.dataset.type = "error";
+    }
+  }, { once: true });
 })();

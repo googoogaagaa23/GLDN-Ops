@@ -68,10 +68,13 @@ function loadMove99FingerprintPlanner() {
 }
 
 test("every Move .99 launcher performs a full exact-ID scan before opening a publish workspace", () => {
-  for (const source of [ebay, popup, starter]) {
-    assert.match(source, /scanStrategy:\s*["']active-page-exact-id-v1["']|scanStrategy:\s*MOVE99_SCAN_STRATEGY/);
-    assert.doesNotMatch(source, /useEditAllBulkScan:\s*true/);
+  assert.match(ebay, /scanStrategy:\s*MOVE99_SCAN_STRATEGY/);
+  assert.match(background, /scanStrategy:\s*'active-page-exact-id-v1'/);
+  for (const source of [popup, starter]) {
+    assert.match(source, /sendMessage\(\{ type: 'startMove99Workflow', scanMode \}\)/);
+    assert.doesNotMatch(source, /pendingMove99Run:\s*\{/);
   }
+  for (const source of [ebay, background, popup, starter]) assert.doesNotMatch(source, /useEditAllBulkScan:\s*true/);
   const activePrepare = ebay.slice(
     ebay.indexOf('if (state.phase === "active-prepare")'),
     ebay.indexOf('if (state.phase === "scan-page"')
@@ -221,10 +224,12 @@ test("Move .99 assigns one owner tab so duplicate eBay tabs cannot race", () => 
   assert.match(background, /move99ClaimQueue = claim\.then/);
   assert.match(background, /owned: ownerTabId === senderTabId/);
   assert.match(ebay, /runtimeMessage\(\{ type: "claimMove99Tab"/);
-  assert.match(ebay, /if \(!claim\?\.ok \|\| !claim\.owned\) return/);
-  assert.match(ebay, /ownerTabId: tabInfo\.tabId/);
-  assert.match(starter, /ownerTabId: runTab\.id/);
-  assert.match(starter, /pendingMove99Run: null/);
+  assert.match(ebay, /if \(!claim\?\.ok\)/);
+  assert.match(ebay, /if \(!claim\.owned\)/);
+  assert.match(ebay, /ownerTabId: claim\.ownerTabId/);
+  assert.match(background, /ownerTabId: runTab\.id/);
+  assert.match(background, /await storageSet\(\{[\s\S]*?pendingMove99Run:/);
+  assert.match(background, /await updateChromeTab\(runTab\.id, \{ url: activeUrl, active: true \}\)/);
 });
 
 test("Move .99 saved state is versioned and stale extension state cannot auto-resume", () => {
@@ -249,39 +254,32 @@ test("Move .99 saved state is versioned and stale extension state cannot auto-re
   );
   assert.match(backgroundWriter, /extensionVersion:\s*EXTENSION_VERSION/);
   assert.match(backgroundWriter, /async function clearIncompatibleMove99State/);
-  assert.match(backgroundWriter, /chrome\.storage\.local\.remove\(\['pendingMove99Run'\]/);
+  assert.match(backgroundWriter, /storageRemove\(\['pendingMove99Run'\]\)/);
   assert.match(background, /clearIncompatibleMove99State\(\)[\s\S]*?resumeExtensionReloadRequest\(\)/);
-
-  const popupWriter = popup.slice(
-    popup.indexOf("function storageSet"),
-    popup.indexOf("function normalizeComputer")
-  );
-  assert.match(popupWriter, /extensionVersion:\s*EXTENSION_VERSION/);
-  assert.match(popupWriter, /stateUpdatedAt:\s*new Date\(\)\.toISOString\(\)/);
-
-  const starterWriter = starter.slice(
-    starter.indexOf("function setStorage"),
-    starter.indexOf("function createTab")
-  );
-  assert.match(starterWriter, /extensionVersion:\s*EXTENSION_VERSION/);
-  assert.match(starterWriter, /stateUpdatedAt:\s*new Date\(\)\.toISOString\(\)/);
+  assert.doesNotMatch(popup.slice(popup.indexOf("async function startMove99Workflow")), /pendingMove99Run:\s*\{/);
+  assert.doesNotMatch(starter.slice(starter.indexOf("async function start")), /pendingMove99Run:\s*\{/);
 });
 
-test("popup Move .99 launcher uses the stamped writer before opening eBay", () => {
+test("popup Move .99 launcher delegates atomic state and tab creation to the background", () => {
   const launcher = popup.slice(
     popup.indexOf("async function startMove99Workflow"),
     popup.indexOf("document.getElementById('openFeatureGuide')")
   );
-  assert.match(launcher, /const runId =/);
-  assert.match(launcher, /await storageSet\(\{/);
-  assert.match(launcher, /pendingMove99Run:\s*\{/);
-  assert.match(launcher, /runId,/);
-  assert.match(launcher, /chrome\.tabs\.create\(\{ url: activeUrl \}\)/);
-  assert.ok(
-    launcher.indexOf("await storageSet({") < launcher.indexOf("chrome.tabs.create({ url: activeUrl })"),
-    "the stamped pending run must exist before the eBay tab opens"
+  const atomicLauncher = background.slice(
+    background.indexOf("async function startMove99WorkflowFromExtension"),
+    background.indexOf("async function createMove99BulkWorkspace")
   );
-  assert.doesNotMatch(launcher, /chrome\.storage\.local\.set\(/);
+  assert.match(launcher, /sendMessage\(\{ type: 'startMove99Workflow', scanMode \}\)/);
+  assert.match(launcher, /Number\.isInteger\(response\.tabId\)/);
+  assert.doesNotMatch(launcher, /chrome\.tabs\.create|pendingMove99Run/);
+  assert.match(atomicLauncher, /const runTab = await createChromeTab\(\{ url: 'about:blank', active: true \}\)/);
+  assert.match(atomicLauncher, /await storageSet\(\{[\s\S]*?pendingMove99Run:/);
+  assert.match(atomicLauncher, /ownerTabId: runTab\.id/);
+  assert.match(atomicLauncher, /await updateChromeTab\(runTab\.id, \{ url: activeUrl, active: true \}\)/);
+  assert.ok(
+    atomicLauncher.indexOf("await storageSet({") < atomicLauncher.indexOf("await updateChromeTab(runTab.id"),
+    "the stamped pending run must exist before the exact eBay tab navigates"
+  );
 });
 
 test("Move .99 cannot apply an incomplete inventory scan", () => {
@@ -300,7 +298,7 @@ test("Move .99 waits for eBay's filtered Results total instead of the stale acco
   assert.match(ebay, /waitForStableFilteredResults\(false, 60000\)/);
   assert.match(ebay, /Date\.now\(\) - stableSince >= 4000/);
   assert.match(ebay, /filterBaselineRestarts: baselineRestarts \+ 1/);
-  assert.match(ebay, /MOVE99_FILTER_BASELINE_RESTART_LIMIT = 8/);
+  assert.match(ebay, /MOVE99_FILTER_BASELINE_RESTART_LIMIT = 2/);
   assert.match(ebay, /baselineRestarts < MOVE99_FILTER_BASELINE_RESTART_LIMIT/);
   assert.doesNotMatch(ebay, /targetPage === 1 && Object\.keys\(existingPages\)\.length === 0 && baselineRestarts < 2/);
   assert.match(ebay, /scanPageReloads: \{\}/);
@@ -337,7 +335,7 @@ test("Move .99 enters configured accounts through the exact numeric source URL",
   );
   assert.match(activePrepare, /configuredSourceUrlRequired = MOVE99_SOURCE_STORE_CATEGORY_IDS\.length > 0/);
   assert.match(activePrepare, /configuredSourceUrlRequired && !isMove99SourceFilterUrl\(\)/);
-  assert.match(activePrepare, /location\.assign\(MOVE99_ACTIVE_URL\)/);
+  assert.match(activePrepare, /navigateToMove99ScanPage\(1, MOVE99_ACTIVE_URL\)/);
 });
 
 test("Move .99 recognizes the filtered Results total from every active page", () => {
@@ -445,8 +443,43 @@ test("Move .99 scans clean hard-loaded pages and recovers from pagination drift"
   assert.match(scanning, /navigateToMove99ScanPage\(nextPage/);
   assert.match(scanning, /scanPageReloads/);
   assert.match(scanning, /scanPassRestarts/);
-  assert.match(scanning, /passRestarts < 2/);
+  assert.match(scanning, /passRestarts < 1/);
+  assert.match(scanning, /move99LogicalTotalPages\(/);
   assert.doesNotMatch(scanning, /await goToActivePage\(nextPage\)/);
+});
+
+test("Move .99 finishes the last filtered page even when eBay retains an account-wide page count", () => {
+  const helper = ebay.match(/function move99LogicalTotalPages\(resultTotal, filteredTotal, savedTotalPages, pageInfoTotal\) \{[\s\S]*?\n  \}/)?.[0];
+  assert.ok(helper, "logical filtered-page helper must be extractable");
+  const logicalPages = new Function(`
+    ${helper}
+    return move99LogicalTotalPages;
+  `)();
+
+  assert.equal(logicalPages(232, 232, 2, 36), 2);
+  assert.equal(logicalPages(null, 232, 2, 36), 2);
+  assert.equal(logicalPages(null, null, 2, 36), 2);
+
+  const verification = ebay.slice(
+    ebay.indexOf('if (state.phase === "scan-page" || state.phase === "verify-page")'),
+    ebay.indexOf('if (state.phase === "scan-summary")')
+  );
+  assert.match(verification, /if \(nextPage <= logicalTotalPages\)/);
+  assert.match(verification, /phase: "completed"/);
+  assert.match(verification, /active: false/);
+  assert.match(verification, /ownerTabId: null/);
+});
+
+test("an invalidated unpacked-extension page refreshes once instead of leaving dead Ready controls", () => {
+  const shutdown = ebay.slice(
+    ebay.indexOf("function shutdownInvalidatedContext"),
+    ebay.indexOf("function requireExtensionContext")
+  );
+  assert.match(shutdown, /GLDN Ops was updated\. Refreshing this eBay tab automatically/);
+  assert.match(shutdown, /sessionStorage\.getItem\(reloadKey\)/);
+  assert.match(shutdown, /sessionStorage\.setItem\(reloadKey/);
+  assert.match(shutdown, /location\.reload\(\)/);
+  assert.match(shutdown, /Date\.now\(\) - previousReloadAt > 15000/);
 });
 
 test("finished Move .99 scans are passive and resume without tab-claim contention", () => {
@@ -821,12 +854,10 @@ test("Move .99 reads variation price ranges from eBay's Buy It Now grid cell", (
 });
 
 test("reverse cleanup launchers invert configured categories and always stop at scan summary", () => {
-  for (const source of [popup, starter]) {
-    assert.match(source, /scanMode === ['"]non99['"] \? \[settings\.destinationCategory\] : settings\.sourceCategories/);
-    assert.match(source, /scanMode === ['"]non99['"] \? settings\.sourceCategories\[0\] : settings\.destinationCategory/);
-    assert.match(source, /scanMode === ['"]non99['"] \? \[\] : settings\.sourceStoreCategoryIds/);
-    assert.doesNotMatch(source, /autoApply\s*:\s*true/);
-  }
+  assert.match(background, /scanMode === 'non99' \? \[normalized\.destinationCategory\] : normalized\.sourceCategories/);
+  assert.match(background, /scanMode === 'non99' \? normalized\.sourceCategories\[0\] : normalized\.destinationCategory/);
+  assert.match(background, /scanMode === 'non99' \? \[\] : normalized\.sourceStoreCategoryIds/);
+  for (const source of [popup, starter, background]) assert.doesNotMatch(source, /autoApply\s*:\s*true/);
   const summary = ebay.slice(
     ebay.indexOf("function showMove99ScanSummary"),
     ebay.indexOf("function bulkEditorSelectionProgress")
@@ -918,9 +949,61 @@ test("Move .99 advances only after an explicit eBay submission result", () => {
   );
   assert.match(resume, /parseMove99SubmitResult\(document\.body\?\.innerText/);
   assert.match(resume, /if \(!outcome\?\.result\?\.confirmed\)/);
-  assert.match(resume, /recoverMove99ThroughVerification/);
+  assert.match(resume, /if \(!state\.approvalActionObservedAt\)/);
+  assert.match(resume, /stopMove99AfterLostApproval/);
+  assert.match(resume, /Waiting for approval before \$\{finalAction\}/);
   assert.match(resume, /recordMove99SubmittedBatch/);
+  assert.doesNotMatch(resume, /recoverMove99ThroughVerification/);
   assert.doesNotMatch(resume, /Submit completed\. Continuing the next saved batch/);
+
+  const confirmationGuard = resume.indexOf("if (!outcome?.result?.confirmed)");
+  const nextBatch = resume.indexOf("nextMove99BatchState(recorded)");
+  assert.ok(confirmationGuard >= 0 && nextBatch > confirmationGuard, "the next batch must remain behind explicit eBay confirmation");
+  const ambiguousExitPath = resume.slice(0, resume.indexOf("const recorded = recordMove99SubmittedBatch"));
+  assert.doesNotMatch(ambiguousExitPath, /navigateToMove99ScanPage|createMove99BulkWorkspace|nextMove99BatchState/);
+});
+
+test("Move .99 hard-locks the final review to one tab and never auto-recovers an ambiguous exit", () => {
+  const pause = ebay.slice(
+    ebay.indexOf("async function pauseMove99AtReviewScreen"),
+    ebay.indexOf("function nextMove99BatchState")
+  );
+  assert.match(pause, /approvalTabId: tabInfo\.tabId/);
+  assert.match(pause, /approvalUrl: location\.href/);
+  assert.match(pause, /approvalWorkspaceId: currentBulkWorkspaceId\(\)/);
+  assert.match(pause, /approvalActionObservedAt: ""/);
+  assert.match(pause, /armMove99SubmitApprovalClick\(submitButton, approvalState\)/);
+
+  const approvalClick = ebay.slice(
+    ebay.indexOf("async function recordMove99ApprovalAction"),
+    ebay.indexOf("async function currentMove99ApprovalState")
+  );
+  assert.match(approvalClick, /Number\(tabInfo\.tabId\) !== Number\(state\.approvalTabId\)/);
+  assert.match(approvalClick, /if \(!event\.isTrusted\) return/);
+  assert.match(approvalClick, /approvalActionObservedAt: marker\.observedAt/);
+
+  const resumePending = ebay.slice(
+    ebay.indexOf("async function resumePendingActions"),
+    ebay.indexOf("function renderStatus", ebay.indexOf("async function resumePendingActions"))
+  );
+  assert.match(resumePending, /resumeMove99AfterManualSubmit\(pendingMove99\)/);
+  assert.doesNotMatch(resumePending, /recoverMove99VariationLimitState/);
+
+  const runner = ebay.slice(
+    ebay.indexOf("async function runMove99Automation"),
+    ebay.indexOf("async function startMove99Listings")
+  );
+  const approvalGate = runner.indexOf('state.phase === "awaiting-submit-approval"');
+  const interruptionCheck = runner.indexOf('stopForEbayInterruption("Move .99")');
+  assert.ok(approvalGate >= 0 && approvalGate < interruptionCheck, "approval must be gated before any normal workflow action");
+  assert.match(runner, /if \(state\.phase === "approval-lost"\) return/);
+
+  const claim = background.slice(
+    background.indexOf("function claimMove99Tab"),
+    background.indexOf("function createChromeTab")
+  );
+  assert.match(claim, /state\.phase === 'awaiting-submit-approval' \|\| state\.phase === 'approval-lost'/);
+  assert.match(claim, /approvalLocked: true/);
 });
 
 test("Move .99 recovery is read-only, resumable, idempotent, and auditable", () => {

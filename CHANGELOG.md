@@ -2,6 +2,21 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.10.4 - 2026-07-26
+
+- Fixed Move .99 final verification looping on the last filtered page when eBay retained a larger account-wide page count.
+- A filtered result such as `201-232 of 232` now completes at page 2 even if another eBay page counter remains stale.
+- Fixed unpacked-extension updates leaving an old eBay panel at `Ready`; invalidated tabs now stop timers and refresh themselves once into the current extension context.
+- Centralized popup and internal Move .99 launchers in one atomic background operation that binds the exact new tab before navigating to eBay.
+- Added eBay interruption detection, slower randomized navigation pacing, and a fail-closed stop when eBay displays a bot or challenge page.
+- Hard-locked every final Move .99 review to its exact Chrome tab and workspace. The workflow records only a trusted operator click and advances only after an explicit eBay success/failure result.
+- Removed the automatic verification/restart path when Submit disappears. An ambiguous review exit now stops as `approval-lost` without navigation, another workspace, or another batch.
+- Removed privileged reload and Move .99 pages from public web-accessible resources and reduced marketplace background polling.
+- Public release packages no longer embed the dashboard setup code. The code is saved once in each Chrome profile and survives extension updates.
+- The complete automated suite passes `234/234`.
+- Signed-in Profile 2 / computer `0` / FAK12 scanned `232` unique listings across two filtered pages, found `5` exact `.99` matches, staged only those five, and stopped at `Submit (5)`.
+- After a fresh extension reload and same-tab page refresh, the exact review workspace and `Submit (5)` remained unchanged through repeated approval checks; the Chrome tab count stayed `3 -> 3` with no new or replaced tab. Submit remained untouched. Formal Drive-video evidence is still pending.
+
 ## v3.10.3 - 2026-07-26
 
 - Computer `2` / `FANCYFI` now defaults Move .99 to source Store categories `SNI, SNIPO v2` and destination `DAILY`.

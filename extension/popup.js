@@ -998,38 +998,14 @@ async function startMove99Workflow(scanMode) {
   if (!settings.sourceCategories?.length || !settings.destinationCategory) {
     throw new Error('Save source and destination .99 categories first.');
   }
-
-  const sourceCategories = scanMode === 'non99' ? [settings.destinationCategory] : settings.sourceCategories;
-  const destinationCategory = scanMode === 'non99' ? settings.sourceCategories[0] : settings.destinationCategory;
-  const sourceStoreCategoryIds = scanMode === 'non99' ? [] : settings.sourceStoreCategoryIds;
-  const activeUrl = buildMove99ActiveUrl(sourceStoreCategoryIds);
-  const startedAt = new Date().toISOString();
-  const runId = globalThis.crypto?.randomUUID?.() || `move99-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  await storageSet({
-    gldnStopRequested: false,
-    pendingMove99Run: {
-      active: true,
-      confirmed: true,
-      runId,
-      phase: 'active-prepare',
-      scanMode,
-      scanStrategy: 'active-page-exact-id-v1',
-      ebayAccountLabel: account,
-      currentPage: 1,
-      scanPages: {},
-      verificationPages: {},
-      failedIds: [],
-      processedIds: [],
-      totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
-      startedAt,
-      sourceCategories,
-      destinationCategory,
-      sourceStoreCategoryIds,
-      backburnerItemIds: settings.backburnerItemIds
-    }
-  });
-  chrome.tabs.create({ url: activeUrl });
-  setMessage(scanMode === 'non99' ? 'Non-.99 cleanup started. The opened eBay tab will scan first.' : 'Move .99 workflow started. The opened eBay tab will scan first.');
+  setMessage(scanMode === 'non99' ? 'Starting Non-.99 cleanup...' : 'Starting Move .99...');
+  const response = await chrome.runtime.sendMessage({ type: 'startMove99Workflow', scanMode });
+  if (!response?.ok || !response.started || !Number.isInteger(response.tabId)) {
+    throw new Error(response?.error || 'Chrome did not verify the new Move .99 tab.');
+  }
+  setMessage(scanMode === 'non99'
+    ? `Non-.99 cleanup started and verified in tab ${response.tabId}.`
+    : `Move .99 started and verified in tab ${response.tabId}.`);
 }
 
 document.getElementById('openFeatureGuide').addEventListener('click', () => {
@@ -1421,28 +1397,40 @@ document.getElementById('testDashboard').addEventListener('click', async () => {
 });
 
 async function ensureAutomaticDashboardSetup({ announce = false } = {}) {
-  if (dashboardAutoSetupElement) dashboardAutoSetupElement.textContent = 'Checking automatic connection...';
+  if (dashboardAutoSetupElement) dashboardAutoSetupElement.textContent = 'Checking dashboard connection...';
   try {
     const response = await chrome.runtime.sendMessage({ type: 'seedDashboardSetupFromLocalConfig' });
     if (!response?.ok) throw new Error(response?.error || 'Automatic dashboard setup failed.');
     if (dashboardAutoSetupElement) {
       dashboardAutoSetupElement.textContent = response.changed
-        ? 'Automatic connection configured from the private package.'
-        : 'Automatic connection ready.';
+        ? 'Dashboard connection restored from this computer.'
+        : 'Dashboard setup code is saved in this Chrome profile.';
     }
-    if (announce) setMessage('Automatic dashboard connection repaired.');
+    if (announce) setMessage('Dashboard connection is ready.');
     return true;
   } catch (error) {
     if (dashboardAutoSetupElement) {
-      dashboardAutoSetupElement.textContent = 'Automatic setup unavailable. Update from the private GLDN Ops package.';
+      dashboardAutoSetupElement.textContent = 'Not connected. Choose Connect Dashboard once for this Chrome profile.';
     }
-    if (announce) setMessage(error.message || 'Automatic dashboard setup failed.', true);
+    if (announce) setMessage(error.message || 'Dashboard setup is missing.', true);
     return false;
   }
 }
 
 document.getElementById('repairDashboardSetup').addEventListener('click', async () => {
-  await ensureAutomaticDashboardSetup({ announce: true });
+  const saved = await U.promptAndSaveDashboardSetup();
+  if (!saved?.ok) {
+    setMessage(saved?.error || 'Dashboard setup was not saved.', true);
+    return;
+  }
+  setMessage('Testing the saved dashboard connection...');
+  const tested = await chrome.runtime.sendMessage({ type: 'testDashboard' });
+  if (!tested?.ok) {
+    setMessage(tested?.error || 'The dashboard rejected that setup code.', true);
+    return;
+  }
+  if (dashboardAutoSetupElement) dashboardAutoSetupElement.textContent = 'Dashboard connection ready.';
+  setMessage('Dashboard connected securely.');
   refresh();
 });
 

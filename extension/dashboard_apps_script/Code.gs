@@ -9,7 +9,6 @@
  */
 
 const SYNC_KEY_PROPERTY = 'GLDN_SYNC_KEY';
-const LEGACY_SYNC_KEY_SHA256 = 'bbddaf688e8ec72626f50acbed4a93b398af40a6a49e3ff99d6888e1240691f3';
 const SPREADSHEET_ID_PROPERTY = 'GLDN_SPREADSHEET_ID';
 const TASKS_SPREADSHEET_ID = '1z3ouzNopLpiT3icJyhzLf3AkCO7I2thV1mQWnIEdIx8';
 const TASKS_SHEET = 'Tasks';
@@ -2423,16 +2422,11 @@ function getSpreadsheet_() {
 }
 function parsePayload_(e) { if (!e || !e.postData || !e.postData.contents) throw new Error('Missing request body.'); try { return JSON.parse(e.postData.contents); } catch (_) { throw new Error('Request body is not valid JSON.'); } }
 function configuredSyncKey_() { return String(PropertiesService.getScriptProperties().getProperty(SYNC_KEY_PROPERTY) || ''); }
-function sha256Hex_(value) { return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(value || ''), Utilities.Charset.UTF_8).map((byte) => (byte < 0 ? byte + 256 : byte).toString(16).padStart(2, '0')).join(''); }
-function validateConfiguredKey_() { if (!configuredSyncKey_() && !/^[a-f0-9]{64}$/i.test(LEGACY_SYNC_KEY_SHA256)) throw new Error(`Set the ${SYNC_KEY_PROPERTY} script property to the private setup code used by the extension.`); }
+function validateConfiguredKey_() { if (configuredSyncKey_().length < 24) throw new Error(`Set the ${SYNC_KEY_PROPERTY} script property to a private setup code of at least 24 characters.`); }
 function validateKey_(provided) {
   const candidate = String(provided || '');
   const configured = configuredSyncKey_();
   if (configured && candidate === configured) return;
-  if (!configured && candidate.length >= 16 && sha256Hex_(candidate) === LEGACY_SYNC_KEY_SHA256) {
-    PropertiesService.getScriptProperties().setProperty(SYNC_KEY_PROPERTY, candidate);
-    return;
-  }
   throw new Error('Invalid dashboard key.');
 }
 function configureDashboardSyncKey() {
@@ -2440,7 +2434,7 @@ function configureDashboardSyncKey() {
   const response = ui.prompt('GLDN dashboard setup', 'Enter the private setup code used by the extension.', ui.ButtonSet.OK_CANCEL);
   if (response.getSelectedButton() !== ui.Button.OK) return;
   const value = String(response.getResponseText() || '').trim();
-  if (value.length < 16) throw new Error('The setup code must be at least 16 characters.');
+  if (value.length < 24) throw new Error('The setup code must be at least 24 characters.');
   PropertiesService.getScriptProperties().setProperty(SYNC_KEY_PROPERTY, value);
   ui.alert('Dashboard setup code saved.');
 }

@@ -13,16 +13,75 @@
   let snipingReviewButtonElement;
   let statusHoldUntil = 0;
   let backfillWorkerBusy = false;
+  let extensionContextInvalidated = false;
+  let amazonObserver = null;
+  let amazonAutoCacheInterval = 0;
+  let amazonMutationTimer = 0;
 
-  const storageGet = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
-  const storageSet = (values) => new Promise((resolve, reject) => {
-    chrome.storage.local.set(values, () => {
-      const error = chrome.runtime.lastError?.message;
-      if (error) reject(new Error(error));
-      else resolve();
-    });
+  function stopInvalidatedAmazonContext(error) {
+    if (extensionContextInvalidated) return;
+    extensionContextInvalidated = true;
+    amazonObserver?.disconnect?.();
+    amazonObserver = null;
+    clearInterval(amazonAutoCacheInterval);
+    amazonAutoCacheInterval = 0;
+    clearTimeout(amazonMutationTimer);
+    amazonMutationTimer = 0;
+    if (statusElement) {
+      statusElement.textContent = "GLDN Ops was updated. Refresh this Amazon tab.";
+      statusElement.dataset.type = "error";
+    }
+    U.markExtensionContextInvalidated?.(error);
+  }
+
+  function requireAmazonContext() {
+    if (extensionContextInvalidated || !U.extensionContextAvailable?.()) {
+      const error = new Error("Extension context invalidated. Refresh this Amazon tab.");
+      stopInvalidatedAmazonContext(error);
+      throw error;
+    }
+  }
+
+  window.addEventListener("gldn-extension-context-invalidated", (event) => {
+    stopInvalidatedAmazonContext(event.detail?.message || "Extension context invalidated.");
   });
-  const storageRemove = (keys) => new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
+
+  const storageGet = (keys) => new Promise((resolve, reject) => {
+    try {
+      requireAmazonContext();
+      chrome.storage.local.get(keys, (result) => {
+        const error = chrome.runtime.lastError;
+        if (error) reject(new Error(error.message));
+        else resolve(result);
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+  const storageSet = (values) => new Promise((resolve, reject) => {
+    try {
+      requireAmazonContext();
+      chrome.storage.local.set(values, () => {
+        const error = chrome.runtime.lastError?.message;
+        if (error) reject(new Error(error));
+        else resolve();
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
+  const storageRemove = (keys) => new Promise((resolve, reject) => {
+    try {
+      requireAmazonContext();
+      chrome.storage.local.remove(keys, () => {
+        const error = chrome.runtime.lastError?.message;
+        if (error) reject(new Error(error));
+        else resolve();
+      });
+    } catch (error) {
+      reject(error);
+    }
+  });
   const MARKETPLACE_CONTEXT_TTL_MS = 2 * 60 * 60 * 1000;
 
   function directText(element) {
@@ -787,11 +846,14 @@
   }
 
   async function autoCacheCheckout() {
+    const checkoutPage = isCheckoutPage();
+    const confirmationPage = isConfirmationPage();
+    if (!checkoutPage && !confirmationPage) return false;
     const data = extractCheckoutData();
     const stored = await storageGet(["pendingAmazonCheckout"]);
     const previous = stored.pendingAmazonCheckout || {};
 
-    if (isCheckoutPage()) {
+    if (checkoutPage) {
       const combined = {
         ...previous,
         ...data,
@@ -811,7 +873,7 @@
       }
     }
 
-    if (isConfirmationPage()) {
+    if (confirmationPage) {
       const combined = {
         ...previous,
         ...data,
@@ -833,6 +895,7 @@
         "confirmed"
       );
     }
+    return true;
   }
 
   async function setProfileLabel() {
@@ -2000,14 +2063,31 @@
     }
   });
 
-  let timer;
-  const observer = new MutationObserver(() => {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
-      autoCacheCheckout();
-      resumePoshmarkProfitBackfillWorker().catch((error) => renderStatus(error.message || "Historical-profit worker stopped.", "error"));
-    }, 900);
-  });
-  observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-  setInterval(autoCacheCheckout, 3000);
+  const shouldObserveAmazonWorkflow = isCheckoutPage()
+    || isConfirmationPage()
+    || isAmazonOrderDetailsPage()
+    || isAmazonOrdersSearchPage()
+    || isAmazonOrdersHistoryPage();
+  if (shouldObserveAmazonWorkflow) {
+    amazonObserver = new MutationObserver(() => {
+      clearTimeout(amazonMutationTimer);
+      amazonMutationTimer = setTimeout(() => {
+        autoCacheCheckout().catch((error) => {
+          if (U.isExtensionContextInvalidated?.(error)) stopInvalidatedAmazonContext(error);
+        });
+        resumePoshmarkProfitBackfillWorker().catch((error) => {
+          if (U.isExtensionContextInvalidated?.(error)) stopInvalidatedAmazonContext(error);
+          else renderStatus(error.message || "Historical-profit worker stopped.", "error");
+        });
+      }, 1200);
+    });
+    amazonObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+  }
+  if (isCheckoutPage() || isConfirmationPage()) {
+    amazonAutoCacheInterval = setInterval(() => {
+      autoCacheCheckout().catch((error) => {
+        if (U.isExtensionContextInvalidated?.(error)) stopInvalidatedAmazonContext(error);
+      });
+    }, 5000);
+  }
 })();

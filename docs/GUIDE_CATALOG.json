@@ -1,5 +1,5 @@
 {
-  "version": "3.10.3",
+  "version": "3.10.4",
   "updated": "2026-07-26",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -16,12 +16,12 @@
       "title": "First-Time Setup",
       "status": "PARTIAL",
       "summary": "Configure one Chrome profile without guessing its marketplace identity.",
-      "prerequisites": ["The private GLDN Ops package is loaded unpacked in the intended Chrome profile.", "The operator knows the Tasks-sheet computer label."],
-      "steps": ["Open the popup and choose only the computer label.", "Confirm the derived marketplace account before saving.", "Click Save Computer.", "Open Status and confirm Automatic connection ready.", "Click Test Connection, then Run Feature Health Check.", "Copy Settings Backup before an update or profile move."],
+      "prerequisites": ["The credential-free GLDN Ops package is loaded unpacked in the intended Chrome profile.", "The operator knows the Tasks-sheet computer label."],
+      "steps": ["Open the popup and choose only the computer label.", "Confirm the derived marketplace account before saving.", "Click Save Computer.", "Open Status. If the dashboard is not connected in this Chrome profile, click Connect Dashboard once.", "Click Test Connection, then Run Feature Health Check.", "Copy Settings Backup before an update or profile move."],
       "approvalStop": "None. Setup must not start a marketplace workflow.",
       "output": "Saved computer/account mapping, dashboard connection, health report, and settings backup.",
-      "recovery": ["If the account is wrong, stop and correct the computer label instead of editing the derived account.", "If automatic setup is unavailable, update from the private GLDN Ops package and click Repair Automatic Connection.", "If dashboard testing fails, copy the full diagnostic report before clearing anything.", "A clean-computer installation is still a final deployment gate."],
-      "evidence": "Identity mapping and health diagnostics are live-proven in Profile 2. Automatic private-package seeding is implemented and contract-tested; clean-computer proof remains pending."
+      "recovery": ["If the account is wrong, stop and correct the computer label instead of editing the derived account.", "If the dashboard is not connected, use Connect Dashboard once in that Chrome profile; updates preserve it.", "If dashboard testing fails, copy the full diagnostic report before clearing anything.", "A clean-computer installation is still a final deployment gate."],
+      "evidence": "Identity mapping and health diagnostics are live-proven in Profile 2. Saved-profile dashboard setup and credential-free packaging are contract-tested; clean-computer proof remains pending."
     },
     {
       "id": "panel",
@@ -42,7 +42,7 @@
       "title": "Dashboard and Sync Queue",
       "status": "PARTIAL",
       "summary": "Open shared results and retry records that could not sync immediately.",
-      "prerequisites": ["The computer identity is saved and Status shows Automatic connection ready."],
+      "prerequisites": ["The computer identity is saved and Status shows the dashboard is connected."],
       "steps": ["Open Status in the popup.", "Click Test Connection.", "Click Open Dashboard to review saved results.", "If the popup reports queued records, click Retry Queued Dashboard Records.", "Confirm the sent and remaining counts."],
       "approvalStop": "None. Dashboard reads and sync retries do not authorize marketplace actions.",
       "output": "A rendered dashboard plus idempotent sync receipts or a retained retry queue.",
@@ -147,11 +147,11 @@
       "status": "LIVE PASS WITH BOUNDARY",
       "summary": "Scan exact item IDs, select only exact .99 listings, change only primary Store category, and pause before Submit.",
       "prerequisites": ["Exact source/destination categories are saved for the signed-in eBay account.", "The operator has reviewed any backburner exclusions.", "No other Move .99 run is active."],
-      "steps": ["Open Workflows in the popup and click Open Move .99 Workflow.", "Wait for the complete filtered Active Listings exact-ID scan.", "Review total scanned, qualifying, omitted, and failed counts.", "Apply only the verified exact-ID batches, each capped at 500.", "Confirm eBay's native selected count matches the intended batch.", "Confirm only Primary Store category changed to the exact destination.", "Approve Submit only for the exact reviewed batch.", "After eBay reports success, let GLDN Ops rescan from the first remaining range."],
+      "steps": ["Open Workflows in the popup and click Open Move .99 Workflow.", "Wait for the complete filtered Active Listings exact-ID scan.", "Review total scanned, qualifying, omitted, and failed counts.", "Apply only the verified exact-ID batches, each capped at 500.", "Confirm eBay's native selected count matches the intended batch.", "Confirm only Primary Store category changed to the exact destination.", "Approve Submit only for the exact reviewed batch.", "After a trusted Submit click and an explicit eBay success/failure result, let GLDN Ops continue from the saved checkpoint."],
       "approvalStop": "STOP before every eBay Submit. Each exact batch requires separate action-time approval.",
       "output": "Per-batch selected/submitted result, final remaining/failed counts, audit data, and Tasks completion only after exact zero remaining and zero failed.",
-      "recovery": ["Any incomplete scan, mixed price, selected-count mismatch, missing picker, or uncertain submit result stops safely.", "Do not alter item specifics to force category failures through.", "Six known FAK12 failures remain backburnered and must not be resubmitted without new approval."],
-      "evidence": "Profile 2 moved 2,564 successful exact .99 listings in approved batches and isolated six persistent backburner failures without changing other fields."
+      "recovery": ["Any incomplete scan, mixed price, selected-count mismatch, missing picker, or uncertain submit result stops safely without opening another tab or batch.", "If the review page disappears before a trusted Submit click or explicit eBay result, the run enters Approval Lost and requires manual reconciliation.", "Do not alter item specifics to force category failures through.", "Six known FAK12 failures remain backburnered and must not be resubmitted without new approval."],
+      "evidence": "Profile 2 moved 2,564 successful exact .99 listings in earlier approved batches and isolated six persistent backburner failures. The v3.10.4 read-only retest scanned 232 listings over two pages, staged 5 exact matches, and held the same Submit (5) workspace through extension reload and repeated approval checks with no new tab; Submit remained untouched. Formal Drive video is pending."
     },
     {
       "id": "reverse99",
@@ -164,19 +164,19 @@
       "approvalStop": "STOP before every eBay Submit and approve only the exact reviewed count.",
       "output": "Submitted batch results and a final zero-mismatch rescan.",
       "recovery": ["Missing or ambiguous prices are excluded.", "Any uncertain submission returns to read-only reconciliation.", "Do not use the reverse workflow on Poshmark."],
-      "evidence": "The older FAK12 proof corrected 62 listings, but a later M0 / CLICKNCARRY failure report exposed reverse category-ID persistence corrupting forward settings. v3.10.3 repairs that account-generic defect and passes automated contracts; M0 still needs a fresh BALK to BEST SELLERS signed-in scan and final-review proof."
+      "evidence": "The older FAK12 proof corrected 62 listings, but a later M0 / CLICKNCARRY failure report exposed reverse category-ID persistence corrupting forward settings. v3.10.4 retains that account-generic repair and passes automated contracts; M0 still needs a fresh BALK to BEST SELLERS signed-in scan and final-review proof."
     },
     {
       "id": "move99-recovery",
       "matrix": "E-10",
       "title": "Move Category Recovery",
       "status": "LIVE PASS",
-      "summary": "Recover from reloads, picker delays, uncertain submission, and per-item failures without guessing.",
+      "summary": "Recover from reloads, picker delays, lost approval pages, and per-item failures without guessing.",
       "prerequisites": ["A saved Move .99 checkpoint exists.", "The same signed-in eBay account and configured categories are active."],
-      "steps": ["Reload the extension only when the current page is stable.", "Use Run Move .99 or Apply to reclaim the verified checkpoint.", "If submission outcome is uncertain, allow the read-only reconciliation scan.", "Review processed, failed, remaining, and recovery history.", "Export audit data before Reset.", "Use Retry Failed Only only with a new explicit approval."],
+      "steps": ["Reload the extension only when the current page is stable.", "Use Run Move .99 or Apply to reclaim the verified checkpoint.", "If the approval page or submission outcome is uncertain, keep the run stopped and manually reconcile the saved batch before starting another scan.", "Review processed, failed, remaining, and recovery history.", "Export audit data before Reset.", "Use Retry Failed Only only with a new explicit approval."],
       "approvalStop": "Recovery never grants Submit approval. Retrying or submitting any remaining item requires a new action-time approval.",
       "output": "Idempotent checkpoint, reconciliation result, processed/failed lists, and audit export.",
-      "recovery": ["Generic or non-numeric Store category tokens are rejected.", "Never shift the saved page after eBay omits a row.", "When outcome is unknown, rescan instead of assuming success."],
+      "recovery": ["Generic or non-numeric Store category tokens are rejected.", "Never shift the saved page after eBay omits a row.", "When outcome is unknown, do not auto-rescan, navigate, or open another workspace; reconcile first and then start a new operator-approved scan."],
       "evidence": "Profile 2 recovered a cancelled review into a complete read-only scan and exported exact Remaining / Retry rows with zero batches submitted."
     },
     {

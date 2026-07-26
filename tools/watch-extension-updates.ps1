@@ -1,5 +1,5 @@
 param(
-  [string]$ExtensionId = "ddfegcgadpkgegbjnbipbmbogcllcjci",
+  [string]$ProfileDirectory = "",
   [int]$QuietSeconds = 6
 )
 
@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $extensionRoot = Resolve-Path (Join-Path $repoRoot "extension")
-$versionTool = Join-Path $PSScriptRoot "extension-version.ps1"
+$manager = Join-Path $PSScriptRoot "local-extension-manager.ps1"
 $statePath = Join-Path $repoRoot "extension_versions\watcher-state.txt"
 
 function Get-ManifestVersion {
@@ -30,11 +30,13 @@ function Invoke-SettledUpdate {
     $version = Get-ManifestVersion
     $lastVersion = Read-LastVersion
     if ($version -and $version -ne $lastVersion) {
-      powershell -NoProfile -ExecutionPolicy Bypass -File $versionTool -Action Snapshot -Version $version | Out-Host
+      powershell -NoProfile -ExecutionPolicy Bypass -File $manager -Action Snapshot -Version $version | Out-Host
       Save-LastVersion $version
     }
-    powershell -NoProfile -ExecutionPolicy Bypass -File $versionTool -Action Reload -ExtensionId $ExtensionId | Out-Host
-    Write-Host "Reload triggered for Juice H8er $version. Refresh open eBay/Amazon tabs for new content scripts."
+    $reloadArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", $manager, "-Action", "Reload")
+    if ($ProfileDirectory) { $reloadArgs += @("-ProfileDirectory", $ProfileDirectory) }
+    powershell @reloadArgs | Out-Host
+    Write-Host "Reload triggered for GLDN Ops $version. Refresh open marketplace tabs for new content scripts."
   } catch {
     Write-Host "Watcher update failed: $($_.Exception.Message)"
   }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.10.3",
+  "version": "3.10.4",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",
@@ -159,11 +159,7 @@
         "icons/icon16.png",
         "icons/icon32.png",
         "icons/icon48.png",
-        "icons/icon128.png",
-        "reload.html",
-        "reload.js",
-        "start-move99.html",
-        "start-move99.js"
+        "icons/icon128.png"
       ],
       "matches": [
         "http://*/*",

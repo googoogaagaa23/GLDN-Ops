@@ -1,4 +1,13 @@
-GLDN Ops v3.10.3
+GLDN Ops v3.10.4
+
+v3.10.4 Move .99 completion and update recovery:
+- Finishes the final filtered verification page from the filtered Results total instead of a stale account-wide page count.
+- Refreshes an invalidated eBay tab automatically after an unpacked-extension update instead of leaving dead Ready controls.
+- Creates and binds the exact Move .99 tab atomically in the background.
+- Locks final review to that exact tab, records only a trusted operator Submit click, and advances only after an explicit eBay result.
+- Stops as approval-lost without navigation, another workspace, or another batch when the review outcome is ambiguous.
+- Stops safely on eBay interruption or bot-challenge pages and uses slower randomized navigation pacing.
+- Keeps dashboard setup in Chrome profile storage instead of public release files.
 
 v3.10.3 Computer 2 Store category repair:
 - Defaults FANCYFI Move .99 to SNI, SNIPO v2 -> DAILY.
