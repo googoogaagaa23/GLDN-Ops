@@ -11,11 +11,11 @@ use **Update & Reload** inside GLDN Ops; do not download another ZIP.
 
 SHA-256:
 
-`02F12452503FED7F53F7832A3C6010BE532F45444630F8C27C159B8E7E83F10E`
+`E5ABB394139B2E651DADEB5276C18BEC7A0A2F2984D98CADDE168EE8E927AFB8`
 
-## Current private extension package
+## Current extension package
 
-- [Download GLDN Ops v3.10.1](./GLDN-Ops-extension-v3.10.1.zip)
+- [Download GLDN Ops v3.10.2](./GLDN-Ops-extension-v3.10.2.zip)
 
 This manual ZIP remains available for recovery. It includes automatic
 dashboard setup, but it does not remove the one-time Chrome requirement to
@@ -23,10 +23,11 @@ select the stable folder.
 
 SHA-256:
 
-`8F6E3912D09FDD4CAB7C60A7C0FE31D402CAB805B864A51BD02B8EF0C93FE18B`
+`4E012C995AD9E3F3D461E6275919F0F14DA87B500FE0801A3990F6E007899370`
 
 ## Previous package
 
+- [Download GLDN Ops v3.10.1](./GLDN-Ops-extension-v3.10.1.zip)
 - [Download GLDN Ops v3.10.0](./GLDN-Ops-extension-v3.10.0.zip)
 - [Download GLDN Ops v3.9.4](./GLDN-Ops-extension-v3.9.4.zip)
 - [Download GLDN Ops v3.9.3](./GLDN-Ops-extension-v3.9.3.zip)

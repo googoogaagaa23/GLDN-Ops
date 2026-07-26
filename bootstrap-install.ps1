@@ -42,6 +42,35 @@ function New-LocalConfig([string]$ExtensionRoot, [string]$SetupCode) {
   [System.IO.File]::WriteAllText($config, $text, [System.Text.UTF8Encoding]::new($false))
 }
 
+function Stop-GldnUpdaterForInstall([string]$TargetInstallRoot) {
+  $agentPath = [System.IO.Path]::GetFullPath((Join-Path $TargetInstallRoot "tools\gldn-update-agent.ps1"))
+  $matches = @()
+  try {
+    $matches = @(Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe' OR Name = 'pwsh.exe'" | Where-Object {
+      $commandLine = [string]$_.CommandLine
+      $commandLine.IndexOf($agentPath, [StringComparison]::OrdinalIgnoreCase) -ge 0 -and
+        $commandLine -match '(?i)-Action\s+Serve(?:\s|$)'
+    })
+  } catch {
+    Write-Warning "The existing GLDN Ops updater could not be inspected: $($_.Exception.Message)"
+  }
+
+  foreach ($process in $matches) {
+    Write-Host "Stopping the existing GLDN Ops updater before installation..."
+    Stop-Process -Id ([int]$process.ProcessId) -Force -ErrorAction Stop
+  }
+
+  foreach ($process in $matches) {
+    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+      if (-not (Get-Process -Id ([int]$process.ProcessId) -ErrorAction SilentlyContinue)) { break }
+      Start-Sleep -Milliseconds 100
+    }
+    if (Get-Process -Id ([int]$process.ProcessId) -ErrorAction SilentlyContinue) {
+      throw "The existing GLDN Ops updater did not stop. Close it and run Setup again."
+    }
+  }
+}
+
 New-Item -ItemType Directory -Force -Path $tempRoot, $extractRoot | Out-Null
 try {
   if ($SourceZipPath) {
@@ -67,6 +96,7 @@ try {
     $savedConfig = Get-Content -Raw -LiteralPath (Join-Path $resolvedInstallRoot "extension\config.js")
   }
   if (Test-Path -LiteralPath $resolvedInstallRoot) {
+    Stop-GldnUpdaterForInstall $resolvedInstallRoot
     $backup = "$resolvedInstallRoot.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     if (-not $backup.StartsWith($userRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "Unsafe backup path: $backup" }
     Move-Item -LiteralPath $resolvedInstallRoot -Destination $backup

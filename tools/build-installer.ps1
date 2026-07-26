@@ -1,66 +1,38 @@
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$installerRoot = Join-Path $repoRoot "installer"
 $distRoot = Join-Path $repoRoot "dist"
 $buildRoot = Join-Path $repoRoot ".installer-build"
 $setupExe = Join-Path $distRoot "GLDN-Ops-Setup.exe"
-$sedPath = Join-Path $buildRoot "GLDN-Ops-Setup.sed"
+$launcherSource = Join-Path $repoRoot "installer\SetupLauncher.cs"
+$installerScript = Join-Path $repoRoot "install-latest.ps1"
+$bootstrapScript = Join-Path $repoRoot "bootstrap-install.ps1"
+$assemblyInfo = Join-Path $buildRoot "AssemblyInfo.cs"
+$manifest = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "extension\manifest.json") | ConvertFrom-Json
+$assemblyVersion = ([string]$manifest.version + ".0").Split('.')[0..3] -join '.'
 
 New-Item -ItemType Directory -Force -Path $distRoot, $buildRoot | Out-Null
 
-Copy-Item -LiteralPath (Join-Path $installerRoot "run-install.cmd") -Destination (Join-Path $buildRoot "run-install.cmd") -Force
-Copy-Item -LiteralPath (Join-Path $repoRoot "install-latest.ps1") -Destination (Join-Path $buildRoot "install-latest.ps1") -Force
-
-$sed = @"
-[Version]
-Class=IEXPRESS
-SEDVersion=3
-
-[Options]
-PackagePurpose=InstallApp
-ShowInstallProgramWindow=1
-HideExtractAnimation=0
-UseLongFileName=1
-InsideCompressed=0
-CAB_FixedSize=0
-CAB_ResvCodeSigning=0
-RebootMode=N
-InstallPrompt=
-DisplayLicense=
-FinishMessage=
-TargetName=$setupExe
-FriendlyName=GLDN Ops Setup
-AppLaunched=run-install.cmd
-PostInstallCmd=<None>
-AdminQuietInstCmd=
-UserQuietInstCmd=
-SourceFiles=SourceFiles
-
-[Strings]
-FILE0=run-install.cmd
-FILE1=install-latest.ps1
-
-[SourceFiles]
-SourceFiles0=$buildRoot
-
-[SourceFiles0]
-%FILE0%=
-%FILE1%=
+$assemblySource = @"
+using System.Reflection;
+[assembly: AssemblyTitle("GLDN Ops Setup")]
+[assembly: AssemblyDescription("Visible GLDN Ops local installer")]
+[assembly: AssemblyCompany("GLDN Ops")]
+[assembly: AssemblyProduct("GLDN Ops")]
+[assembly: AssemblyVersion("$assemblyVersion")]
+[assembly: AssemblyFileVersion("$assemblyVersion")]
 "@
+[System.IO.File]::WriteAllText($assemblyInfo, $assemblySource, [System.Text.UTF8Encoding]::new($false))
 
-Set-Content -LiteralPath $sedPath -Value $sed -Encoding ASCII
+$compilerPaths = @(
+  (Join-Path $env:SystemRoot "Microsoft.NET\Framework64\v4.0.30319\csc.exe"),
+  (Join-Path $env:SystemRoot "Microsoft.NET\Framework\v4.0.30319\csc.exe")
+)
+$compiler = $compilerPaths | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $compiler) { throw "The Windows .NET compiler was not found." }
 
-$iexpress = Join-Path $env:SystemRoot "System32\iexpress.exe"
-if (-not (Test-Path $iexpress)) {
-  throw "IExpress was not found at $iexpress"
-}
-
-& $iexpress /N /Q $sedPath
-
-for ($i = 0; $i -lt 10 -and -not (Test-Path $setupExe); $i++) {
-  Start-Sleep -Milliseconds 500
-}
+& $compiler /nologo /target:winexe /optimize+ "/out:$setupExe" "/resource:$installerScript,InstallLatest.ps1" "/resource:$bootstrapScript,BootstrapInstall.ps1" $assemblyInfo $launcherSource
+if ($LASTEXITCODE -ne 0) { throw "The Windows Setup launcher did not compile." }
 
 if (-not (Test-Path $setupExe)) {
   throw "Installer build did not create $setupExe"

@@ -2,6 +2,18 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.10.2 - 2026-07-25
+
+- Removed the misleading **Start Bulk Listing Workflow** control. GLDN Ops does not run EcomSniper Bulk Poster.
+- Added an **EcomSniper Handoff Monitor** that reports only verified seller-extraction state and the lifecycle of tabs GLDN opened.
+- Open, closed, stop-requested, and unknown states are explicit; an open or closed EcomSniper tab never counts as proof of processing or completion.
+- **Stop GLDN Assist** stops only GLDN's extraction queue. EcomSniper private controls remain operator-controlled.
+- Updated guides, onboarding, release checks, and the feature matrix to remove the false Bulk Listing capability claim.
+- Replaced the silent IExpress installer with a visible Windows Setup launcher that shows progress and keeps the final result onscreen.
+- Setup now stops only the existing GLDN updater before replacing the stable folder, then restarts it after installation.
+- Added a persistent installer transcript at `%LOCALAPPDATA%\GLDN Ops Installer\latest.log` and reinstall coverage for the updater-lock failure.
+- The complete release gate passes `228/228`.
+
 ## v3.10.1 - 2026-07-24
 
 - Fixed the real Windows PowerShell 5.1 installer path rejecting GitHub's UTF-8 BOM in `latest.json`.
