@@ -1,5 +1,5 @@
 {
-  "version": "3.11.7",
+  "version": "3.11.8",
   "updated": "2026-07-26",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -164,7 +164,7 @@
       "approvalStop": "STOP before every eBay Submit and approve only the exact reviewed count.",
       "output": "Submitted batch results and a final zero-mismatch rescan.",
       "recovery": ["Missing or ambiguous prices are excluded.", "A completed verified scan remains available through its count-specific Review control after the summary is closed or the page is reloaded.", "Any uncertain submission returns to read-only reconciliation.", "Do not use the reverse workflow on Poshmark."],
-      "evidence": "The older FAK12 proof corrected 62 listings, but later cross-computer reports exposed category-setting and completed-scan handoff failures. v3.11.7 preserves a verified completed scan as a count-specific panel action and reopens it without rescanning; the 136-match / 15,807-inspected regression passes focused and full automated contracts. Computer 2 / FANCYFI still needs a current-version live review and final-review proof before any Submit."
+      "evidence": "The older FAK12 proof corrected 62 listings, but later cross-computer reports exposed category-setting and completed-scan handoff failures. v3.11.8 preserves the verified passive v3.11.6 checkpoint across the update, exposes it as a count-specific panel action, and reopens it without rescanning; active or partially applied checkpoints still fail closed. The 136-match / 15,807-inspected migration regression passes focused and full automated contracts. Computer 2 / FANCYFI still needs a current-version live review and final-review proof before any Submit."
     },
     {
       "id": "move99-recovery",

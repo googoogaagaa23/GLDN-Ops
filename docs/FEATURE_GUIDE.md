@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.7. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.8. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -550,7 +550,7 @@ Submitted batch results and a final zero-mismatch rescan.
 
 ### Evidence
 
-The older FAK12 proof corrected 62 listings, but later cross-computer reports exposed category-setting and completed-scan handoff failures. v3.11.7 preserves a verified completed scan as a count-specific panel action and reopens it without rescanning; the 136-match / 15,807-inspected regression passes focused and full automated contracts. Computer 2 / FANCYFI still needs a current-version live review and final-review proof before any Submit.
+The older FAK12 proof corrected 62 listings, but later cross-computer reports exposed category-setting and completed-scan handoff failures. v3.11.8 preserves the verified passive v3.11.6 checkpoint across the update, exposes it as a count-specific panel action, and reopens it without rescanning; active or partially applied checkpoints still fail closed. The 136-match / 15,807-inspected migration regression passes focused and full automated contracts. Computer 2 / FANCYFI still needs a current-version live review and final-review proof before any Submit.
 
 
 <a id="move99-recovery"></a>

@@ -447,6 +447,17 @@ async function clearIncompatibleMove99State() {
   const stored = await storageGet(['pendingMove99Run']);
   const pending = stored.pendingMove99Run;
   if (!pending || String(pending.extensionVersion || '') === EXTENSION_VERSION) return false;
+  const migrated = FOUNDATION.migratePortableMove99Summary(pending, EXTENSION_VERSION);
+  if (migrated) {
+    await storageSet({ pendingMove99Run: migrated, lastMove99Scan: migrated });
+    recordExtensionLog({
+      source: 'move99',
+      level: 'info',
+      operation: 'version-migration',
+      message: `Preserved a verified read-only Move .99 scan from extension v${pending.extensionVersion || 'unknown'} for review in v${EXTENSION_VERSION}.`
+    });
+    return true;
+  }
   await storageRemove(['pendingMove99Run']);
   recordExtensionLog({
     source: 'move99',

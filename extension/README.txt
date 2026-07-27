@@ -1,4 +1,10 @@
-GLDN Ops v3.11.7
+GLDN Ops v3.11.8
+
+v3.11.8 saved scan update migration:
+- A verified read-only Move .99 or reverse non-.99 scan now survives an extension update.
+- The exact saved item numbers remain inactive until you open the count-specific Review button and choose Apply.
+- Any active, partially applied, or inconsistent old run is still discarded safely.
+- Updating does not rescan listings, create a Bulk Edit workspace, change a category, or touch eBay Submit.
 
 v3.11.7 saved category-scan handoff repair:
 - A verified Move .99 or reverse non-.99 scan now leaves a count-specific Review button in the everyday eBay panel.

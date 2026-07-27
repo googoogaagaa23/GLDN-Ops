@@ -9282,9 +9282,16 @@
     }
     let pendingMove99 = result.pendingMove99Run;
     if (pendingMove99 && String(pendingMove99.extensionVersion || "") !== EXTENSION_VERSION) {
-      await storageRemove(["pendingMove99Run"]);
-      pendingMove99 = null;
-      renderStatus("Cleared an unfinished Move .99 task from the previous extension version.", "ready");
+      const migrated = FOUNDATION.migratePortableMove99Summary(pendingMove99, EXTENSION_VERSION);
+      if (migrated) {
+        await storageSet({ pendingMove99Run: migrated, lastMove99Scan: migrated });
+        pendingMove99 = migrated;
+        renderStatus(`Preserved the verified ${Number(migrated.qualifyingCount || 0).toLocaleString()}-listing category scan for review.`, "completed");
+      } else {
+        await storageRemove(["pendingMove99Run"]);
+        pendingMove99 = null;
+        renderStatus("Cleared an unfinished Move .99 task from the previous extension version.", "ready");
+      }
     }
     if (!pendingMove99?.active && pendingMove99?.error && canRecoverMove99FirstBatchFromVerifiedScan(pendingMove99)) {
       pendingMove99 = recoverMove99VerifiedScanSummary(pendingMove99);

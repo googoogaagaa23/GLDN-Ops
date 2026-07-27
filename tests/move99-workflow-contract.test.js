@@ -255,7 +255,7 @@ test("Move .99 assigns one owner tab so duplicate eBay tabs cannot race", () => 
   assert.match(background, /await updateChromeTab\(runTab\.id, \{ url: activeUrl, active: true \}\)/);
 });
 
-test("Move .99 saved state is versioned and stale extension state cannot auto-resume", () => {
+test("Move .99 saved state migrates only verified passive scans and never auto-resumes active work", () => {
   const storageWriter = ebay.slice(
     ebay.indexOf("const storageSet ="),
     ebay.indexOf("const storageRemove =")
@@ -268,6 +268,9 @@ test("Move .99 saved state is versioned and stale extension state cannot auto-re
     ebay.indexOf("function renderStatus")
   );
   assert.match(resumer, /String\(pendingMove99\.extensionVersion \|\| ""\) !== EXTENSION_VERSION/);
+  assert.match(resumer, /FOUNDATION\.migratePortableMove99Summary\(pendingMove99, EXTENSION_VERSION\)/);
+  assert.match(resumer, /pendingMove99Run: migrated, lastMove99Scan: migrated/);
+  assert.match(resumer, /pendingMove99 = migrated/);
   assert.match(resumer, /storageRemove\(\["pendingMove99Run"\]\)/);
   assert.match(resumer, /pendingMove99 = null/);
 
@@ -277,6 +280,8 @@ test("Move .99 saved state is versioned and stale extension state cannot auto-re
   );
   assert.match(backgroundWriter, /extensionVersion:\s*EXTENSION_VERSION/);
   assert.match(backgroundWriter, /async function clearIncompatibleMove99State/);
+  assert.match(backgroundWriter, /FOUNDATION\.migratePortableMove99Summary\(pending, EXTENSION_VERSION\)/);
+  assert.match(backgroundWriter, /pendingMove99Run: migrated, lastMove99Scan: migrated/);
   assert.match(backgroundWriter, /storageRemove\(\['pendingMove99Run'\]\)/);
   assert.match(background, /clearIncompatibleMove99State\(\)[\s\S]*?resumeExtensionReloadRequest\(\)/);
   assert.doesNotMatch(popup.slice(popup.indexOf("async function startMove99Workflow")), /pendingMove99Run:\s*\{/);

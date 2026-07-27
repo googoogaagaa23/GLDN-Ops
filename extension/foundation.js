@@ -57,6 +57,7 @@
     "pendingWalmartAutoOrder"
   ]);
   const BULK_PRODUCT_EXCLUSION_RE = /\b(shoe|shoes|sneaker|sneakers|sandals?|slippers?|boots?|clogs?|crocs|socks?|shirt|shirts|t-?shirt|hoodie|sweater|jacket|coat|dress|dresses|skirt|jeans|pants|leggings|shorts?|underwear|boxers?|briefs?|bra|bras|lingerie|swimsuit|bikini|clothing|apparel|fashion|costumes?|cosplay|outfits?|handbags?|purses?|crossbody|wallets?|clutch)\b/i;
+  const PORTABLE_MOVE99_SCAN_STRATEGY = "active-page-exact-id-v1";
 
   function normalizeComputer(value, fallback = "") {
     const cleaned = String(value || "").trim().toLowerCase().replace(/^comp(?:uter)?\s*/i, "");
@@ -255,6 +256,94 @@
     };
   }
 
+  function portableMove99ScanSummary(state) {
+    if (!state || typeof state !== "object" || Array.isArray(state)) return false;
+    if (state.phase !== "scan-summary" || state.active === true) return false;
+    if (state.scanStrategy !== PORTABLE_MOVE99_SCAN_STRATEGY || state.scanIntegrity !== "verified") return false;
+    if (!['price99', 'non99'].includes(String(state.scanMode || ''))) return false;
+
+    const filteredCount = Number(state.filteredCount || 0);
+    const uniqueInspected = Number(state.uniqueInspected || 0);
+    if (!Number.isSafeInteger(filteredCount) || filteredCount < 1 || uniqueInspected !== filteredCount) return false;
+    if (!trimmedStrings(state.sourceCategories).length || !String(state.destinationCategory || "").trim()) return false;
+
+    const pages = state.scanPages;
+    if (!pages || typeof pages !== "object" || Array.isArray(pages)) return false;
+    const inspectedIds = new Set();
+    const qualifyingIds = new Set();
+    let qualifyingCount = 0;
+
+    for (const page of Object.values(pages)) {
+      if (!page || typeof page !== "object" || Array.isArray(page)) return false;
+      const itemIds = Array.isArray(page.itemIds) ? page.itemIds : [];
+      if (Number(page.inspected) !== itemIds.length) return false;
+      for (const rawId of itemIds) {
+        const itemId = String(rawId || "");
+        if (!/^\d{9,15}$/.test(itemId) || inspectedIds.has(itemId)) return false;
+        inspectedIds.add(itemId);
+      }
+
+      const qualifying = Array.isArray(page.qualifying) ? page.qualifying : [];
+      for (const record of qualifying) {
+        const itemId = String(record?.itemId || "");
+        if (!/^\d{9,15}$/.test(itemId)
+          || !inspectedIds.has(itemId)
+          || qualifyingIds.has(itemId)
+          || record?.qualifies !== true) {
+          return false;
+        }
+        qualifyingIds.add(itemId);
+        qualifyingCount += 1;
+      }
+    }
+
+    if (inspectedIds.size !== filteredCount || qualifyingCount < 1) return false;
+    if (state.qualifyingCount !== undefined && Number(state.qualifyingCount) !== qualifyingCount) return false;
+
+    const totals = state.totals && typeof state.totals === "object" ? state.totals : {};
+    for (const key of ["batches", "selected", "categoryApplied", "live", "failed"]) {
+      if (Number(totals[key] || 0) !== 0) return false;
+    }
+    for (const key of ["processedIds", "failedIds", "currentBatchIds"]) {
+      if (Array.isArray(state[key]) && state[key].length) return false;
+    }
+    if (Number(state.applyIndex || 0) !== 0
+      || (Array.isArray(state.exactBatches) && state.exactBatches.length)
+      || (state.applySourcePages && Object.keys(state.applySourcePages).length)) {
+      return false;
+    }
+    return true;
+  }
+
+  function migratePortableMove99Summary(state, targetVersion, now = Date.now()) {
+    const version = String(targetVersion || "").trim();
+    if (!version || !portableMove99ScanSummary(state)) return null;
+    const parsedAt = new Date(now);
+    const timestamp = Number.isNaN(parsedAt.getTime()) ? new Date().toISOString() : parsedAt.toISOString();
+    const migrated = {
+      ...state,
+      active: false,
+      confirmed: false,
+      ownerTabId: null,
+      phase: "scan-summary",
+      processedIds: [],
+      failedIds: [],
+      currentBatchIds: [],
+      currentBatchCount: 0,
+      totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
+      extensionVersion: version,
+      stateUpdatedAt: timestamp,
+      migratedFromExtensionVersion: String(state.extensionVersion || "unknown"),
+      migratedAt: timestamp
+    };
+    delete migrated.approvalTabId;
+    delete migrated.applySourcePages;
+    delete migrated.exactBatches;
+    delete migrated.applyIndex;
+    delete migrated.applyStrategy;
+    return migrated;
+  }
+
   function activeWorkflowEntries(stored = {}, now = Date.now()) {
     const entries = [];
     const add = (key, id, label, value, { busy = false, approvalReady = false } = {}) => {
@@ -357,6 +446,8 @@
     validateMove99Settings,
     move99DefaultSettingsForAccount,
     move99SettingsForAccount,
+    portableMove99ScanSummary,
+    migratePortableMove99Summary,
     workflowStateKeys,
     activeWorkflowEntries,
     normalizeStoredSettings

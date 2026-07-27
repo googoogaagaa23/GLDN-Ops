@@ -2,6 +2,14 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.11.8 - 2026-07-26
+
+- Preserves a verified, read-only Move .99 or reverse non-.99 scan summary when the extension updates from an older version.
+- The migration retains the exact inspected and qualifying item IDs, then restamps the checkpoint as inactive and unconfirmed for review.
+- Active, partially applied, approval-ready, duplicate-ID, invalid-ID, count-mismatched, or otherwise mutated checkpoints are still cleared fail-closed.
+- Computer 2's saved v3.11.6 result can therefore become `Review 136 Non-.99 Matches` in v3.11.8 without rescanning 15,807 listings.
+- All 256 JavaScript contracts pass; no scan, selection, Bulk Edit workspace, category change, or eBay Submit is triggered by migration.
+
 ## v3.11.7 - 2026-07-26
 
 - Fixed completed Move .99 and reverse non-.99 scans becoming stranded after their summary window was closed.
