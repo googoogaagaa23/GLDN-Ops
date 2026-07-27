@@ -1,0 +1,18 @@
+{
+  "extensionVersion": "3.11.11",
+  "profile": "Chrome Profile 2",
+  "computer": "0 + 7",
+  "dashboardComputer": "7",
+  "scope": "pilot",
+  "salesIndexed": 10,
+  "detailsCaptured": 10,
+  "exactProfits": 0,
+  "needsReview": 0,
+  "missingSku": 0,
+  "amazonNotFound": 10,
+  "exactProfitTotal": 0,
+  "alreadySynced": 0,
+  "spreadsheetChangesMade": false,
+  "result": "PASS_WITH_NO_EXACT_MATCHES",
+  "note": "The launcher self-lock was repaired. The read-only worker completed and refused to invent supplier costs when the current signed-in Amazon profile had no exact purchases for the ten decoded ASINs."
+}

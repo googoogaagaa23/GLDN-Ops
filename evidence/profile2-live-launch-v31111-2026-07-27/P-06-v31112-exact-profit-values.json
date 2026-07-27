@@ -1,0 +1,33 @@
+{
+  "runtimeVersion": "3.11.12",
+  "chromeProfile": "Profile 2",
+  "computerLabel": "0 + 7",
+  "dashboardComputer": "7",
+  "poshmarkAccount": "igivegreatdeals",
+  "poshmarkOrder": "6a49c5d84fab7b10343cc819",
+  "itemTitle": "1050 Pieces Mixed Shapes Glass Mosaic Tiles for Crafts, Colorful Stained Glass",
+  "marketplaceSoldPrice": 37.00,
+  "poshmarkEarnings": 29.17,
+  "sku": "QjA3VDg4RjhCMg==",
+  "decodedAsins": [
+    "B07T88F8B2"
+  ],
+  "amazonProfile": "F9132",
+  "amazonOrder": "114-5900136-8324212",
+  "amazonItemCost": 19.96,
+  "exactAmazonAsins": [
+    "B07T88F8B2"
+  ],
+  "matchSource": "amazon-order-detail-asin-row",
+  "eta": [
+    "7/9",
+    "7/7"
+  ],
+  "profit": 9.21,
+  "marginPercent": 31.6,
+  "outcome": "LIVE REVIEW PASS",
+  "saveProfitClicked": false,
+  "dashboardWritePerformed": false,
+  "reviewClosed": true,
+  "screenshot": "P-06-v31112-exact-profit-review.png"
+}

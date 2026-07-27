@@ -1,0 +1,40 @@
+{
+  "fields": [
+    {
+      "checked": false,
+      "id": "",
+      "label": "",
+      "tag": "INPUT",
+      "value": "65"
+    },
+    {
+      "checked": false,
+      "id": "gldn-move99-source-categories",
+      "label": "Source Store categories\n          \n          Exact category names, separated by commas.",
+      "tag": "INPUT",
+      "value": "Not .99"
+    },
+    {
+      "checked": false,
+      "id": "gldn-move99-destination-category",
+      "label": "Destination Store category",
+      "tag": "INPUT",
+      "value": "Abra Cadabra .99"
+    },
+    {
+      "checked": false,
+      "id": "gldn-move99-source-category-ids",
+      "label": "Source Store category IDs\n          \n          Optional numeric IDs, separated by commas.",
+      "tag": "INPUT",
+      "value": "44678633011, 1"
+    },
+    {
+      "checked": false,
+      "id": "gldn-move99-backburner-ids",
+      "label": "Backburner item IDs\n          \n          Items that the mover must always skip.",
+      "tag": "INPUT",
+      "value": "318521296686"
+    }
+  ],
+  "text": "×\nStore Category Settings\nTransparency\n65%\nDrag title to move. Lower-right corner resizes.\n\nSaved only for eBay account FAK12. This screen cannot move or revise listings.\n\nSource Store categories\n Exact category names, separated by commas.\nDestination Store category\nSource Store category IDs\n Optional numeric IDs, separated by commas.\nBackburner item IDs\n Items that the mover must always skip.\nCopy Category Backup\nRestore Category Backup\nCancel\nSave and Verify\nLoaded verified settings for FAK12."
+}

@@ -121,6 +121,55 @@ try {
     $webOriginRejected = $true
   }
   if (-not $webOriginRejected) { throw "Loopback updater accepted an ordinary website origin." }
+
+  $agentConfig = Get-Content -Raw -LiteralPath (Join-Path $installRoot "updater.json") | ConvertFrom-Json
+  $controlToken = [string]$agentConfig.controlToken
+  if ($controlToken.Length -lt 40) { throw "Loopback updater did not create a local-control token." }
+  $operatorHeaders = @{ "X-GLDN-Control" = $controlToken }
+  $queuedControl = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/v1/control/commands" `
+    -Headers $operatorHeaders -ContentType "application/json" `
+    -Body (@{ extensionId = $extensionId; action = "inspect-session"; payload = @{} } | ConvertTo-Json -Compress) -TimeoutSec 2
+  $nextControl = Invoke-RestMethod -Uri "http://127.0.0.1:$port/v1/control/next" -Headers @{
+    "X-GLDN-Updater" = "1"
+    "X-GLDN-Extension-Id" = $extensionId
+    Origin = "chrome-extension://$extensionId"
+  } -TimeoutSec 2
+  if ($nextControl.command.id -ne $queuedControl.commandId -or $nextControl.command.action -ne "inspect-session") {
+    throw "Profile 2 did not receive the queued safe-control command. Queued=$($queuedControl | ConvertTo-Json -Depth 6 -Compress) Next=$($nextControl | ConvertTo-Json -Depth 6 -Compress)"
+  }
+  $controlCompletion = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/v1/control/results" -Headers @{
+    "X-GLDN-Updater" = "1"
+    "X-GLDN-Extension-Id" = $extensionId
+    Origin = "chrome-extension://$extensionId"
+  } -ContentType "application/json" -Body (@{
+    commandId = $queuedControl.commandId
+    ok = $true
+    result = @{ profileLock = "Profile 2"; runtimeVersion = "fixture" }
+  } | ConvertTo-Json -Depth 5 -Compress) -TimeoutSec 2
+  $controlResult = Invoke-RestMethod -Uri "http://127.0.0.1:$port/v1/control/results?commandId=$($queuedControl.commandId)" `
+    -Headers $operatorHeaders -TimeoutSec 2
+  if (-not $controlCompletion.ok -or -not $controlResult.commandOk -or $controlResult.result.profileLock -ne "Profile 2") {
+    throw "Loopback control result did not complete its round trip."
+  }
+  $unsafeControlRejected = $false
+  try {
+    Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/v1/control/commands" `
+      -Headers $operatorHeaders -ContentType "application/json" `
+      -Body (@{ extensionId = $extensionId; action = "submit"; payload = @{} } | ConvertTo-Json -Compress) -TimeoutSec 2 | Out-Null
+  } catch {
+    $unsafeControlRejected = $true
+  }
+  if (-not $unsafeControlRejected) { throw "Loopback control accepted an unsafe arbitrary action." }
+  $missingTokenRejected = $false
+  try {
+    Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/v1/control/commands" `
+      -ContentType "application/json" `
+      -Body (@{ extensionId = $extensionId; action = "inspect-session"; payload = @{} } | ConvertTo-Json -Compress) -TimeoutSec 2 | Out-Null
+  } catch {
+    $missingTokenRejected = $true
+  }
+  if (-not $missingTokenRejected) { throw "Loopback control accepted an operator request without its token." }
+
   $agentUpdate = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/v1/update" -Headers @{ "X-GLDN-Updater" = "1"; "X-GLDN-Extension-Id" = $extensionId; Origin = "chrome-extension://$extensionId" } -ContentType "application/json" -Body "{}" -TimeoutSec 20
   if (-not $agentUpdate.updated -or (Get-GldnManifestVersion (Join-Path $loadedRoot "extension")) -ne "1.1.0") {
     throw "Loopback updater did not update the folder loaded by Chrome."
@@ -140,6 +189,9 @@ try {
     ambiguousExtensionRejected = $true
     serviceWorkerRequestAccepted = $true
     websiteOriginRejected = $true
+    profile2ControlRoundTrip = $true
+    unsafeControlRejected = $true
+    missingControlTokenRejected = $true
     noAdminRequired = $true
     pass = $true
   } | ConvertTo-Json -Compress

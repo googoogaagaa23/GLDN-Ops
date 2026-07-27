@@ -1934,7 +1934,30 @@
   chrome.storage.onChanged.addListener(amazonStorageListener);
   U.registerExtensionCleanup?.(() => chrome.storage.onChanged.removeListener(amazonStorageListener));
 
-  const amazonMessageListener = (message, _sender, sendResponse) => {
+  const amazonMessageListener = (message, sender, sendResponse) => {
+    if (sender?.id && sender.id !== chrome.runtime.id) {
+      sendResponse({ ok: false, error: "Message sender is not GLDN Ops." });
+      return false;
+    }
+    if (message?.type === "runAmazonPageAction") {
+      const actions = {
+        "review-copy": copyAmazonInfo,
+        "sniping-seller-review": reviewPendingSnipingSellerCandidates,
+        "sniping-winner-review": reviewPendingSnipingWinner
+      };
+      const action = actions[String(message.action || "")];
+      if (!action) {
+        sendResponse({ ok: false, error: "Unknown Amazon workflow action." });
+        return false;
+      }
+      sendResponse({ ok: true, accepted: true });
+      setTimeout(() => {
+        Promise.resolve(action()).catch((error) => {
+          renderStatus(error?.message || String(error), "error");
+        });
+      }, 0);
+      return false;
+    }
     if (message?.type !== "showSnipingSellerReview") return false;
     reviewPendingSnipingSellerCandidates()
       .then(sendResponse)

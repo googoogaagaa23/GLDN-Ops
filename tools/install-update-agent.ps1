@@ -17,13 +17,26 @@ foreach ($path in @($agentPath, $corePath, $manifestPath)) {
 }
 
 $config = [pscustomobject]@{
-  schemaVersion = 2
+  schemaVersion = 3
   installRoot = $InstallRoot
   extensionRoot = (Join-Path $InstallRoot "extension")
   resolvesChromeLoadedFolder = $true
   metadataUrl = $MetadataUrl
   port = $Port
+  controlToken = ""
   installedAt = (Get-Date).ToUniversalTime().ToString("o")
+}
+if (Test-Path -LiteralPath (Join-Path $InstallRoot "updater.json")) {
+  try {
+    $existingConfig = Get-Content -Raw -LiteralPath (Join-Path $InstallRoot "updater.json") | ConvertFrom-Json
+    if ([string]$existingConfig.controlToken) { $config.controlToken = [string]$existingConfig.controlToken }
+  } catch {}
+}
+if (-not $config.controlToken) {
+  $bytes = New-Object byte[] 32
+  $rng = [System.Security.Cryptography.RandomNumberGenerator]::Create()
+  try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+  $config.controlToken = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
 }
 $config | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $InstallRoot "updater.json") -Encoding UTF8
 

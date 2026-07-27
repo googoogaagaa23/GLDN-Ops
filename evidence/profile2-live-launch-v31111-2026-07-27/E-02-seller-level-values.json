@@ -1,0 +1,82 @@
+[
+  {
+    "disabled": false,
+    "id": "",
+    "label": "",
+    "name": "",
+    "tag": "INPUT",
+    "value": "65"
+  },
+  {
+    "disabled": false,
+    "id": "gldn-health-computer",
+    "label": "Computer",
+    "name": "",
+    "tag": "SELECT",
+    "value": "0"
+  },
+  {
+    "disabled": false,
+    "id": "gldn-health-ebay-account",
+    "label": "eBay account",
+    "name": "",
+    "tag": "INPUT",
+    "value": "FAK12"
+  },
+  {
+    "disabled": false,
+    "id": "gldn-health-current-level",
+    "label": "Current seller level",
+    "name": "",
+    "tag": "INPUT",
+    "value": "Above Standard"
+  },
+  {
+    "disabled": false,
+    "id": "gldn-health-evaluated-today",
+    "label": "If evaluated today",
+    "name": "",
+    "tag": "INPUT",
+    "value": "Above Standard"
+  },
+  {
+    "disabled": false,
+    "id": "gldn-health-defect",
+    "label": "Transaction defect rate",
+    "name": "",
+    "tag": "INPUT",
+    "value": "0"
+  },
+  {
+    "disabled": false,
+    "id": "gldn-health-late",
+    "label": "Late shipment rate",
+    "name": "",
+    "tag": "INPUT",
+    "value": "1.81"
+  },
+  {
+    "disabled": false,
+    "id": "gldn-health-tracking",
+    "label": "Tracking uploaded on time and validated",
+    "name": "",
+    "tag": "INPUT",
+    "value": "84.83"
+  },
+  {
+    "disabled": false,
+    "id": "gldn-health-cases",
+    "label": "Cases closed without seller resolution",
+    "name": "",
+    "tag": "INPUT",
+    "value": "0"
+  },
+  {
+    "disabled": false,
+    "id": "gldn-health-next-evaluation",
+    "label": "Next evaluation",
+    "name": "",
+    "tag": "INPUT",
+    "value": "Aug 20"
+  }
+]

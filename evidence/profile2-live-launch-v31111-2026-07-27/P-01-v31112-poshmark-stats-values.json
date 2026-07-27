@@ -1,0 +1,32 @@
+{
+  "runtimeVersion": "3.11.12",
+  "profile": "Profile 2",
+  "computer": "0 + 7",
+  "dashboardComputer": "7",
+  "account": "igivegreatdeals",
+  "page": "https://poshmark.com/users/self/closet_stats",
+  "reviewValues": {
+    "posherSince": "Jan 25 2025",
+    "profileListings": 127827,
+    "followers": 87176,
+    "shippedOrdersAllTime": 3981,
+    "shippedOrdersLast90Days": 1048,
+    "daysToShipLast90Days": 1.8,
+    "daysToShipAverage": 3.3,
+    "totalSalesLast90Days": 33273.00,
+    "sellerCancellationsLast90DaysPercent": 3,
+    "approvedReturnCasesLast90DaysPercent": 0.9,
+    "moderatorRemovedListingsLast30Days": 76,
+    "availableListings": 107054,
+    "averageDiscountOffOriginalPricePercent": 20,
+    "selfSharesLast30Days": 200454,
+    "soldListingsAllTime": 4129,
+    "totalEarnedAllTime": 95179.65,
+    "averageRating": 4.9,
+    "totalRatings": 2208
+  },
+  "outcome": "LIVE REVIEW PASS",
+  "approvalBoundary": "Review opened and was closed without Save Poshmark Stats.",
+  "dashboardWrite": false,
+  "screenshot": "P-01-v31112-poshmark-stats-review.png"
+}

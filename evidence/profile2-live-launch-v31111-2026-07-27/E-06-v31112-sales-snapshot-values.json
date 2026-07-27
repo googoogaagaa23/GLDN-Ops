@@ -1,0 +1,36 @@
+{
+  "runtimeVersion": "3.11.12",
+  "profile": "Profile 2",
+  "computer": "0",
+  "ebayAccount": "FAK12",
+  "page": "https://www.ebay.com/sh/ovw",
+  "reviewValues": {
+    "sales": {
+      "today": 45.42,
+      "last7Days": 235.68,
+      "last31Days": 4789.28,
+      "last31DaysChangePercent": -41.5,
+      "last90Days": 19288.93
+    },
+    "feedback": {
+      "positive": 224,
+      "neutral": 2,
+      "negative": 0
+    },
+    "traffic": {
+      "impressions": 3908563,
+      "pageViews": 16699
+    },
+    "advertising": {
+      "clicks": 258,
+      "sales": 247.64,
+      "roas": 17.96,
+      "cost": null,
+      "costStatus": "Not captured"
+    }
+  },
+  "outcome": "LIVE REVIEW PASS",
+  "approvalBoundary": "Review opened and was closed with the modal close control. Save eBay Snapshot was not clicked.",
+  "dashboardWrite": false,
+  "screenshot": "E-06-v31112-sales-snapshot-review.png"
+}

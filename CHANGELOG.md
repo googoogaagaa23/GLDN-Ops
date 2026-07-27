@@ -2,6 +2,31 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.11.13 - 2026-07-27
+
+- Fixed historical Poshmark profit backfill when Amazon exposes multiple URL variants for the same order.
+- Amazon search results now deduplicate by stable order ID and retain the first usable order URL plus any captured purchase date.
+- Repeated detail captures can no longer overwrite a valid Amazon purchase date with a blank value.
+- Added an exact regression for Poshmark order `6a49c5d84fab7b10343cc819`, Amazon order `114-5900136-8324212`, ASIN `B07T88F8B2`, `$29.17` earnings, `$19.96` supplier cost, and `$9.21` profit.
+- All 267 JavaScript contracts pass. Final signed-in Profile 2 review proof remains required before this gate is marked live.
+
+## v3.11.12 - 2026-07-27
+
+- Added a localhost-only control bridge to the existing GLDN Ops updater so approved live checks can reuse the already-open, signed-in Chrome Profile 2 without launching another Chrome profile.
+- Locked the bridge to exactly one matching GLDN Ops instance loaded in Profile 2 and refused ambiguous, missing, or mismatched extension folders.
+- Added a per-install control token, strict marketplace host allowlist, named read/review actions, and structured results; arbitrary JavaScript and arbitrary button clicks are not accepted.
+- Kept marketplace writes behind the existing review gates. The bridge cannot issue eBay Submit, Save, Apply, Continue, Mark as shipped activation, or any purchase action.
+- Added a Profile 2 command-line controller for safe inspection, tab focus/open/reload, approved state reads, and review-only workflow launch.
+- Added loopback tests proving Profile 2 command round trips, token enforcement, and rejection of an attempted `submit` command.
+- All 266 JavaScript contracts pass, and the complete local updater fixture passes.
+
+## v3.11.11 - 2026-07-27
+
+- Added `Ctrl+Shift+G` to explicitly open the hidden eBay daily-actions panel on the active signed-in eBay tab.
+- Kept the panel hidden during ordinary browsing; the shortcut reveals it only after an operator asks for it.
+- Routed the shortcut through the extension service worker and the same trusted GLDN message boundary used by popup-launched actions.
+- Preserved every marketplace approval stop and made no automatic listing, shipping, or note action.
+
 ## v3.11.10 - 2026-07-27
 
 - Replaced the saved-scan Apply route that could admit an entire 2,000-listing workspace with exact fingerprint selection inside eBay's native edit ranges.

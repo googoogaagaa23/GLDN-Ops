@@ -1142,7 +1142,7 @@
     overlay.className = "gldn-modal-backdrop gldn-review-backdrop";
     const currentOrderNumber = location.pathname.match(/^\/order\/sales\/([a-f0-9]{24})\/?$/i)?.[1] || "";
     overlay.innerHTML = `
-      <div class="gldn-modal gldn-health-modal gldn-review-modal gldn-backfill-launcher-modal">
+      <div class="gldn-modal gldn-health-modal gldn-review-modal gldn-backfill-launcher-modal" data-gldn-workflow-launcher="true">
         <button type="button" class="gldn-close" aria-label="Close">x</button>
         <h2>Historical Poshmark Profit</h2>
         <p class="gldn-help-text">Index Poshmark sales and exact Amazon order-item costs in one resumable worker tab. Nothing is written to the shared dashboard until the separate review approval.</p>
@@ -1227,7 +1227,31 @@
     }
   }
 
-  const poshmarkMessageListener = (message, _sender, sendResponse) => {
+  const poshmarkMessageListener = (message, sender, sendResponse) => {
+    if (sender?.id && sender.id !== chrome.runtime.id) {
+      sendResponse({ ok: false, error: "Message sender is not GLDN Ops." });
+      return false;
+    }
+    if (message?.type === "runPoshmarkPageAction") {
+      const actions = {
+        "posh-stats": startPoshmarkStatsScan,
+        "posh-profit": scanOrderProfit,
+        "visible-sales": captureVisibleSales,
+        "historical-profit": showHistoricalProfitBackfillLauncher
+      };
+      const action = actions[String(message.action || "")];
+      if (!action) {
+        sendResponse({ ok: false, error: "Unknown Poshmark workflow action." });
+        return false;
+      }
+      sendResponse({ ok: true, accepted: true });
+      setTimeout(() => {
+        Promise.resolve(action()).catch((error) => {
+          renderStatus(error?.message || String(error), "error");
+        });
+      }, 0);
+      return false;
+    }
     if (message?.type === "showPoshmarkBackfillReview" && message.state) {
       showHistoricalProfitBackfillReview(message.state);
       sendResponse({ ok: true });

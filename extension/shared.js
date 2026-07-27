@@ -816,7 +816,7 @@
   const enhanceModal = (modal) => {
     if (!modal || modal.dataset.gldnAppearanceReady === 'true') return;
     modal.dataset.gldnAppearanceReady = 'true';
-    registerOpenReview(modal);
+    if (modal.dataset.gldnWorkflowLauncher !== 'true') registerOpenReview(modal);
     const key = modalStorageKey(modal);
     const backdrop = modal.closest('.gldn-modal-backdrop');
     const heading = modal.querySelector('h2');
@@ -1026,13 +1026,65 @@
     registerExtensionCleanup(() => chrome.storage.onChanged.removeListener(appearanceListener));
   };
 
-  const sharedRuntimeListener = (message) => {
-    if (message?.type !== 'gldnAutomationReset') return;
+  const sharedRuntimeListener = (message, sender, sendResponse) => {
+    if (sender?.id && sender.id !== chrome.runtime.id) {
+      sendResponse?.({ ok: false, error: 'Message sender is not GLDN Ops.' });
+      return false;
+    }
+    if (message?.type === 'inspectGldnPageState') {
+      const visible = (element) => isVisible(element) && !element.hidden;
+      const panels = [...document.querySelectorAll('.gldn-order-panel')]
+        .filter(visible)
+        .map((panel) => ({
+          id: String(panel.id || ''),
+          title: String(panel.querySelector('.gldn-panel-title')?.textContent || '').trim().slice(0, 160),
+          status: String(panel.querySelector('.gldn-status')?.textContent || '').trim().slice(0, 500),
+          statusType: String(panel.querySelector('.gldn-status')?.dataset?.type || ''),
+          actions: [...panel.querySelectorAll('button')]
+            .filter(visible)
+            .map((button) => String(button.textContent || '').trim())
+            .filter(Boolean)
+            .slice(0, 30)
+        }));
+      const modals = [...document.querySelectorAll('.gldn-modal-backdrop')]
+        .filter(visible)
+        .map((backdrop) => ({
+          id: String(backdrop.id || ''),
+          title: String(backdrop.querySelector('h1, h2, h3')?.textContent || '').trim().slice(0, 160),
+          status: String(backdrop.querySelector('.gldn-modal-status')?.textContent || '').trim().slice(0, 500),
+          actions: [...backdrop.querySelectorAll('button')]
+            .filter(visible)
+            .map((button) => String(button.textContent || '').trim())
+            .filter(Boolean)
+            .slice(0, 30)
+        }));
+      const bodySignal = normalizeText(document.body?.innerText || '').slice(0, 250000);
+      sendResponse?.({
+        ok: true,
+        url: location.href,
+        title: document.title,
+        readyState: document.readyState,
+        panels,
+        modals,
+        interruption: bodySignal.includes('pardon our interruption')
+          || bodySignal.includes('made us think you were a bot')
+          || bodySignal.includes('verify you are human'),
+        visibleMarketplaceDialogs: [...document.querySelectorAll('[role="dialog"]')]
+          .filter((dialog) => visible(dialog) && !dialog.closest('.gldn-modal-backdrop'))
+          .map((dialog) => String(dialog.querySelector('h1, h2, h3')?.textContent || dialog.getAttribute('aria-label') || '').trim())
+          .filter(Boolean)
+          .slice(0, 12)
+      });
+      return false;
+    }
+    if (message?.type !== 'gldnAutomationReset') return false;
     document.querySelectorAll('.gldn-modal-backdrop').forEach((element) => element.remove());
     document.querySelectorAll('.gldn-status').forEach((element) => {
       element.textContent = 'Automation reset - ready.';
       element.dataset.type = 'ready';
     });
+    sendResponse?.({ ok: true });
+    return false;
   };
 
   if (globalThis.chrome?.runtime?.onMessage) {

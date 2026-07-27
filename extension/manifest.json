@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.11.10",
+  "version": "3.11.13",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",
@@ -152,6 +152,14 @@
       "32": "icons/icon32.png",
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
+    }
+  },
+  "commands": {
+    "open-ebay-daily-panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+G"
+      },
+      "description": "Open GLDN Ops daily actions on eBay"
     }
   },
   "web_accessible_resources": [

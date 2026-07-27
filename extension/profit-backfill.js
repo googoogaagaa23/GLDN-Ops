@@ -146,6 +146,48 @@
     return [text(purchase?.orderId), normalizeAsin(purchase?.asin), Number(purchase?.unitIndex || 1)].join(":");
   }
 
+  function amazonOrderIdFromMatch(match) {
+    const direct = text(match?.orderId);
+    if (direct) return direct;
+    const orderDetailsUrl = text(match?.orderDetailsUrl);
+    if (!orderDetailsUrl) return "";
+    try {
+      const parsed = new URL(orderDetailsUrl, "https://www.amazon.com");
+      return text(
+        parsed.searchParams.get("orderID")
+        || parsed.searchParams.get("orderId")
+        || parsed.searchParams.get("order-id")
+      );
+    } catch {
+      return text(orderDetailsUrl.match(/[?&](?:orderID|orderId|order-id)=([^&#]+)/i)?.[1]);
+    }
+  }
+
+  function amazonSearchMatchKey(match) {
+    const orderId = amazonOrderIdFromMatch(match);
+    return orderId ? `order:${orderId}` : `url:${text(match?.orderDetailsUrl)}`;
+  }
+
+  function mergeAmazonSearchMatches(...groups) {
+    const matches = new Map();
+    groups.flat().forEach((raw) => {
+      const orderDetailsUrl = text(raw?.orderDetailsUrl);
+      if (!orderDetailsUrl) return;
+      const orderId = amazonOrderIdFromMatch(raw);
+      const key = orderId ? `order:${orderId}` : `url:${orderDetailsUrl}`;
+      const prior = matches.get(key) || {};
+      matches.set(key, {
+        ...prior,
+        ...raw,
+        orderId: orderId || text(prior.orderId),
+        orderDetailsUrl: text(prior.orderDetailsUrl) || orderDetailsUrl,
+        purchaseDate: text(raw?.purchaseDate) || text(prior.purchaseDate),
+        asin: normalizeAsin(raw?.asin) || normalizeAsin(prior.asin)
+      });
+    });
+    return [...matches.values()];
+  }
+
   function addPurchase(run, raw) {
     const asin = normalizeAsin(raw?.asin);
     const cost = Number(raw?.cost ?? raw?.total);
@@ -164,7 +206,14 @@
         unitKey: [orderId, asin, unitIndex].join(":"),
         source: text(raw.source) || "amazon-order-detail-asin-row"
       };
-      existing.set(purchase.unitKey, purchase);
+      const prior = existing.get(purchase.unitKey) || {};
+      existing.set(purchase.unitKey, {
+        ...prior,
+        ...purchase,
+        purchaseDate: text(purchase.purchaseDate) || text(prior.purchaseDate),
+        orderUrl: text(purchase.orderUrl) || text(prior.orderUrl),
+        capturedAt: text(purchase.capturedAt) || text(prior.capturedAt)
+      });
     }
     return { ...run, purchases: [...existing.values()], updatedAt: new Date().toISOString() };
   }
@@ -311,6 +360,8 @@
     createRun,
     mergeSalesPage,
     mergeSaleDetail,
+    amazonSearchMatchKey,
+    mergeAmazonSearchMatches,
     addPurchase,
     allocate,
     summary,

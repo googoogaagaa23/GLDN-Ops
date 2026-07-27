@@ -3365,6 +3365,35 @@
     return null;
   }
 
+  function numericMove99StoreCategoryIdFromControl(control) {
+    if (!control) return "";
+    const label = control.closest?.("label");
+    const labelledNode = label?.querySelector?.('[id*="storeCatIds:"]');
+    const candidates = [
+      control.value,
+      control.getAttribute?.("value"),
+      control.id,
+      control.getAttribute?.("aria-labelledby"),
+      labelledNode?.id
+    ];
+    for (const candidate of candidates) {
+      const match = String(candidate || "").match(/storeCatIds:(\d+)/i);
+      if (match) return match[1];
+    }
+    return "";
+  }
+
+  function selectedNumericMove99StoreCategoryIds(root = document) {
+    const ids = [];
+    for (const control of root.querySelectorAll('input[type="checkbox"], [role="checkbox"]')) {
+      const id = numericMove99StoreCategoryIdFromControl(control);
+      const visibleTarget = control.closest?.("label") || control;
+      if (!id || !U.isVisible(visibleTarget) || !controlChecked(control) || ids.includes(id)) continue;
+      ids.push(id);
+    }
+    return ids;
+  }
+
   function controlChecked(control) {
     if (!control) return false;
     if (control instanceof HTMLInputElement) return Boolean(control.checked);
@@ -3604,15 +3633,41 @@
     }
 
     let categoryChanged = false;
+    const targetEntries = [];
     for (const category of MOVE99_SOURCE_CATEGORIES) {
       const found = findCheckboxNearExactText(category, filterPanel);
       if (!found) throw new Error(`I could not find the Store category “${category}”.`);
+      const categoryId = numericMove99StoreCategoryIdFromControl(found.control);
+      if (!categoryId) throw new Error(`The Store category “${category}” did not expose a numeric eBay category ID.`);
+      targetEntries.push({ category, categoryId, ...found });
+    }
+
+    const targetIds = [...new Set(targetEntries.map((entry) => entry.categoryId))];
+    const targetControls = new Set(targetEntries.map((entry) => entry.control));
+    for (const control of filterPanel.querySelectorAll('input[type="checkbox"], [role="checkbox"]')) {
+      const categoryId = numericMove99StoreCategoryIdFromControl(control);
+      const visibleTarget = control.closest?.("label") || control;
+      if (!categoryId || targetControls.has(control) || !U.isVisible(visibleTarget) || !controlChecked(control)) continue;
+      clickElement(visibleTarget);
+      const cleared = await U.waitFor(() => !controlChecked(control) ? true : null, 2500, 120);
+      if (!cleared) throw new Error(`The previously selected Store category ID ${categoryId} could not be cleared safely.`);
+      categoryChanged = true;
+    }
+
+    for (const found of targetEntries) {
       if (!controlChecked(found.control)) {
         clickElement(found.clickTarget || found.control);
         await U.waitFor(() => controlChecked(found.control), 2500, 120);
         categoryChanged = true;
       }
       await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+
+    const selectedIds = selectedNumericMove99StoreCategoryIds(filterPanel);
+    const exactNumericSelection = selectedIds.length === targetIds.length
+      && targetIds.every((id) => selectedIds.includes(id));
+    if (!exactNumericSelection) {
+      throw new Error("The Store category filter contained extra or missing numeric categories. No category changes were attempted.");
     }
 
     const findSeeResults = (enabledOnly = false) => [...filterPanel.querySelectorAll("button, [role='button']")].find((element) => {
@@ -3635,7 +3690,25 @@
       return findMove99FilterPanel() ? null : "closed";
     }, 15000, 180);
     if (filterTransition === "unverifiable") {
-      throw new Error("eBay returned an unverifiable Store category filter instead of numeric category IDs. No category changes were attempted.");
+      const stored = await storageGet(["pendingMove99Run"]);
+      const state = stored.pendingMove99Run;
+      if (!state?.active || !targetIds.length) {
+        throw new Error("eBay returned an unverifiable Store category filter instead of numeric category IDs. No category changes were attempted.");
+      }
+      const directUrl = buildMove99ActiveUrl(targetIds);
+      MOVE99_SOURCE_STORE_CATEGORY_IDS = targetIds;
+      MOVE99_ACTIVE_URL = directUrl;
+      await storageSet({
+        pendingMove99Run: {
+          ...state,
+          phase: "active-prepare",
+          sourceStoreCategoryIds: targetIds,
+          filteredUrl: directUrl
+        }
+      });
+      renderStatus("eBay returned a generic Store-category token. Reloading the exact numeric category filter before scanning...", "ready");
+      await navigateToMove99ScanPage(1, directUrl);
+      await new Promise(() => {});
     }
 
     const ready = await waitForStableFilteredResults(MOVE99_SOURCE_STORE_CATEGORY_IDS.length > 0, 60000);
@@ -9515,6 +9588,19 @@
     return panelWorkflowVisible;
   }
 
+  function installEbayDailyPanelShortcut() {
+    document.addEventListener("keydown", (event) => {
+      const openPanelShortcut = event.ctrlKey
+        && event.shiftKey
+        && !event.altKey
+        && !event.metaKey
+        && String(event.key || "").toLowerCase() === "g";
+      if (!openPanelShortcut || event.repeat) return;
+      event.preventDefault();
+      setEbayPanelWorkflowVisible(true);
+    }, true);
+  }
+
   function escapeHtml(value) {
     return String(value ?? "")
       .replace(/&/g, "&amp;")
@@ -9662,6 +9748,15 @@
   });
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type === "showEbayDailyPanel") {
+      if (sender?.id && sender.id !== chrome.runtime.id) {
+        sendResponse({ ok: false, error: "Message sender is not GLDN Ops." });
+        return false;
+      }
+      setEbayPanelWorkflowVisible(true);
+      sendResponse({ ok: true, visible: true });
+      return false;
+    }
     if (message?.type !== "runEbayPageAction") return false;
     if (sender?.id && sender.id !== chrome.runtime.id) {
       sendResponse({ ok: false, error: "Message sender is not GLDN Ops." });
@@ -9690,6 +9785,7 @@
   });
 
   createPanel();
+  installEbayDailyPanelShortcut();
   installSavedBulkEditDialogWatcher();
   (async () => {
     if (await stopForEbayInterruption("eBay page initialization")) return;

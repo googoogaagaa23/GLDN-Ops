@@ -1,0 +1,35 @@
+{
+  "runtimeVersion": "3.11.12",
+  "profile": "Profile 2",
+  "computer": "0",
+  "ebayAccount": "FAK12",
+  "page": "https://www.ebay.com/sh/ovw",
+  "reviewValues": {
+    "storeAllowance": {
+      "name": "Premium - 10,000 fixed-price insertions",
+      "used": 8317,
+      "left": 1683,
+      "limit": 10000,
+      "percentUsed": 83.2,
+      "status": "GOOD"
+    },
+    "activeListings": 7054,
+    "availableItemQuantity": 8404,
+    "sellerQuantity": {
+      "used": 8591,
+      "limit": 88000,
+      "percentUsed": 9.8,
+      "status": "GOOD"
+    },
+    "sellerDollar": {
+      "used": 421887.78,
+      "limit": 1000000,
+      "percentUsed": 42.2,
+      "status": "GOOD"
+    }
+  },
+  "outcome": "LIVE REVIEW PASS",
+  "approvalBoundary": "Review opened and was closed with the modal close control. Confirm Listings Under Limit was not clicked.",
+  "dashboardOrSheetWrite": false,
+  "screenshot": "E-03-v31112-listing-limits-review.png"
+}

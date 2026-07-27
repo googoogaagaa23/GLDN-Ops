@@ -12,6 +12,8 @@ const themeCatalog = fs.readFileSync(path.join(root, "extension", "theme-catalog
 const poshmark = fs.readFileSync(path.join(root, "extension", "poshmark.js"), "utf8");
 const universal = fs.readFileSync(path.join(root, "extension", "universal.js"), "utf8");
 const ebay = fs.readFileSync(path.join(root, "extension", "ebay.js"), "utf8");
+const background = fs.readFileSync(path.join(root, "extension", "background.js"), "utf8");
+const manifest = fs.readFileSync(path.join(root, "extension", "manifest.json"), "utf8");
 
 test("minimized panels restore mode and position in one coordinated read", () => {
   assert.match(shared, /chrome\.storage\.local\.get\(\[\s*storageKey,\s*modeStorageKey,\s*sizeStorageKey,/);
@@ -117,4 +119,13 @@ test("the eBay floating panel stays hidden until a workflow or approval is activ
   assert.match(popupHtml, /data-ebay-action="prepare-order-note"/);
   assert.match(popupJs, /type: 'runEbayPageAction'/);
   assert.match(ebay, /message\?\.type !== "runEbayPageAction"/);
+  assert.match(manifest, /"open-ebay-daily-panel"/);
+  assert.match(manifest, /"default": "Ctrl\+Shift\+G"/);
+  assert.match(background, /command === 'open-ebay-daily-panel'/);
+  assert.match(background, /type: 'showEbayDailyPanel'/);
+  assert.match(ebay, /message\?\.type === "showEbayDailyPanel"/);
+  assert.match(ebay, /setEbayPanelWorkflowVisible\(true\)/);
+  assert.match(ebay, /function installEbayDailyPanelShortcut\(\)/);
+  assert.match(ebay, /event\.ctrlKey[\s\S]*?event\.shiftKey[\s\S]*?toLowerCase\(\) === "g"/);
+  assert.match(ebay, /installEbayDailyPanelShortcut\(\)/);
 });

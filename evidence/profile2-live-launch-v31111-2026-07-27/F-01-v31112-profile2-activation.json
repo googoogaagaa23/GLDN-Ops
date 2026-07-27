@@ -1,0 +1,34 @@
+{
+  "capturedAt": "2026-07-27T18:36:51.6888157Z",
+  "runtimeVersion": "3.11.12",
+  "profileLock": "Profile 2",
+  "identity": {
+    "computerLabel": "0",
+    "ebayAccountLabel": "FAK12"
+  },
+  "workflowStatus": {
+    "busy": false,
+    "workflows": []
+  },
+  "openReviews": [],
+  "tabs": [
+    {
+      "id": 515883705,
+      "active": true,
+      "status": "complete",
+      "title": "Orders - eBay Seller Hub",
+      "url": "https://www.ebay.com/sh/ord/",
+      "platform": "ebay"
+    }
+  ],
+  "pageState": {
+    "readyState": "complete",
+    "panels": [],
+    "modals": [],
+    "interruption": false,
+    "visibleMarketplaceDialogs": []
+  },
+  "loadedFolderInvariant": "tools/gldn-control.ps1 verified that Profile 2 loads the updater-managed extension folder before issuing either command.",
+  "networkInvariant": "The bridge listened only on 127.0.0.1 and did not launch Chrome, create a profile, use a proxy, or use a VPN.",
+  "marketplaceActions": 0
+}

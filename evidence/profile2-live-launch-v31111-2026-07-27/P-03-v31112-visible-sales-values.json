@@ -1,0 +1,158 @@
+{
+  "runtimeVersion": "3.11.12",
+  "chromeProfile": "Profile 2",
+  "computerLabel": "0 + 7",
+  "dashboardComputer": "7",
+  "poshmarkAccount": "igivegreatdeals",
+  "page": "https://poshmark.com/order/sales",
+  "visibleCount": 20,
+  "outcome": "LIVE REVIEW PASS",
+  "marketplaceActionPerformed": false,
+  "saveVisibleSalesClicked": false,
+  "dashboardWritePerformed": false,
+  "reviewClosed": true,
+  "extensionIdleAfterClose": true,
+  "orders": [
+    {
+      "orderId": "6a67ab499e4f7407d4263f36",
+      "title": "Super Sticky Easel Pad",
+      "orderDate": "Jul 27, 2026",
+      "status": "Awaiting Shipment | Processing",
+      "earnings": 40.00
+    },
+    {
+      "orderId": "6a67aad88d9977df990994c4",
+      "title": "2 Pieces Jewelry Making Tool",
+      "orderDate": "Jul 27, 2026",
+      "status": "Awaiting Shipment | Processing",
+      "earnings": 20.00
+    },
+    {
+      "orderId": "6a67aab4f314c2786b777693",
+      "title": "Extra Deep Resin Coaster Molds",
+      "orderDate": "Jul 27, 2026",
+      "status": "Awaiting Shipment | Processing",
+      "earnings": 12.00
+    },
+    {
+      "orderId": "6a6798c5bd7d00dcb4f840cf",
+      "title": "Upgraded Sunshade",
+      "orderDate": "Jul 27, 2026",
+      "status": "Awaiting Shipment | Processing",
+      "earnings": 24.00
+    },
+    {
+      "orderId": "6a678992555c1444616f70a1",
+      "title": "Halloween Decor",
+      "orderDate": "Jul 27, 2026",
+      "status": "Awaiting Shipment | Processing",
+      "earnings": 29.60
+    },
+    {
+      "orderId": "6a675210d4b943a74dc291f7",
+      "title": "Decorative Leaves Iron Hooks",
+      "orderDate": "Jul 27, 2026",
+      "status": "Awaiting Shipment | Processing",
+      "earnings": 20.00
+    },
+    {
+      "orderId": "6a66ca9949d8d82cd5cebd4e",
+      "title": "Dainty 14k Gold-Filled Acorn Charm Necklace",
+      "orderDate": "Jul 26, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 64.00
+    },
+    {
+      "orderId": "6a66c9f0a566496d79a4541d",
+      "title": "Choker Collar",
+      "orderDate": "Jul 26, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 16.00
+    },
+    {
+      "orderId": "6a6647c5e2ac0cc998f44ef1",
+      "title": "3 Pack with Pocket Aprons",
+      "orderDate": "Jul 26, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 16.00
+    },
+    {
+      "orderId": "6a66477327539d08d3ba9b05",
+      "title": "Hexagon Quilting Templates",
+      "orderDate": "Jul 26, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 17.60
+    },
+    {
+      "orderId": "6a664476e1eec0c416776c31",
+      "title": "Multifunctional Digital Air Fryer",
+      "orderDate": "Jul 26, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 146.40
+    },
+    {
+      "orderId": "6a66334a353534952a8fc10a",
+      "title": "6 Pack Extra Wide Headbands",
+      "orderDate": "Jul 26, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 17.60
+    },
+    {
+      "orderId": "6a662b43cd201b61cb95b0c7",
+      "title": "Crystal Teardrop Earrings",
+      "orderDate": "Jul 26, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 31.20
+    },
+    {
+      "orderId": "6a6618e021a0ac5ccc7dd5eb",
+      "title": "Calendar and Weather Pocket Chart",
+      "orderDate": "Jul 26, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 20.00
+    },
+    {
+      "orderId": "6a6611eba5cc5499a0223c2f",
+      "title": "All-in-One Grooming Kit",
+      "orderDate": "Jul 26, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 39.20
+    },
+    {
+      "orderId": "6a65a9471277fbd413c65c70",
+      "title": "42pcs Butterfly and Flower Patches",
+      "orderDate": "Jul 26, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 20.00
+    },
+    {
+      "orderId": "6a6571f364164a2bf4e11f54",
+      "title": "Blend and Blur Body Makeup Brush",
+      "orderDate": "Jul 25, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 11.05
+    },
+    {
+      "orderId": "6a6571abd90959c053e2417f",
+      "title": "Women's Wide Turban Headbands",
+      "orderDate": "Jul 25, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 12.00
+    },
+    {
+      "orderId": "6a65718cb591ed87e4979328",
+      "title": "Arched Wall Mirror",
+      "orderDate": "Jul 25, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 64.00
+    },
+    {
+      "orderId": "6a65717cf42df672e412724c",
+      "title": "Baroque Pearl Choker",
+      "orderDate": "Jul 25, 2026",
+      "status": "In Transit | Processing",
+      "earnings": 16.80
+    }
+  ],
+  "screenshot": "P-03-v31112-visible-sales-review.png"
+}

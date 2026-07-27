@@ -1,0 +1,9 @@
+{
+  "applyVisible": false,
+  "dialogs": [
+    "×\nMove Non-.99 Out of Sale — Scan Complete\nTransparency\n65%\nDrag title to move. Lower-right corner resizes.\n\nAll filtered Active Listings pages were scanned before any category changes.\n\nListings scanned\n6,822\nnon-.99 found\n0\nSource categories\nAbra Cadabra .99\nDestination\nNot .99\nSafety: only the primary Store category changes. The Bulk Edit workspace is created from the exact verified item numbers in this scan, in batches of at most 500.\nDownload Audit\nScan Only / Close\nApply 0 Changes"
+  ],
+  "href": "https://www.ebay.com/sh/lst/active?storeCatIds=44619286011&offset=6800&limit=200&sort=scheduledStartDate",
+  "reviewVisible": false,
+  "status": "Full scan complete - 0 non-.99 found across 6822 verified unique listings."
+}

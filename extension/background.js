@@ -12,6 +12,7 @@ const DASHBOARD_SECRET_KEY = 'sellerDashboardKey';
 const DASHBOARD_QUEUE_KEY = 'gldnDashboardQueue';
 const DASHBOARD_RETRY_ALARM = 'gldnDashboardRetry';
 const UPDATER_CHECK_ALARM = 'gldnUpdaterCheck';
+const LOCAL_CONTROL_ALARM = 'gldnLocalControl';
 const UPDATER_API = 'http://127.0.0.1:39417/v1';
 const SETTINGS_BACKUP_KEY = 'gldnSettingsBackups';
 const SETTINGS_SCHEMA_KEY = 'settingsSchemaVersion';
@@ -32,6 +33,7 @@ const COMPUTER_OPTIONS = FOUNDATION.computerOptions;
 let move99ClaimQueue = Promise.resolve();
 let workflowStartQueue = Promise.resolve();
 let openReviewQueue = Promise.resolve();
+let localControlPollRunning = false;
 
 const AUTOMATION_RESET_KEYS = Object.freeze([
   ...FOUNDATION.workflowStateKeys,
@@ -161,6 +163,30 @@ function broadcastAutomationReset(senderTabId = null) {
   });
 }
 
+function openEbayDailyPanelFromCommand() {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const target = (tabs || []).find((tab) => (
+      Number.isInteger(tab?.id)
+      && /^https:\/\/([a-z0-9-]+\.)*ebay\.com\//i.test(String(tab.url || ''))
+    ));
+    if (!target) return;
+    chrome.tabs.sendMessage(target.id, { type: 'showEbayDailyPanel' }, (response) => {
+      const error = chrome.runtime.lastError;
+      if (error || !response?.ok) {
+        recordExtensionLog({
+          source: 'background',
+          operation: 'open-ebay-daily-panel',
+          message: error?.message || response?.error || 'The eBay tab did not open the daily panel.'
+        });
+      }
+    });
+  });
+}
+
+chrome.commands?.onCommand?.addListener((command) => {
+  if (command === 'open-ebay-daily-panel') openEbayDailyPanelFromCommand();
+});
+
 async function resetAutomationState(sender = {}) {
   await PROFIT_BACKFILL_BACKGROUND.reset().catch(() => ({ ok: false }));
   await storageRemove(AUTOMATION_RESET_KEYS);
@@ -274,6 +300,305 @@ async function updaterRequest(path, options = {}) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+const LOCAL_CONTROL_PLATFORM = Object.freeze({
+  ebay: {
+    patterns: ['*://*.ebay.com/*'],
+    messageType: 'runEbayPageAction',
+    actions: new Set(['mark-shipped', 'seller-level', 'sales-snapshot', 'listing-limits', 'prepare-order-note'])
+  },
+  poshmark: {
+    patterns: ['*://*.poshmark.com/*'],
+    messageType: 'runPoshmarkPageAction',
+    actions: new Set(['posh-stats', 'posh-profit', 'visible-sales', 'historical-profit'])
+  },
+  amazon: {
+    patterns: ['*://*.amazon.com/*'],
+    messageType: 'runAmazonPageAction',
+    actions: new Set(['review-copy', 'sniping-seller-review', 'sniping-winner-review'])
+  },
+  ecomsniper: {
+    patterns: ['https://ecomsniper.io/*']
+  }
+});
+const LOCAL_CONTROL_STATE_KEYS = new Set([
+  'computerLabel',
+  'ebayAccountLabel',
+  'pendingMove99Run',
+  'pendingMarkShippedRun',
+  'pendingSellerLevelScan',
+  'pendingEbaySnapshotScan',
+  'pendingReviewMonthlyLimits',
+  'poshmarkProfitBackfill',
+  'lastSellerLevelCheck',
+  'lastEbaySalesSnapshot',
+  'lastListingLimitCheck',
+  'lastPoshmarkStats',
+  'lastPreparedNote',
+  'gldnErrorLog'
+]);
+
+function queryTabs(queryInfo = {}) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query(queryInfo, (tabs) => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(new Error(error.message));
+      else resolve(tabs || []);
+    });
+  });
+}
+
+function getTab(tabId) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.get(tabId, (tab) => {
+      const error = chrome.runtime.lastError;
+      if (error || !tab) reject(new Error(error?.message || 'The requested Profile 2 tab is no longer open.'));
+      else resolve(tab);
+    });
+  });
+}
+
+function sendTabMessage(tabId, message) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(new Error(error.message));
+      else resolve(response || { ok: true });
+    });
+  });
+}
+
+function focusChromeWindow(windowId) {
+  return new Promise((resolve) => {
+    if (!Number.isInteger(windowId) || !chrome.windows?.update) {
+      resolve(false);
+      return;
+    }
+    chrome.windows.update(windowId, { focused: true }, () => {
+      const error = chrome.runtime.lastError;
+      resolve(!error);
+    });
+  });
+}
+
+function controlDelay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function controlPlatformForUrl(value) {
+  let url;
+  try {
+    url = new URL(String(value || ''));
+  } catch {
+    return '';
+  }
+  const host = url.hostname.toLowerCase();
+  if (host === 'ebay.com' || host.endsWith('.ebay.com')) return 'ebay';
+  if (host === 'amazon.com' || host.endsWith('.amazon.com')) return 'amazon';
+  if (host === 'poshmark.com' || host.endsWith('.poshmark.com')) return 'poshmark';
+  if (host === 'ecomsniper.io' || host.endsWith('.ecomsniper.io')) return 'ecomsniper';
+  return '';
+}
+
+function assertSafeControlUrl(value) {
+  const url = new URL(String(value || ''));
+  if (url.protocol !== 'https:' || !controlPlatformForUrl(url.href)) {
+    throw new Error('Local control can only open approved HTTPS marketplace pages.');
+  }
+  return url;
+}
+
+function controlTabSummary(tab) {
+  return {
+    id: Number.isInteger(tab?.id) ? tab.id : null,
+    windowId: Number.isInteger(tab?.windowId) ? tab.windowId : null,
+    active: Boolean(tab?.active),
+    audible: Boolean(tab?.audible),
+    discarded: Boolean(tab?.discarded),
+    status: String(tab?.status || ''),
+    title: String(tab?.title || '').slice(0, 300),
+    url: String(tab?.url || '').slice(0, 2000),
+    platform: controlPlatformForUrl(tab?.url),
+    lastAccessed: Number(tab?.lastAccessed || 0)
+  };
+}
+
+async function resolveControlTab(payload = {}, requiredPlatform = '') {
+  let tab = null;
+  if (Number(payload.tabId) > 0) tab = await getTab(Number(payload.tabId));
+  if (!tab) {
+    const platform = String(requiredPlatform || payload.platform || '').toLowerCase();
+    const config = LOCAL_CONTROL_PLATFORM[platform];
+    if (!config) throw new Error('A supported Profile 2 marketplace platform is required.');
+    const tabs = await queryTabs({ url: config.patterns });
+    tab = tabs
+      .filter((candidate) => Number.isInteger(candidate?.id))
+      .sort((left, right) => Number(right.lastAccessed || 0) - Number(left.lastAccessed || 0))[0];
+  }
+  const platform = controlPlatformForUrl(tab?.url);
+  if (!platform || (requiredPlatform && platform !== requiredPlatform)) {
+    throw new Error(`The requested Profile 2 ${requiredPlatform || 'marketplace'} tab is not open.`);
+  }
+  return tab;
+}
+
+async function inspectLocalControlSession() {
+  const [tabs, workflowStatus, stored] = await Promise.all([
+    queryTabs({}),
+    activeWorkflowStatus(),
+    storageGet(['computerLabel', 'ebayAccountLabel', 'gldnOpenReviews'])
+  ]);
+  const marketplaceTabs = tabs
+    .map(controlTabSummary)
+    .filter((tab) => Boolean(tab.platform))
+    .sort((left, right) => Number(right.lastAccessed || 0) - Number(left.lastAccessed || 0));
+  return {
+    ok: true,
+    runtimeVersion: EXTENSION_VERSION,
+    profileLock: 'Profile 2',
+    identity: {
+      computerLabel: normalizeComputer(stored.computerLabel),
+      ebayAccountLabel: String(stored.ebayAccountLabel || '')
+    },
+    workflowStatus,
+    openReviews: Object.values(stored.gldnOpenReviews || {}).map((review) => ({
+      label: String(review?.label || ''),
+      page: String(review?.page || ''),
+      phase: String(review?.phase || ''),
+      openedAt: String(review?.openedAt || '')
+    })),
+    tabs: marketplaceTabs
+  };
+}
+
+async function openLocalControlUrl(payload = {}) {
+  const url = assertSafeControlUrl(payload.url);
+  const existing = payload.reuse === false
+    ? []
+    : (await queryTabs({ url: `${url.origin}${url.pathname}*` })).filter((tab) => String(tab.url || '').split('#')[0] === url.href.split('#')[0]);
+  let tab = existing.sort((left, right) => Number(right.lastAccessed || 0) - Number(left.lastAccessed || 0))[0];
+  if (!tab) tab = await createChromeTab({ url: url.href, active: payload.active !== false });
+  else if (payload.active !== false) tab = await updateChromeTab(tab.id, { active: true });
+  if (payload.active !== false) await focusChromeWindow(tab.windowId);
+  return { ok: true, reused: existing.length > 0, tab: controlTabSummary(tab) };
+}
+
+async function focusLocalControlTab(payload = {}) {
+  const tab = await resolveControlTab(payload);
+  const updated = await updateChromeTab(tab.id, { active: true });
+  await focusChromeWindow(updated.windowId);
+  return { ok: true, tab: controlTabSummary(updated) };
+}
+
+async function reloadLocalControlTab(payload = {}) {
+  await assertUpdaterIdle('Reloading the Profile 2 marketplace tab');
+  const tab = await resolveControlTab(payload);
+  const reloaded = await new Promise((resolve, reject) => {
+    chrome.tabs.reload(tab.id, {}, () => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(new Error(error.message));
+      else resolve(true);
+    });
+  });
+  return { ok: reloaded, tab: controlTabSummary(tab) };
+}
+
+async function inspectLocalControlPage(payload = {}) {
+  const tab = await resolveControlTab(payload, String(payload.platform || '').toLowerCase());
+  const state = await sendTabMessage(tab.id, { type: 'inspectGldnPageState' });
+  return { ok: state?.ok !== false, tab: controlTabSummary(tab), pageState: state };
+}
+
+async function readLocalControlState(payload = {}) {
+  const keys = [...new Set((Array.isArray(payload.keys) ? payload.keys : []).map(String))]
+    .filter((key) => LOCAL_CONTROL_STATE_KEYS.has(key));
+  if (!keys.length) throw new Error('No approved GLDN Ops state keys were requested.');
+  const state = await storageGet(keys);
+  if (Array.isArray(state.gldnErrorLog)) state.gldnErrorLog = state.gldnErrorLog.slice(-25);
+  return { ok: true, state };
+}
+
+async function runLocalControlPageAction(payload = {}) {
+  const platform = String(payload.platform || '').toLowerCase();
+  const action = String(payload.action || '').toLowerCase();
+  const config = LOCAL_CONTROL_PLATFORM[platform];
+  if (!config?.messageType || !config.actions.has(action)) {
+    throw new Error('The requested page action is not on the safe review-only allowlist.');
+  }
+  const tab = await resolveControlTab(payload, platform);
+  const focused = await updateChromeTab(tab.id, { active: true });
+  await focusChromeWindow(focused.windowId);
+  const accepted = await sendTabMessage(tab.id, { type: config.messageType, action });
+  if (accepted?.ok === false) throw new Error(accepted.error || 'The Profile 2 page rejected the review action.');
+  await controlDelay(Math.max(0, Math.min(15000, Number(payload.waitMs || 2500))));
+  let pageState = null;
+  try {
+    pageState = await sendTabMessage(tab.id, { type: 'inspectGldnPageState' });
+  } catch (error) {
+    pageState = { ok: false, error: error.message };
+  }
+  return { ok: true, accepted, tab: controlTabSummary(focused), pageState };
+}
+
+async function executeLocalControlCommand(command = {}) {
+  const action = String(command.action || '').toLowerCase();
+  const payload = command.payload || {};
+  switch (action) {
+    case 'inspect-session': return inspectLocalControlSession();
+    case 'open-url': return openLocalControlUrl(payload);
+    case 'focus-tab': return focusLocalControlTab(payload);
+    case 'reload-tab': return reloadLocalControlTab(payload);
+    case 'inspect-page': return inspectLocalControlPage(payload);
+    case 'read-state': return readLocalControlState(payload);
+    case 'page-action': return runLocalControlPageAction(payload);
+    default: throw new Error('The local-control command is not supported by this GLDN Ops version.');
+  }
+}
+
+async function pollLocalControl() {
+  if (localControlPollRunning) return { ok: true, skipped: true };
+  localControlPollRunning = true;
+  let hadCommand = false;
+  try {
+    const response = await updaterRequest('/control/next', { timeoutMs: 4000 });
+    const command = response?.command;
+    if (!command?.id) return { ok: true, empty: true };
+    hadCommand = true;
+    let result;
+    try {
+      result = await executeLocalControlCommand(command);
+      await updaterRequest('/control/results', {
+        method: 'POST',
+        body: { commandId: command.id, ok: true, result },
+        timeoutMs: 10000
+      });
+    } catch (error) {
+      await updaterRequest('/control/results', {
+        method: 'POST',
+        body: { commandId: command.id, ok: false, error: error?.message || String(error) },
+        timeoutMs: 10000
+      }).catch(() => {});
+      throw error;
+    }
+    return { ok: true, commandId: command.id };
+  } catch (error) {
+    if (hadCommand) {
+      await recordExtensionLog({
+        source: 'local-control',
+        operation: 'execute-command',
+        message: error?.message || String(error)
+      });
+    }
+    return { ok: false, unavailable: !hadCommand, error: error?.message || String(error) };
+  } finally {
+    localControlPollRunning = false;
+    if (hadCommand) setTimeout(() => pollLocalControl(), 100);
+  }
+}
+
+function scheduleLocalControl() {
+  chrome.alarms.create(LOCAL_CONTROL_ALARM, { delayInMinutes: 0.05, periodInMinutes: 0.5 });
 }
 
 async function queueRuntimeReload({ returnUrl = '', sourceTabId = null, sourceTabUrl = '', reason = 'manual-reload', targetVersion = '' } = {}) {
@@ -1721,6 +2046,10 @@ chrome.alarms.onAlarm.addListener((alarm) => {
     checkUpdaterDiskVersion().catch((error) => {
       recordExtensionLog({ source: 'updater', operation: 'disk-version-check', message: error.message });
     });
+    return;
+  }
+  if (alarm?.name === LOCAL_CONTROL_ALARM) {
+    pollLocalControl();
   }
 });
 
@@ -1739,6 +2068,8 @@ pauseIncompatibleProfitBackfill('worker-start').catch((error) => {
 seedAutomaticDashboardSetup('worker-start');
 scheduleDashboardRetry();
 scheduleUpdaterCheck();
+scheduleLocalControl();
+setTimeout(() => pollLocalControl(), 500);
 setTimeout(() => {
   clearIncompatibleMove99State()
     .then(() => resumeExtensionReloadRequest())

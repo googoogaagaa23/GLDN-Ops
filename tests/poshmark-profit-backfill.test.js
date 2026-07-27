@@ -95,6 +95,34 @@ test("Amazon quantity expands into separately allocatable units", () => {
   assert.deepEqual(run.purchases.map((item) => item.unitIndex), [1, 2]);
 });
 
+test("duplicate Amazon URL variants preserve the order date and allocate exactly once", () => {
+  const orderId = "114-5900136-8324212";
+  const datedUrl = `https://www.amazon.com/your-orders/order-details?orderID=${orderId}`;
+  const duplicateUrl = `https://www.amazon.com/gp/your-account/order-details?orderId=${orderId}&ref_=ppx_yo2ov_dt_b_fed_asin_title`;
+  const matches = backfill.mergeAmazonSearchMatches(
+    [{ orderId, orderDetailsUrl: datedUrl, purchaseDate: "July 4, 2026", asin: "B07T88F8B2" }],
+    [{ orderId, orderDetailsUrl: duplicateUrl, purchaseDate: "", asin: "B07T88F8B2" }]
+  );
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].purchaseDate, "July 4, 2026");
+  assert.equal(matches[0].orderDetailsUrl, datedUrl);
+
+  let run = backfill.createRun({ scope: "single" });
+  run.sales = [sale("6a49c5d84fab7b10343cc819", "Jul 4, 2026", "B07T88F8B2", 29.17)];
+  run = backfill.addPurchase(run, purchase(orderId, "July 4, 2026", "B07T88F8B2", 19.96));
+  run = backfill.addPurchase(run, {
+    ...purchase(orderId, "", "B07T88F8B2", 19.96),
+    orderUrl: duplicateUrl
+  });
+  assert.equal(run.purchases.length, 1);
+  assert.equal(run.purchases[0].purchaseDate, "July 4, 2026");
+
+  run = backfill.allocate(run, { computerLabel: "7", supplierProfile: "F9132" });
+  assert.equal(run.results[0].status, "exact");
+  assert.equal(run.results[0].record.supplierTotal, 19.96);
+  assert.equal(run.results[0].record.profit, 9.21);
+});
+
 test("multiple matching Amazon orders never become an automatic exact match", () => {
   let run = backfill.createRun({ scope: "all" });
   run.sales = [sale("ambiguous", "Jul 20, 2026")];
@@ -134,6 +162,22 @@ test("historical review exposes the exact Amazon order and ASIN before sync", ()
   assert.match(poshmark, /showHistoricalProfitBackfillReview[\s\S]{0,220}gldn-posh-backfill-launcher/);
   assert.match(poshmark, /order \$\{record\.supplierOrderNumber \|\| "not captured"\}/);
   assert.match(poshmark, /ASIN \$\{record\.supplierItemIds \|\| "not captured"\}/);
+});
+
+test("historical launcher cannot register as the approval screen that blocks its own run", () => {
+  const poshmark = fs.readFileSync(path.resolve(__dirname, "..", "extension", "poshmark.js"), "utf8");
+  const shared = fs.readFileSync(path.resolve(__dirname, "..", "extension", "shared.js"), "utf8");
+  const launcher = poshmark.slice(
+    poshmark.indexOf('overlay.id = "gldn-posh-backfill-launcher"'),
+    poshmark.indexOf('async function runHistoricalProfitBackfillWorker')
+  );
+  const review = poshmark.slice(
+    poshmark.indexOf('function showHistoricalProfitBackfillReview'),
+    poshmark.indexOf('async function startHistoricalProfitBackfill')
+  );
+  assert.match(launcher, /data-gldn-workflow-launcher="true"/);
+  assert.doesNotMatch(review, /data-gldn-workflow-launcher="true"/);
+  assert.match(shared, /modal\.dataset\.gldnWorkflowLauncher !== 'true'\) registerOpenReview\(modal\)/);
 });
 
 test("missing SKU and out-of-window purchases are not synced as exact", () => {

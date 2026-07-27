@@ -1,0 +1,78 @@
+{
+  "fields": [
+    {
+      "disabled": false,
+      "id": "",
+      "label": "",
+      "tag": "INPUT",
+      "value": "65"
+    },
+    {
+      "disabled": false,
+      "id": "gldn-listings-computer",
+      "label": "Computer",
+      "tag": "SELECT",
+      "value": "0"
+    },
+    {
+      "disabled": false,
+      "id": "gldn-listings-account",
+      "label": "eBay account",
+      "tag": "INPUT",
+      "value": "FAK12"
+    },
+    {
+      "disabled": false,
+      "id": "gldn-listings-plan",
+      "label": "Store monthly zero-insertion allowance",
+      "tag": "SELECT",
+      "value": "Premium"
+    },
+    {
+      "disabled": false,
+      "id": "gldn-listings-active",
+      "label": "Active listings",
+      "tag": "INPUT",
+      "value": "7,054"
+    },
+    {
+      "disabled": false,
+      "id": "gldn-listings-in-stock",
+      "label": "Available item quantity (eBay Qty)",
+      "tag": "INPUT",
+      "value": "8,403"
+    },
+    {
+      "disabled": false,
+      "id": "gldn-listings-limit",
+      "label": "Custom monthly insertion allowance",
+      "tag": "INPUT",
+      "value": "10000"
+    },
+    {
+      "disabled": false,
+      "id": "gldn-listings-dollar-used",
+      "label": "Dollar amount listed and sold",
+      "tag": "INPUT",
+      "value": "$421,805.29"
+    },
+    {
+      "disabled": false,
+      "id": "gldn-dollar-preset",
+      "label": "Monthly dollar limit",
+      "tag": "SELECT",
+      "value": "1000000"
+    },
+    {
+      "disabled": false,
+      "id": "gldn-listings-dollar-limit",
+      "label": "Custom monthly dollar limit",
+      "tag": "INPUT",
+      "value": "1000000"
+    }
+  ],
+  "modalCount": 1,
+  "status": "Listings review ready",
+  "text": "×\nConfirm Listings Under Limit\nTransparency\n65%\nDrag title to move. Lower-right corner resizes.\n\nThis separates current inventory, the monthly zero-insertion-fee allowance, and eBay's quantity and dollar selling limits.\n\nComputer\n0\n2\n6\n7\nM0\nM1\neBay account\nStore monthly zero-insertion allowance\nPremium - 10,000 fixed-price insertions\nAnchor - 25,000 fixed-price insertions\nCustom monthly allowance\nActive listings\nAvailable item quantity (eBay Qty)\nDollar amount listed and sold\nMonthly dollar limit\n$1,000,000\nCustom amount\nMonthly zero-insertion allowance\nGOOD (82.5%)\nSeller quantity limit\nGOOD (9.8%)\nSeller dollar limit\nGOOD (42.2%)\nCurrent inventory (informational)\n7,054 current listing records\n8,403 available units shown by eBay Qty\nNeither inventory number is the monthly insertion-allowance counter.\nDetected from eBay:\nStore zero-insertion allowance used/left this month: 8,249 / 1,751\nSeller quantity listed and sold: 8,588 / 88,000\nDollar listed and sold: $421,805.29 / $1,000,000.00\nCancel\nConfirm Listings Under Limit",
+  "version": "v3.11.11"
+}

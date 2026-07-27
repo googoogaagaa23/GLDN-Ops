@@ -278,13 +278,13 @@
     let run = await readRun();
     if (!isWorker(run, sender) || run.phase !== "amazon-search") return { ok: false, ignored: true };
     if (run.stopRequested) return pauseAtCheckpoint(run);
-    const pageMatches = (payload.matches || [])
-      .filter((match) => match?.orderDetailsUrl && (!match.asin || BACKFILL.normalizeAsin(match.asin) === run.currentAsin))
-      .filter((match, index, all) => all.findIndex((entry) => entry.orderDetailsUrl === match.orderDetailsUrl) === index);
-    const fingerprint = pageMatches.map((match) => match.orderDetailsUrl).sort().join("|");
+    const pageMatches = BACKFILL.mergeAmazonSearchMatches(
+      (payload.matches || [])
+        .filter((match) => match?.orderDetailsUrl && (!match.asin || BACKFILL.normalizeAsin(match.asin) === run.currentAsin))
+    );
+    const fingerprint = pageMatches.map(BACKFILL.amazonSearchMatchKey).sort().join("|");
     const repeatedPage = Boolean(fingerprint && (run.amazonSearchFingerprints || []).includes(fingerprint));
-    const matches = [...(run.amazonSearchCollected || []), ...pageMatches]
-      .filter((match, index, all) => all.findIndex((entry) => entry.orderDetailsUrl === match.orderDetailsUrl) === index);
+    const matches = BACKFILL.mergeAmazonSearchMatches(run.amazonSearchCollected || [], pageMatches);
     if (payload.hasNext && !repeatedPage) {
       run = await writeRun({
         ...run,

@@ -355,7 +355,7 @@ test("Move .99 waits for eBay's filtered Results total instead of the stale acco
   assert.match(ebay, /Restarting a clean full scan/);
 });
 
-test("Move .99 rejects eBay's generic Store-category filter token", () => {
+test("Move .99 replaces eBay's generic token only after exact numeric category discovery", () => {
   const verifier = ebay.match(/function hasUnverifiableMove99SourceFilterUrl\(\) \{[\s\S]*?\n  \}/)?.[0];
   assert.ok(verifier, "generic Store-category filter verifier must be extractable");
   const run = (href) => new Function("location", `
@@ -374,7 +374,24 @@ test("Move .99 rejects eBay's generic Store-category filter token", () => {
   );
   assert.match(filtering, /filterTransition === "unverifiable"/);
   assert.match(filtering, /instead of numeric category IDs\. No category changes were attempted/);
+  assert.match(filtering, /selectedNumericMove99StoreCategoryIds\(filterPanel\)/);
+  assert.match(filtering, /selectedIds\.length === targetIds\.length/);
+  assert.match(filtering, /sourceStoreCategoryIds: targetIds/);
+  assert.match(filtering, /await navigateToMove99ScanPage\(1, directUrl\)/);
   assert.match(filtering, /waitForStableFilteredResults\(MOVE99_SOURCE_STORE_CATEGORY_IDS\.length > 0, 60000\)/);
+});
+
+test("Move .99 clears every selected numeric Store category except the exact targets", () => {
+  const filtering = ebay.slice(
+    ebay.indexOf("async function ensureCategoryFilterSelected"),
+    ebay.indexOf("function dispatchFullClick")
+  );
+  assert.match(ebay, /function numericMove99StoreCategoryIdFromControl\(control\)/);
+  assert.match(ebay, /function selectedNumericMove99StoreCategoryIds\(root = document\)/);
+  assert.match(filtering, /targetControls = new Set/);
+  assert.match(filtering, /!categoryId \|\| targetControls\.has\(control\)/);
+  assert.match(filtering, /!controlChecked\(control\) \? true : null/);
+  assert.match(filtering, /extra or missing numeric categories/);
 });
 
 test("Move .99 enters configured accounts through the exact numeric source URL", () => {

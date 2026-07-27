@@ -1,0 +1,15 @@
+{
+  "initial": {
+    "dialogs": [],
+    "href": "https://www.ebay.com/sh/ord/?filter=status:AWAITING_SHIPMENT",
+    "pageRelevant": "Awaiting shipment\nPaid and shipped\nArchived\nCancellations\nReturns\nRequests and disputes\nShipping labels\nShipping preferences\nAutomate feedback\nReturn preferences\nManage orders awaiting shipment\nComments\nSend us your comments\nopens in a new window or tab\nBe ready for anything\nYou're pre-qualified for financing from eBay Seller Capital.Powered by Liberis.\n\nLearn more\n\nStatus:\nAwaiting shipment\nPeriod:\nLast 90 days\nSearch by:\nCustom label (SKU)\nEnter your search keyword\nReset\nResults: 0\nPrintDownload report\n010\nShipping\nPrint coupon\nPrint coupon\nRelist\nRelist\nLeave feedback\nLeave feedback\nMore\nSort by:\nDate paid\nDate paid\nOrders\nWe didn't find any results. Try searching with different criteria.\n\nActions\n\t\nOrder\n\t\nQuantity\n\t\nSubtotal\n\t\nTotal\nSorted descending\n\t\nDate sold\n\t\nDate paid\nSorted descending\nItems Per",
+    "status": "Selecting every awaiting shipment order for review...",
+    "title": "Orders — eBay Seller Hub"
+  },
+  "final": {
+    "dialogs": [],
+    "pageResults": "Results: 0",
+    "panelDisplay": "block",
+    "status": "No awaiting shipment orders and synced"
+  }
+}

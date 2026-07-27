@@ -1,6 +1,24 @@
-GLDN Ops v3.11.10
+GLDN Ops v3.11.13
 
-v3.11.10 verified range Apply and workflow-only eBay panel:
+v3.11.13 historical Poshmark profit repair:
+- Deduplicates Amazon order-search URL variants by their stable Amazon order ID.
+- Preserves a valid Amazon purchase date when a later duplicate detail capture has no date.
+- Keeps exact ASIN, order, cost, date-window, and one-purchase-per-sale allocation gates unchanged.
+- Stops at the historical-profit review. Sync Exact Profits still requires separate approval.
+- All 267 JavaScript contracts pass; signed-in Profile 2 review proof is the remaining live gate.
+
+v3.11.12 signed-in Profile 2 control bridge:
+- Reuses the existing local updater on 127.0.0.1 to inspect and control only the already-open GLDN Ops instance in Chrome Profile 2.
+- Never starts Chrome, creates a browser profile, uses a proxy, or sends marketplace traffic through another computer.
+- Requires exactly one matching unpacked GLDN Ops folder in Profile 2 before accepting a command.
+- Accepts only named safe actions: inspect session/page state, focus/open/reload approved tabs, read approved GLDN state, or open an existing review-only workflow.
+- Rejects arbitrary JavaScript and arbitrary click requests, including Submit.
+- Every marketplace write remains behind its existing action-time approval stop.
+- Uses a random per-install control token and localhost-only endpoints; ordinary websites cannot operate the bridge.
+- All 266 JavaScript contracts and the complete local updater fixture pass.
+
+v3.11.11 reliable daily-action launch and verified range Apply:
+- Press Ctrl+Shift+G on a signed-in eBay page to open GLDN daily actions without leaving the idle panel visible.
 - Saved category scans now open eBay's 2,000-listing edit ranges and select only exact saved title/price fingerprints.
 - A range is rejected before editing if it contains more than 500 saved matches.
 - Both the native selected count and eBay Submit count must equal the exact verified batch before the Store category review can continue.

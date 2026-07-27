@@ -1,0 +1,21 @@
+{
+  "runtimeVersion": "3.11.12",
+  "profile": "Profile 2",
+  "computer": "0",
+  "ebayAccount": "FAK12",
+  "seller": "imjustatrend",
+  "page": "https://www.ebay.com/sh/performance",
+  "reviewValues": {
+    "currentSellerLevel": "Above Standard",
+    "evaluatedToday": "Above Standard",
+    "transactionDefectRatePercent": 0,
+    "lateShipmentRatePercent": 1.81,
+    "trackingUploadedOnTimeAndValidatedPercent": 84.83,
+    "casesClosedWithoutSellerResolutionPercent": 0,
+    "nextEvaluation": "Aug 20"
+  },
+  "outcome": "LIVE REVIEW PASS",
+  "approvalBoundary": "Review opened and was closed with Cancel. Save Seller Level Check was not clicked.",
+  "dashboardOrSheetWrite": false,
+  "screenshot": "E-02-v31112-seller-level-review.png"
+}

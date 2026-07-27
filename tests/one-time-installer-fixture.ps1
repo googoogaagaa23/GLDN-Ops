@@ -46,6 +46,9 @@ try {
   if ([System.IO.Path]::GetFullPath([string]$updaterConfig.installRoot) -ne [System.IO.Path]::GetFullPath($installRoot)) {
     throw "Updater configuration points to the wrong stable install folder."
   }
+  if ([int]$updaterConfig.schemaVersion -lt 3 -or [string]$updaterConfig.controlToken -notmatch '^[A-Za-z0-9_-]{40,}$') {
+    throw "Updater configuration did not create the local Profile 2 control credential."
+  }
 
   $agentPort = Get-Random -Minimum 41000 -Maximum 49000
   $agentArguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Action Serve -InstallRoot "{1}" -Port {2}' -f `
@@ -75,6 +78,7 @@ try {
     stableFolder = $true
     privateDashboardSeeded = $true
     updaterConfigured = $true
+    localControlCredentialCreated = $true
     runningUpdaterStoppedForReinstall = $true
     reinstallBackupCount = $backups.Count
     noChromeProfileOpened = $true

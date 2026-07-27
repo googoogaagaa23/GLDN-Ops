@@ -1,0 +1,16 @@
+{
+  "runtimeVersion": "3.11.12",
+  "profile": "Profile 2",
+  "computer": "0",
+  "ebayAccount": "FAK12",
+  "page": "https://www.ebay.com/sh/ord/?filter=status:AWAITING_SHIPMENT",
+  "result": {
+    "awaitingShipmentResults": 0,
+    "marketplaceDialogsOpened": 0,
+    "pendingMarkShippedRun": null,
+    "workflowBusyAfterReview": false
+  },
+  "outcome": "LIVE READ-ONLY PASS",
+  "approvalBoundary": "No Mark as shipped activation or eBay Continue was reached or approved.",
+  "notes": "The v3.11.12 workflow handled the zero-order state without selecting, changing, or submitting any order."
+}

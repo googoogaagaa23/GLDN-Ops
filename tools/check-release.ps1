@@ -42,6 +42,7 @@ $requiredFiles = @(
   "tools\update.ps1",
   "tools\gldn-update-core.ps1",
   "tools\gldn-update-agent.ps1",
+  "tools\gldn-control.ps1",
   "tools\install-update-agent.ps1",
   "tools\test-dashboard-contract.ps1",
   "tools\test-dashboard-live-contract.ps1",

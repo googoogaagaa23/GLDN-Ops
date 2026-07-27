@@ -1,0 +1,31 @@
+{
+  "runtimeVersion": "3.11.12",
+  "profile": "Profile 2",
+  "computer": "0",
+  "ebayAccount": "FAK12",
+  "amazonEvidence": {
+    "page": "https://www.amazon.com/your-orders/order-details?orderID=113-2518790-9385867",
+    "orderNumber": "113-2518790-9385867",
+    "asin": "B09Z61G77L",
+    "total": 7.17,
+    "eta": "6/30",
+    "profile": "F9132",
+    "matchSource": "amazon-order-details-card"
+  },
+  "ebayReview": {
+    "page": "https://www.ebay.com/mesh/ord/details?mode=SH&orderid=18-14818-27804&source=Orders",
+    "orderNumber": "18-14818-27804",
+    "earnings": 5.68,
+    "decodedSkuAsins": [
+      "B09Z61G77L"
+    ],
+    "amazonOrderNumber": "113-2518790-9385867",
+    "note": "5.68 - 7.17 - F9132 - 6/30",
+    "existingNote": "5.68 - 7.17 - F9132 - 6/30",
+    "matchConfidencePercent": 85,
+    "reviewAction": "Refresh Profit Row"
+  },
+  "outcome": "LIVE MATCHED-NOTE REVIEW PASS",
+  "approvalBoundary": "The review was closed without Refresh Profit Row, eBay Save, or any dashboard write.",
+  "screenshot": "E-04-v31112-order-note-review.png"
+}
