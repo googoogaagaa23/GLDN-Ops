@@ -15,7 +15,7 @@ SHA-256:
 
 ## Current extension package
 
-- [Download GLDN Ops v3.11.9](./GLDN-Ops-extension-v3.11.9.zip)
+- [Download GLDN Ops v3.11.10](./GLDN-Ops-extension-v3.11.10.zip)
 
 This manual ZIP remains available for recovery. It includes automatic
 dashboard setup, but it does not remove the one-time Chrome requirement to
@@ -23,18 +23,19 @@ select the stable folder.
 
 SHA-256:
 
-`19B59BDBDA3455B2B53F9F9D01F0EDB4314D2C2158A65ECBB644A17FDBB54373`
+`D51874ABE18C20CAD8B45A4B4C1E7840C5EC8254D830828277A2F28C12DBE3DF`
 
 ## Current full local bundle
 
-- [Download the GLDN Ops v3.11.9 local bundle](./GLDN-Ops-local-v3.11.9.zip)
+- [Download the GLDN Ops v3.11.10 local bundle](./GLDN-Ops-local-v3.11.10.zip)
 
 SHA-256:
 
-`83BD4D6926762EDBD50D09FD365BAF7E6AD0F836A52364A809188F645E98326F`
+`1D8592E12F67F26C82E13B9EE0B464E5D3D08158CBEB14A659DD898007282DC5`
 
 ## Previous package
 
+- [Download GLDN Ops v3.11.9](./GLDN-Ops-extension-v3.11.9.zip)
 - [Download GLDN Ops v3.11.8](./GLDN-Ops-extension-v3.11.8.zip)
 - [Download GLDN Ops v3.11.7](./GLDN-Ops-extension-v3.11.7.zip)
 - [Download GLDN Ops v3.11.6](./GLDN-Ops-extension-v3.11.6.zip)

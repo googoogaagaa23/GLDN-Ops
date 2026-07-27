@@ -11,6 +11,7 @@ const popupJs = fs.readFileSync(path.join(root, "extension", "popup.js"), "utf8"
 const themeCatalog = fs.readFileSync(path.join(root, "extension", "theme-catalog.js"), "utf8");
 const poshmark = fs.readFileSync(path.join(root, "extension", "poshmark.js"), "utf8");
 const universal = fs.readFileSync(path.join(root, "extension", "universal.js"), "utf8");
+const ebay = fs.readFileSync(path.join(root, "extension", "ebay.js"), "utf8");
 
 test("minimized panels restore mode and position in one coordinated read", () => {
   assert.match(shared, /chrome\.storage\.local\.get\(\[\s*storageKey,\s*modeStorageKey,\s*sizeStorageKey,/);
@@ -99,4 +100,21 @@ test("panel layout is included in settings backup and restore", () => {
   assert.match(popupJs, /'gldnModalSizes'/);
   assert.match(popupJs, /'gldnModalPositions'/);
   assert.match(popupJs, /'gldnModalOpacities'/);
+});
+
+test("the eBay floating panel stays hidden until a workflow or approval is active", () => {
+  assert.match(ebay, /panel\.hidden = true/);
+  assert.match(styles, /\.gldn-order-panel\[hidden\]\s*\{[\s\S]*?display: none !important/);
+  assert.match(ebay, /FOUNDATION\.activeWorkflowEntries\(stored\)/);
+  assert.doesNotMatch(
+    ebay.slice(ebay.indexOf("function ebayPanelWorkflowStateVisible"), ebay.indexOf("async function refreshEbayPanelWorkflowVisibility")),
+    /move99SavedSummaryDescriptor/
+  );
+  assert.match(popupHtml, /data-ebay-action="mark-shipped"/);
+  assert.match(popupHtml, /data-ebay-action="seller-level"/);
+  assert.match(popupHtml, /data-ebay-action="sales-snapshot"/);
+  assert.match(popupHtml, /data-ebay-action="listing-limits"/);
+  assert.match(popupHtml, /data-ebay-action="prepare-order-note"/);
+  assert.match(popupJs, /type: 'runEbayPageAction'/);
+  assert.match(ebay, /message\?\.type !== "runEbayPageAction"/);
 });

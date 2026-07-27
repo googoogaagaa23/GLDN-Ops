@@ -2,6 +2,18 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.11.10 - 2026-07-27
+
+- Replaced the saved-scan Apply route that could admit an entire 2,000-listing workspace with exact fingerprint selection inside eBay's native edit ranges.
+- Refuses any range containing more than 500 saved matches before opening a category editor.
+- Requires eBay's native selected count and final Submit count to equal the exact verified batch; the full workspace total is never an accepted substitute.
+- Added a second independent count gate immediately before the approval stop.
+- Fixed `Resource::QuotaBytes quota exceeded` on large saved scans by retaining one authoritative listing-record copy, compacting Apply ranges and history to counts only, and enabling Chrome unlimited extension storage.
+- A failed compact-checkpoint write now keeps the verified review open and attempts no marketplace change.
+- Keeps the floating eBay panel hidden while idle or while a saved scan is merely dormant; eBay daily actions are now launchable from the extension popup.
+- The preserved Computer 2 checkpoint remains 551 non-.99 matches from 15,807 inspected listings. Live Bulk Edit and final-review proof remain pending.
+- All 259 JavaScript contracts pass, including a 15,807-listing quota regression.
+
 ## v3.11.9 - 2026-07-27
 
 - Fixed the saved Move .99 / reverse non-.99 Review control reporting success while its review window remained invisible.

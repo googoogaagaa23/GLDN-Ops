@@ -134,6 +134,46 @@ test("manifest loads the theme catalog and foundation before shared code on ever
   }
 });
 
+test("Move .99 history remains compact for a full 15,807-listing scan", () => {
+  const foundation = loadFoundation();
+  const records = Array.from({ length: 15_807 }, (_, index) => ({
+    itemId: String(318000000000 + index),
+    title: `Verified listing ${index + 1}`,
+    price: index % 5 === 0 ? "9.99" : "10.00"
+  }));
+  const state = {
+    extensionVersion: "3.11.10",
+    phase: "apply-range",
+    active: true,
+    scanMode: "non99",
+    scanStrategy: "active-page-exact-id-v1",
+    scanIntegrity: "verified",
+    sourceCategories: ["DAILY"],
+    destinationCategory: "SNI",
+    filteredCount: records.length,
+    uniqueInspected: records.length,
+    qualifyingCount: 551,
+    scanPages: { "1": { qualifying: records } },
+    verificationPages: { "1": { qualifying: records } },
+    applySourcePages: { "1": { qualifying: records } },
+    applyRanges: [{ rangeStart: 1, rangeEnd: 2000, targetIds: records.slice(0, 500).map((record) => record.itemId) }],
+    processedIds: records.slice(0, 500).map((record) => record.itemId),
+    failedIds: [],
+    totals: { batches: 1, selected: 500, categoryApplied: 500, live: 500, failed: 0 }
+  };
+
+  const compact = JSON.parse(JSON.stringify(foundation.compactMove99HistoryRecord(state, "2026-07-27T12:00:00.000Z")));
+  assert.equal(compact.compact, true);
+  assert.equal(compact.filteredCount, 15_807);
+  assert.equal(compact.qualifyingCount, 551);
+  assert.equal(compact.processedCount, 500);
+  assert.equal(compact.destinationCategory, "SNI");
+  for (const key of ["scanPages", "verificationPages", "applySourcePages", "applyRanges", "processedIds", "failedIds"]) {
+    assert.equal(Object.hasOwn(compact, key), false, `${key} must not be copied into Move .99 history`);
+  }
+  assert.ok(JSON.stringify(compact).length < 2500);
+});
+
 test("workflow classifier protects active runs and approval-ready reviews", () => {
   const foundation = loadFoundation();
   const workflows = foundation.activeWorkflowEntries({

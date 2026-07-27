@@ -1,4 +1,14 @@
-GLDN Ops v3.11.9
+GLDN Ops v3.11.10
+
+v3.11.10 verified range Apply and workflow-only eBay panel:
+- Saved category scans now open eBay's 2,000-listing edit ranges and select only exact saved title/price fingerprints.
+- A range is rejected before editing if it contains more than 500 saved matches.
+- Both the native selected count and eBay Submit count must equal the exact verified batch before the Store category review can continue.
+- A full-workspace Submit count can no longer be accepted in place of the verified selected count.
+- Large scans keep one authoritative listing-record copy; Apply ranges and history are compact metadata, preventing Resource::QuotaBytes failures.
+- Chrome unlimited extension storage provides additional headroom, and a failed checkpoint save leaves review open without attempting a listing change.
+- The floating eBay panel stays hidden on ordinary pages and appears only for active work or an approval; daily actions remain available from the extension popup.
+- Final eBay Submit remains untouched until separate action-time approval.
 
 v3.11.9 saved review visibility and Apply recovery:
 - The count-specific saved-scan Review window is forced into the visible screen above eBay.

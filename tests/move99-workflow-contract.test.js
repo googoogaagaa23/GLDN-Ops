@@ -54,6 +54,24 @@ function loadMove99ExactBatchBuilder() {
   `)(500);
 }
 
+function loadMove99EditRangeLimitGuard() {
+  const guard = ebay.match(/function assertMove99EditRangeBatchLimits\(ranges, batchLimit = MOVE99_BULK_BATCH_LIMIT\) \{[\s\S]*?\n  \}/)?.[0];
+  assert.ok(guard, "Move .99 edit-range limit guard must be extractable");
+  return new Function("MOVE99_BULK_BATCH_LIMIT", `
+    ${guard}
+    return assertMove99EditRangeBatchLimits;
+  `)(500);
+}
+
+function loadMove99EditRangeCompactor() {
+  const compact = ebay.match(/function compactMove99EditRanges\(ranges\) \{[\s\S]*?\n  \}/)?.[0];
+  assert.ok(compact, "Move .99 edit-range compactor must be extractable");
+  return new Function(`
+    ${compact}
+    return compactMove99EditRanges;
+  `)();
+}
+
 function loadMove99SavedSummaryDescriptor() {
   const flatten = ebay.match(/function flattenMove99Pages\(pages\) \{[\s\S]*?\n  \}/)?.[0];
   const descriptor = ebay.match(/function move99SavedSummaryDescriptor\(state\) \{[\s\S]*?\n  \}/)?.[0];
@@ -101,6 +119,7 @@ test("every Move .99 launcher performs a full exact-ID scan before opening a pub
 
 test("Move .99 creates signed-in exact-ID Bulk Edit workspaces without a local helper", () => {
   assert.ok(manifest.permissions.includes("scripting"));
+  assert.ok(manifest.permissions.includes("unlimitedStorage"));
   assert.ok(!manifest.permissions.includes("webRequest"));
   assert.ok(!manifest.host_permissions.some((entry) => entry.includes("127.0.0.1")));
   assert.match(background, /async function createMove99BulkWorkspace/);
@@ -269,7 +288,7 @@ test("Move .99 saved state migrates only verified passive scans and never auto-r
   );
   assert.match(resumer, /String\(pendingMove99\.extensionVersion \|\| ""\) !== EXTENSION_VERSION/);
   assert.match(resumer, /FOUNDATION\.migratePortableMove99Summary\(pendingMove99, EXTENSION_VERSION\)/);
-  assert.match(resumer, /pendingMove99Run: migrated, lastMove99Scan: migrated/);
+  assert.match(resumer, /pendingMove99Run: migrated, lastMove99Scan: FOUNDATION\.compactMove99HistoryRecord\(migrated\)/);
   assert.match(resumer, /pendingMove99 = migrated/);
   assert.match(resumer, /storageRemove\(\["pendingMove99Run"\]\)/);
   assert.match(resumer, /pendingMove99 = null/);
@@ -281,7 +300,7 @@ test("Move .99 saved state migrates only verified passive scans and never auto-r
   assert.match(backgroundWriter, /extensionVersion:\s*EXTENSION_VERSION/);
   assert.match(backgroundWriter, /async function clearIncompatibleMove99State/);
   assert.match(backgroundWriter, /FOUNDATION\.migratePortableMove99Summary\(pending, EXTENSION_VERSION\)/);
-  assert.match(backgroundWriter, /pendingMove99Run: migrated, lastMove99Scan: migrated/);
+  assert.match(backgroundWriter, /pendingMove99Run: migrated, lastMove99Scan: FOUNDATION\.compactMove99HistoryRecord\(migrated\)/);
   assert.match(backgroundWriter, /storageRemove\(\['pendingMove99Run'\]\)/);
   assert.match(background, /clearIncompatibleMove99State\(\)[\s\S]*?resumeExtensionReloadRequest\(\)/);
   assert.doesNotMatch(popup.slice(popup.indexOf("async function startMove99Workflow")), /pendingMove99Run:\s*\{/);
@@ -521,7 +540,7 @@ test("finished Move .99 scans are passive and resume without tab-claim contentio
   assert.ok(passiveIndex >= 0, "runner must identify passive scan checkpoints");
   assert.ok(claimIndex > passiveIndex, "passive checkpoints must be handled before claiming a tab");
   assert.match(runner, /const passiveState = \{ \.\.\.state, active: false, ownerTabId: null \}/);
-  assert.match(runner, /pendingMove99Run: passiveState, lastMove99Scan: passiveState/);
+  assert.match(runner, /pendingMove99Run: passiveState, lastMove99Scan: FOUNDATION\.compactMove99HistoryRecord\(passiveState\)/);
 
   const scanCompletion = runner.slice(
     runner.indexOf("const summaryState ="),
@@ -646,7 +665,7 @@ test("saved Move .99 review is forced into the viewport with a direct no-rescan 
   assert.doesNotMatch(recovery, /startMove99Listings|scan-page|active-prepare/);
 });
 
-test("Apply partitions only verified qualifying IDs into publishable eBay workspaces of at most 500", () => {
+test("Apply uses verified edit ranges and refuses any range with more than 500 saved matches", () => {
   const buildMove99ExactBatches = loadMove99ExactBatchBuilder();
   const records = Array.from({ length: 2_606 }, (_, index) => ({
     itemId: String(310000000000 + index),
@@ -666,14 +685,46 @@ test("Apply partitions only verified qualifying IDs into publishable eBay worksp
   assert.deepEqual(batches.map((batch) => batch.length), [500, 500, 500, 500, 500, 106]);
   assert.deepEqual(batches.flat(), records.map((record) => record.itemId));
 
+  const guard = loadMove99EditRangeLimitGuard();
+  assert.equal(guard([{ rangeStart: 1, rangeEnd: 2000, targetIds: records.slice(0, 500).map((record) => record.itemId) }]).length, 1);
+  assert.throws(
+    () => guard([{ rangeStart: 1, rangeEnd: 2000, targetIds: records.slice(0, 501).map((record) => record.itemId) }]),
+    /contains 501 verified matches.*safe limit is 500/i
+  );
+
   const summary = ebay.slice(
     ebay.indexOf("function showMove99ScanSummary"),
     ebay.indexOf("function bulkEditorSelectionProgress")
   );
-  assert.match(summary, /buildMove99ExactBatches\(sourcePages\)/);
-  assert.match(summary, /phase:\s*"apply-exact-workspace"/);
-  assert.match(summary, /applyStrategy:\s*MOVE99_EXACT_APPLY_STRATEGY/);
-  assert.match(summary, /exactBatches/);
+  assert.match(summary, /assertMove99EditRangeBatchLimits/);
+  assert.match(summary, /buildMove99EditRanges\(sourcePages, applyFilteredCount\)/);
+  assert.match(summary, /phase:\s*"apply-range"/);
+  assert.match(summary, /applyStrategy:\s*MOVE99_APPLY_STRATEGY/);
+  assert.match(summary, /const applyRanges = compactMove99EditRanges\(verifiedApplyRanges\)/);
+  assert.match(summary, /scanPages:\s*sourcePages/);
+  assert.doesNotMatch(summary, /applySourcePages:\s*sourcePages/);
+  assert.match(summary, /lastMove99Scan:\s*FOUNDATION\.compactMove99HistoryRecord\(pendingApplyState\)/);
+  assert.match(summary, /could not save its compact Apply checkpoint/i);
+
+  const compactRanges = loadMove99EditRangeCompactor()([{
+    rangeStart: 1,
+    rangeEnd: 2000,
+    rangeCount: 2000,
+    targetIds: records.slice(0, 500).map((record) => record.itemId),
+    targetRecords: records.slice(0, 500),
+    rangeRecords: Array.from({ length: 2000 }, (_, index) => ({
+      itemId: String(320000000000 + index),
+      title: `Range listing ${index + 1}`,
+      price: "9.99"
+    }))
+  }]);
+  assert.deepEqual(compactRanges, [{
+    rangeStart: 1,
+    rangeEnd: 2000,
+    rangeCount: 2000,
+    targetCount: 500
+  }]);
+  assert.ok(JSON.stringify(compactRanges).length < 200);
 
   const exactRunner = ebay.slice(
     ebay.indexOf('if (state.phase === "apply-exact-workspace")'),
@@ -1019,8 +1070,8 @@ test("an interrupted first Bulk Edit batch returns to the verified saved summary
   assert.match(ebay, /Number\(state\.totals\?\.batches \|\| 0\) !== 0/);
   assert.match(ebay, /function recoverMove99VerifiedScanSummary/);
   assert.match(ebay, /phase: "scan-summary"/);
-  assert.match(ebay, /lastMove99Scan: recoveredState/);
-  assert.match(ebay, /lastMove99Scan: pendingMove99/);
+  assert.match(ebay, /lastMove99Scan: FOUNDATION\.compactMove99HistoryRecord\(recoveredState\)/);
+  assert.match(ebay, /lastMove99Scan: FOUNDATION\.compactMove99HistoryRecord\(pendingMove99\)/);
 });
 
 test("Run Move .99 reclaims a verified first-range checkpoint without erasing its scan", () => {
@@ -1033,7 +1084,7 @@ test("Run Move .99 reclaims a verified first-range checkpoint without erasing it
   assert.ok(recoveryIndex >= 0, "the panel launcher must recognize a verified interrupted first range");
   assert.ok(freshRunIndex > recoveryIndex, "recovery must run before a fresh scan can replace the checkpoint");
   assert.match(starter, /recoverMove99VerifiedScanSummary\(interruptedState\)/);
-  assert.match(starter, /pendingMove99Run: recoveredState, lastMove99Scan: recoveredState/);
+  assert.match(starter, /pendingMove99Run: recoveredState, lastMove99Scan: FOUNDATION\.compactMove99HistoryRecord\(recoveredState\)/);
   assert.match(starter, /Review it and click Apply to continue/);
   assert.match(starter, /move99ScanPageUrl\(/);
 });
@@ -1190,8 +1241,16 @@ test("Move .99 reconciliation and category polling stay bounded and cooperative"
   assert.match(ebay, /source: "exact eBay aria-label"/);
   assert.match(ebay, /function categoryEditorEligibleCount\(dialog\)/);
   assert.match(ebay, /eligibleCount !== expectedCount/);
-  assert.match(ebay, /acceptedSubmitCounts = new Set/);
-  assert.match(ebay, /!acceptedSubmitCounts\.has\(submitCount\)/);
+  assert.doesNotMatch(ebay, /acceptedSubmitCounts = new Set/);
+  assert.match(ebay, /submitCount !== expectedCount/);
+  assert.match(ebay, /workspace was left open and Submit was not touched/);
+  const finalReviewGate = ebay.slice(
+    ebay.indexOf("async function pauseMove99AtReviewScreen"),
+    ebay.indexOf("function move99ApprovalExpiryMs")
+  );
+  assert.match(finalReviewGate, /nativeSelection\.selected !== batchCount/);
+  assert.match(finalReviewGate, /submitCount !== batchCount/);
+  assert.match(finalReviewGate, /Submit was not touched/);
   assert.match(ebay, /values\.length === expectedCount && destinationCount === expectedCount/);
   assert.match(ebay, /function selectedStoreCategoryGridUpdate\(expectedCount = 0\)/);
   assert.match(ebay, /nativeSelection\.selected !== expected/);

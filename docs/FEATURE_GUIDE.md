@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.9. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.10. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -482,8 +482,8 @@ Profile 2 FAK12 exact categories, IDs, backup, restore, and reload persistence a
 1. Open Workflows in the popup and click Open Move .99 Workflow.
 2. Wait for the complete filtered Active Listings exact-ID scan.
 3. Review total scanned, qualifying, omitted, and failed counts.
-4. Apply only the verified exact-ID batches, each capped at 500.
-5. Confirm eBay's native selected count matches the intended batch.
+4. Apply the saved scan through eBay's native edit ranges; GLDN selects only exact saved title/price fingerprints and refuses a range with more than 500 matches.
+5. Confirm eBay's native selected count and Submit count both match the intended batch.
 6. Confirm only Primary Store category changed to the exact destination.
 7. Approve Submit only for the exact reviewed batch.
 8. After a trusted Submit click and an explicit eBay success/failure result, let GLDN Ops continue from the saved checkpoint.
@@ -498,7 +498,8 @@ Per-batch selected/submitted result, final remaining/failed counts, audit data, 
 
 ### Failure Recovery
 
-- Any incomplete scan, mixed price, selected-count mismatch, missing picker, or uncertain submit result stops safely without opening another tab or batch.
+- Any incomplete scan, mixed price, selected-count mismatch, missing picker, storage-checkpoint failure, or uncertain submit result stops safely without opening another tab or batch.
+- Large scans retain one authoritative record copy while range and history checkpoints remain compact; a failed checkpoint save leaves the verified review open and attempts no marketplace change.
 - If the review page disappears before a trusted Submit click or explicit eBay result, the run enters Approval Lost and requires manual reconciliation.
 - Do not alter item specifics to force category failures through.
 - Six known FAK12 failures remain backburnered and must not be resubmitted without new approval.
@@ -526,13 +527,14 @@ Profile 2 moved 2,564 successful exact .99 listings in earlier approved batches 
 
 1. Open Workflows and click Move Non-.99 Out of Sale.
 2. Review the complete sale-category scan summary.
-3. If the summary is closed, click the count-specific Review Non-.99 Matches control in the eBay panel to reopen the saved verified scan without rescanning.
-4. If the review window is obstructed, use the count-specific Apply Saved Changes control to continue the same exact saved IDs without another scan.
-5. Confirm every selected listing has a valid non-.99 price.
+3. If the summary is closed, open the extension popup and reopen the saved verified scan without rescanning.
+4. Choose Apply Saved Changes to open eBay's native edit ranges and select only exact saved title/price fingerprints.
+5. Confirm every selected listing has a valid non-.99 price and every range contains at most 500 saved matches.
 6. Confirm backburner items are excluded.
-7. Verify only Primary Store category changes to the configured non-sale destination.
-8. Approve each final Submit separately.
-9. Run a final clean rescan.
+7. Verify the native selected count and Submit count equal the exact batch.
+8. Verify only Primary Store category changes to the configured non-sale destination.
+9. Approve each final Submit separately.
+10. Run a final clean rescan.
 
 ### Approval Stop
 
@@ -545,14 +547,15 @@ Submitted batch results and a final zero-mismatch rescan.
 ### Failure Recovery
 
 - Missing or ambiguous prices are excluded.
-- A completed verified scan remains available through its count-specific Review and Apply Saved Changes controls after the summary is closed or the page is reloaded.
-- The saved review is forced into the current viewport even when an older modal position or host-page style would obstruct it.
+- A completed verified scan remains available from the popup after the summary is closed or the page is reloaded, without forcing the floating panel onto every Listings page.
+- One authoritative scan copy is retained while Apply ranges and history remain compact, preventing large inventories from duplicating records in Chrome storage.
+- A range with more than 500 saved matches, a fingerprint ambiguity, a storage-checkpoint failure, or any selected/Submit count mismatch stops before final approval.
 - Any uncertain submission returns to read-only reconciliation.
 - Do not use the reverse workflow on Poshmark.
 
 ### Evidence
 
-The older FAK12 proof corrected 62 listings, but later cross-computer reports exposed category-setting and completed-scan handoff failures. v3.11.8 successfully preserved computer 2's verified 15,807-inspected checkpoint and exposed its later 551 exact non-.99 matches, but the Review click could report success without a visible window. v3.11.9 forces that review into the viewport and adds a direct Apply Saved Changes fallback using the same exact IDs without rescanning. Active or partially applied checkpoints still fail closed. Current-version FANCYFI Bulk Edit and final-review proof remain required before any Submit.
+The older FAK12 proof corrected 62 listings. Computer 2 later preserved 551 exact non-.99 matches from 15,807 inspected listings. A v3.11.9 Apply attempt admitted all 2,000 workspace rows and was safely canceled before Submit. A later Apply attempt stopped before marketplace changes when duplicated scan state exceeded Chrome's quota. v3.11.10 replaces that route with exact fingerprint selection inside eBay's native edit ranges, a 500-match range cap, two independent exact-count gates, one authoritative scan copy, compact range/history checkpoints, and unlimited extension-storage headroom. Current-version FANCYFI Bulk Edit and final-review proof remain required before any Submit.
 
 
 <a id="move99-recovery"></a>

@@ -344,6 +344,39 @@
     return migrated;
   }
 
+  function compactMove99HistoryRecord(state, now = Date.now()) {
+    if (!state || typeof state !== "object" || Array.isArray(state)) return null;
+    const parsedAt = new Date(now);
+    const recordedAt = Number.isNaN(parsedAt.getTime()) ? new Date().toISOString() : parsedAt.toISOString();
+    const totals = state.totals && typeof state.totals === "object" ? state.totals : {};
+    return {
+      compact: true,
+      extensionVersion: String(state.extensionVersion || ""),
+      scanMode: String(state.scanMode || ""),
+      scanStrategy: String(state.scanStrategy || ""),
+      scanIntegrity: String(state.scanIntegrity || ""),
+      phase: String(state.phase || ""),
+      active: state.active === true,
+      sourceCategories: trimmedStrings(state.sourceCategories),
+      destinationCategory: String(state.destinationCategory || "").trim(),
+      filteredCount: Number(state.filteredCount || 0),
+      uniqueInspected: Number(state.uniqueInspected || 0),
+      qualifyingCount: Number(state.qualifyingCount || 0),
+      processedCount: Array.isArray(state.processedIds) ? state.processedIds.length : 0,
+      failedCount: Array.isArray(state.failedIds) ? state.failedIds.length : Number(totals.failed || 0),
+      totals: {
+        batches: Number(totals.batches || 0),
+        selected: Number(totals.selected || 0),
+        categoryApplied: Number(totals.categoryApplied || 0),
+        live: Number(totals.live || 0),
+        failed: Number(totals.failed || 0)
+      },
+      startedAt: String(state.startedAt || ""),
+      completedAt: String(state.completedAt || ""),
+      recordedAt
+    };
+  }
+
   function activeWorkflowEntries(stored = {}, now = Date.now()) {
     const entries = [];
     const add = (key, id, label, value, { busy = false, approvalReady = false } = {}) => {
@@ -448,6 +481,7 @@
     move99SettingsForAccount,
     portableMove99ScanSummary,
     migratePortableMove99Summary,
+    compactMove99HistoryRecord,
     workflowStateKeys,
     activeWorkflowEntries,
     normalizeStoredSettings

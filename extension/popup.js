@@ -962,6 +962,54 @@ async function startMove99Workflow(scanMode) {
     : `Move .99 started and verified in tab ${response.tabId}.`);
 }
 
+function queryChromeTabs(options) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.query(options, (tabs) => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(new Error(error.message));
+      else resolve(tabs || []);
+    });
+  });
+}
+
+function sendChromeTabMessage(tabId, message) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      const error = chrome.runtime.lastError;
+      if (error) reject(new Error(error.message));
+      else resolve(response);
+    });
+  });
+}
+
+async function runEbayPageAction(action, label) {
+  const tabs = await queryChromeTabs({ currentWindow: true });
+  const ebayTabs = tabs
+    .filter((tab) => /^https:\/\/([a-z0-9-]+\.)*ebay\.com\//i.test(String(tab.url || '')))
+    .sort((a, b) => Number(b.active) - Number(a.active) || Number(b.lastAccessed || 0) - Number(a.lastAccessed || 0));
+  const target = ebayTabs[0];
+  if (!Number.isInteger(target?.id)) {
+    throw new Error('Open the signed-in eBay tab for this Chrome profile, then start the workflow again.');
+  }
+  setMessage(`Starting ${label} in the signed-in eBay tab...`);
+  const response = await sendChromeTabMessage(target.id, { type: 'runEbayPageAction', action });
+  if (!response?.ok || !response.accepted) {
+    throw new Error(response?.error || `${label} was not accepted by the eBay tab.`);
+  }
+  await chrome.tabs.update(target.id, { active: true });
+  setMessage(`${label} started. The page panel will stay visible until the workflow is finished or reset.`);
+}
+
+for (const button of document.querySelectorAll('[data-ebay-action]')) {
+  button.addEventListener('click', () => {
+    const label = button.textContent.trim();
+    runEbayPageAction(button.dataset.ebayAction, label).catch((error) => {
+      recordPopupLog(error.message || `Could not start ${label}.`, error.stack || '');
+      setMessage(error.message || `Could not start ${label}.`, true);
+    });
+  });
+}
+
 document.getElementById('openFeatureGuide').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('guide.html') });
 });

@@ -45,6 +45,10 @@
   scrollbar-color: rgba(100, 116, 139, 0.72) transparent;
 }
 
+.gldn-order-panel[hidden] {
+  display: none !important;
+}
+
 .gldn-order-panel::-webkit-scrollbar,
 .gldn-modal::-webkit-scrollbar,
 .gldn-panel-settings-menu::-webkit-scrollbar {

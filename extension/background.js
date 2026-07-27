@@ -449,7 +449,7 @@ async function clearIncompatibleMove99State() {
   if (!pending || String(pending.extensionVersion || '') === EXTENSION_VERSION) return false;
   const migrated = FOUNDATION.migratePortableMove99Summary(pending, EXTENSION_VERSION);
   if (migrated) {
-    await storageSet({ pendingMove99Run: migrated, lastMove99Scan: migrated });
+    await storageSet({ pendingMove99Run: migrated, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(migrated) });
     recordExtensionLog({
       source: 'move99',
       level: 'info',

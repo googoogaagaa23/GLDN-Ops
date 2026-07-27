@@ -23,6 +23,7 @@
   let ebayHeartbeatTimer = 0;
   let ebayPageObserver = null;
   let savedBulkEditCleanup = null;
+  let panelWorkflowVisible = false;
 
   const AWAITING_SHIPMENT_URL = "https://www.ebay.com/sh/ord/?filter=status:AWAITING_SHIPMENT";
   const SELLER_LEVEL_URL = "https://www.ebay.com/sh/performance";
@@ -6099,14 +6100,10 @@
       );
     }
     const submitCount = parseBulkEditorSubmitTotal();
-    const acceptedSubmitCounts = new Set(
-      [Number(expectedCount || 0), Number(workspaceTotal || 0)].filter((count) => count > 0)
-    );
-    if (expectedCount && submitCount && !acceptedSubmitCounts.has(submitCount)) {
+    if (expectedCount && submitCount !== expectedCount) {
       throw new Error(
-        `Safety stop: eBay's Submit count is ${submitCount}, but the verified batch is ${expectedCount} `
-        + `inside a ${Number(workspaceTotal || expectedCount)}-listing workspace. `
-        + "Submit was not touched."
+        `Safety stop: eBay's Submit count is ${submitCount || "unknown"}, but the verified batch is exactly ${expectedCount}. `
+        + `The ${Number(workspaceTotal || expectedCount).toLocaleString()}-listing workspace was left open and Submit was not touched.`
       );
     }
     await recordMove99Trace("Category update confirmed.", JSON.stringify(update));
@@ -6498,6 +6495,16 @@
   }
 
   async function pauseMove99AtReviewScreen(categoryUpdate, state, batchCount) {
+    if (!isMove99SingleListingEditorPage()) {
+      const nativeSelection = nativeBulkSelectionSummary();
+      const submitCount = parseBulkEditorSubmitTotal();
+      if (!nativeSelection || nativeSelection.selected !== batchCount || submitCount !== batchCount) {
+        throw new Error(
+          `Safety stop: final review expected exactly ${batchCount} selected listings, but eBay reports `
+          + `${nativeSelection?.selected ?? "an unknown number"} selected and Submit (${submitCount || "unknown"}). Submit was not touched.`
+        );
+      }
+    }
     const submitButton = await U.waitFor(findMove99SubmitButton, 15000, 180);
     if (!submitButton) throw new Error("The Store category was saved, but the eBay review Submit button was not found.");
     submitButton.scrollIntoView?.({ block: "center", inline: "center" });
@@ -6740,7 +6747,7 @@
       approvalLostReason: reason,
       error: reason
     };
-    await storageSet({ pendingMove99Run: stopped, lastMove99Scan: stopped });
+    await storageSet({ pendingMove99Run: stopped, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(stopped) });
     renderStatus(`Move .99 stopped safely. ${reason} No new tab or batch was started.`, "error");
     return false;
   }
@@ -7949,6 +7956,32 @@
     return result;
   }
 
+  function assertMove99EditRangeBatchLimits(ranges, batchLimit = MOVE99_BULK_BATCH_LIMIT) {
+    const limit = Number(batchLimit || 0);
+    if (!Number.isInteger(limit) || limit < 1 || limit > MOVE99_BULK_BATCH_LIMIT) {
+      throw new Error(`The saved category batch limit must be between 1 and ${MOVE99_BULK_BATCH_LIMIT} listings.`);
+    }
+    for (const range of ranges || []) {
+      const count = Array.isArray(range?.targetIds) ? range.targetIds.length : 0;
+      if (!count || count > limit) {
+        throw new Error(
+          `Edit listings ${Number(range?.rangeStart || 0).toLocaleString()}-${Number(range?.rangeEnd || 0).toLocaleString()} `
+          + `contains ${count.toLocaleString()} verified matches. The safe limit is ${limit.toLocaleString()}; no category changes were attempted.`
+        );
+      }
+    }
+    return ranges;
+  }
+
+  function compactMove99EditRanges(ranges) {
+    return (ranges || []).map((range) => ({
+      rangeStart: Number(range.rangeStart || 0),
+      rangeEnd: Number(range.rangeEnd || 0),
+      rangeCount: Number(range.rangeCount || 0),
+      targetCount: Array.isArray(range.targetIds) ? range.targetIds.length : 0
+    }));
+  }
+
   function assertMove99RangeIntegrity(state, range) {
     const filteredCount = Number(state.filteredCount || 0);
     const uniqueInspected = Number(state.uniqueInspected || 0);
@@ -7964,11 +7997,14 @@
       .find((candidate) => candidate.rangeStart === Number(range?.rangeStart) && candidate.rangeEnd === Number(range?.rangeEnd));
     if (!expectedRange) throw new Error("The requested eBay edit range is not part of the verified scan.");
 
-    const targetIds = (range?.targetIds || []).map(String);
-    if (!targetIds.length || targetIds.length > expectedRange.rangeCount || new Set(targetIds).size !== targetIds.length) {
+    const suppliedTargetIds = (range?.targetIds || []).map(String);
+    const targetCount = Number(range?.targetCount || suppliedTargetIds.length || 0);
+    if (!targetCount || targetCount !== expectedRange.targetIds.length
+      || Number(range?.rangeCount || 0) !== expectedRange.rangeCount
+      || (suppliedTargetIds.length && new Set(suppliedTargetIds).size !== suppliedTargetIds.length)) {
       throw new Error("The requested eBay edit range contains an invalid exact-ID batch.");
     }
-    if (targetIds.join("|") !== expectedRange.targetIds.join("|")) {
+    if (suppliedTargetIds.length && suppliedTargetIds.join("|") !== expectedRange.targetIds.join("|")) {
       throw new Error("The requested eBay edit range no longer matches the verified item-number order.");
     }
     for (const record of expectedRange.targetRecords) {
@@ -8168,16 +8204,19 @@
         return;
       }
       const applyFilteredCount = uniqueMove99InspectedCount(sourcePages);
-      let exactBatches;
+      let verifiedApplyRanges;
       try {
-        exactBatches = buildMove99ExactBatches(sourcePages);
+        verifiedApplyRanges = assertMove99EditRangeBatchLimits(
+          buildMove99EditRanges(sourcePages, applyFilteredCount)
+        );
       } catch (error) {
         overlay.remove();
-        renderStatus(`The saved scan could not be divided into exact eBay workspaces: ${error.message}`, "error");
+        renderStatus(`The saved scan could not be divided into safe eBay edit ranges: ${error.message}`, "error");
         return;
       }
+      const applyRanges = compactMove99EditRanges(verifiedApplyRanges);
       const applyCount = flattenMove99Pages(sourcePages).length;
-      if (!applyCount || !exactBatches.length) {
+      if (!applyCount || !applyRanges.length) {
         overlay.remove();
         renderStatus("The saved scan has no qualifying listings to apply.", "completed");
         return;
@@ -8187,25 +8226,40 @@
         renderStatus("The current eBay tab could not take ownership of the saved scan. Reload this tab and try Apply again.", "error");
         return;
       }
-      overlay.remove();
-      await storageSet({
-        pendingMove99Run: {
-          ...state,
+      const {
+        scanPages: discardedScanPages,
+        verificationPages: discardedVerificationPages,
+        applySourcePages: discardedApplySourcePages,
+        applyRanges: discardedApplyRanges,
+        exactBatches: discardedExactBatches,
+        ...applyBaseState
+      } = state;
+      const pendingApplyState = {
+          ...applyBaseState,
           active: true,
           confirmed: true,
           ownerTabId: tabInfo.tabId,
-          phase: "apply-exact-workspace",
-          applyStrategy: MOVE99_EXACT_APPLY_STRATEGY,
-          applySourcePages: sourcePages,
+          phase: "apply-range",
+          applyStrategy: MOVE99_APPLY_STRATEGY,
+          scanPages: sourcePages,
           applyFilteredCount,
-          exactBatches,
+          applyRanges,
           applyIndex: 0,
           currentBatchIds: [],
           currentBatchCount: 0,
           retryRound: completed ? Number(state.retryRound || 0) + 1 : Number(state.retryRound || 0),
           totals: state.totals || { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 }
-        }
-      });
+      };
+      try {
+        await storageSet({
+          pendingMove99Run: pendingApplyState,
+          lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(pendingApplyState)
+        });
+      } catch (error) {
+        renderStatus(`Move .99 could not save its compact Apply checkpoint: ${error.message}. The verified scan remains open and no listing changes were attempted.`, "error");
+        return;
+      }
+      overlay.remove();
       runMove99Automation();
     });
     return overlay;
@@ -8673,7 +8727,7 @@
       if (passiveSummary) {
         const passiveState = { ...state, active: false, ownerTabId: null };
         if (state.active || state.ownerTabId != null) {
-          await storageSet({ pendingMove99Run: passiveState, lastMove99Scan: passiveState });
+          await storageSet({ pendingMove99Run: passiveState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(passiveState) });
         }
         if (isMove99ActiveListingsPage()) {
           showMove99ScanSummary(passiveState, state.phase === "completed");
@@ -8905,7 +8959,7 @@
             currentPage: scan.page,
             duplicateRowsIgnored
           };
-          await storageSet({ pendingMove99Run: summaryState, lastMove99Scan: summaryState });
+          await storageSet({ pendingMove99Run: summaryState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(summaryState) });
           renderStatus(`Full scan complete - ${qualifyingCount} ${move99FoundLabel()} across ${scanned} verified unique listings${duplicateRowsIgnored ? `; ${duplicateRowsIgnored} duplicate rows ignored` : ""}.`, "completed");
           showMove99ScanSummary(summaryState, false);
           return;
@@ -8925,7 +8979,7 @@
           failedIds,
           verifiedAt: new Date().toISOString()
         };
-        await storageSet({ pendingMove99Run: completedState, lastMove99Scan: completedState });
+        await storageSet({ pendingMove99Run: completedState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(completedState) });
         await saveMove99Result({
           status: remainingRecords.length ? "Completed with remaining listings" : "Completed",
           filteredCount: state.filteredCount,
@@ -8953,7 +9007,15 @@
         const exactBatches = Array.isArray(state.exactBatches) ? state.exactBatches : [];
         const applyIndex = Number(state.applyIndex || 0);
         if (applyIndex >= exactBatches.length) {
-          const next = { ...state, phase: "verify-page", currentPage: 1, verificationPages: {} };
+          const next = {
+            ...state,
+            phase: "verify-page",
+            currentPage: 1,
+            scanPages: {},
+            applySourcePages: {},
+            exactBatches: [],
+            verificationPages: {}
+          };
           await storageSet({ pendingMove99Run: next });
           renderStatus("All exact-item workspaces were submitted. Starting final verification scan...", "ready");
           await navigateToMove99ScanPage(1, state.filteredUrl || MOVE99_ACTIVE_URL);
@@ -8976,7 +9038,15 @@
         const applyRanges = Array.isArray(state.applyRanges) ? state.applyRanges : [];
         const applyIndex = Number(state.applyIndex || 0);
         if (applyIndex >= applyRanges.length) {
-          const next = { ...state, phase: "verify-page", currentPage: 1, verificationPages: {} };
+          const next = {
+            ...state,
+            phase: "verify-page",
+            currentPage: 1,
+            scanPages: {},
+            applyRanges: [],
+            currentEditRange: null,
+            verificationPages: {}
+          };
           await storageSet({ pendingMove99Run: next });
           renderStatus("All exact eBay edit ranges were submitted. Starting final verification scan...", "ready");
           await navigateToMove99ScanPage(1, state.filteredUrl || MOVE99_ACTIVE_URL);
@@ -9227,10 +9297,10 @@
       const failedState = { ...(current.pendingMove99Run || {}), active: false, error: error.message };
       if (canRecoverMove99FirstBatchFromVerifiedScan(failedState)) {
         const recoveredState = recoverMove99VerifiedScanSummary(failedState, error.message);
-        await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: recoveredState });
+        await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(recoveredState) });
       } else if (canRecoverMove99ThroughVerification(failedState)) {
         const pausedState = pauseMove99ForReconciliation(failedState, error.message);
-        await storageSet({ pendingMove99Run: pausedState, lastMove99Scan: pausedState });
+        await storageSet({ pendingMove99Run: pausedState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(pausedState) });
         renderStatus("Move .99 stopped. Run Move .99 again to start a read-only reconciliation scan; no new tab or batch was opened.", "error");
         return;
       } else {
@@ -9267,7 +9337,7 @@
         ...recoverMove99ThroughVerification(interruptedState, interruptedState.reconciliationReason),
         ownerTabId: tabInfo.tabId
       };
-      await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: recoveredState });
+      await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(recoveredState) });
       await U.releaseWorkflowStart(reservationToken);
       reservationToken = "";
       renderStatus("Starting the saved read-only reconciliation scan. No listing changes will be attempted.", "ready");
@@ -9276,7 +9346,7 @@
     }
     if (scanMode === "price99" && canRecoverMove99FirstBatchFromVerifiedScan(interruptedState)) {
       const recoveredState = recoverMove99VerifiedScanSummary(interruptedState);
-      await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: recoveredState });
+      await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(recoveredState) });
       await U.releaseWorkflowStart(reservationToken);
       reservationToken = "";
       renderStatus("Recovered the verified Move .99 scan. Review it and click Apply to continue.", "ready");
@@ -9374,7 +9444,7 @@
     if (pendingMove99 && String(pendingMove99.extensionVersion || "") !== EXTENSION_VERSION) {
       const migrated = FOUNDATION.migratePortableMove99Summary(pendingMove99, EXTENSION_VERSION);
       if (migrated) {
-        await storageSet({ pendingMove99Run: migrated, lastMove99Scan: migrated });
+        await storageSet({ pendingMove99Run: migrated, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(migrated) });
         pendingMove99 = migrated;
         renderStatus(`Preserved the verified ${Number(migrated.qualifyingCount || 0).toLocaleString()}-listing category scan for review.`, "completed");
       } else {
@@ -9385,7 +9455,7 @@
     }
     if (!pendingMove99?.active && pendingMove99?.error && canRecoverMove99FirstBatchFromVerifiedScan(pendingMove99)) {
       pendingMove99 = recoverMove99VerifiedScanSummary(pendingMove99);
-      await storageSet({ pendingMove99Run: pendingMove99, lastMove99Scan: pendingMove99 });
+      await storageSet({ pendingMove99Run: pendingMove99, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(pendingMove99) });
       renderStatus("Recovered the verified Move .99 scan after the interrupted first Bulk Edit batch.", "ready");
     }
     if (pendingMove99?.phase === "awaiting-submit-approval") {
@@ -9408,8 +9478,41 @@
 
   function renderStatus(message, type = "") {
     if (!statusElement) return;
+    setEbayPanelWorkflowVisible(true);
     statusElement.textContent = message;
     statusElement.dataset.type = type;
+  }
+
+  const EBAY_PANEL_WORKFLOW_KEYS = Object.freeze([
+    "gldnWorkflowReservation",
+    "gldnOpenReviews",
+    "pendingMarkShippedRun",
+    "pendingSellerLevelScan",
+    "pendingReviewMonthlyLimits",
+    "pendingMove99Run",
+    "pendingEbaySnapshotScan",
+    "pendingSnipingExtract",
+    "pendingSnipingWinner"
+  ]);
+
+  function setEbayPanelWorkflowVisible(visible) {
+    panelWorkflowVisible = Boolean(visible);
+    if (!panel) return;
+    panel.hidden = !panelWorkflowVisible;
+    panel.dataset.workflowVisible = panelWorkflowVisible ? "true" : "false";
+  }
+
+  function ebayPanelWorkflowStateVisible(stored = {}) {
+    const visibleKeys = new Set(EBAY_PANEL_WORKFLOW_KEYS);
+    return FOUNDATION.activeWorkflowEntries(stored).some((entry) => (
+      visibleKeys.has(String(entry.key || "").split(":")[0])
+    ));
+  }
+
+  async function refreshEbayPanelWorkflowVisibility() {
+    const stored = await storageGet(EBAY_PANEL_WORKFLOW_KEYS);
+    setEbayPanelWorkflowVisible(ebayPanelWorkflowStateVisible(stored));
+    return panelWorkflowVisible;
   }
 
   function escapeHtml(value) {
@@ -9435,6 +9538,8 @@
     panel = document.createElement("div");
     panel.id = "gldn-ebay-order-panel";
     panel.className = "gldn-order-panel";
+    panel.hidden = true;
+    panel.dataset.workflowVisible = "false";
     panel.innerHTML = `
       <div class="gldn-panel-heading">
         <img class="gldn-logo-image" src="${chrome.runtime.getURL("icons/icon48.png")}" alt="GLDN Ops">
@@ -9533,6 +9638,9 @@
     refreshMove99ReviewButton().catch((error) => {
       if (!invalidContextError(error)) U.recordExtensionLog({ source: "ebay", operation: "refresh-move99-review", level: "error", message: error.message });
     });
+    refreshEbayPanelWorkflowVisibility().catch((error) => {
+      if (!invalidContextError(error)) U.recordExtensionLog({ source: "ebay", operation: "refresh-panel-visibility", level: "error", message: error.message });
+    });
   }
 
 
@@ -9543,9 +9651,42 @@
         if (!invalidContextError(error)) U.recordExtensionLog({ source: "ebay", operation: "refresh-move99-review", level: "error", message: error.message });
       });
     }
+    if (EBAY_PANEL_WORKFLOW_KEYS.some((key) => changes[key])) {
+      refreshEbayPanelWorkflowVisibility().catch((error) => {
+        if (!invalidContextError(error)) U.recordExtensionLog({ source: "ebay", operation: "refresh-panel-visibility", level: "error", message: error.message });
+      });
+    }
     if (changes.gldnStopRequested?.newValue) {
       renderStatus("Stop requested — waiting for the next safe checkpoint…", "error");
     }
+  });
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message?.type !== "runEbayPageAction") return false;
+    if (sender?.id && sender.id !== chrome.runtime.id) {
+      sendResponse({ ok: false, error: "Message sender is not GLDN Ops." });
+      return false;
+    }
+    const actions = {
+      "mark-shipped": startMarkShipped,
+      "seller-level": startSellerLevelScan,
+      "sales-snapshot": startEbaySnapshotScan,
+      "listing-limits": startListingLimitCheck,
+      "prepare-order-note": prepareNote
+    };
+    const action = actions[String(message.action || "")];
+    if (!action) {
+      sendResponse({ ok: false, error: "Unknown eBay workflow action." });
+      return false;
+    }
+    setEbayPanelWorkflowVisible(true);
+    sendResponse({ ok: true, accepted: true });
+    setTimeout(() => {
+      Promise.resolve(action()).catch((error) => {
+        renderStatus(error?.message || String(error), "error");
+      });
+    }, 0);
+    return false;
   });
 
   createPanel();
