@@ -1,0 +1,24 @@
+﻿{
+    "capturedAt":  "2026-07-27T20:29:22.3661771Z",
+    "extensionVersion":  "3.11.13",
+    "runId":  "posh-backfill-1785183752434",
+    "phase":  "review",
+    "scope":  "single",
+    "salesIndexed":  1,
+    "detailsCaptured":  1,
+    "exactProfits":  1,
+    "needsReview":  0,
+    "amazonNotFound":  0,
+    "orderNumber":  "6a49c5d84fab7b10343cc819",
+    "orderDate":  "Jul-04-2026",
+    "poshmarkEarnings":  29.17,
+    "amazonCost":  19.96,
+    "profit":  9.21,
+    "supplierOrderNumber":  "114-5900136-8324212",
+    "asin":  "B07T88F8B2",
+    "purchaseDate":  "July 4, 2026",
+    "syncedOrderNumbers":  [
+
+                           ],
+    "spreadsheetChangesMade":  false
+}
