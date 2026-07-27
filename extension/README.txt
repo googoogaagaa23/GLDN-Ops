@@ -1,4 +1,10 @@
-GLDN Ops v3.11.8
+GLDN Ops v3.11.9
+
+v3.11.9 saved review visibility and Apply recovery:
+- The count-specific saved-scan Review window is forced into the visible screen above eBay.
+- A second count-specific Apply Saved Changes control can continue the exact verified IDs even if the review window is obstructed.
+- Neither control rescans the account. Apply prepares eBay Bulk Edit, and final Submit still requires separate approval.
+- Computer 2's saved 551-match / 15,807-inspected checkpoint remains intact across the update.
 
 v3.11.8 saved scan update migration:
 - A verified read-only Move .99 or reverse non-.99 scan now survives an extension update.

@@ -2,6 +2,15 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.11.9 - 2026-07-27
+
+- Fixed the saved Move .99 / reverse non-.99 Review control reporting success while its review window remained invisible.
+- The saved review is now forced above the host page, clamped into the current viewport, and rechecked after persisted modal settings restore.
+- Added a count-specific `Apply N Saved Changes` panel fallback that reuses the same verified exact IDs without rescanning.
+- The fallback prepares exact eBay Bulk Edit workspaces only; every final eBay Submit remains untouched and separately approval-gated.
+- Computer 2's 551-match / 15,807-inspected checkpoint remains preserved through the update.
+- All 257 JavaScript contracts pass.
+
 ## v3.11.8 - 2026-07-26
 
 - Preserves a verified, read-only Move .99 or reverse non-.99 scan summary when the extension updates from an older version.

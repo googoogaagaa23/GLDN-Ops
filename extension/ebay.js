@@ -14,6 +14,7 @@
   let panelIdentityElement;
   let limitsButtonElement;
   let move99ReviewButtonElement;
+  let move99ApplyButtonElement;
   let markShippedRunning = false;
   let markShippedMonitorRunning = false;
   let snipingWinnerButtonElement;
@@ -8042,8 +8043,74 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  function forceMove99SummaryIntoViewport(overlay) {
+    const modal = overlay?.querySelector?.(".gldn-modal");
+    if (!overlay || !modal) return false;
+    if (!overlay.isConnected) document.documentElement.appendChild(overlay);
+
+    overlay.removeAttribute("hidden");
+    overlay.style.setProperty("position", "fixed", "important");
+    overlay.style.setProperty("inset", "0", "important");
+    overlay.style.setProperty("display", "flex", "important");
+    overlay.style.setProperty("align-items", "center", "important");
+    overlay.style.setProperty("justify-content", "center", "important");
+    overlay.style.setProperty("visibility", "visible", "important");
+    overlay.style.setProperty("opacity", "1", "important");
+    overlay.style.setProperty("pointer-events", "auto", "important");
+    overlay.style.setProperty("z-index", "2147483647", "important");
+    modal.removeAttribute("hidden");
+    modal.style.setProperty("display", "block", "important");
+    modal.style.setProperty("visibility", "visible", "important");
+    modal.style.setProperty("opacity", "1", "important");
+    modal.style.setProperty("z-index", "2147483647", "important");
+
+    const viewportWidth = Math.max(Number(window.innerWidth) || 0, Number(document.documentElement?.clientWidth) || 0, 320);
+    const viewportHeight = Math.max(Number(window.innerHeight) || 0, Number(document.documentElement?.clientHeight) || 0, 220);
+    const rect = modal.getBoundingClientRect();
+    const intersectsViewport = rect.width > 80
+      && rect.height > 80
+      && rect.right > 8
+      && rect.bottom > 8
+      && rect.left < viewportWidth - 8
+      && rect.top < viewportHeight - 8;
+    if (!intersectsViewport) {
+      const width = Math.min(760, Math.max(320, viewportWidth - 24));
+      const left = Math.max(8, Math.round((viewportWidth - width) / 2));
+      modal.style.setProperty("position", "fixed");
+      modal.style.setProperty("left", `${left}px`);
+      modal.style.setProperty("top", "8px");
+      modal.style.setProperty("right", "auto");
+      modal.style.setProperty("bottom", "auto");
+      modal.style.setProperty("margin", "0");
+      modal.style.setProperty("width", `${width}px`);
+      modal.style.setProperty("max-height", `${Math.max(220, viewportHeight - 16)}px`);
+    }
+    modal.scrollTop = 0;
+    const visibleRect = modal.getBoundingClientRect();
+    return overlay.isConnected
+      && modal.getClientRects().length > 0
+      && visibleRect.width > 80
+      && visibleRect.height > 80
+      && visibleRect.right > 8
+      && visibleRect.bottom > 8
+      && visibleRect.left < viewportWidth - 8
+      && visibleRect.top < viewportHeight - 8;
+  }
+
+  async function revealMove99ScanSummary(overlay) {
+    const modal = overlay?.querySelector?.(".gldn-modal");
+    if (!overlay || !modal) return false;
+    U.enhanceModal?.(modal);
+    forceMove99SummaryIntoViewport(overlay);
+    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    forceMove99SummaryIntoViewport(overlay);
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    return forceMove99SummaryIntoViewport(overlay);
+  }
+
   function showMove99ScanSummary(state, completed = false) {
-    if (document.getElementById("gldn-move99-preview")) return;
+    const existing = document.getElementById("gldn-move99-preview");
+    if (existing) return existing;
     const records = flattenMove99Pages(completed ? state.verificationPages : state.scanPages);
     const scanned = Object.values(completed ? state.verificationPages || {} : state.scanPages || {}).reduce((sum, page) => sum + Number(page?.inspected || 0), 0);
     const remaining = completed ? records.length : null;
@@ -8141,6 +8208,7 @@
       });
       runMove99Automation();
     });
+    return overlay;
   }
 
   function move99SavedSummaryDescriptor(state) {
@@ -8162,17 +8230,22 @@
   }
 
   async function refreshMove99ReviewButton() {
-    if (!move99ReviewButtonElement) return;
+    if (!move99ReviewButtonElement || !move99ApplyButtonElement) return;
     const stored = await storageGet(["pendingMove99Run"]);
     const descriptor = move99SavedSummaryDescriptor(stored.pendingMove99Run);
     move99ReviewButtonElement.hidden = !descriptor;
+    move99ApplyButtonElement.hidden = !descriptor;
     if (!descriptor) {
       move99ReviewButtonElement.textContent = "Review Saved Category Scan";
       move99ReviewButtonElement.removeAttribute("title");
+      move99ApplyButtonElement.textContent = "Apply Saved Category Scan";
+      move99ApplyButtonElement.removeAttribute("title");
       return;
     }
     move99ReviewButtonElement.textContent = descriptor.buttonLabel;
     move99ReviewButtonElement.title = "Open the saved verified scan without scanning the listings again.";
+    move99ApplyButtonElement.textContent = `Apply ${descriptor.count.toLocaleString()} Saved Changes`;
+    move99ApplyButtonElement.title = "Prepare the exact saved matches in eBay Bulk Edit. Final Submit still requires separate approval.";
   }
 
   async function openSavedMove99Summary() {
@@ -8182,7 +8255,7 @@
     if (!descriptor) {
       await refreshMove99ReviewButton();
       renderStatus("There is no verified category scan waiting for review.", "error");
-      return;
+      return null;
     }
     await applyMove99AccountConfig(state.ebayAccountLabel || stored.ebayAccountLabel || "");
     MOVE99_SCAN_MODE = descriptor.scanMode;
@@ -8193,11 +8266,28 @@
     if (!isMove99ActiveListingsPage()) {
       renderStatus(`Opening the saved ${descriptor.count.toLocaleString()}-listing scan for review...`, "ready");
       location.assign(move99ScanPageUrl(1, state.filteredUrl || MOVE99_ACTIVE_URL));
-      return;
+      return null;
     }
     document.getElementById("gldn-move99-preview")?.remove();
-    showMove99ScanSummary({ ...state, active: false, ownerTabId: null }, descriptor.completed);
-    renderStatus(`Reviewing the saved ${descriptor.count.toLocaleString()} ${descriptor.scanMode === "non99" ? "non-.99" : ".99"} matches.`, "completed");
+    const overlay = showMove99ScanSummary({ ...state, active: false, ownerTabId: null }, descriptor.completed);
+    const visible = await revealMove99ScanSummary(overlay);
+    renderStatus(
+      visible
+        ? `Reviewing the saved ${descriptor.count.toLocaleString()} ${descriptor.scanMode === "non99" ? "non-.99" : ".99"} matches.`
+        : `The saved ${descriptor.count.toLocaleString()} matches are intact. Use Apply Saved Changes to continue.`,
+      visible ? "completed" : "error"
+    );
+    return overlay;
+  }
+
+  async function applySavedMove99Summary() {
+    const overlay = await openSavedMove99Summary();
+    const applyButton = overlay?.querySelector?.("[data-action='apply']");
+    if (!applyButton) {
+      renderStatus("The saved scan could not be opened on this page. Open Active Listings and try Apply Saved Changes again.", "error");
+      return;
+    }
+    applyButton.click();
   }
 
   function canRecoverMove99FirstBatchFromVerifiedScan(state) {
@@ -9358,6 +9448,7 @@
       <button type="button" data-action="limits" class="gldn-danger">Confirm Listings Under Limit</button>
       <button type="button" data-action="prepare" class="gldn-primary">Prepare Order Note</button>
       <button type="button" data-action="review-move99-scan" class="gldn-warning" hidden>Review Saved Category Scan</button>
+      <button type="button" data-action="apply-move99-scan" class="gldn-primary" hidden>Apply Saved Category Scan</button>
       <div class="gldn-task-controls">
         <button type="button" data-action="open-dashboard" class="gldn-dashboard">Dashboard</button>
         <button type="button" data-action="dashboard-setup" class="gldn-secondary">Setup</button>
@@ -9423,7 +9514,13 @@
     limitsButtonElement = panel.querySelector("[data-action='limits']");
     limitsButtonElement.addEventListener("click", startListingLimitCheck);
     move99ReviewButtonElement = panel.querySelector("[data-action='review-move99-scan']");
-    move99ReviewButtonElement.addEventListener("click", openSavedMove99Summary);
+    move99ApplyButtonElement = panel.querySelector("[data-action='apply-move99-scan']");
+    move99ReviewButtonElement.addEventListener("click", () => {
+      openSavedMove99Summary().catch((error) => renderStatus(`Saved review could not open: ${error.message}`, "error"));
+    });
+    move99ApplyButtonElement.addEventListener("click", () => {
+      applySavedMove99Summary().catch((error) => renderStatus(`Saved changes could not start: ${error.message}`, "error"));
+    });
     panel.querySelector("[data-action='open-dashboard']").addEventListener("click", openDashboard);
     panel.querySelector("[data-action='dashboard-setup']").addEventListener("click", setupDashboardFromPanel);
     panel.querySelector("[data-action='feature-health']").addEventListener("click", runFeatureHealthFromPanel);

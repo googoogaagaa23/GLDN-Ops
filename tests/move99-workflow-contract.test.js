@@ -593,7 +593,10 @@ test("a verified completed scan remains actionable from the everyday panel witho
   const panelStart = ebay.indexOf("function createPanel");
   const panel = ebay.slice(panelStart, ebay.indexOf("chrome.storage.onChanged.addListener", panelStart));
   assert.match(panel, /data-action="review-move99-scan"[^>]*hidden/);
-  assert.match(panel, /move99ReviewButtonElement\.addEventListener\("click", openSavedMove99Summary\)/);
+  assert.match(panel, /data-action="apply-move99-scan"[^>]*hidden/);
+  assert.match(panel, /move99ReviewButtonElement\.addEventListener\("click", \(\) =>/);
+  assert.match(panel, /move99ApplyButtonElement\.addEventListener\("click", \(\) =>/);
+  assert.match(panel, /applySavedMove99Summary\(\)/);
   assert.match(panel, /refreshMove99ReviewButton\(\)/);
 
   const opener = ebay.slice(
@@ -602,6 +605,9 @@ test("a verified completed scan remains actionable from the everyday panel witho
   );
   assert.match(opener, /move99SavedSummaryDescriptor\(state\)/);
   assert.match(opener, /showMove99ScanSummary\(\{ \.\.\.state, active: false, ownerTabId: null \}, descriptor\.completed\)/);
+  assert.match(opener, /await revealMove99ScanSummary\(overlay\)/);
+  assert.match(opener, /overlay\?\.querySelector\?\.\("\[data-action='apply'\]"\)/);
+  assert.match(opener, /applyButton\.click\(\)/);
   assert.doesNotMatch(opener, /startMove99Listings|phase:\s*"active-prepare"|phase:\s*"scan-page"/);
 
   const storageListener = ebay.slice(
@@ -610,6 +616,34 @@ test("a verified completed scan remains actionable from the everyday panel witho
   );
   assert.match(storageListener, /changes\.pendingMove99Run/);
   assert.match(storageListener, /refreshMove99ReviewButton\(\)/);
+});
+
+test("saved Move .99 review is forced into the viewport with a direct no-rescan Apply fallback", () => {
+  const viewportRecovery = ebay.slice(
+    ebay.indexOf("function forceMove99SummaryIntoViewport"),
+    ebay.indexOf("function showMove99ScanSummary")
+  );
+  assert.match(viewportRecovery, /overlay\.style\.setProperty\("display", "flex", "important"\)/);
+  assert.match(viewportRecovery, /overlay\.style\.setProperty\("z-index", "2147483647", "important"\)/);
+  assert.match(viewportRecovery, /modal\.style\.setProperty\("visibility", "visible", "important"\)/);
+  assert.match(viewportRecovery, /intersectsViewport/);
+  assert.match(viewportRecovery, /requestAnimationFrame/);
+  assert.match(viewportRecovery, /setTimeout\(resolve, 120\)/);
+
+  const summary = ebay.slice(
+    ebay.indexOf("function showMove99ScanSummary"),
+    ebay.indexOf("function move99SavedSummaryDescriptor")
+  );
+  assert.match(summary, /if \(existing\) return existing/);
+  assert.match(summary, /return overlay/);
+
+  const recovery = ebay.slice(
+    ebay.indexOf("async function applySavedMove99Summary"),
+    ebay.indexOf("function canRecoverMove99FirstBatchFromVerifiedScan")
+  );
+  assert.match(recovery, /await openSavedMove99Summary\(\)/);
+  assert.match(recovery, /applyButton\.click\(\)/);
+  assert.doesNotMatch(recovery, /startMove99Listings|scan-page|active-prepare/);
 });
 
 test("Apply partitions only verified qualifying IDs into publishable eBay workspaces of at most 500", () => {

@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.8. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.9. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -527,11 +527,12 @@ Profile 2 moved 2,564 successful exact .99 listings in earlier approved batches 
 1. Open Workflows and click Move Non-.99 Out of Sale.
 2. Review the complete sale-category scan summary.
 3. If the summary is closed, click the count-specific Review Non-.99 Matches control in the eBay panel to reopen the saved verified scan without rescanning.
-4. Confirm every selected listing has a valid non-.99 price.
-5. Confirm backburner items are excluded.
-6. Verify only Primary Store category changes to the configured non-sale destination.
-7. Approve each final Submit separately.
-8. Run a final clean rescan.
+4. If the review window is obstructed, use the count-specific Apply Saved Changes control to continue the same exact saved IDs without another scan.
+5. Confirm every selected listing has a valid non-.99 price.
+6. Confirm backburner items are excluded.
+7. Verify only Primary Store category changes to the configured non-sale destination.
+8. Approve each final Submit separately.
+9. Run a final clean rescan.
 
 ### Approval Stop
 
@@ -544,13 +545,14 @@ Submitted batch results and a final zero-mismatch rescan.
 ### Failure Recovery
 
 - Missing or ambiguous prices are excluded.
-- A completed verified scan remains available through its count-specific Review control after the summary is closed or the page is reloaded.
+- A completed verified scan remains available through its count-specific Review and Apply Saved Changes controls after the summary is closed or the page is reloaded.
+- The saved review is forced into the current viewport even when an older modal position or host-page style would obstruct it.
 - Any uncertain submission returns to read-only reconciliation.
 - Do not use the reverse workflow on Poshmark.
 
 ### Evidence
 
-The older FAK12 proof corrected 62 listings, but later cross-computer reports exposed category-setting and completed-scan handoff failures. v3.11.8 preserves the verified passive v3.11.6 checkpoint across the update, exposes it as a count-specific panel action, and reopens it without rescanning; active or partially applied checkpoints still fail closed. The 136-match / 15,807-inspected migration regression passes focused and full automated contracts. Computer 2 / FANCYFI still needs a current-version live review and final-review proof before any Submit.
+The older FAK12 proof corrected 62 listings, but later cross-computer reports exposed category-setting and completed-scan handoff failures. v3.11.8 successfully preserved computer 2's verified 15,807-inspected checkpoint and exposed its later 551 exact non-.99 matches, but the Review click could report success without a visible window. v3.11.9 forces that review into the viewport and adds a direct Apply Saved Changes fallback using the same exact IDs without rescanning. Active or partially applied checkpoints still fail closed. Current-version FANCYFI Bulk Edit and final-review proof remain required before any Submit.
 
 
 <a id="move99-recovery"></a>
