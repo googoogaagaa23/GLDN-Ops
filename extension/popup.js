@@ -24,11 +24,6 @@ const updaterStatusElement = document.getElementById('updaterStatus');
 const updateExtensionButton = document.getElementById('updateExtension');
 const rollbackVersionInput = document.getElementById('rollbackVersion');
 const rollbackExtensionButton = document.getElementById('rollbackExtension');
-const localHelperCard = document.getElementById('localHelperCard');
-const localHelperBadge = document.getElementById('localHelperBadge');
-const localHelperText = document.getElementById('localHelperText');
-const lastEcomSniperStepElement = document.getElementById('lastEcomSniperStep');
-const lastEcomSniperRunElement = document.getElementById('lastEcomSniperRun');
 const productHunterClipboardReportElement = document.getElementById('productHunterClipboardReport');
 const ecomSniperMonitorCard = document.getElementById('ecomSniperMonitorCard');
 const ecomSniperMonitorBadge = document.getElementById('ecomSniperMonitorBadge');
@@ -118,13 +113,8 @@ const DIAGNOSTIC_STORAGE_KEYS = Object.freeze([
   'poshmarkProfitBackfill',
   'poshmarkProfitKnownOrders',
   'lastPreparedNote',
-  'pendingEcomSniperBulkExtract',
-  'pendingManualEcomSniperClick',
-  'lastEcomSniperExtractResult',
-  'lastEcomSniperWorkflowResult',
   'lastProductHunterClipboardPrep',
   'ecomSniperHandoffStatus',
-  'bulkLinksAmazonQueue',
   'gldnDashboardQueue',
   'lastSettingsMigration',
   'gldnSettingsBackups',
@@ -163,6 +153,17 @@ function storageSet(values) {
       resolve();
     });
   });
+}
+
+async function claimWorkflowStart(workflowId, label) {
+  const response = await chrome.runtime.sendMessage({ type: 'claimWorkflowStart', workflowId, label });
+  if (!response?.ok) throw new Error(response?.error || `Could not start ${label}.`);
+  return response.token;
+}
+
+async function releaseWorkflowStart(token) {
+  if (!token) return;
+  await chrome.runtime.sendMessage({ type: 'releaseWorkflowStart', token });
 }
 
 function normalizeComputer(value) {
@@ -407,7 +408,7 @@ function renderFeatureHealth(result) {
   lines.push(`Deployment: ${result?.foundation?.deploymentMode || 'unknown'}`);
   lines.push(`Settings schema: ${result?.foundation?.settingsSchemaVersion || 0}/${result?.foundation?.expectedSettingsSchemaVersion || '?'}`);
   lines.push(`Queued dashboard records: ${result?.foundation?.dashboardQueuedRecords || 0}`);
-  lines.push(`Click mode: ${result?.localHelper?.ok ? 'Automatic semantic Extract Sellers click' : 'FAIL - automatic click mode unavailable'}`);
+  lines.push('EcomSniper control: read-only handoff status');
   if (result?.ecomSniper?.ok) {
     lines.push(`EcomSniper route: ${result.ecomSniper.id || 'unknown id'} (${result.ecomSniper.storeSafe ? 'Chrome extension safe' : 'detected'})`);
   } else {
@@ -536,10 +537,8 @@ async function buildDiagnosticReport() {
     ecomSniper: {
       configuredId: String(globalThis.GLDN_CONFIG?.ecomSniperExtensionId || ''),
       health: health?.ecomSniper || null,
-      pendingBulk: storageValues.pendingEcomSniperBulkExtract || null,
-      pendingManualClick: storageValues.pendingManualEcomSniperClick || null
+      mode: 'read-only-handoff'
     },
-    clickMode: 'semantic-dom-extract-sellers',
     settings: redactedSettings(pickKeys(storageValues, SETTINGS_BACKUP_KEYS)),
     latestRecords: {
       sellerLevel: storageValues.latestAccountHealth || null,
@@ -554,21 +553,6 @@ async function buildDiagnosticReport() {
     },
     errorLog: Array.isArray(storageValues.gldnErrorLog) ? storageValues.gldnErrorLog.slice(0, 20) : []
   };
-}
-
-async function checkLocalHelper(showMessage = false) {
-  try {
-    const response = await chrome.runtime.sendMessage({ type: 'localHelperHealth' });
-    localHelperCard.classList.add('ready');
-    localHelperBadge.textContent = response?.ok ? 'Automatic' : 'Check';
-    localHelperText.textContent = response?.message || 'Built-in automation waits for EcomSniper to confirm Extract Sellers.';
-    if (showMessage) setMessage(response?.message || 'Automatic EcomSniper click mode is ready.');
-  } catch (error) {
-    localHelperCard.classList.remove('ready');
-    localHelperBadge.textContent = 'Check';
-    localHelperText.textContent = 'Automatic EcomSniper click mode could not be verified.';
-    if (showMessage) setMessage(error.message || 'Automatic click mode could not be verified.', true);
-  }
 }
 
 window.addEventListener('error', (event) => {
@@ -655,7 +639,7 @@ function renderShipping(record) {
     ['Batches', String(record.batchCount ?? 0)]
   ];
   if (record.error) values.push(['Error', record.error]);
-  rows.innerHTML = values.map(([label, value]) => `<div class="row"><span>${label}</span><span class="value">${value}</span></div>`).join('');
+  rows.innerHTML = values.map(([label, value]) => `<div class="row"><span>${escapeHtml(label)}</span><span class="value">${escapeHtml(value)}</span></div>`).join('');
   const date = new Date(record.completedAt || record.startedAt);
   time.textContent = Number.isNaN(date.getTime()) ? '' : `Completed ${date.toLocaleString()}`;
 }
@@ -688,7 +672,7 @@ function renderListing(record) {
   ];
   rows.innerHTML = values.map(([label, value]) => {
     const critical = /CHECK|CHANGED|NOT DETECTED|PRUNE/i.test(String(value));
-    return `<div class="row"><span>${label}</span><span class="value ${critical ? 'critical' : ''}">${value}</span></div>`;
+    return `<div class="row"><span>${escapeHtml(label)}</span><span class="value ${critical ? 'critical' : ''}">${escapeHtml(value)}</span></div>`;
   }).join('');
   const date = new Date(record.confirmedAt || record.capturedAt);
   time.textContent = Number.isNaN(date.getTime()) ? '' : `Confirmed ${date.toLocaleString()}`;
@@ -717,24 +701,11 @@ function renderHealth(record) {
   ];
 
   rows.innerHTML = values.map(([label, value, state]) => `
-    <div class="row"><span>${label}</span><span class="value ${statusClass(state)}">${value}</span></div>
+    <div class="row"><span>${escapeHtml(label)}</span><span class="value ${statusClass(state)}">${escapeHtml(value)}</span></div>
   `).join('');
 
   const date = new Date(record.savedAt || record.capturedAt);
   time.textContent = Number.isNaN(date.getTime()) ? '' : `Saved ${date.toLocaleString()}`;
-}
-
-function renderEcomSniperVerifiedCounts(step, run) {
-  if (lastEcomSniperStepElement) {
-    lastEcomSniperStepElement.textContent = step?.ok
-      ? `Latest step: ${Number(step.beforeTotal).toLocaleString()} -> ${Number(step.afterTotal).toLocaleString()} (+${Number(step.newSellers).toLocaleString()} new)`
-      : 'Latest step: Not recorded';
-  }
-  if (lastEcomSniperRunElement) {
-    lastEcomSniperRunElement.textContent = run?.ok
-      ? `Complete run: ${Number(run.startTotal).toLocaleString()} -> ${Number(run.finalTotal).toLocaleString()} (+${Number(run.newSellers).toLocaleString()} new across ${Number(run.verifiedSteps).toLocaleString()} steps)`
-      : 'Complete run: Not recorded';
-  }
 }
 
 function renderProductHunterClipboardReport(report) {
@@ -758,41 +729,18 @@ function relativeStatusTime(value) {
 
 function renderEcomSniperMonitor(result = {}) {
   if (!ecomSniperMonitorCard || !ecomSniperMonitorBadge || !ecomSniperMonitorText) return;
-  const pending = result.pendingEcomSniperBulkExtract || null;
-  const queue = result.bulkLinksAmazonQueue || null;
   const handoff = result.ecomSniperHandoffStatus || null;
-  const lastRun = result.lastEcomSniperWorkflowResult || null;
   let badge = 'Idle';
   let text = 'No GLDN-observable EcomSniper handoff is active.';
   let ready = false;
 
-  if (pending?.active) {
-    const index = Number(queue?.index || 0) + 1;
-    const total = Array.isArray(queue?.titles) ? queue.titles.length : 0;
-    const page = Number(pending.pagesDone || 0) + 1;
-    const maxPages = Number(pending.maxPages || 0);
-    const productProgress = total ? ` Product ${index}/${total}.` : '';
-    const pageProgress = maxPages ? ` Search page ${page}/${maxPages}.` : '';
-    badge = pending.phase === 'auto-click-failed' ? 'Stopped' : 'Extracting';
-    text = `${pending.query || 'Current eBay search'}.${productProgress}${pageProgress} Phase: ${pending.phase || 'waiting'}.`;
-    ready = pending.phase !== 'auto-click-failed';
-  } else if (handoff?.state === 'stop-requested') {
-    badge = 'Stop requested';
-    text = `GLDN Assist will stop at its next safe checkpoint. This does not stop controls running inside EcomSniper. ${relativeStatusTime(handoff.updatedAt)}`.trim();
-  } else if (handoff?.state === 'open') {
+  if (handoff?.state === 'open') {
     badge = 'Handoff open';
     text = `${handoff.pageLabel || 'EcomSniper'} tab opened ${relativeStatusTime(handoff.openedAt)}. Internal EcomSniper progress is unknown.`;
     ready = true;
   } else if (handoff?.state === 'closed') {
     badge = 'Handoff closed';
     text = `${handoff.pageLabel || 'EcomSniper'} tab closed ${relativeStatusTime(handoff.closedAt)}. Closing the tab does not prove completion.`;
-  } else if (queue?.stoppedAt) {
-    badge = 'Stopped';
-    text = `GLDN seller-extraction assist stopped ${relativeStatusTime(queue.stoppedAt)}. EcomSniper private-page status is unknown.`;
-  } else if (lastRun?.ok) {
-    badge = 'Extraction done';
-    text = `Last verified extraction: ${Number(lastRun.startTotal).toLocaleString()} -> ${Number(lastRun.finalTotal).toLocaleString()} (+${Number(lastRun.newSellers).toLocaleString()}). Bulk Poster status is unknown.`;
-    ready = true;
   }
 
   ecomSniperMonitorBadge.textContent = badge;
@@ -807,14 +755,25 @@ function renderUpdaterStatus(result) {
     updaterStatusElement.textContent = result?.error || 'Automatic updater is not installed or running.';
     return;
   }
-  updaterStatusElement.classList.add('ready');
-  const current = result.currentVersion || EXTENSION_VERSION;
+  const runtime = result.runtimeVersion || EXTENSION_VERSION;
+  const current = result.currentVersion || result.diskVersion || runtime;
   const latest = result.latestVersion || '';
+  if (result.workflowBusy) {
+    updaterStatusElement.textContent = `Update waiting: ${result.workflows?.map((item) => item.label).join(', ') || 'a workflow'} is active. Finish it or use Stop/Reset.`;
+    return;
+  }
+  if (result.autoReloadAttempt && current !== runtime) {
+    updaterStatusElement.classList.add('error');
+    updaterStatusElement.textContent = `Files are v${current}, but Chrome is still running v${runtime}. Update & Reload will retry; if it remains unchanged, this Chrome profile is loaded from a different folder.`;
+    return;
+  }
+  updaterStatusElement.classList.add('ready');
+  const targetNote = result.targetSource === 'chrome-profile' ? ' This Chrome profile is linked to its loaded folder.' : '';
   updaterStatusElement.textContent = result.updateAvailable
-    ? `Update ready: v${current} -> v${latest}. Settings and .99 categories will be preserved.`
+    ? `Update ready: v${current} -> v${latest}. Settings and .99 categories will be preserved.${targetNote}`
     : latest
-      ? `Automatic updater ready. v${current} is the latest stable release.`
-      : `Automatic updater ready. Installed files: v${current}.`;
+      ? `Automatic updater ready. v${current} is the latest stable release.${targetNote}`
+      : `Automatic updater ready. Installed files: v${current}.${targetNote}`;
 }
 
 async function refreshUpdaterStatus({ refresh = false } = {}) {
@@ -853,11 +812,7 @@ function refresh() {
     'limitsConfirmedMonth',
     'limitsConfirmedAt',
     'lastMarkShippedResult',
-    'lastEcomSniperExtractResult',
-    'lastEcomSniperWorkflowResult',
     'lastProductHunterClipboardPrep',
-    'pendingEcomSniperBulkExtract',
-    'bulkLinksAmazonQueue',
     'ecomSniperHandoffStatus',
     'move99AccountSettings',
     DASHBOARD_URL_KEY,
@@ -891,7 +846,6 @@ function refresh() {
     renderListing(result.latestListingStatus);
     renderHealth(result.latestAccountHealth);
     renderShipping(result.lastMarkShippedResult);
-    renderEcomSniperVerifiedCounts(result.lastEcomSniperExtractResult, result.lastEcomSniperWorkflowResult);
     renderProductHunterClipboardReport(result.lastProductHunterClipboardPrep);
     renderEcomSniperMonitor(result);
     renderDiagnostics(result.gldnErrorLog);
@@ -1016,14 +970,23 @@ document.getElementById('openFeatureTour').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
 });
 
-document.getElementById('startSnipingWorkflow').addEventListener('click', () => {
-  chrome.storage.local.set({
-    gldnStopRequested: false,
-    pendingAmazonSnipingWorkflowStart: { active: true, startedAt: Date.now() }
-  }, () => {
+document.getElementById('startSnipingWorkflow').addEventListener('click', async () => {
+  let reservationToken = '';
+  try {
+    reservationToken = await claimWorkflowStart('amazon-sniping-start', 'Sniping workflow');
+    await storageSet({
+      gldnStopRequested: false,
+      pendingAmazonSnipingWorkflowStart: { active: true, startedAt: Date.now() }
+    });
+    await releaseWorkflowStart(reservationToken);
+    reservationToken = '';
     chrome.tabs.create({ url: 'https://www.amazon.com/gp/bestsellers' });
     setMessage('Sniping Workflow will start from the opened Amazon page if a product and price are visible.');
-  });
+  } catch (error) {
+    setMessage(error.message || 'Sniping workflow could not start.', true);
+  } finally {
+    await releaseWorkflowStart(reservationToken);
+  }
 });
 
 document.getElementById('openEcomSniperCompetitorScanner').addEventListener('click', () => {
@@ -1114,27 +1077,9 @@ async function openEcomSniperPage(page, workingMessage) {
   }
 }
 
-document.getElementById('checkLocalHelper').addEventListener('click', () => {
-  checkLocalHelper(true);
-});
-
 document.getElementById('refreshEcomSniperMonitor').addEventListener('click', () => {
   refresh();
   setMessage('EcomSniper handoff status refreshed. Only GLDN-observable state is reported.');
-});
-
-document.getElementById('stopEcomSniperAssist').addEventListener('click', async () => {
-  const current = await storageGet(['ecomSniperHandoffStatus']);
-  await storageSet({
-    gldnStopRequested: true,
-    ecomSniperHandoffStatus: {
-      ...(current.ecomSniperHandoffStatus || {}),
-      state: 'stop-requested',
-      updatedAt: new Date().toISOString()
-    }
-  });
-  refresh();
-  setMessage('GLDN Assist stop requested. EcomSniper private-page controls remain operator-controlled.');
 });
 
 async function saveLimits() {
@@ -1164,10 +1109,19 @@ async function saveLimits() {
   });
 }
 
-function openListingsCheck() {
-  chrome.storage.local.set({ pendingReviewMonthlyLimits: true }, () => {
-    chrome.tabs.create({ url: 'https://www.ebay.com/sh/ovw' });
-  });
+async function openListingsCheck() {
+  let reservationToken = '';
+  try {
+    reservationToken = await claimWorkflowStart('listing-limits', 'Listing limit check');
+    await storageSet({ pendingReviewMonthlyLimits: { active: true, phase: 'active-listings', startedAt: new Date().toISOString() } });
+    await releaseWorkflowStart(reservationToken);
+    reservationToken = '';
+    chrome.tabs.create({ url: 'https://www.ebay.com/sh/lst/active' });
+  } catch (error) {
+    setMessage(error.message || 'Listing limit check could not start.', true);
+  } finally {
+    await releaseWorkflowStart(reservationToken);
+  }
 }
 
 document.getElementById('saveLimits').addEventListener('click', saveLimits);
@@ -1212,34 +1166,29 @@ document.getElementById('stopCurrentTask').addEventListener('click', () => {
   });
 });
 
-document.getElementById('resetAutomation').addEventListener('click', () => {
-  const keys = [
-    'pendingMarkShippedRun',
-    'pendingSellerLevelScan',
-    'pendingReviewMonthlyLimits',
-    'pendingEbaySnapshotScan',
-    'pendingMove99Run',
-    'pendingEcomSniperBulkExtract',
-    'pendingSnipingExtract',
-    'pendingManualEcomSniperClick',
-    'pendingAmazonBulkWorkflowStart',
-    'pendingAmazonSnipingWorkflowStart',
-    'bulkLinksAmazonQueue'
-  ];
-  chrome.storage.local.remove(keys, () => {
-    chrome.storage.local.set({ gldnStopRequested: false }, () => {
-      setMessage('Automation state reset. Refresh the eBay page before starting another task.');
-    });
-  });
+document.getElementById('resetAutomation').addEventListener('click', async () => {
+  setMessage('Resetting every GLDN workflow and worker...');
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'resetAutomationState' });
+    if (!response?.ok) throw new Error(response?.error || 'Reset request failed.');
+    setMessage('Automation state reset. Marketplace panels are ready for a new task.');
+  } catch (error) {
+    setMessage(error?.message || 'Automation reset failed.', true);
+  }
 });
 
 document.getElementById('reloadExtension').addEventListener('click', async () => {
   const version = chrome.runtime.getManifest().version;
   setMessage(`Reloading GLDN Ops v${version}...`);
   try {
-    const response = await chrome.runtime.sendMessage({ type: 'reloadExtension' });
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const response = await chrome.runtime.sendMessage({
+      type: 'reloadExtension',
+      sourceTabId: activeTab?.id,
+      returnUrl: activeTab?.url || ''
+    });
     if (!response?.ok) throw new Error(response?.error || 'Reload request failed.');
-    setMessage('Reload requested. Open marketplace tabs will refresh automatically.');
+    setMessage('Reload requested. Only the current tab will refresh; other tabs stay untouched.');
   } catch (error) {
     recordPopupLog(error.message || 'Reload request failed.', error.stack || '');
     setMessage(error.message || 'Reload request failed.', true);
@@ -1250,10 +1199,16 @@ document.getElementById('updateExtension').addEventListener('click', async () =>
   updateExtensionButton.disabled = true;
   setMessage('Downloading and verifying the latest stable GLDN Ops release...');
   try {
-    const response = await chrome.runtime.sendMessage({ type: 'updateExtension' });
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const response = await chrome.runtime.sendMessage({
+      type: 'updateExtension',
+      sourceTabId: activeTab?.id,
+      returnUrl: activeTab?.url || '',
+      reloadWhenCurrent: true
+    });
     if (!response?.ok) throw new Error(response?.error || 'Verified update failed.');
-    if (response.updated) {
-      setMessage(`Verified v${response.currentVersion}. Reloading GLDN Ops...`);
+    if (response.reloading) {
+      setMessage(`Verified files v${response.currentVersion || response.diskVersion}. Reloading running v${response.runtimeVersion || EXTENSION_VERSION}...`);
     } else {
       setMessage(response.message || 'GLDN Ops is already current.');
       updateExtensionButton.disabled = false;
@@ -1276,7 +1231,13 @@ document.getElementById('rollbackExtension').addEventListener('click', async () 
   rollbackExtensionButton.disabled = true;
   setMessage('Restoring the selected verified backup...');
   try {
-    const response = await chrome.runtime.sendMessage({ type: 'rollbackExtension', snapshotId });
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const response = await chrome.runtime.sendMessage({
+      type: 'rollbackExtension',
+      snapshotId,
+      sourceTabId: activeTab?.id,
+      returnUrl: activeTab?.url || ''
+    });
     if (!response?.ok) throw new Error(response?.error || 'Rollback failed.');
     setMessage(`Restored v${response.currentVersion}. Reloading GLDN Ops...`);
   } catch (error) {
@@ -1449,7 +1410,7 @@ document.getElementById('currentVersion').textContent = `v${chrome.runtime.getMa
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local') return;
   if (changes.gldnErrorLog) renderDiagnostics(changes.gldnErrorLog.newValue);
-  if (changes.lastEcomSniperExtractResult || changes.lastEcomSniperWorkflowResult || changes.pendingEcomSniperBulkExtract || changes.bulkLinksAmazonQueue || changes.ecomSniperHandoffStatus) refresh();
+  if (changes.ecomSniperHandoffStatus) refresh();
   if (changes.poshmarkProfitBackfill) refreshPoshmarkBackfillStatus();
 });
 
@@ -1457,7 +1418,6 @@ async function initializePopup() {
   await ensureAutomaticDashboardSetup();
   refresh();
   refreshUpdaterStatus({ refresh: true });
-  checkLocalHelper(false);
   refreshPoshmarkBackfillStatus();
 }
 

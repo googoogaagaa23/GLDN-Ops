@@ -41,6 +41,21 @@
       backburnerItemIds: Object.freeze([])
     })
   });
+  const workflowStateKeys = Object.freeze([
+    "gldnWorkflowReservation",
+    "gldnOpenReviews",
+    "pendingMove99Run",
+    "pendingMarkShippedRun",
+    "pendingSellerLevelScan",
+    "pendingReviewMonthlyLimits",
+    "pendingEbaySnapshotScan",
+    "pendingSnipingExtract",
+    "pendingSnipingWinner",
+    "pendingAmazonSnipingWorkflowStart",
+    "pendingPoshmarkStatsScan",
+    "poshmarkProfitBackfill",
+    "pendingWalmartAutoOrder"
+  ]);
   const BULK_PRODUCT_EXCLUSION_RE = /\b(shoe|shoes|sneaker|sneakers|sandals?|slippers?|boots?|clogs?|crocs|socks?|shirt|shirts|t-?shirt|hoodie|sweater|jacket|coat|dress|dresses|skirt|jeans|pants|leggings|shorts?|underwear|boxers?|briefs?|bra|bras|lingerie|swimsuit|bikini|clothing|apparel|fashion|costumes?|cosplay|outfits?|handbags?|purses?|crossbody|wallets?|clutch)\b/i;
 
   function normalizeComputer(value, fallback = "") {
@@ -100,9 +115,9 @@
   }
 
   function clampUiOpacity(value) {
-    const minimum = Number(config.minimumUiOpacity || 65);
-    const maximum = Number(config.maximumUiOpacity || 100);
-    const fallback = Number(config.defaultUiOpacity || 75);
+    const minimum = Number(config.minimumUiOpacity ?? 0);
+    const maximum = Number(config.maximumUiOpacity ?? 100);
+    const fallback = Number(config.defaultUiOpacity ?? 75);
     const parsed = Number(value);
     return Math.min(maximum, Math.max(minimum, Number.isFinite(parsed) ? parsed : fallback));
   }
@@ -240,6 +255,76 @@
     };
   }
 
+  function activeWorkflowEntries(stored = {}, now = Date.now()) {
+    const entries = [];
+    const add = (key, id, label, value, { busy = false, approvalReady = false } = {}) => {
+      if (!busy) return;
+      entries.push(Object.freeze({
+        key,
+        id,
+        label,
+        phase: String(value?.phase || (value === true ? "starting" : "active")),
+        approvalReady: Boolean(approvalReady)
+      }));
+    };
+    const active = (value) => value === true || Boolean(value && typeof value === "object" && value.active === true);
+
+    const reservation = stored.gldnWorkflowReservation;
+    const reservationLive = active(reservation)
+      && Number(reservation.expiresAt || 0) > Number(now || Date.now());
+    add("gldnWorkflowReservation", String(reservation?.id || "workflow-start"), String(reservation?.label || "Workflow start"), reservation, {
+      busy: reservationLive
+    });
+
+    const openReviews = stored.gldnOpenReviews && typeof stored.gldnOpenReviews === "object"
+      ? stored.gldnOpenReviews
+      : {};
+    for (const [token, review] of Object.entries(openReviews)) {
+      add(`gldnOpenReviews:${token}`, `review:${token}`, String(review?.label || "GLDN review"), review, {
+        busy: active(review) && Number(review.expiresAt || 0) > Number(now || Date.now()),
+        approvalReady: true
+      });
+    }
+
+    const move99 = stored.pendingMove99Run;
+    const move99Approval = ["awaiting-submit-approval", "approval-lost"].includes(String(move99?.phase || ""));
+    add("pendingMove99Run", "move99", "Move .99", move99, {
+      busy: active(move99) || move99Approval,
+      approvalReady: move99Approval
+    });
+
+    const markShipped = stored.pendingMarkShippedRun;
+    const markShippedApproval = String(markShipped?.phase || "") === "awaiting-approval";
+    add("pendingMarkShippedRun", "mark-shipped", "Mark as Shipped", markShipped, {
+      busy: active(markShipped) || markShippedApproval,
+      approvalReady: markShippedApproval
+    });
+    add("pendingSellerLevelScan", "seller-level", "Seller Level scan", stored.pendingSellerLevelScan, { busy: active(stored.pendingSellerLevelScan) });
+    add("pendingReviewMonthlyLimits", "listing-limits", "Listing limit check", stored.pendingReviewMonthlyLimits, { busy: active(stored.pendingReviewMonthlyLimits) });
+    add("pendingEbaySnapshotScan", "ebay-snapshot", "eBay sales snapshot", stored.pendingEbaySnapshotScan, { busy: active(stored.pendingEbaySnapshotScan) });
+    add("pendingSnipingExtract", "sniping", "Sniping workflow", stored.pendingSnipingExtract, { busy: active(stored.pendingSnipingExtract) });
+    add("pendingSnipingWinner", "sniping-review", "Sniping winner review", stored.pendingSnipingWinner, {
+      busy: active(stored.pendingSnipingWinner),
+      approvalReady: active(stored.pendingSnipingWinner)
+    });
+    add("pendingAmazonSnipingWorkflowStart", "amazon-sniping-start", "Amazon sniping handoff", stored.pendingAmazonSnipingWorkflowStart, { busy: active(stored.pendingAmazonSnipingWorkflowStart) });
+    add("pendingPoshmarkStatsScan", "poshmark-stats", "Poshmark stats scan", stored.pendingPoshmarkStatsScan, { busy: active(stored.pendingPoshmarkStatsScan) });
+
+    const poshmarkBackfill = stored.poshmarkProfitBackfill;
+    const poshmarkReview = String(poshmarkBackfill?.phase || "") === "review";
+    add("poshmarkProfitBackfill", "poshmark-profit", "Poshmark profit backfill", poshmarkBackfill, {
+      busy: active(poshmarkBackfill) || poshmarkReview,
+      approvalReady: poshmarkReview
+    });
+
+    const walmartOrder = stored.pendingWalmartAutoOrder;
+    add("pendingWalmartAutoOrder", "walmart-order", "Walmart order review", walmartOrder, {
+      busy: Boolean(walmartOrder && typeof walmartOrder === "object"),
+      approvalReady: Boolean(walmartOrder && typeof walmartOrder === "object")
+    });
+    return Object.freeze(entries);
+  }
+
   function normalizeStoredSettings(stored = {}) {
     const identity = identityForComputer(stored.computerLabel);
     const requestedTheme = String(stored.gldnUiTheme || config.defaultUiTheme || "dark").trim().toLowerCase();
@@ -272,6 +357,8 @@
     validateMove99Settings,
     move99DefaultSettingsForAccount,
     move99SettingsForAccount,
+    workflowStateKeys,
+    activeWorkflowEntries,
     normalizeStoredSettings
   });
 })(globalThis);

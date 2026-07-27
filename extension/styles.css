@@ -344,11 +344,6 @@ body.gldn-modal-dragging { cursor: grabbing !important; }
   font-weight: 700;
 }
 
-.health-good { color: #166534; }
-.health-warning { color: #b45309; }
-.health-critical { color: #b91c1c; }
-.health-unknown { color: #64748b; }
-
 @media (max-width: 600px) {
   .gldn-health-grid { grid-template-columns: 1fr; }
 }

@@ -30,22 +30,56 @@ function ConvertTo-AgentJson {
   return ($Value | ConvertTo-Json -Depth 10 -Compress)
 }
 
+function Get-AgentExtensionId {
+  param([string]$Origin, [string]$HeaderExtensionId = "")
+  $originExtensionId = ""
+  if ($Origin -match '^chrome-extension://([a-p]{32})/?$') { $originExtensionId = [string]$Matches[1] }
+  if ($HeaderExtensionId -and $HeaderExtensionId -notmatch '^[a-p]{32}$') {
+    throw "Invalid GLDN Ops extension ID header."
+  }
+  if ($originExtensionId -and $HeaderExtensionId -and $originExtensionId -cne $HeaderExtensionId) {
+    throw "Updater extension identity did not match the request origin."
+  }
+  if ($originExtensionId) { return $originExtensionId }
+  if ($HeaderExtensionId) { return $HeaderExtensionId }
+  return ""
+}
+
+function Add-AgentTargetMetadata {
+  param($Value, $Target)
+  $Value | Add-Member -NotePropertyName targetSource -NotePropertyValue ([string]$Target.source) -Force
+  $Value | Add-Member -NotePropertyName extensionId -NotePropertyValue ([string]$Target.extensionId) -Force
+  $Value | Add-Member -NotePropertyName extensionRoot -NotePropertyValue ([string]$Target.extensionRoot) -Force
+  $Value | Add-Member -NotePropertyName profileDirectories -NotePropertyValue @($Target.profileDirectories) -Force
+  return $Value
+}
+
 function Invoke-AgentAction {
-  param([string]$Name, $Body = $null, [switch]$Refresh)
-  switch ($Name) {
-    "Status" { return Get-GldnUpdaterStatus -InstallRoot $InstallRoot -MetadataUrl $MetadataUrl -Refresh:$Refresh }
+  param(
+    [string]$Name,
+    $Body = $null,
+    [switch]$Refresh,
+    [string]$RequestOrigin = "",
+    [string]$RequestExtensionId = ""
+  )
+  $extensionId = Get-AgentExtensionId -Origin $RequestOrigin -HeaderExtensionId $RequestExtensionId
+  $target = Resolve-GldnExtensionRequestTarget -ExtensionId $extensionId -FallbackInstallRoot $InstallRoot
+  $targetRoot = [string]$target.installRoot
+  $result = switch ($Name) {
+    "Status" { Get-GldnUpdaterStatus -InstallRoot $targetRoot -MetadataUrl $MetadataUrl -Refresh:$Refresh }
     "Update" {
-      return Invoke-GldnExtensionUpdate -InstallRoot $InstallRoot -MetadataUrl $MetadataUrl -MetadataPath $MetadataPath -SourceZipPath $SourceZipPath -Force:$Force
+      Invoke-GldnExtensionUpdate -InstallRoot $targetRoot -MetadataUrl $MetadataUrl -MetadataPath $MetadataPath -SourceZipPath $SourceZipPath -Force:$Force
     }
     "Versions" {
-      return [pscustomobject]@{ ok = $true; versions = @(Get-GldnSnapshots $InstallRoot) | Select-Object id, version, reason, createdAt }
+      [pscustomobject]@{ ok = $true; versions = @(Get-GldnSnapshots $targetRoot) | Select-Object id, version, reason, createdAt }
     }
     "Rollback" {
       $requestedId = if ($Body -and $Body.snapshotId) { [string]$Body.snapshotId } else { $SnapshotId }
-      return Invoke-GldnExtensionRollback -InstallRoot $InstallRoot -SnapshotId $requestedId
+      Invoke-GldnExtensionRollback -InstallRoot $targetRoot -SnapshotId $requestedId
     }
     default { throw "Unknown updater action: $Name" }
   }
+  return Add-AgentTargetMetadata -Value $result -Target $target
 }
 
 if ($Action -ne "Serve") {
@@ -115,14 +149,14 @@ function Send-HttpJson {
   $json = ConvertTo-AgentJson $Value
   $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
   $origin = [string]$Request.headers["origin"]
-  $allowOrigin = if ($origin -match '^chrome-extension://[a-z]{32}$') { $origin } else { "null" }
+  $allowOrigin = if ($origin -match '^chrome-extension://[a-p]{32}$') { $origin } else { "null" }
   $header = @(
     "HTTP/1.1 $StatusCode $statusText",
     "Content-Type: application/json; charset=utf-8",
     "Content-Length: $($bytes.Length)",
     "Cache-Control: no-store",
     "Access-Control-Allow-Origin: $allowOrigin",
-    "Access-Control-Allow-Headers: Content-Type, X-GLDN-Updater",
+    "Access-Control-Allow-Headers: Content-Type, X-GLDN-Updater, X-GLDN-Extension-Id",
     "Access-Control-Allow-Methods: GET, POST, OPTIONS",
     "Connection: close",
     "",
@@ -137,9 +171,17 @@ function Send-HttpJson {
 function Test-AgentRequestAllowed {
   param($Request)
   $origin = [string]$Request.headers["origin"]
-  if ($origin -and $origin -notmatch '^chrome-extension://[a-z]{32}$') { return $false }
-  if ($Request.method -ne "OPTIONS" -and [string]$Request.headers["x-gldn-updater"] -ne "1") { return $false }
-  return $true
+  $extensionId = [string]$Request.headers["x-gldn-extension-id"]
+  if ($Request.method -eq "OPTIONS") {
+    return $origin -match '^chrome-extension://[a-p]{32}/?$'
+  }
+  if ([string]$Request.headers["x-gldn-updater"] -ne "1") { return $false }
+  if ($extensionId -notmatch '^[a-p]{32}$') { return $false }
+  if ($origin) {
+    if ($origin -notmatch '^chrome-extension://([a-p]{32})/?$') { return $false }
+    return [string]$Matches[1] -ceq $extensionId
+  }
+  return [string]$Request.headers["sec-fetch-site"] -eq "none" -and [string]$Request.headers["sec-fetch-mode"] -eq "cors"
 }
 
 $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
@@ -162,11 +204,11 @@ try {
       switch ("$($request.method) $($uri.AbsolutePath)") {
         "GET /v1/status" {
           $refresh = $uri.Query -match '(^|[?&])refresh=1(&|$)'
-          Send-HttpJson $request 200 (Invoke-AgentAction -Name "Status" -Refresh:$refresh)
+          Send-HttpJson $request 200 (Invoke-AgentAction -Name "Status" -Refresh:$refresh -RequestOrigin ([string]$request.headers["origin"]) -RequestExtensionId ([string]$request.headers["x-gldn-extension-id"]))
         }
-        "GET /v1/versions" { Send-HttpJson $request 200 (Invoke-AgentAction -Name "Versions") }
-        "POST /v1/update" { Send-HttpJson $request 200 (Invoke-AgentAction -Name "Update" -Body $body) }
-        "POST /v1/rollback" { Send-HttpJson $request 200 (Invoke-AgentAction -Name "Rollback" -Body $body) }
+        "GET /v1/versions" { Send-HttpJson $request 200 (Invoke-AgentAction -Name "Versions" -RequestOrigin ([string]$request.headers["origin"]) -RequestExtensionId ([string]$request.headers["x-gldn-extension-id"])) }
+        "POST /v1/update" { Send-HttpJson $request 200 (Invoke-AgentAction -Name "Update" -Body $body -RequestOrigin ([string]$request.headers["origin"]) -RequestExtensionId ([string]$request.headers["x-gldn-extension-id"])) }
+        "POST /v1/rollback" { Send-HttpJson $request 200 (Invoke-AgentAction -Name "Rollback" -Body $body -RequestOrigin ([string]$request.headers["origin"]) -RequestExtensionId ([string]$request.headers["x-gldn-extension-id"])) }
         default { Send-HttpJson $request 404 ([pscustomobject]@{ ok = $false; error = "Updater endpoint not found." }) }
       }
     } catch {

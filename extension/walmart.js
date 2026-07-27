@@ -4,6 +4,7 @@
 
   const U = window.OrderNoteUtils;
   const STORAGE_KEY = "pendingWalmartAutoOrder";
+  const EXTENSION_VERSION = chrome.runtime.getManifest().version;
   const FINAL_PURCHASE_PATTERN = /\b(place\s+order|submit\s+order|complete\s+purchase|confirm\s+purchase|pay\s+now|buy\s+now)\b/i;
 
   let panel;
@@ -12,7 +13,17 @@
   let pendingOrder = null;
 
   const storageGet = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
-  const storageSet = (values) => new Promise((resolve) => chrome.storage.local.set(values, resolve));
+  const storageSet = (values) => new Promise((resolve) => {
+    const payload = { ...values };
+    if (payload[STORAGE_KEY] && typeof payload[STORAGE_KEY] === "object") {
+      payload[STORAGE_KEY] = {
+        ...payload[STORAGE_KEY],
+        extensionVersion: EXTENSION_VERSION,
+        stateUpdatedAt: new Date().toISOString()
+      };
+    }
+    chrome.storage.local.set(payload, resolve);
+  });
   const storageRemove = (keys) => new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -440,6 +451,10 @@
     panel.querySelector("[data-action='continue']").addEventListener("click", continueAddressStep);
     panel.querySelector("[data-action='copy']").addEventListener("click", copyAddress);
     panel.querySelector("[data-action='clear']").addEventListener("click", clearOrder);
+    U.registerExtensionCleanup?.(() => {
+      panel.querySelectorAll('button').forEach((button) => { button.disabled = true; });
+      status('GLDN Ops was updated. Refresh this Walmart tab when you are ready.', 'error');
+    });
   }
 
   async function init() {

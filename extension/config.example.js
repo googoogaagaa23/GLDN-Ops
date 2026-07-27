@@ -66,7 +66,7 @@ globalThis.GLDN_CONFIG = Object.freeze({
   },
   defaultUiOpacity: 75,
   defaultUiTheme: "dark",
-  minimumUiOpacity: 65,
+  minimumUiOpacity: 0,
   maximumUiOpacity: 100,
   poshmarkMatchMinimumConfidence: 80,
   sellerReuseWindowDays: 60

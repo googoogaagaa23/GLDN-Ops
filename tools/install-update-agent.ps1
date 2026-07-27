@@ -17,9 +17,10 @@ foreach ($path in @($agentPath, $corePath, $manifestPath)) {
 }
 
 $config = [pscustomobject]@{
-  schemaVersion = 1
+  schemaVersion = 2
   installRoot = $InstallRoot
   extensionRoot = (Join-Path $InstallRoot "extension")
+  resolvesChromeLoadedFolder = $true
   metadataUrl = $MetadataUrl
   port = $Port
   installedAt = (Get-Date).ToUniversalTime().ToString("o")
@@ -73,5 +74,6 @@ if (-not $SkipStart -and -not (Test-GldnAgentPort $Port)) {
   extensionRoot = (Join-Path $InstallRoot "extension")
   port = $Port
   startsWithWindows = -not $SkipStartupShortcut
+  resolvesChromeLoadedFolder = $true
   running = if ($SkipStart) { $false } else { Test-GldnAgentPort $Port }
 } | ConvertTo-Json -Compress

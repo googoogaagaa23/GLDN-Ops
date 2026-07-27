@@ -104,7 +104,7 @@ test("settings migration never silently assigns a computer", () => {
   });
   assert.equal(existing.computerLabel, "M1");
   assert.equal(existing.ebayAccountLabel, "HEARTSTONE");
-  assert.equal(existing.gldnUiOpacity, 65);
+  assert.equal(existing.gldnUiOpacity, 20);
   assert.equal(existing.gldnUiTheme, "light");
 
   const graphite = foundation.normalizeStoredSettings({ gldnUiTheme: "graphite" });
@@ -132,4 +132,42 @@ test("manifest loads the theme catalog and foundation before shared code on ever
   for (const marketplace of ["amazon.com", "walmart.com", "ebay.com", "poshmark.com", "ecomsniper.io"]) {
     assert.ok(universal.exclude_matches.some((pattern) => pattern.includes(marketplace)));
   }
+});
+
+test("workflow classifier protects active runs and approval-ready reviews", () => {
+  const foundation = loadFoundation();
+  const workflows = foundation.activeWorkflowEntries({
+    pendingMove99Run: { active: false, phase: "awaiting-submit-approval" },
+    pendingMarkShippedRun: { active: true, phase: "awaiting-approval" },
+    poshmarkProfitBackfill: { active: false, phase: "review" },
+    pendingWalmartAutoOrder: { ebayOrderNumber: "12-345" },
+    pendingSellerLevelScan: false,
+    pendingEbaySnapshotScan: { active: false, phase: "failed" }
+  }, 1000);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(workflows.map((entry) => [entry.id, entry.approvalReady]))),
+    [
+      ["move99", true],
+      ["mark-shipped", true],
+      ["poshmark-profit", true],
+      ["walmart-order", true]
+    ]
+  );
+});
+
+test("workflow classifier ignores expired reservations and protects open GLDN review windows", () => {
+  const foundation = loadFoundation();
+  const workflows = foundation.activeWorkflowEntries({
+    gldnWorkflowReservation: { active: true, id: "old", label: "Old start", expiresAt: 999 },
+    gldnOpenReviews: {
+      stale: { active: true, label: "Stale review", expiresAt: 999 },
+      current: { active: true, label: "Review Seller Level", expiresAt: 2000 }
+    },
+    pendingReviewMonthlyLimits: true
+  }, 1000);
+  assert.deepEqual(
+    JSON.parse(JSON.stringify(workflows.map((entry) => entry.label))),
+    ["Review Seller Level", "Listing limit check"]
+  );
+  assert.ok(foundation.workflowStateKeys.includes("gldnOpenReviews"));
 });

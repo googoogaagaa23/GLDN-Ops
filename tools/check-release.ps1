@@ -28,17 +28,25 @@ $requiredFiles = @(
   "docs\LOCAL_DEPLOYMENT.md",
   "docs\LIVE_TEST_VIDEO_STANDARD.md",
   "docs\MASTER_FEATURE_MATRIX.md",
+  "dashboard\GLDN_Ops_Dashboard_Code.gs",
   "extension\manifest.json",
   "extension\README.txt",
+  "extension\dashboard_apps_script\Code.gs",
   "extension\sniping-review.html",
   "extension\sniping-review.css",
   "extension\sniping-review.js",
   "tools\build-local-package.ps1",
+  "tools\build-feature-guides.cjs",
+  "tools\build-webstore-zip.ps1",
   "tools\local-extension-manager.ps1",
   "tools\update.ps1",
   "tools\gldn-update-core.ps1",
   "tools\gldn-update-agent.ps1",
   "tools\install-update-agent.ps1",
+  "tools\test-dashboard-contract.ps1",
+  "tools\test-dashboard-live-contract.ps1",
+  "tools\test-extension-health.ps1",
+  "tools\test-poshmark-computer-guard.ps1",
   "tests\local-install-fixture.ps1",
   "tests\one-time-installer-fixture.ps1",
   "tests\local-updater-fixture.ps1",
@@ -148,8 +156,16 @@ foreach ($file in $dynamicVersionFiles) {
   }
 }
 
-$node = "C:\Users\afarr\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
-if (-not (Test-Path $node)) { $node = "node" }
+$nodeCommand = Get-Command "node.exe" -ErrorAction SilentlyContinue
+if (-not $nodeCommand) { $nodeCommand = Get-Command "node" -ErrorAction SilentlyContinue }
+$bundledNode = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
+if ($nodeCommand) {
+  $node = $nodeCommand.Source
+} elseif (Test-Path $bundledNode) {
+  $node = $bundledNode
+} else {
+  throw "Node.js is required for the release gate. Install Node.js or run this check from Codex."
+}
 
 & $node -e @"
 const fs = require('fs');
@@ -184,6 +200,11 @@ if ($LASTEXITCODE -ne 0) {
   throw "One-time Setup and running-updater fixture failed."
 }
 
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "tests\local-updater-fixture.ps1")
+if ($LASTEXITCODE -ne 0) {
+  throw "Local updater fixture failed."
+}
+
 if (-not $SkipDashboardContract) {
   & (Join-Path $repoRoot "tools\test-dashboard-contract.ps1")
   if ($LASTEXITCODE -ne 0) {
@@ -208,12 +229,11 @@ if ($LASTEXITCODE -ne 0) {
 
 $dashboardHash = (Get-FileHash -Algorithm SHA256 (Join-Path $repoRoot "dashboard\GLDN_Ops_Dashboard_Code.gs")).Hash
 $embeddedHash = (Get-FileHash -Algorithm SHA256 (Join-Path $repoRoot "extension\dashboard_apps_script\Code.gs")).Hash
-$liveHash = (Get-FileHash -Algorithm SHA256 (Join-Path $repoRoot "apps-script-live\Code.js")).Hash
-if ($dashboardHash -ne $embeddedHash -or $dashboardHash -ne $liveHash) {
-  throw "Dashboard Apps Script mirrors are not identical."
+if ($dashboardHash -ne $embeddedHash) {
+  throw "Canonical and packaged dashboard Apps Script copies are not identical."
 }
 
-$tasksScript = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "apps-script-live-3\Timestamps.js")
+$tasksScript = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "dashboard\GLDN_Ops_Dashboard_Code.gs")
 if ($tasksScript -match 'percent\s*<\s*90') { throw "Tasks tracking alert still contains the retired 90% threshold." }
 if ($tasksScript -notmatch 'percent\s*<\s*85') { throw "Tasks tracking alert is missing the 85% threshold." }
 

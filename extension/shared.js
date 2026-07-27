@@ -148,6 +148,7 @@
   };
 
   let extensionContextInvalidated = false;
+  const extensionCleanupCallbacks = new Set();
 
   const extensionErrorMessage = (error) => String(error?.message || error || "");
 
@@ -160,11 +161,25 @@
     if (!isExtensionContextInvalidated(error)) return false;
     if (!extensionContextInvalidated) {
       extensionContextInvalidated = true;
+      for (const callback of [...extensionCleanupCallbacks]) {
+        try { callback(); } catch (_) {}
+      }
+      extensionCleanupCallbacks.clear();
       window.dispatchEvent(new CustomEvent("gldn-extension-context-invalidated", {
         detail: { message: extensionErrorMessage(error) || "Extension context invalidated." }
       }));
     }
     return true;
+  };
+
+  const registerExtensionCleanup = (callback) => {
+    if (typeof callback !== "function") return () => {};
+    if (extensionContextInvalidated) {
+      try { callback(); } catch (_) {}
+      return () => {};
+    }
+    extensionCleanupCallbacks.add(callback);
+    return () => extensionCleanupCallbacks.delete(callback);
   };
 
   const extensionContextAvailable = () => {
@@ -263,6 +278,47 @@
     }
   });
 
+  const claimWorkflowStart = async (workflowId, label) => {
+    const result = await runtimeMessage({ type: "claimWorkflowStart", workflowId, label });
+    if (!result?.ok) throw new Error(result?.error || `Could not start ${label || "workflow"}.`);
+    return result.token;
+  };
+
+  const releaseWorkflowStart = async (token) => {
+    if (!token) return { ok: true, released: false };
+    return runtimeMessage({ type: "releaseWorkflowStart", token });
+  };
+
+  const documentInstanceId = globalThis.crypto?.randomUUID?.() || `document-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const openReviewReset = runtimeMessage({ type: "clearOpenReviewsForTab" });
+
+  const registerOpenReview = async (modal) => {
+    if (!modal || modal.dataset.gldnOpenReviewToken) return;
+    const token = globalThis.crypto?.randomUUID?.() || `review-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const label = normalizeText(modal.querySelector("h1, h2, h3, [role='heading']")?.textContent || "GLDN review").slice(0, 120);
+    modal.dataset.gldnOpenReviewToken = token;
+    await openReviewReset;
+    const result = await runtimeMessage({
+      type: "registerOpenReview",
+      token,
+      label,
+      page: location.href,
+      documentInstanceId
+    });
+    if (!result?.ok) delete modal.dataset.gldnOpenReviewToken;
+  };
+
+  const releaseOpenReviewsInNode = (node) => {
+    if (!(node instanceof Element)) return;
+    const modals = [];
+    if (node.matches?.(".gldn-modal[data-gldn-open-review-token]")) modals.push(node);
+    modals.push(...node.querySelectorAll?.(".gldn-modal[data-gldn-open-review-token]") || []);
+    for (const modal of modals) {
+      const token = modal.dataset.gldnOpenReviewToken;
+      if (token) runtimeMessage({ type: "releaseOpenReview", token });
+    }
+  };
+
   const summarizeFeatureHealth = (result) => {
     const version = result?.version || chrome.runtime?.getManifest?.().version || "?";
     const identity = result?.identity || {};
@@ -273,14 +329,23 @@
     const ecomText = !ecomSniperRequired
       ? "EcomSniper not required"
       : result?.ecomSniper?.ok
-        ? "EcomSniper route OK"
+        ? "EcomSniper route configured (installation checked when opened)"
         : `EcomSniper FAIL: ${result?.ecomSniper?.error || "unknown"}`;
+    const updaterText = result?.updater?.ok
+      ? `updater OK (files v${result.updater.diskVersion || result.updater.currentVersion || version})`
+      : `updater FAIL: ${result?.updater?.error || "unknown"}`;
+    const workflows = Array.isArray(result?.workflows?.workflows) ? result.workflows.workflows : [];
+    const workflowText = workflows.length
+      ? workflows.every((entry) => entry.approvalReady)
+        ? `awaiting review: ${workflows.map((entry) => entry.label).join(", ")}`
+        : `busy: ${workflows.map((entry) => entry.label).join(", ")}`
+      : "workflow idle";
     const foundation = result?.foundation || {};
     const deployment = foundation.deploymentMode || "unknown";
     const schema = `${Number(foundation.settingsSchemaVersion || 0)}/${foundation.expectedSettingsSchemaVersion || "?"}`;
     const backups = Number(foundation.settingsBackupCount || 0);
     const queued = Number(foundation.dashboardQueuedRecords || 0);
-    return `Health ${result?.ok ? "OK" : "CHECK"}: v${version}; computer ${computer}; account ${account}; mode ${deployment}; schema ${schema}; backups ${backups}; queue ${queued}; ${dashboardText}; ${ecomText}`;
+    return `Health ${result?.ok ? "OK" : "CHECK"}: v${version}; computer ${computer}; account ${account}; mode ${deployment}; schema ${schema}; backups ${backups}; queue ${queued}; ${dashboardText}; ${updaterText}; ${workflowText}; ${ecomText}`;
   };
 
   const saveDashboardSetupCode = (setupCode) => new Promise((resolve) => {
@@ -435,7 +500,7 @@
       <div class="gldn-theme-preview" data-gldn-theme-preview aria-live="polite"></div>
       <label class="gldn-panel-settings-field">
         <span>Transparency <strong data-gldn-opacity-value>75%</strong></span>
-        <input type="range" min="65" max="100" step="1" value="75" data-gldn-opacity-input>
+        <input type="range" min="0" max="100" step="1" value="75" data-gldn-opacity-input>
       </label>
       <button type="button" class="gldn-secondary gldn-panel-tour" data-gldn-open-tour>Start feature tour</button>
       <button type="button" class="gldn-secondary gldn-panel-guide" data-gldn-open-guide>Open feature guide</button>
@@ -707,9 +772,9 @@
 
   const clampUiOpacity = (value) => {
     const config = globalThis.GLDN_CONFIG || {};
-    const minimum = Number(config.minimumUiOpacity || 65);
-    const maximum = Number(config.maximumUiOpacity || 100);
-    const fallback = Number(config.defaultUiOpacity || 75);
+    const minimum = Number(config.minimumUiOpacity ?? 0);
+    const maximum = Number(config.maximumUiOpacity ?? 100);
+    const fallback = Number(config.defaultUiOpacity ?? 75);
     const numeric = Number(value);
     return Math.min(maximum, Math.max(minimum, Number.isFinite(numeric) ? numeric : fallback));
   };
@@ -751,6 +816,7 @@
   const enhanceModal = (modal) => {
     if (!modal || modal.dataset.gldnAppearanceReady === 'true') return;
     modal.dataset.gldnAppearanceReady = 'true';
+    registerOpenReview(modal);
     const key = modalStorageKey(modal);
     const backdrop = modal.closest('.gldn-modal-backdrop');
     const heading = modal.querySelector('h2');
@@ -934,9 +1000,11 @@
           if (node.matches('.gldn-modal')) enhanceModal(node);
           node.querySelectorAll?.('.gldn-modal').forEach(enhanceModal);
         }
+        for (const node of mutation.removedNodes) releaseOpenReviewsInNode(node);
       }
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    observer.observe(document.documentElement, { childList: true, subtree: false });
+    registerExtensionCleanup(() => observer.disconnect());
   };
 
   const initializeUiAppearance = () => {
@@ -949,12 +1017,28 @@
       applyUiOpacity(result.gldnUiOpacity);
       applyUiTheme(result.gldnUiTheme);
     });
-    chrome.storage.onChanged.addListener((changes, areaName) => {
+    const appearanceListener = (changes, areaName) => {
       if (areaName !== 'local') return;
       if (changes.gldnUiOpacity) applyUiOpacity(changes.gldnUiOpacity.newValue);
       if (changes.gldnUiTheme) applyUiTheme(changes.gldnUiTheme.newValue);
+    };
+    chrome.storage.onChanged.addListener(appearanceListener);
+    registerExtensionCleanup(() => chrome.storage.onChanged.removeListener(appearanceListener));
+  };
+
+  const sharedRuntimeListener = (message) => {
+    if (message?.type !== 'gldnAutomationReset') return;
+    document.querySelectorAll('.gldn-modal-backdrop').forEach((element) => element.remove());
+    document.querySelectorAll('.gldn-status').forEach((element) => {
+      element.textContent = 'Automation reset - ready.';
+      element.dataset.type = 'ready';
     });
   };
+
+  if (globalThis.chrome?.runtime?.onMessage) {
+    chrome.runtime.onMessage.addListener(sharedRuntimeListener);
+    registerExtensionCleanup(() => chrome.runtime.onMessage.removeListener(sharedRuntimeListener));
+  }
 
   initializeUiAppearance();
   initializeModalEnhancements();
@@ -989,6 +1073,8 @@
     makePanelDraggable,
     recordExtensionLog,
     runtimeMessage,
+    claimWorkflowStart,
+    releaseWorkflowStart,
     runFeatureHealthCheck,
     summarizeFeatureHealth,
     saveDashboardSetupCode,
@@ -1000,6 +1086,7 @@
     enhanceModal,
     isExtensionContextInvalidated,
     markExtensionContextInvalidated,
-    extensionContextAvailable
+    extensionContextAvailable,
+    registerExtensionCleanup
   };
 })();

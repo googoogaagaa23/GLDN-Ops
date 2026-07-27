@@ -1,5 +1,5 @@
 {
-  "version": "3.10.4",
+  "version": "3.11.6",
   "updated": "2026-07-26",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -29,11 +29,11 @@
       "title": "Floating Panel",
       "status": "LIVE PASS",
       "summary": "Use the compact everyday controls without blocking marketplace pages.",
-      "prerequisites": ["A supported eBay, Amazon, Poshmark, or Walmart page is open."],
-      "steps": ["Use Side to dock the panel to the right edge.", "Use the minus control to minimize it.", "Drag the resize handle while expanded.", "Open the three-dot settings menu to change theme, transparency, or reset layout.", "Use Stop Task for a safe checkpoint and Reset only for abandoned state.", "Use Reload Ext after local files are updated."],
+      "prerequisites": ["Any ordinary webpage is open. Marketplace actions appear only on their supported sites."],
+      "steps": ["Use Side to dock the panel to the right edge.", "Use the minus control to minimize it.", "Drag the resize handle while expanded.", "Open the three-dot settings menu to change theme, transparency, or reset layout.", "Use Stop Task for a safe checkpoint and Reset only for abandoned state.", "Use Update & Reload after a stable release is published."],
       "approvalStop": "Panel layout actions require no marketplace approval.",
       "output": "A saved per-profile panel mode, size, position, theme, and transparency.",
-      "recovery": ["Use Reset panel layout if the panel is off-screen or awkwardly sized.", "Use Reload Ext when page controls are stale after an update."],
+      "recovery": ["Use Reset panel layout if the panel is off-screen or awkwardly sized.", "Update & Reload waits while a workflow or approval window is active.", "If the runtime version remains old after a verified update, run the newest one-time updater setup once; it links the updater to Chrome's exact loaded folder without replacing profile settings."],
       "evidence": "Profile 2 proved Graphite at 75%, persisted resize, normal reload persistence, and right-edge docking."
     },
     {
@@ -56,24 +56,24 @@
       "status": "PARTIAL",
       "summary": "Update the unpacked local build while preserving settings and rollback data.",
       "prerequisites": ["The current extension folder is known.", "A settings backup has been copied.", "No marketplace confirmation dialog is active."],
-      "steps": ["Run Update-GLDN-Ops.cmd from the project folder.", "Wait for validation, snapshot creation, and matching-profile reload.", "Refresh active marketplace tabs.", "Confirm the panel and popup show the expected version.", "Run Feature Health Check.", "Use the local manager rollback only for a confirmed broken release."],
+      "steps": ["Finish or safely stop every active workflow and close approval windows.", "Click Update & Reload in the panel or popup from the tab you are prepared to refresh.", "Wait for download validation, snapshot creation, extension reload, and that requesting tab's refresh.", "Confirm the panel and popup show the expected version.", "Leave every other open work tab untouched; refresh one later only when you are ready to use GLDN there.", "Run Feature Health Check and verify the saved computer, dashboard connection, and Store categories.", "Use Version Recovery only for a confirmed broken release."],
       "approvalStop": "A real rollback in an active signed-in profile requires explicit approval because it changes runtime files.",
-      "output": "Validated local files, preserved settings, a timestamped snapshot, and reloaded matching profiles.",
-      "recovery": ["Do not use Chrome policy or a Web Store path for this local build.", "If validation fails, keep the current working files and copy diagnostics.", "Real Profile 2 rollback remains intentionally untested."],
-      "evidence": "Clean install/update fixtures pass. Another physical computer and a real Profile 2 rollback remain pending."
+      "output": "Validated local files, preserved settings, a timestamped snapshot, a reloaded extension runtime, and only the requesting tab refreshed.",
+      "recovery": ["Do not use Chrome policy or a Web Store path for this local build.", "If validation fails, the updater keeps the current working files; copy diagnostics before retrying.", "Do not reinstall or repoint Chrome when the extension already loads correctly.", "If only one profile stays old, run the newest updater setup once and retry Update & Reload.", "Real Profile 2 rollback remains intentionally untested."],
+      "evidence": "Clean install, update, checksum rejection, settings preservation, rollback, exact Chrome-loaded-folder resolution, unknown-ID rejection, ambiguous-path rejection, no-Origin service-worker authorization, website-origin rejection, requesting-tab-only reload, and current-file reload fixtures pass. Profile 2 live-proved v3.11.4 identity, dashboard health, prompt Reset, eBay seller metrics, eBay snapshot, listing limits, Poshmark stats, visible-sales review, and the historical-profit launcher. Profile 2 then updated from v3.11.5 to v3.11.6 and repeated an already-current reload; both runs refreshed only the requesting tab, preserved computer 0 / FAK12, left the Tasks, eBay, and Poshmark tabs unchanged, and returned dashboard/updater health OK with queue 0 and workflow idle."
     },
     {
       "id": "mark-shipped",
       "matrix": "E-01",
       "title": "Mark as Shipped",
-      "status": "LIVE PASS",
-      "summary": "Select every awaiting order, pause once, and sync the exact completion count.",
+      "status": "IMPLEMENTED, UNPROVEN",
+      "summary": "Select every awaiting order, require approval before activating Mark as shipped, require another approval before eBay Continue when shown, and sync only an exact completion count.",
       "prerequisites": ["The signed-in eBay Awaiting shipment page is open.", "The complete Results total is visible."],
-      "steps": ["Click Mark as Shipped.", "Wait while GLDN Ops verifies every visible row, the master checkbox, and the awaiting total.", "Review eBay's exact confirmation count.", "Approve Continue only when the selected count equals the intended awaiting total.", "After Continue, wait for eBay success and zero remaining results.", "Confirm the dashboard and matching Tasks checkbox update."],
-      "approvalStop": "STOP at eBay Continue. Continue requires explicit action-time approval for the exact count shown.",
+      "steps": ["Click Mark as Shipped.", "Wait while GLDN Ops verifies every visible row, the master checkbox, and the awaiting total.", "Review GLDN Ops' exact selected count and approve activation of eBay's Mark as shipped command only for that count.", "If eBay presents Continue, review eBay's confirmation and approve Continue separately for the same exact count.", "After the operator clicks Continue, wait for eBay success and zero remaining results.", "Confirm the dashboard and matching Tasks checkbox update."],
+      "approvalStop": "STOP before activating Mark as shipped. That activation requires explicit approval for the exact selected count. If eBay then presents Continue, STOP again; only the operator may click Continue after a fresh action-time approval.",
       "output": "Exact awaiting, selected, shipped, remaining, status, dashboard history, and Tasks completion.",
-      "recovery": ["If eBay omits a confirmation number, GLDN Ops may reuse only the exact pre-confirm count.", "Any count mismatch stops safely.", "Copy diagnostics before Reset if the confirmation remains stale."],
-      "evidence": "Profile 2 live proof completed 3 of 3 orders and read back zero remaining plus exact dashboard and Tasks rows."
+      "recovery": ["If eBay omits a confirmation number, GLDN Ops may reuse only the exact pre-confirm count.", "Any count mismatch or unknown outcome stops safely and cannot auto-rerun.", "Copy diagnostics before Reset if the confirmation remains stale."],
+      "evidence": "The earlier Profile 2 proof completed 3 of 3 orders under the prior one-stop flow. The stricter two-stage approval boundary retained in v3.11.4 is contract-tested and requires a fresh signed-in Profile 2 live proof."
     },
     {
       "id": "ebay-note-profit",
@@ -184,13 +184,13 @@
       "matrix": "C-01, C-02, C-04",
       "title": "EcomSniper Handoffs and Status",
       "status": "PARTIAL",
-      "summary": "Verify GLDN seller-extraction counts and handoff-tab state without claiming that GLDN runs or reads EcomSniper Bulk Poster.",
-      "prerequisites": ["eBay and EcomSniper are signed in in the same Chrome profile.", "EcomSniper's visible Extract Sellers control is present on an eBay search-results page for seller extraction."],
-      "steps": ["Open Workflows and review EcomSniper Handoffs.", "Use Open EcomSniper Competitor Scanner or Filter Titles & Open Product Hunter only for the handoff you intend.", "Click Refresh Status to read current GLDN-observable state.", "Treat Extracting as seller extraction on eBay only; confirm the before total, after total, and reported new count reconcile.", "Treat Handoff open or Handoff closed as tab-lifecycle information only.", "Do not infer Bulk Poster progress, item counts, completion, or failure from the handoff monitor.", "Use Stop GLDN Assist to request a safe stop of GLDN's seller-extraction queue; stop EcomSniper work from EcomSniper itself."],
+      "summary": "Open EcomSniper handoff tabs and report only whether a GLDN-opened tab is open or closed.",
+      "prerequisites": ["eBay and EcomSniper are signed in in the same Chrome profile.", "Use EcomSniper itself for Extract Sellers, Scanner, Product Hunter, Bulk Poster, and listing controls."],
+      "steps": ["Open Workflows and review EcomSniper Handoffs.", "Use Open EcomSniper Competitor Scanner, Prepare Product Hunter Handoff, or Open EcomSniper Product Hunter only for the handoff you intend.", "Click Refresh Status to read current GLDN-observable tab state.", "Treat Handoff open or Handoff closed as tab-lifecycle information only.", "Complete every EcomSniper control manually inside EcomSniper.", "Do not infer seller counts, Bulk Poster progress, item counts, completion, or failure from the handoff monitor."],
       "approvalStop": "GLDN Ops cannot approve or click EcomSniper's private Scanner, Product Hunter, export, Bulk Poster, or listing controls. Any listing action requires explicit approval.",
-      "output": "Verified seller-count progression plus honest open, closed, stopped, or unknown handoff state.",
-      "recovery": ["Missing, stale, wrong-page, mismatched, or timed-out seller counts stop safely.", "An open or closed private EcomSniper tab never proves processing completion.", "Copy the full diagnostic report before Reset.", "No Windows local helper is required."],
-      "evidence": "Profile 2 previously reconciled seller extraction from 892 to 1,607. The new v3.10.2 handoff monitor is contract-tested but still requires one signed-in Profile 2 UI proof; EcomSniper private-page progress remains unreadable by Chrome design."
+      "output": "Honest open, closed, or unknown GLDN handoff-tab state with no EcomSniper completion claim.",
+      "recovery": ["An open or closed private EcomSniper tab never proves processing completion.", "Use EcomSniper itself to inspect or stop its work.", "Copy the full diagnostic report before Reset if a GLDN handoff fails to open.", "No Windows local helper is required."],
+      "evidence": "Earlier versions proved seller-count extraction, but that automation is retired in v3.11 because it was unreliable across computers. The read-only handoff monitor is contract-tested and requires one signed-in Profile 2 UI proof; EcomSniper private-page progress remains unreadable by Chrome design."
     },
     {
       "id": "sniping",

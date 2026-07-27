@@ -6,6 +6,7 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const catalogSource = fs.readFileSync(path.join(root, 'extension', 'theme-catalog.js'), 'utf8');
+const contentStyles = fs.readFileSync(path.join(root, 'extension', 'styles.css'), 'utf8');
 
 function createElement(initial = {}) {
   const values = new Map(Object.entries(initial.variables || {}));
@@ -67,4 +68,17 @@ test('upgraded content scripts clean theme settings left by older GLDN versions'
   assert.equal(values.has('--bg'), false);
   assert.equal(values.has('--panel'), false);
   assert.equal(values.has('--panel2'), false);
+});
+
+test('content styles do not target generic marketplace classes', () => {
+  const selectorLines = contentStyles
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.endsWith('{') && !line.startsWith('@'));
+  const leaked = selectorLines.filter((line) => {
+    if (line === ':root {') return false;
+    if (/^(from|to|\d+%)\s*\{/.test(line)) return false;
+    return !line.includes('gldn');
+  });
+  assert.deepEqual(leaked, []);
 });

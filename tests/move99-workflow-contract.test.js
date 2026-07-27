@@ -219,6 +219,18 @@ test("a confirmed exact workspace advances to the next saved ID batch", () => {
   assert.match(nextBatch, /applyIndex:\s*Number\(state\.applyIndex \|\| 0\) \+ 1/);
 });
 
+test("Move .99 failures pause for explicit read-only reconciliation instead of auto-looping", () => {
+  assert.match(ebay, /function pauseMove99ForReconciliation\(state, reason = ""\)/);
+  assert.match(ebay, /phase:\s*"reconciliation-required"/);
+  const start = ebay.indexOf("} else if (canRecoverMove99ThroughVerification(failedState))");
+  const failureRecovery = ebay.slice(start, ebay.indexOf("} else {", start));
+  assert.ok(start > -1);
+  assert.match(failureRecovery, /pauseMove99ForReconciliation/);
+  assert.doesNotMatch(failureRecovery, /navigateToMove99ScanPage|runMove99Automation/);
+  assert.match(ebay, /interruptedState\?\.phase === "reconciliation-required"/);
+  assert.match(ebay, /Starting the saved read-only reconciliation scan/);
+});
+
 test("Move .99 assigns one owner tab so duplicate eBay tabs cannot race", () => {
   assert.match(background, /function claimMove99Tab\(senderTabId, requestedRunId\)/);
   assert.match(background, /move99ClaimQueue = claim\.then/);
@@ -272,13 +284,15 @@ test("popup Move .99 launcher delegates atomic state and tab creation to the bac
   assert.match(launcher, /sendMessage\(\{ type: 'startMove99Workflow', scanMode \}\)/);
   assert.match(launcher, /Number\.isInteger\(response\.tabId\)/);
   assert.doesNotMatch(launcher, /chrome\.tabs\.create|pendingMove99Run/);
-  assert.match(atomicLauncher, /const runTab = await createChromeTab\(\{ url: 'about:blank', active: true \}\)/);
+  assert.match(atomicLauncher, /claimWorkflowStart\('move99', 'Move \.99'\)/);
+  assert.match(atomicLauncher, /pendingMove99Run:\s*runState/);
+  assert.match(atomicLauncher, /runTab = await createChromeTab\(\{ url: 'about:blank', active: true \}\)/);
   assert.match(atomicLauncher, /await storageSet\(\{[\s\S]*?pendingMove99Run:/);
   assert.match(atomicLauncher, /ownerTabId: runTab\.id/);
   assert.match(atomicLauncher, /await updateChromeTab\(runTab\.id, \{ url: activeUrl, active: true \}\)/);
   assert.ok(
-    atomicLauncher.indexOf("await storageSet({") < atomicLauncher.indexOf("await updateChromeTab(runTab.id"),
-    "the stamped pending run must exist before the exact eBay tab navigates"
+    atomicLauncher.indexOf("pendingMove99Run: runState") < atomicLauncher.indexOf("runTab = await createChromeTab"),
+    "the stamped pending run must exist before Chrome creates the exact eBay tab"
   );
 });
 
@@ -470,16 +484,15 @@ test("Move .99 finishes the last filtered page even when eBay retains an account
   assert.match(verification, /ownerTabId: null/);
 });
 
-test("an invalidated unpacked-extension page refreshes once instead of leaving dead Ready controls", () => {
+test("an invalidated unpacked-extension page retires dead controls without reloading the operator's tab", () => {
   const shutdown = ebay.slice(
     ebay.indexOf("function shutdownInvalidatedContext"),
     ebay.indexOf("function requireExtensionContext")
   );
-  assert.match(shutdown, /GLDN Ops was updated\. Refreshing this eBay tab automatically/);
-  assert.match(shutdown, /sessionStorage\.getItem\(reloadKey\)/);
-  assert.match(shutdown, /sessionStorage\.setItem\(reloadKey/);
-  assert.match(shutdown, /location\.reload\(\)/);
-  assert.match(shutdown, /Date\.now\(\) - previousReloadAt > 15000/);
+  assert.match(shutdown, /GLDN Ops was updated\. Refresh this eBay tab when you are ready/);
+  assert.match(shutdown, /data-gldn-context-invalidated/);
+  assert.doesNotMatch(shutdown, /sessionStorage/);
+  assert.doesNotMatch(shutdown, /location\.reload\(\)/);
 });
 
 test("finished Move .99 scans are passive and resume without tab-claim contention", () => {
@@ -1114,8 +1127,43 @@ test("legacy Move .99 scan states restart through the exact Active Listings scan
   assert.match(ebay, /Restarting the saved Move \.99 task with the exact Active Listings scanner/);
 });
 
+test("eBay heartbeat does no page inspection while every resumable workflow is idle", () => {
+  const heartbeat = ebay.slice(
+    ebay.indexOf("// SPA-navigation heartbeat"),
+    ebay.indexOf("ebayPageObserver = new MutationObserver")
+  );
+  const idleGate = heartbeat.indexOf("if (!hasPendingWork) return;");
+  const interruptionCheck = heartbeat.indexOf('stopForEbayInterruption("eBay workflow heartbeat")');
+  assert.ok(idleGate >= 0 && interruptionCheck > idleGate);
+  assert.match(heartbeat, /pending\?\.active/);
+  assert.match(heartbeat, /result\.pendingEbaySnapshotScan\?\.active/);
+  assert.match(heartbeat, /result\.pendingSnipingExtract\?\.active/);
+});
+
+test("saved Bulk Edit prompts are watched only by the exact confirmed owner run", () => {
+  const clicker = ebay.slice(
+    ebay.indexOf("async function clickSavedBulkEditContinueIfPresent"),
+    ebay.indexOf("async function continuePastSavedBulkEditDialog")
+  );
+  assert.match(clicker, /run\.confirmed !== true/);
+  assert.match(clicker, /String\(run\.extensionVersion \|\| ""\) !== EXTENSION_VERSION/);
+  assert.match(clicker, /runtimeMessage\(\{ type: "claimMove99Tab", runId \}\)/);
+  assert.match(clicker, /!claim\?\.ok \|\| !claim\.owned/);
+
+  const watcher = ebay.slice(
+    ebay.indexOf("function installSavedBulkEditDialogWatcher"),
+    ebay.indexOf("function bulkEditorNavigationProgressed")
+  );
+  assert.match(watcher, /const eligible = \(run\) => Boolean/);
+  assert.match(watcher, /run\.confirmed === true/);
+  assert.match(watcher, /chrome\.storage\.onChanged\.addListener\(storageListener\)/);
+  assert.match(watcher, /if \(!eligible\(run\)\) \{[\s\S]*?stopWatching\(\)/);
+  assert.match(watcher, /interval = setInterval\(inspect, 750\)/);
+});
+
 test("Move .99 stays out of daily controls and is available from panel settings", () => {
-  const panelMarkup = ebay.slice(ebay.indexOf("function createPanel()"), ebay.indexOf("chrome.storage.onChanged"));
+  const panelStart = ebay.indexOf("function createPanel()");
+  const panelMarkup = ebay.slice(panelStart, ebay.indexOf("  createPanel();", panelStart));
   assert.doesNotMatch(panelMarkup, /data-action=["']move99-workflow["'][^\n]*<\/button>/);
   assert.match(panelMarkup, /move99Button\.dataset\.action = "move99-workflow"/);
   assert.match(panelMarkup, /move99Button\.textContent = "Run Move \.99 Workflow"/);

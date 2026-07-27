@@ -1,4 +1,48 @@
-GLDN Ops v3.10.5
+GLDN Ops v3.11.6
+
+v3.11.6 complete Update & Reload behavior:
+- Update & Reload always activates the verified files, even when the disk and running versions already match.
+- Only the requesting tab refreshes. Every unrelated work tab remains untouched.
+
+v3.11.5 update isolation repair:
+- Update & Reload, Reload Current Files, and rollback now refresh only the tab that requested the action.
+- Other open eBay, Amazon, Poshmark, Walmart, EcomSniper, and ordinary webpage tabs are never refreshed in bulk.
+- An old content script retires its controls and asks for a manual refresh instead of interrupting the page automatically.
+- Automatic shared-folder runtime updates activate the new background worker without refreshing any webpage.
+
+v3.11.4 profit-worker Reset repair:
+- Historical Poshmark profit Reset now deletes its saved checkpoint before trying to close a stale worker tab.
+- Worker-tab closure is best effort, nonblocking, and bounded to 750 ms.
+- An abandoned worker tab can no longer keep Update & Reload blocked after Reset.
+
+v3.11.3 bounded Reset repair:
+- Reset now clears saved workflow state and responds immediately instead of waiting on every old marketplace tab.
+- Best-effort panel cleanup is limited to active tabs and each tab notification is bounded to 750 ms.
+- One stale eBay, Poshmark, Amazon, Walmart, EcomSniper, or ordinary webpage can no longer freeze the Reset control.
+
+v3.11.2 approval and host-page isolation repair:
+- Mark as Shipped now stops before activating eBay's Mark as shipped command and requires explicit approval for the exact selected count.
+- If eBay then shows Continue, GLDN Ops stops a second time and requires a fresh approval before Continue; the extension never clicks Continue itself.
+- Unknown or interrupted shipment outcomes fail closed and cannot silently restart the workflow.
+- Adds confirmed Reset to the universal panel so abandoned local workflow state can be cleared without opening a marketplace page.
+- Removes generic health-status CSS selectors that could leak into eBay, Poshmark, Amazon, Walmart, EcomSniper, or ordinary webpages.
+
+v3.11.1 updater handshake repair:
+- Authenticates Chrome's no-Origin extension service-worker requests with the exact runtime extension ID and Chrome request shape.
+- Rejects ordinary website origins and still resolves only the exact unpacked GLDN Ops folder reported by Chrome.
+- Adds Stop Task and confirmed Reset controls to the Poshmark panel so a stale local checkpoint cannot strand every other workflow.
+
+v3.11.0 reliability and live-launch release:
+- Locks one workflow or review at a time and defers Update & Reload until the extension is idle.
+- Stamps resumable workflow state with the running version so an update cannot resume old code paths in a stale tab.
+- Keeps Move .99 bound to one exact tab and workspace, with bounded recovery and an untouched final eBay Submit approval stop.
+- Pauses Poshmark historical profit backfill safely across extension updates and resumes only after an explicit request.
+- Retires unreliable GLDN-controlled EcomSniper extraction and Bulk Listing automation; GLDN opens and observes handoff tabs only.
+- Removes local-helper checkpoints and misleading EcomSniper seller-count or completion claims.
+- Reduces idle marketplace polling and escapes saved history values before rendering them in extension HTML.
+- Preserves saved computer identity, dashboard connection, Store categories, themes, transparency, layout, history, and updater snapshots.
+- Resolves the exact unpacked folder loaded by the requesting Chrome profile, so Update & Reload cannot update a disconnected copy.
+- Existing computers normally use Update & Reload. Run the newest updater setup once only on a computer whose existing updater is proven unable to update Chrome's loaded folder; Chrome profile settings remain intact.
 
 v3.10.5 marketplace theme isolation:
 - Stops GLDN themes from setting generic `data-theme`, `color-scheme`, and short CSS variables on eBay, Poshmark, Amazon, Walmart, EcomSniper, or ordinary webpages.

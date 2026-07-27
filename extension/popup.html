@@ -245,19 +245,11 @@
 
   <section id="ecomSniperSection" class="section-card" data-platform="ebay" data-popup-section="workflows">
     <h2>EcomSniper Handoffs</h2>
-    <p class="hint">GLDN Ops verifies its seller-extraction counts and handoff tabs. EcomSniper still owns Scanner, Product Hunter, Bulk Poster, and all listing work.</p>
+    <p class="hint">GLDN Ops opens handoff tabs and reports their tab state. EcomSniper owns Scanner, Product Hunter, Bulk Poster, Extract Sellers, and all listing work.</p>
     <button id="startSnipingWorkflow" class="secondary" type="button">Start Sniping Workflow</button>
     <button id="openEcomSniperCompetitorScanner" class="secondary" type="button">Open EcomSniper Competitor Scanner</button>
-    <button id="prepareProductHunterClipboard" class="primary" type="button">Filter Titles &amp; Open Product Hunter</button>
+    <button id="prepareProductHunterClipboard" class="primary" type="button">Prepare Product Hunter Handoff</button>
     <button id="openEcomSniperProductHunter" class="secondary" type="button">Open EcomSniper Product Hunter</button>
-    <div id="localHelperCard" class="helper-card ready">
-      <div class="helper-title">
-        <span>EcomSniper click mode</span>
-        <span id="localHelperBadge" class="helper-badge">Automatic</span>
-      </div>
-      <div id="localHelperText">Built-in automation targets EcomSniper's visible Extract Sellers control and waits for confirmation.</div>
-      <button id="checkLocalHelper" class="secondary" type="button">Verify EcomSniper Automation</button>
-    </div>
     <div id="ecomSniperMonitorCard" class="helper-card">
       <div class="helper-title">
         <span>Handoff monitor</span>
@@ -266,17 +258,11 @@
       <div id="ecomSniperMonitorText">No GLDN-observable EcomSniper handoff is active.</div>
       <div class="button-row">
         <button id="refreshEcomSniperMonitor" class="secondary" type="button">Refresh Status</button>
-        <button id="stopEcomSniperAssist" class="danger" type="button">Stop GLDN Assist</button>
       </div>
-    </div>
-    <div class="preset-box" id="ecomSniperVerifiedCounts">
-      <strong>Verified seller counts</strong>
-      <div id="lastEcomSniperStep">Latest step: Not recorded</div>
-      <div id="lastEcomSniperRun">Complete run: Not recorded</div>
     </div>
     <div class="preset-box" id="productHunterClipboardReport">Product Hunter titles: Not prepared</div>
     <div class="preset-box">
-      GLDN can report seller extraction and whether its EcomSniper handoff tab is open or closed. Progress inside EcomSniper's private pages is not readable and remains operator-controlled.
+      GLDN can report whether its EcomSniper handoff tab is open or closed. It cannot click or read EcomSniper's private controls, and it does not report EcomSniper completion.
     </div>
   </section>
 
@@ -372,10 +358,10 @@
     <details>
       <summary>EcomSniper handoffs and sniping</summary>
       <ol>
-        <li>Use the Handoff monitor for GLDN-observable seller extraction and EcomSniper tab status.</li>
+        <li>Use the Handoff monitor only for GLDN-opened EcomSniper tab status.</li>
         <li>Use Sniping Workflow from a specific Amazon product with a visible price.</li>
-        <li>Keep EcomSniper responsible for scanner, Product Hunter, and listing work.</li>
-        <li>GLDN Ops clicks EcomSniper Extract Sellers and continues only when the before total, after total, and new-seller count reconcile.</li>
+        <li>Keep EcomSniper responsible for Extract Sellers, Scanner, Product Hunter, Bulk Poster, and listing work.</li>
+        <li>Complete every EcomSniper control manually inside EcomSniper.</li>
         <li>Do not treat an open EcomSniper tab as proof that Bulk Poster is running or complete.</li>
         <li>If it does not continue, use Copy Full Diagnostic Report before resetting.</li>
       </ol>
@@ -399,8 +385,8 @@
         <li>Open Amazon Best Sellers starts manual product research.</li>
         <li>Open EcomSniper Competitor Scanner opens EcomSniper research.</li>
         <li>Open EcomSniper Product Hunter opens the EcomSniper product tool.</li>
-        <li>Check EcomSniper Mode confirms automatic semantic-click mode.</li>
-        <li>Run Feature Health Check tests dashboard access, EcomSniper page routing, click mode, and saved identity.</li>
+        <li>Refresh Handoff Status reports only whether a GLDN-opened EcomSniper tab is open or closed.</li>
+        <li>Run Feature Health Check tests dashboard access, updater access, EcomSniper page routing, and saved identity.</li>
       </ol>
     </details>
     <details>
@@ -438,7 +424,7 @@
     <select id="uiTheme"></select>
     <div id="uiThemePreview" class="gldn-theme-preview" aria-live="polite"></div>
     <label for="uiOpacity">Window transparency: <span id="uiOpacityValue">75%</span></label>
-    <input id="uiOpacity" type="range" min="65" max="100" step="1" value="75">
+    <input id="uiOpacity" type="range" min="0" max="100" step="1" value="75">
   </section>
 
   <section class="section-card" data-popup-section="workflows">

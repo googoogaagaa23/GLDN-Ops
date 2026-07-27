@@ -2,6 +2,67 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.11.6 - 2026-07-26
+
+- Made the panel and popup **Update & Reload** control reload the verified current files even when no newer download is needed.
+- The forced current-file reload keeps v3.11.5's requesting-tab-only isolation, so unrelated work tabs stay untouched.
+- This removes the manual page refresh that was still needed during the first v3.11.5 activation.
+- Signed-in Profile 2 live proof passed twice: v3.11.5 updated to v3.11.6 and an already-current v3.11.6 reload both refreshed only the requesting tab, preserved computer `0` / FAK12, left the Tasks, eBay, and Poshmark tabs unchanged, and returned dashboard/updater health OK with queue `0` and workflow idle.
+
+## v3.11.5 - 2026-07-26
+
+- Fixed Update & Reload refreshing every open marketplace tab and interrupting unrelated eBay, Amazon, Poshmark, Walmart, and EcomSniper work.
+- Update, reload, and rollback now refresh only the tab that requested the action.
+- Other open tabs keep their page state and show a disabled refresh-needed panel only if the old content script is used after the update.
+- Automatic shared-folder runtime updates no longer refresh any webpage in the background.
+- Added regression coverage proving unrelated tabs cannot be reloaded by an extension update.
+- v3.11.4 was live-verified in signed-in Profile 2 for Reset, Health Check, eBay seller metrics, eBay sales snapshot, listing limits, Poshmark stats, visible-sales review, and the historical-profit launcher before this release was built.
+
+## v3.11.4 - 2026-07-26
+
+- Fixed an abandoned Poshmark historical-profit worker preventing Reset from clearing its saved approval state.
+- Reset now deletes the profit checkpoint before stale worker-tab cleanup.
+- Worker-tab closure is best effort, nonblocking, and bounded to 750 ms.
+- Added regression coverage proving worker cleanup cannot keep Update & Reload blocked.
+
+## v3.11.3 - 2026-07-26
+
+- Fixed the universal Reset control appearing frozen when old marketplace runs left many tabs open.
+- Reset now returns immediately after clearing saved workflow and worker state.
+- Best-effort visual cleanup targets active tabs only and gives each tab notification a 750 ms deadline.
+- Added regression coverage proving reset acknowledgement does not await tab cleanup.
+
+## v3.11.2 - 2026-07-26
+
+- Changed Mark as Shipped into a strict two-stage approval workflow: first approve activation of eBay's exact Mark as shipped command, then approve eBay Continue separately if eBay presents it.
+- The extension no longer clicks Mark as shipped before approval and never clicks eBay Continue.
+- Unknown shipment outcomes, stale approval state, and interrupted pages now fail closed without automatically restarting the action.
+- Added a confirmed Reset control to the universal panel for clearing abandoned local workflow state without entering a marketplace page.
+- Removed unscoped health-status CSS classes that could alter host-page elements outside GLDN-owned panels.
+- Added regression contracts for the activation boundary, universal Reset, and host-page CSS selector scope.
+
+## v3.11.1 - 2026-07-26
+
+- Fixed Update & Reload health and update calls after Chrome omitted the `Origin` header from extension service-worker requests.
+- The local updater now requires the runtime extension ID plus Chrome's no-origin service-worker request shape, resolves that ID to Chrome's exact loaded unpacked folder, and rejects ordinary website origins.
+- Added fixture coverage for the real Chrome request shape and the website-origin rejection boundary.
+- Added Stop Task and confirmed Reset controls directly to the Poshmark panel.
+- Health output now distinguishes an approval-ready saved review from a workflow that is actively running.
+
+## v3.11.0 - 2026-07-26
+
+- Added one shared workflow lock so overlapping marketplace runs, open review windows, updater reloads, and stale tabs cannot race each other.
+- Update & Reload now defers while any workflow or approval window is active, preserves Chrome-profile settings, and refreshes stale marketplace tabs after the verified runtime changes.
+- The updater now resolves the exact unpacked GLDN Ops folder loaded by the requesting Chrome extension ID. It no longer updates a disconnected stable folder while Chrome runs an older project/download copy, and it fails closed if Chrome reports no match or more than one match.
+- Version-stamped resumable state across eBay, Amazon, Poshmark, Walmart, Move .99, reviews, and profit backfill. Old-version checkpoints are cleared or safely paused instead of silently resuming under new code.
+- Move .99 keeps exact tab ownership, exact-ID batches, interruption pacing, bounded recovery, and the manual eBay Submit stop; completed or failed scans no longer reopen workspaces indefinitely.
+- Poshmark historical profit backfill now pauses at its saved checkpoint if the extension version changes and requires an explicit Resume.
+- Retired unreliable GLDN-controlled EcomSniper seller extraction and Bulk Listing automation. GLDN now opens and monitors handoff tabs only; EcomSniper owns all private controls and listing work.
+- Removed legacy local-helper state and misleading seller-count/completion claims from the popup, guide, diagnostics, migrations, and active workflow classification.
+- Reduced idle eBay inspection, tightened saved Bulk Edit Continue ownership, and hardened popup/universal history rendering against stored markup injection.
+- Preserved universal access, isolated themes, per-window 0-100% transparency, saved layout, computer/account mappings, dashboard queue, Store categories, and approval boundaries.
+- The complete restored test suite passes 248 tests, including destructive update/rollback, exact loaded-folder resolution, unknown-ID rejection, and ambiguous-path rejection. Signed-in Profile 2 live launch remains the final acceptance gate.
+
 ## v3.10.5 - 2026-07-26
 
 - Fixed GLDN themes partially forcing eBay Messages and Poshmark into dark mode.

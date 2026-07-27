@@ -7,21 +7,110 @@
   let statusElement;
   let backfillResumeBusy = false;
   let lastBackfillSalesFingerprint = "";
+  let extensionContextInvalidated = false;
+  let backfillObserver = null;
+  let backfillMutationTimer = 0;
 
   const CLOSET_STATS_URL = "https://poshmark.com/users/self/closet_stats";
   const SALES_URL = "https://poshmark.com/order/sales";
   const FOUNDATION = globalThis.GLDN_FOUNDATION;
+  const EXTENSION_VERSION = chrome.runtime.getManifest().version;
+  const VERSIONED_WORKFLOW_KEYS = new Set([
+    ...FOUNDATION.workflowStateKeys,
+    "pendingPoshmarkProfitContext"
+  ]);
   const AUDIT = globalThis.GLDN_PROFIT_AUDIT;
 
-  const storageGet = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
-  const storageSet = (values) => new Promise((resolve, reject) => {
-    chrome.storage.local.set(values, () => {
-      const error = chrome.runtime.lastError?.message;
-      if (error) reject(new Error(error));
-      else resolve();
-    });
+  const invalidContextError = (error) => U?.isExtensionContextInvalidated?.(error)
+    || /extension context invalidated|context invalidated/i.test(String(error?.message || error || ""));
+
+  function stopInvalidatedPoshmarkContext(error) {
+    if (extensionContextInvalidated) return;
+    extensionContextInvalidated = true;
+    backfillObserver?.disconnect?.();
+    backfillObserver = null;
+    clearTimeout(backfillMutationTimer);
+    backfillMutationTimer = 0;
+    backfillResumeBusy = false;
+    if (statusElement) {
+      statusElement.textContent = "GLDN Ops was updated. Refresh this Poshmark tab when you are ready.";
+      statusElement.dataset.type = "error";
+    }
+    panel?.setAttribute?.("data-gldn-context-invalidated", "true");
+    panel?.querySelectorAll?.("button, input, select, textarea").forEach((control) => { control.disabled = true; });
+    if (error) U?.markExtensionContextInvalidated?.(error);
+  }
+
+  function requirePoshmarkContext() {
+    if (extensionContextInvalidated || !U?.extensionContextAvailable?.()) {
+      const error = new Error("Extension context invalidated. Refresh this Poshmark tab.");
+      stopInvalidatedPoshmarkContext(error);
+      throw error;
+    }
+  }
+
+  window.addEventListener("gldn-extension-context-invalidated", (event) => {
+    stopInvalidatedPoshmarkContext(event.detail?.message || "Extension context invalidated.");
   });
-  const storageRemove = (keys) => new Promise((resolve) => chrome.storage.local.remove(keys, resolve));
+
+  const storageGet = (keys) => new Promise((resolve, reject) => {
+    try {
+      requirePoshmarkContext();
+      chrome.storage.local.get(keys, (result) => {
+        let error = null;
+        try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+        if (error) {
+          if (invalidContextError(error)) stopInvalidatedPoshmarkContext(error);
+          reject(new Error(error.message || String(error)));
+        } else resolve(result);
+      });
+    } catch (error) {
+      if (invalidContextError(error)) stopInvalidatedPoshmarkContext(error);
+      reject(error);
+    }
+  });
+  const storageSet = (values) => new Promise((resolve, reject) => {
+    const payload = { ...values };
+    for (const key of VERSIONED_WORKFLOW_KEYS) {
+      if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+      const value = payload[key];
+      if (value === true) {
+        payload[key] = { active: true, extensionVersion: EXTENSION_VERSION, stateUpdatedAt: new Date().toISOString() };
+      } else if (value && typeof value === "object" && !Array.isArray(value)) {
+        payload[key] = { ...value, extensionVersion: EXTENSION_VERSION, stateUpdatedAt: new Date().toISOString() };
+      }
+    }
+    try {
+      requirePoshmarkContext();
+      chrome.storage.local.set(payload, () => {
+        let error = null;
+        try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+        if (error) {
+          if (invalidContextError(error)) stopInvalidatedPoshmarkContext(error);
+          reject(new Error(error.message || String(error)));
+        } else resolve();
+      });
+    } catch (error) {
+      if (invalidContextError(error)) stopInvalidatedPoshmarkContext(error);
+      reject(error);
+    }
+  });
+  const storageRemove = (keys) => new Promise((resolve, reject) => {
+    try {
+      requirePoshmarkContext();
+      chrome.storage.local.remove(keys, () => {
+        let error = null;
+        try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+        if (error) {
+          if (invalidContextError(error)) stopInvalidatedPoshmarkContext(error);
+          reject(new Error(error.message || String(error)));
+        } else resolve();
+      });
+    } catch (error) {
+      if (invalidContextError(error)) stopInvalidatedPoshmarkContext(error);
+      reject(error);
+    }
+  });
   const AMAZON_MATCH_TTL_MS = 2 * 60 * 60 * 1000;
   const runtimeMessage = U.runtimeMessage;
 
@@ -265,6 +354,25 @@
     statusElement.dataset.type = type;
   }
 
+  async function stopCurrentTask() {
+    await storageSet({ gldnStopRequested: true });
+    const result = await runtimeMessage({ type: "stopPoshmarkProfitBackfill" });
+    renderStatus(result?.ok
+      ? "Stop requested. The active worker will pause at its next safe checkpoint."
+      : "Stop requested for the active marketplace workflow.", "error");
+  }
+
+  async function resetAutomation() {
+    if (!window.confirm("Reset the saved GLDN Ops workflow checkpoint in this Chrome profile? Marketplace data will not be changed.")) return;
+    const result = await runtimeMessage({ type: "resetAutomationState" });
+    if (!result?.ok) {
+      renderStatus(`Reset failed: ${result?.error || "extension background unavailable"}`, "error");
+      return;
+    }
+    document.querySelectorAll(".gldn-modal-backdrop").forEach((element) => element.remove());
+    renderStatus("Saved workflow checkpoint cleared. Poshmark tools are ready.", "ready");
+  }
+
   async function runFeatureHealthFromPanel() {
     try {
       renderStatus("Running GLDN Ops health check...", "ready");
@@ -388,6 +496,7 @@
     if (!poshComputer.ok) {
       renderStatus(poshComputer.error, "error");
       alert(poshComputer.error);
+      await storageRemove(["pendingPoshmarkStatsScan"]);
       return;
     }
     if (!/\/users\/self\/closet_stats/i.test(location.href)) {
@@ -400,12 +509,28 @@
     const record = parsePoshmarkStats();
     record.computerLabel = poshComputer.computerLabel;
     if (!record.detectedAny) {
+      await storageRemove(["pendingPoshmarkStatsScan"]);
       renderStatus("Could not read Poshmark stats from this page.", "error");
       alert("I could not read the Poshmark stats. Refresh the stats page and try again.");
       return;
     }
+    await storageRemove(["pendingPoshmarkStatsScan"]);
     showStatsPreview(record);
     renderStatus("Review Poshmark stats before saving.", "ready");
+  }
+
+  async function startPoshmarkStatsScan() {
+    let reservationToken = "";
+    try {
+      reservationToken = await U.claimWorkflowStart("poshmark-stats", "Poshmark stats scan");
+      await storageSet({ pendingPoshmarkStatsScan: { active: true, startedAt: Date.now() } });
+    } catch (error) {
+      renderStatus(error.message || "Poshmark stats scan could not start.", "error");
+      return;
+    } finally {
+      await U.releaseWorkflowStart(reservationToken);
+    }
+    await scanPoshmarkStats();
   }
 
   async function resumePendingPoshmarkStatsScan() {
@@ -1102,7 +1227,7 @@
     }
   }
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  const poshmarkMessageListener = (message, _sender, sendResponse) => {
     if (message?.type === "showPoshmarkBackfillReview" && message.state) {
       showHistoricalProfitBackfillReview(message.state);
       sendResponse({ ok: true });
@@ -1114,7 +1239,9 @@
       return true;
     }
     return false;
-  });
+  };
+  chrome.runtime.onMessage.addListener(poshmarkMessageListener);
+  U.registerExtensionCleanup?.(() => chrome.runtime.onMessage.removeListener(poshmarkMessageListener));
 
   async function refreshIdentity() {
     const result = await savedPoshmarkComputerLabel();
@@ -1155,24 +1282,28 @@
         <button type="button" data-action="dashboard-setup" class="gldn-secondary">Setup</button>
         <button type="button" data-action="feature-health" class="gldn-secondary">Health Check</button>
         <button type="button" data-action="reload-extension" class="gldn-dev-reload">Update &amp; Reload</button>
+        <button type="button" data-action="stop-task" class="gldn-stop-task">Stop Task</button>
+        <button type="button" data-action="reset-task" class="gldn-secondary">Reset</button>
       </div>
       <div class="gldn-status">Poshmark tools ready.</div>
     `;
     document.documentElement.appendChild(panel);
     U.makePanelDraggable(panel, "gldnPoshmarkPanelPosition");
     statusElement = panel.querySelector(".gldn-status");
-    panel.querySelector("[data-action='posh-stats']").addEventListener("click", scanPoshmarkStats);
+    panel.querySelector("[data-action='posh-stats']").addEventListener("click", startPoshmarkStatsScan);
     panel.querySelector("[data-action='posh-profit']").addEventListener("click", scanOrderProfit);
     panel.querySelector("[data-action='visible-sales']").addEventListener("click", captureVisibleSales);
     panel.querySelector("[data-action='profit-backfill']").addEventListener("click", showHistoricalProfitBackfillLauncher);
     panel.querySelector("[data-action='open-stats']").addEventListener("click", () => location.assign(CLOSET_STATS_URL));
     panel.querySelector("[data-action='dashboard-setup']").addEventListener("click", setupDashboardFromPanel);
     panel.querySelector("[data-action='feature-health']").addEventListener("click", runFeatureHealthFromPanel);
+    panel.querySelector("[data-action='stop-task']").addEventListener("click", stopCurrentTask);
+    panel.querySelector("[data-action='reset-task']").addEventListener("click", resetAutomation);
     panel.querySelector("[data-action='reload-extension']").addEventListener("click", async () => {
       const version = chrome.runtime.getManifest().version;
       renderStatus(`Checking for a verified update after v${version}...`, "ready");
       try {
-        const response = await chrome.runtime.sendMessage({ type: "updateExtension", returnUrl: location.href });
+        const response = await chrome.runtime.sendMessage({ type: "updateExtension", returnUrl: location.href, reloadWhenCurrent: true });
         if (!response?.ok) throw new Error(response?.error || "Verified update failed.");
         if (!response.updated) renderStatus(response.message || "GLDN Ops is already current.", "completed");
       } catch (error) {
@@ -1186,8 +1317,7 @@
   createPanel();
   resumePendingPoshmarkStatsScan();
   resumePoshmarkProfitBackfillWorker().catch((error) => renderStatus(error.message || "Historical-profit worker stopped.", "error"));
-  let backfillMutationTimer;
-  const backfillObserver = new MutationObserver(() => {
+  backfillObserver = new MutationObserver(() => {
     clearTimeout(backfillMutationTimer);
     backfillMutationTimer = setTimeout(() => {
       if (!/^\/order\/sales\/?$/i.test(location.pathname)) return;
@@ -1198,11 +1328,15 @@
   });
   backfillObserver.observe(document.documentElement, { childList: true, subtree: true });
   window.addEventListener("gldn-extension-context-invalidated", () => {
-    backfillObserver.disconnect();
+    backfillObserver?.disconnect?.();
     clearTimeout(backfillMutationTimer);
     if (statusElement) {
       statusElement.textContent = "GLDN Ops was updated. Refresh this Poshmark tab.";
       statusElement.dataset.type = "error";
     }
   }, { once: true });
+  U.registerExtensionCleanup?.(() => {
+    backfillObserver?.disconnect?.();
+    clearTimeout(backfillMutationTimer);
+  });
 })();

@@ -5,6 +5,9 @@ node_modules/
 pet-runs/
 extension/config.js
 extension_versions/
+versions/
+staging/
+updater-state.json
 .clasp*.json
 apps-script-live*/
 evidence/*.mp4
@@ -13,4 +16,5 @@ evidence/competitor-scanner-video-frames/
 .crx-build/
 .webstore-build/
 .private-extension-build/
+.local-build/
 dist/*.pem

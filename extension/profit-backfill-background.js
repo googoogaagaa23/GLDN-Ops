@@ -35,10 +35,24 @@
     }));
   }
 
+  const TAB_REMOVE_TIMEOUT_MS = 750;
+
   function tabRemove(tabId) {
     return new Promise((resolve) => {
       if (!Number.isInteger(tabId)) return resolve(false);
-      chrome.tabs.remove(tabId, () => resolve(!chrome.runtime.lastError));
+      let settled = false;
+      const finish = (removed) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(removed);
+      };
+      const timer = setTimeout(() => finish(false), TAB_REMOVE_TIMEOUT_MS);
+      try {
+        chrome.tabs.remove(tabId, () => finish(!chrome.runtime.lastError));
+      } catch {
+        finish(false);
+      }
     });
   }
 
@@ -54,6 +68,10 @@
     return stored[STORAGE_KEY] || null;
   }
 
+  function runtimeVersion() {
+    return String(chrome.runtime.getManifest().version || "");
+  }
+
   async function writeRun(run) {
     const next = { ...run, updatedAt: new Date().toISOString() };
     await storageSet({ [STORAGE_KEY]: next });
@@ -62,6 +80,40 @@
 
   function publicResult(run) {
     return { ok: true, state: run, summary: BACKFILL.summary(run) };
+  }
+
+  async function pauseIncompatibleVersion(reason = "extension-update") {
+    const run = await readRun();
+    if (!run || String(run.extensionVersion || "") === runtimeVersion()) {
+      return { ok: true, changed: false, state: run };
+    }
+    if (run.workerTabId) await tabRemove(Number(run.workerTabId));
+    if (run.phase === "review") {
+      const review = await writeRun({
+        ...run,
+        active: false,
+        stopRequested: false,
+        workerTabId: null,
+        extensionVersion: runtimeVersion(),
+        migrationReason: reason
+      });
+      return { ok: true, changed: true, state: review };
+    }
+    const resumePhase = run.phase === "paused"
+      ? String(run.resumePhase || "index-sales")
+      : String(run.phase || "index-sales");
+    const paused = await writeRun({
+      ...run,
+      active: false,
+      stopRequested: false,
+      phase: "paused",
+      resumePhase,
+      workerTabId: null,
+      extensionVersion: runtimeVersion(),
+      pausedReason: `Paused safely because GLDN Ops changed from v${run.extensionVersion || "unknown"} to v${runtimeVersion()}.`,
+      migrationReason: reason
+    });
+    return { ok: true, changed: true, state: paused };
   }
 
   async function activeTab(sender) {
@@ -81,6 +133,7 @@
   }
 
   async function start(options = {}, sender = {}) {
+    await pauseIncompatibleVersion("start-check");
     const existing = await readRun();
     if (existing?.active) return { ok: false, error: `A Poshmark profit backfill is already running (${BACKFILL.summary(existing).phase}).` };
     const identitySettings = await storageGet(["computerLabel", "poshmarkProfitKnownOrders"]);
@@ -136,12 +189,13 @@
 
   async function reset() {
     const run = await readRun();
-    if (run?.workerTabId) await tabRemove(run.workerTabId);
     await storageRemove([STORAGE_KEY]);
-    return { ok: true };
+    if (run?.workerTabId) void tabRemove(Number(run.workerTabId));
+    return { ok: true, workerClose: run?.workerTabId ? "scheduled" : "not-needed" };
   }
 
   async function resume(sender = {}) {
+    await pauseIncompatibleVersion("resume-check");
     const run = await readRun();
     if (!run) return { ok: false, error: "No historical-profit checkpoint exists." };
     if (run.phase === "review") return publicResult(run);
@@ -156,6 +210,7 @@
       active: true,
       stopRequested: false,
       phase,
+      extensionVersion: runtimeVersion(),
       workerTabId: worker.id,
       ownerTabId: sender?.tab?.id ?? run.ownerTabId ?? anchor?.id ?? null,
       ownerWindowId: sender?.tab?.windowId ?? run.ownerWindowId ?? anchor?.windowId ?? null
@@ -347,6 +402,7 @@
     handleAmazonSearch,
     handleAmazonDetail,
     exactRecordsForSync,
-    markSynced
+    markSynced,
+    pauseIncompatibleVersion
   });
 });

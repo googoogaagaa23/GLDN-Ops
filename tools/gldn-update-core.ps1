@@ -8,6 +8,91 @@ function Get-GldnDefaultInstallRoot {
   return [System.IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA "GLDN Ops"))
 }
 
+function Get-GldnChromeUserDataRoot {
+  if ($env:GLDN_CHROME_USER_DATA) {
+    return [System.IO.Path]::GetFullPath($env:GLDN_CHROME_USER_DATA)
+  }
+  return [System.IO.Path]::GetFullPath((Join-Path $env:LOCALAPPDATA "Google\Chrome\User Data"))
+}
+
+function Get-GldnChromeExtensionInstalls {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ExtensionId,
+    [string]$ChromeUserDataRoot = (Get-GldnChromeUserDataRoot)
+  )
+  if ($ExtensionId -notmatch '^[a-p]{32}$') { throw "Invalid GLDN Ops extension ID." }
+  if (-not (Test-Path -LiteralPath $ChromeUserDataRoot)) { return @() }
+
+  $installs = @()
+  foreach ($profile in (Get-ChildItem -LiteralPath $ChromeUserDataRoot -Directory -ErrorAction SilentlyContinue)) {
+    $securePreferences = Join-Path $profile.FullName "Secure Preferences"
+    if (-not (Test-Path -LiteralPath $securePreferences)) { continue }
+    try {
+      $preferences = Get-Content -Raw -LiteralPath $securePreferences | ConvertFrom-Json
+      $settings = $preferences.extensions.settings
+      if (-not $settings) { continue }
+      $property = $settings.PSObject.Properties | Where-Object Name -CEQ $ExtensionId | Select-Object -First 1
+      if (-not $property) { continue }
+      $entry = $property.Value
+      if ([int]$entry.location -ne 4) { continue }
+      $rawPath = [Environment]::ExpandEnvironmentVariables([string]$entry.path)
+      if (-not $rawPath -or -not [System.IO.Path]::IsPathRooted($rawPath)) { continue }
+      $extensionRoot = [System.IO.Path]::GetFullPath($rawPath)
+      $manifestPath = Join-Path $extensionRoot "manifest.json"
+      if (-not (Test-Path -LiteralPath $manifestPath)) { continue }
+      $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+      if ([string]$manifest.name -ne "GLDN Ops") { continue }
+      $installs += [pscustomobject]@{
+        extensionId = $ExtensionId
+        extensionRoot = $extensionRoot
+        profileDirectory = $profile.Name
+      }
+    } catch {
+      continue
+    }
+  }
+  return @($installs)
+}
+
+function Resolve-GldnExtensionRequestTarget {
+  param(
+    [string]$ExtensionId = "",
+    [string]$FallbackInstallRoot = (Get-GldnDefaultInstallRoot),
+    [string]$ChromeUserDataRoot = (Get-GldnChromeUserDataRoot)
+  )
+  $fallbackRoot = [System.IO.Path]::GetFullPath($FallbackInstallRoot)
+  if (-not $ExtensionId) {
+    return [pscustomobject]@{
+      source = "configured"
+      extensionId = ""
+      installRoot = $fallbackRoot
+      extensionRoot = (Join-Path $fallbackRoot "extension")
+      profileDirectories = @()
+    }
+  }
+
+  $installs = @(Get-GldnChromeExtensionInstalls -ExtensionId $ExtensionId -ChromeUserDataRoot $ChromeUserDataRoot)
+  if (-not $installs.Count) {
+    throw "Chrome does not report a loaded unpacked GLDN Ops folder for extension $ExtensionId. Run the newest one-time updater setup once."
+  }
+  $paths = @($installs | ForEach-Object extensionRoot | Sort-Object -Unique)
+  if ($paths.Count -ne 1) {
+    throw "Chrome reports more than one loaded folder for extension $ExtensionId. GLDN Ops stopped instead of guessing which copy to update."
+  }
+  $extensionRoot = [System.IO.Path]::GetFullPath([string]$paths[0])
+  if ((Split-Path $extensionRoot -Leaf) -ine "extension") {
+    throw "The loaded GLDN Ops folder must be named extension before automatic updates can modify it safely."
+  }
+  return [pscustomobject]@{
+    source = "chrome-profile"
+    extensionId = $ExtensionId
+    installRoot = (Split-Path $extensionRoot -Parent)
+    extensionRoot = $extensionRoot
+    profileDirectories = @($installs | Where-Object { $_.extensionRoot -ieq $extensionRoot } | ForEach-Object profileDirectory | Sort-Object -Unique)
+  }
+}
+
 function Assert-GldnPathWithin {
   param([string]$Path, [string]$Parent)
   $resolvedPath = [System.IO.Path]::GetFullPath($Path)

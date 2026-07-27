@@ -6,6 +6,13 @@
   const AUDIT = window.GLDN_PROFIT_AUDIT;
   const SNIPING = window.GLDN_SNIPING_AUDIT;
   const FOUNDATION = window.GLDN_FOUNDATION;
+  const EXTENSION_VERSION = chrome.runtime.getManifest().version;
+  const VERSIONED_WORKFLOW_KEYS = new Set([
+    ...FOUNDATION.workflowStateKeys,
+    "pendingPoshmarkProfitContext",
+    "pendingAmazonOrderDetailMatch",
+    "pendingAmazonOrderSearchSubmission"
+  ]);
   const runtimeMessage = U.runtimeMessage;
   let panel;
   let statusElement;
@@ -28,9 +35,11 @@
     clearTimeout(amazonMutationTimer);
     amazonMutationTimer = 0;
     if (statusElement) {
-      statusElement.textContent = "GLDN Ops was updated. Refresh this Amazon tab.";
+      statusElement.textContent = "GLDN Ops was updated. Refresh this Amazon tab when you are ready.";
       statusElement.dataset.type = "error";
     }
+    panel?.setAttribute?.("data-gldn-context-invalidated", "true");
+    panel?.querySelectorAll?.("button, input, select, textarea").forEach((control) => { control.disabled = true; });
     U.markExtensionContextInvalidated?.(error);
   }
 
@@ -59,9 +68,19 @@
     }
   });
   const storageSet = (values) => new Promise((resolve, reject) => {
+    const payload = { ...values };
+    for (const key of VERSIONED_WORKFLOW_KEYS) {
+      if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+      const value = payload[key];
+      if (value === true) {
+        payload[key] = { active: true, extensionVersion: EXTENSION_VERSION, stateUpdatedAt: new Date().toISOString() };
+      } else if (value && typeof value === "object" && !Array.isArray(value)) {
+        payload[key] = { ...value, extensionVersion: EXTENSION_VERSION, stateUpdatedAt: new Date().toISOString() };
+      }
+    }
     try {
       requireAmazonContext();
-      chrome.storage.local.set(values, () => {
+      chrome.storage.local.set(payload, () => {
         const error = chrome.runtime.lastError?.message;
         if (error) reject(new Error(error));
         else resolve();
@@ -921,7 +940,7 @@
     const version = chrome.runtime.getManifest().version;
     renderStatus(`Checking for a verified update after v${version}...`, "ready");
     try {
-      const response = await chrome.runtime.sendMessage({ type: "updateExtension", returnUrl: location.href });
+      const response = await chrome.runtime.sendMessage({ type: "updateExtension", returnUrl: location.href, reloadWhenCurrent: true });
       if (!response?.ok) throw new Error(response?.error || "Verified update failed.");
       if (!response.updated) renderStatus(response.message || "GLDN Ops is already current.", "completed");
     } catch (error) {
@@ -1407,100 +1426,6 @@
     };
   }
 
-  function amazonBulkProductTitles(limit = 25) {
-    const selected = String(window.getSelection?.() || "").trim();
-    const titles = [];
-    if (selected.length > 8) titles.push(selected);
-    const selectors = [
-      "#productTitle",
-      "[data-asin] a[href*='/dp/'] span",
-      ".a-carousel-card a[href*='/dp/'] span",
-      ".zg-grid-general-faceout a[href*='/dp/'] span",
-      ".p13n-sc-truncate",
-      "a[href*='/dp/'] span"
-    ];
-    for (const selector of selectors) {
-      [...document.querySelectorAll(selector)].forEach((element) => {
-        const text = String(element.textContent || "")
-          .replace(/\s+/g, " ")
-          .trim();
-        if (
-          text.length >= 18 &&
-          text.length <= 220 &&
-          allowedBulkProductTitle(text) &&
-          !/^\$?\d+(?:\.\d+)?$/.test(text) &&
-          !/^(sponsored|prime|shop now|see more|options)$/i.test(text)
-        ) {
-          titles.push(text);
-        }
-      });
-    }
-    return [...new Set(titles)].slice(0, limit);
-  }
-
-  function normalizeBulkProductKey(title) {
-    return String(title || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 180);
-  }
-
-  async function filterRecentBulkProducts(titles) {
-    const result = await storageGet(["computerLabel", "bulkProductHistoryByComputer"]);
-    const computer = String(result.computerLabel || "0").trim() || "0";
-    const allHistory = result.bulkProductHistoryByComputer || {};
-    const history = allHistory[computer] || {};
-    const cutoff = Date.now() - 60 * 24 * 60 * 60 * 1000;
-    const freshHistory = {};
-    Object.entries(history).forEach(([key, timestamp]) => {
-      if (Number(timestamp) >= cutoff) freshHistory[key] = Number(timestamp);
-    });
-    const filtered = titles.filter((title) => !freshHistory[normalizeBulkProductKey(title)]);
-    return { computer, allHistory, freshHistory, filtered };
-  }
-
-  function isAmazonBestSellersPage() {
-    return /\/gp\/bestsellers\b/i.test(location.pathname);
-  }
-
-  async function recoverLegacyBulkHistoryReservations() {
-    const result = await storageGet([
-      "computerLabel",
-      "bulkLinksAmazonQueue",
-      "pendingEcomSniperBulkExtract",
-      "bulkProductHistoryByComputer"
-    ]);
-    const queue = result.bulkLinksAmazonQueue;
-    if (!Array.isArray(queue?.titles) || queue.historyMode === "confirmed-only" || result.pendingEcomSniperBulkExtract?.active) {
-      return;
-    }
-    const computer = String(queue.computer || result.computerLabel || "0").trim() || "0";
-    const allHistory = result.bulkProductHistoryByComputer || {};
-    const history = { ...(allHistory[computer] || {}) };
-    const lastAttemptedIndex = Math.max(-1, Number(queue.index ?? -1));
-    queue.titles.slice(lastAttemptedIndex + 1).forEach((title) => {
-      delete history[normalizeBulkProductKey(title)];
-    });
-    await storageSet({
-      bulkProductHistoryByComputer: {
-        ...allHistory,
-        [computer]: history
-      },
-      bulkLinksAmazonQueue: {
-        ...queue,
-        active: false,
-        historyMode: "confirmed-only",
-        recoveredAt: Date.now()
-      }
-    });
-  }
-
-  function allowedBulkProductTitle(title) {
-    return FOUNDATION.allowedBulkProductTitle(title);
-  }
-
   function numberFromText(value) {
     const match = String(value || "").replace(/,/g, "").match(/\$?\s*(\d+(?:\.\d{2})?)/);
     return match ? Number(match[1]) : null;
@@ -1571,7 +1496,6 @@
     const result = await storageGet(["findProductsWorkflow"]);
     const previous = result.findProductsWorkflow || {};
     const workflows = {
-      bulkListing: { steps: {}, counters: {} },
       sniping: { steps: {}, counters: {}, sellers: [], amazonPrice: "", minMarkupPercent: 70 },
       substitution: { steps: {}, counters: {} },
       ...(previous.workflows || {})
@@ -1595,51 +1519,6 @@
     window.open(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(title)}`, "_blank", "noopener");
   }
 
-  async function startBulkLinksFromAmazon() {
-    if (!isAmazonBestSellersPage()) {
-      renderStatus("Opening Amazon Best Sellers to start bulk links.", "ready");
-      window.open("https://www.amazon.com/gp/bestsellers", "_blank", "noopener");
-      return;
-    }
-    await recoverLegacyBulkHistoryReservations();
-    const detectedTitles = amazonBulkProductTitles(40);
-    const { computer, filtered } = await filterRecentBulkProducts(detectedTitles);
-    const titles = filtered.slice(0, 30);
-    if (!titles.length) {
-      renderStatus(detectedTitles.length ? "All detected Amazon products were already used in the last 60 days for this computer." : "Could not find Amazon product titles on this page.", "error");
-      return;
-    }
-    const queue = {
-      active: true,
-      source: "amazon-best-sellers",
-      computer,
-      historyMode: "confirmed-only",
-      titles,
-      index: 0,
-      targetCompetitors: 500,
-      maxPagesPerTitle: 3,
-      startedAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    await storageSet({
-      gldnStopRequested: false,
-      bulkLinksAmazonQueue: queue,
-      pendingEcomSniperBulkExtract: {
-        active: true,
-        autoPages: true,
-        bulkQueue: true,
-        query: titles[0],
-        phase: "extract",
-        pagesDone: 0,
-        maxPages: queue.maxPagesPerTitle,
-        startedAt: Date.now()
-      },
-      lastProductResearchTitle: titles[0]
-    });
-    renderStatus(`Starting bulk links from ${titles.length} new Amazon products for computer ${computer}.`, "ready");
-    window.open(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(titles[0])}`, "_blank", "noopener");
-  }
-
   async function startSnipingWorkflowFromAmazon() {
     const product = bestAmazonProductForWorkflow();
     const title = product.title;
@@ -1653,10 +1532,12 @@
       renderStatus("The current Amazon tab could not be identified. Reload this tab and try again.", "error");
       return;
     }
+    let reservationToken = "";
+    try {
+    reservationToken = await U.claimWorkflowStart("sniping", "Sniping workflow");
     const result = await storageGet(["findProductsWorkflow"]);
     const previous = result.findProductsWorkflow || {};
     const workflows = {
-      bulkListing: { steps: {}, counters: {} },
       sniping: { steps: {}, counters: {}, sellers: [], amazonPrice: "", minMarkupPercent: 70 },
       substitution: { steps: {}, counters: {} },
       ...(previous.workflows || {})
@@ -1697,6 +1578,12 @@
         savedAt: new Date().toISOString()
       }
     });
+    } catch (error) {
+      holdWorkflowStatus(error.message || "Sniping workflow could not start.", "error");
+      return;
+    } finally {
+      await U.releaseWorkflowStart(reservationToken);
+    }
     const opened = await runtimeMessage({ type: "openSnipingEbaySearch", title });
     const launchDiagnostic = {
       ok: opened?.ok === true,
@@ -2037,26 +1924,27 @@
   reviewPendingSnipingSellerCandidates();
   reviewPendingSnipingWinner();
 
-  chrome.storage.onChanged.addListener((changes, areaName) => {
+  const amazonStorageListener = (changes, areaName) => {
     if (areaName !== "local") return;
     if (changes.findProductsWorkflow?.newValue?.workflows?.sniping?.phase === "seller-review") {
       reviewPendingSnipingSellerCandidates();
     }
     if (changes.pendingSnipingWinner) reviewPendingSnipingWinner();
-  });
+  };
+  chrome.storage.onChanged.addListener(amazonStorageListener);
+  U.registerExtensionCleanup?.(() => chrome.storage.onChanged.removeListener(amazonStorageListener));
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  const amazonMessageListener = (message, _sender, sendResponse) => {
     if (message?.type !== "showSnipingSellerReview") return false;
     reviewPendingSnipingSellerCandidates()
       .then(sendResponse)
       .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
     return true;
-  });
+  };
+  chrome.runtime.onMessage.addListener(amazonMessageListener);
+  U.registerExtensionCleanup?.(() => chrome.runtime.onMessage.removeListener(amazonMessageListener));
 
-  storageGet(["pendingAmazonBulkWorkflowStart", "pendingAmazonSnipingWorkflowStart"]).then(async (result) => {
-    if (result.pendingAmazonBulkWorkflowStart?.active) {
-      await storageRemove(["pendingAmazonBulkWorkflowStart"]);
-    }
+  storageGet(["pendingAmazonSnipingWorkflowStart"]).then(async (result) => {
     if (result.pendingAmazonSnipingWorkflowStart?.active) {
       await storageRemove(["pendingAmazonSnipingWorkflowStart"]);
       startSnipingWorkflowFromAmazon();
@@ -2090,4 +1978,9 @@
       });
     }, 5000);
   }
+  U.registerExtensionCleanup?.(() => {
+    amazonObserver?.disconnect?.();
+    clearInterval(amazonAutoCacheInterval);
+    clearTimeout(amazonMutationTimer);
+  });
 })();

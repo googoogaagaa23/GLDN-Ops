@@ -21,7 +21,6 @@
   let ebayHeartbeatTimer = 0;
   let ebayPageObserver = null;
   let savedBulkEditCleanup = null;
-  let invalidContextReloadTimer = 0;
 
   const AWAITING_SHIPMENT_URL = "https://www.ebay.com/sh/ord/?filter=status:AWAITING_SHIPMENT";
   const SELLER_LEVEL_URL = "https://www.ebay.com/sh/performance";
@@ -34,10 +33,6 @@
   const EBAY_ACCOUNT_OPTIONS = FOUNDATION.ebayAccountOptions;
   const STORE_PLAN_LIMITS = { Premium: 10000, Anchor: 25000 };
   const DEFAULT_DOLLAR_LIMIT = 1000000;
-  const ECOMSNIPER_CLICK_TIMEOUT_MS = 300000;
-  const ECOMSNIPER_WORKFLOW_TIMEOUT_MS = 120000;
-  const ECOMSNIPER_AUTO_CLICK_CONFIRM_TIMEOUT_MS = 20000;
-  const ECOMSNIPER_RECOVERY_PROBE = "timeout";
   const EXTENSION_VERSION = chrome.runtime.getManifest().version;
 
   const MOVE99_DEFAULT_CONFIG = Object.freeze({
@@ -98,19 +93,13 @@
     move99SubmitMonitorRunning = false;
     markShippedRunning = false;
     markShippedMonitorRunning = false;
-    const message = "GLDN Ops was updated. Refreshing this eBay tab automatically...";
+    const message = "GLDN Ops was updated. Refresh this eBay tab when you are ready.";
     if (statusElement) {
       statusElement.textContent = message;
       statusElement.dataset.type = "error";
     }
     panel?.setAttribute?.("data-gldn-context-invalidated", "true");
     if (error) U?.markExtensionContextInvalidated?.(error);
-    const reloadKey = "gldnInvalidContextReloadAt";
-    const previousReloadAt = Number(sessionStorage.getItem(reloadKey) || 0);
-    if (Date.now() - previousReloadAt > 15000) {
-      sessionStorage.setItem(reloadKey, String(Date.now()));
-      invalidContextReloadTimer = window.setTimeout(() => location.reload(), 1200);
-    }
   }
 
   function requireExtensionContext() {
@@ -145,12 +134,14 @@
   });
   const storageSet = (values) => new Promise((resolve, reject) => {
     const payload = { ...values };
-    if (payload.pendingMove99Run && typeof payload.pendingMove99Run === "object") {
-      payload.pendingMove99Run = {
-        ...payload.pendingMove99Run,
-        extensionVersion: EXTENSION_VERSION,
-        stateUpdatedAt: new Date().toISOString()
-      };
+    for (const key of FOUNDATION.workflowStateKeys) {
+      if (!Object.prototype.hasOwnProperty.call(payload, key)) continue;
+      const value = payload[key];
+      if (value === true) {
+        payload[key] = { active: true, extensionVersion: EXTENSION_VERSION, stateUpdatedAt: new Date().toISOString() };
+      } else if (value && typeof value === "object" && !Array.isArray(value)) {
+        payload[key] = { ...value, extensionVersion: EXTENSION_VERSION, stateUpdatedAt: new Date().toISOString() };
+      }
     }
     try {
       requireExtensionContext();
@@ -524,7 +515,6 @@
   function productWorkflowDefaults() {
     return {
       workflows: {
-        bulkListing: { steps: {}, counters: {} },
         sniping: { steps: {}, counters: {}, sellers: [], amazonPrice: "", minMarkupPercent: 70, candidates: [] },
         substitution: { steps: {}, counters: {} }
       },
@@ -538,7 +528,6 @@
     const defaults = productWorkflowDefaults();
     const previous = stored.findProductsWorkflow || {};
     const workflow = { ...defaults, ...previous, workflows: { ...defaults.workflows, ...(previous.workflows || {}) } };
-    workflow.workflows.bulkListing = { ...defaults.workflows.bulkListing, ...(workflow.workflows.bulkListing || {}) };
     workflow.workflows.sniping = { ...defaults.workflows.sniping, ...(workflow.workflows.sniping || {}) };
     workflow.workflows.substitution = { ...defaults.workflows.substitution, ...(workflow.workflows.substitution || {}) };
     if (!workflow.workflows.sniping.amazonPrice && stored.lastAmazonProductPrice) {
@@ -547,620 +536,8 @@
     return workflow;
   }
 
-  function findEcomSniperExtractSellersButton() {
-    const direct = [...document.querySelectorAll("#seller-extract-btn, .seller-extract-btn")]
-      .find((element) => U.isVisible(element));
-    if (direct) return direct;
-    const controls = [...document.querySelectorAll("button, a, [role='button'], input[type='button'], input[type='submit']")];
-    return controls.find((element) => {
-      if (!U.isVisible(element)) return false;
-      const text = String(element.innerText || element.textContent || element.value || "").replace(/\s+/g, " ").trim();
-      return /\bextract\s+sellers\b/i.test(text);
-    });
-  }
-
-  function parseEcomSniperExtractTotals(label) {
-    const text = String(label || "");
-    const totalMatch = text.match(/([\d,]+)\s+total/i);
-    const freshMatch = text.match(/([+-]?\d[\d,]*)\s+new/i);
-    const total = totalMatch ? Number(totalMatch[1].replace(/,/g, "")) : null;
-    const fresh = freshMatch ? Number(freshMatch[1].replace(/,/g, "")) : null;
-    return {
-      total: total !== null && Number.isFinite(total) ? total : null,
-      fresh: fresh !== null && Number.isFinite(fresh) ? fresh : null
-    };
-  }
-
-  function verifyEcomSniperExtractCounts(before, after, options = {}) {
-    const previous = typeof before === "string" ? parseEcomSniperExtractTotals(before) : (before || {});
-    const latest = typeof after === "string" ? parseEcomSniperExtractTotals(after) : (after || {});
-    if (previous.total == null || latest.total == null) {
-      return { ok: false, pending: true, error: "EcomSniper did not provide both before and after totals." };
-    }
-
-    const newSellers = latest.total - previous.total;
-    if (newSellers < 0) {
-      return { ok: false, error: "EcomSniper's total decreased, so this extraction cannot be verified." };
-    }
-    if (latest.fresh != null && latest.fresh !== newSellers) {
-      return {
-        ok: false,
-        error: `EcomSniper count mismatch: total changed by ${newSellers}, but the button reported ${latest.fresh} new.`
-      };
-    }
-    if (newSellers === 0 && !(options.sawProcessing && latest.fresh === 0)) {
-      return { ok: false, pending: true, error: "EcomSniper has not produced a completed count change yet." };
-    }
-
-    return {
-      ok: true,
-      beforeTotal: previous.total,
-      afterTotal: latest.total,
-      newSellers,
-      reportedNew: latest.fresh,
-      source: "ecomsniper-extract-sellers-button"
-    };
-  }
-
-  function formatVerifiedEcomSniperExtract(result) {
-    if (!result?.ok) return "EcomSniper extraction was not numerically verified.";
-    return `EcomSniper verified: ${result.beforeTotal.toLocaleString()} -> ${result.afterTotal.toLocaleString()} total (+${result.newSellers.toLocaleString()} new).`;
-  }
-
-  function summarizeVerifiedEcomSniperRun(state = {}) {
-    const startTotal = Number(state.runStartTotal);
-    const finalTotal = Number(state.runAfterTotal);
-    const verifiedSteps = Number(state.runVerifiedSteps || 0);
-    if (!Number.isFinite(startTotal) || !Number.isFinite(finalTotal) || verifiedSteps < 1 || finalTotal < startTotal) {
-      return { ok: false, error: "The complete EcomSniper run does not have a valid start, finish, and verified-step count." };
-    }
-    return {
-      ok: true,
-      startTotal,
-      finalTotal,
-      newSellers: finalTotal - startTotal,
-      verifiedSteps,
-      source: "ecomsniper-extract-sellers-button-run"
-    };
-  }
-
-  function formatVerifiedEcomSniperRun(result) {
-    if (!result?.ok) return "The complete EcomSniper run was not numerically verified.";
-    return `EcomSniper run verified: ${result.startTotal.toLocaleString()} -> ${result.finalTotal.toLocaleString()} total (+${result.newSellers.toLocaleString()} new across ${result.verifiedSteps.toLocaleString()} steps).`;
-  }
-
-  function currentEcomSniperExtractLabel() {
-    const button = findEcomSniperExtractSellersButton();
-    return String(button?.innerText || button?.textContent || "").replace(/\s+/g, " ").trim();
-  }
-
-  async function recordEcomSniperIssue(message, detail = "") {
-    try {
-      await U.recordExtensionLog?.({
-        source: "ecomsniper-workflow",
-        level: "error",
-        message,
-        detail
-      });
-    } catch (_) {}
-  }
-
-  async function clickEcomSniperButtonSemantically(element) {
-    if (!isEbaySearchResultsPage()) {
-      return { ok: false, error: "Automatic EcomSniper clicks only run on an eBay search-results page." };
-    }
-    if (!element?.isConnected || !U.isVisible(element)) {
-      return { ok: false, error: "The visible EcomSniper Extract Sellers button is no longer available." };
-    }
-
-    const beforeLabel = String(element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
-    if (!/\bextract\s+sellers\b/i.test(beforeLabel)) {
-      return { ok: false, error: "The detected EcomSniper control is not Extract Sellers." };
-    }
-
-    element.scrollIntoView?.({ block: "center", inline: "center", behavior: "auto" });
-    element.focus?.({ preventScroll: true });
-
-    return new Promise((resolve) => {
-      let settled = false;
-      let timer = null;
-      let sawProcessing = false;
-      const finish = (result) => {
-        if (settled) return;
-        settled = true;
-        observer.disconnect();
-        if (timer) clearTimeout(timer);
-        resolve(result);
-      };
-      const observer = new MutationObserver(() => {
-        const afterLabel = String(element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
-        const afterTotals = parseEcomSniperExtractTotals(afterLabel);
-        if (
-          !/\bextract\s+sellers\b/i.test(afterLabel)
-          || afterTotals.total == null
-          || element.disabled
-          || element.getAttribute("aria-busy") === "true"
-        ) sawProcessing = true;
-        const verification = verifyEcomSniperExtractCounts(beforeLabel, afterLabel, { sawProcessing });
-        if (verification.ok) {
-          finish({ ok: true, beforeLabel, afterLabel, verification, confirmation: "verified-count-change" });
-        }
-      });
-
-      observer.observe(element, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        attributes: true,
-        attributeFilter: ["disabled", "class", "aria-busy"]
-      });
-      timer = setTimeout(() => {
-        const afterLabel = String(element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
-        const verification = verifyEcomSniperExtractCounts(beforeLabel, afterLabel, { sawProcessing });
-        if (verification.ok) {
-          finish({ ok: true, beforeLabel, afterLabel, verification, confirmation: "verified-count-change" });
-          return;
-        }
-        finish({
-          ok: false,
-          beforeLabel,
-          afterLabel,
-          error: verification.error || "EcomSniper did not confirm the automatic Extract Sellers click."
-        });
-      }, ECOMSNIPER_AUTO_CLICK_CONFIRM_TIMEOUT_MS);
-
-      try {
-        element.click();
-      } catch (error) {
-        finish({ ok: false, beforeLabel, afterLabel: beforeLabel, error: error?.message || "Automatic EcomSniper click failed." });
-      }
-    });
-  }
-
-  function installEcomSniperClickWatcher() {
-    if (window.__GLDN_ECOMSNIPER_TRUSTED_CLICK_WATCHER__) return;
-    window.__GLDN_ECOMSNIPER_TRUSTED_CLICK_WATCHER__ = true;
-    const handleExtractInteraction = async (event) => {
-      const button = findEcomSniperExtractSellersButton();
-      const target = event.target?.closest?.(".seller-extract-btn, button, [role='button'], a");
-      if (!button || !(target === button || button.contains(target) || target?.contains?.(button))) return;
-      const result = await storageGet(["pendingManualEcomSniperClick"]);
-      const pending = result.pendingManualEcomSniperClick;
-      if (!pending?.active) return;
-      if (pending.manualClickedAt) return;
-      const label = currentEcomSniperExtractLabel();
-      await storageSet({
-        pendingManualEcomSniperClick: {
-          ...pending,
-          manualClickedAt: Date.now(),
-          manualClickedLabel: label
-        }
-      });
-      renderStatus("EcomSniper click detected. Waiting for it to finish, then continuing.", "ready");
-    };
-    ["pointerdown", "mousedown", "click"].forEach((eventName) => {
-      document.addEventListener(eventName, handleExtractInteraction, true);
-    });
-  }
-
-  function ecomSniperExtractChangedMeaningfully(before, after) {
-    return verifyEcomSniperExtractCounts(before, after).ok;
-  }
-
   function isEbaySearchResultsPage() {
     return /\/sch\/i\.html/i.test(location.pathname) || document.querySelector(".srp-results, ul.srp-results");
-  }
-
-  function cleanSearchTitle(value) {
-    return String(value || "")
-      .replace(/\s*\|\s*eBay.*$/i, "")
-      .replace(/\s*-\s*eBay.*$/i, "")
-      .replace(/\s*for sale.*$/i, "")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  async function bestBulkExtractSearchQuery() {
-    const selected = cleanSearchTitle(getSelection()?.toString());
-    if (selected.length > 4) return selected;
-    const urlQuery = cleanSearchTitle(new URL(location.href).searchParams.get("_nkw"));
-    if (urlQuery.length > 4) return urlQuery;
-    const searchInput = cleanSearchTitle(document.querySelector("input[name='_nkw'], input[aria-label*='Search'], input[type='search']")?.value);
-    if (searchInput.length > 4) return searchInput;
-    const stored = await storageGet(["lastProductResearchTitle", "findProductsWorkflow"]);
-    const workflow = stored.findProductsWorkflow || {};
-    const saved = cleanSearchTitle(stored.lastProductResearchTitle || workflow.lastAmazonTitle || workflow.notes);
-    if (saved.length > 4) return saved;
-    const title = cleanSearchTitle(document.title);
-    return title.length > 4 && !/^ebay$/i.test(title) ? title : "";
-  }
-
-  async function recordEcomSniperExtractRun() {
-    const workflow = await loadProductWorkflow();
-    const bulkListing = workflow.workflows.bulkListing || { steps: {}, counters: {} };
-    const counters = { ...(bulkListing.counters || {}) };
-    counters.ecomSniperExtractRuns = Number(counters.ecomSniperExtractRuns || 0) + 1;
-    workflow.workflows.bulkListing = {
-      ...bulkListing,
-      counters,
-      steps: { ...(bulkListing.steps || {}), runCompetitorScanner: true },
-      lastEcomSniperExtractAt: new Date().toISOString()
-    };
-    workflow.savedAt = new Date().toISOString();
-    await storageSet({ findProductsWorkflow: workflow });
-  }
-
-  function findEbayResultsNextPage() {
-    const candidates = [...document.querySelectorAll("a, button, [role='button']")];
-    return candidates.find((element) => {
-      if (!U.isVisible(element)) return false;
-      const label = U.normalizeText([
-        element.getAttribute("aria-label"),
-        element.getAttribute("title"),
-        element.innerText,
-        element.textContent
-      ].filter(Boolean).join(" "));
-      const href = String(element.getAttribute("href") || "");
-      return /\bnext\b/i.test(label) && !/disabled|pagination__next--disabled/i.test(element.className || "") && !element.disabled && (href || element.tagName !== "A");
-    });
-  }
-
-  async function clickEcomSniperExtractButton(extractButton, options = {}) {
-    await recordEcomSniperExtractRun();
-    if (!options.keepPending) {
-      await storageRemove(["pendingEcomSniperBulkExtract"]);
-    }
-    const label = String(extractButton.innerText || extractButton.textContent || "").replace(/\s+/g, " ").trim();
-    renderStatus(label ? `Automatically running ${label}` : "Automatically running EcomSniper Extract Sellers.", "ready");
-    const totals = parseEcomSniperExtractTotals(label);
-    await storageSet({
-      pendingManualEcomSniperClick: {
-        active: true,
-        label,
-        total: totals.total,
-        fresh: totals.fresh,
-        startedAt: Date.now(),
-        pageUrl: location.href
-      }
-    });
-    const existingBulk = await storageGet(["pendingEcomSniperBulkExtract"]);
-    if (existingBulk.pendingEcomSniperBulkExtract?.active) {
-      await storageSet({
-        pendingEcomSniperBulkExtract: {
-          ...existingBulk.pendingEcomSniperBulkExtract,
-          phase: "clicking",
-          clickMode: "semantic-dom",
-          lastActionAt: Date.now()
-        }
-      });
-    }
-    const clickResult = await clickEcomSniperButtonSemantically(extractButton);
-    if (clickResult.ok) {
-      await storageSet({
-        pendingManualEcomSniperClick: {
-          active: true,
-          label,
-          total: totals.total,
-          fresh: totals.fresh,
-          startedAt: Date.now(),
-          clickMode: "semantic-dom",
-          automaticClickedAt: Date.now(),
-          manualClickedAt: Date.now(),
-          manualClickedLabel: clickResult.afterLabel || label,
-          confirmation: clickResult.confirmation || "verified-count-change",
-          verification: clickResult.verification
-        }
-      });
-      renderStatus(formatVerifiedEcomSniperExtract(clickResult.verification), "completed");
-      await completeEcomSniperExtractStep(clickResult.verification, clickResult.afterLabel || currentEcomSniperExtractLabel() || label);
-    } else {
-      const failedBulk = await storageGet(["pendingEcomSniperBulkExtract"]);
-      if (failedBulk.pendingEcomSniperBulkExtract?.active) {
-        await storageSet({
-          pendingEcomSniperBulkExtract: {
-            ...failedBulk.pendingEcomSniperBulkExtract,
-            phase: "auto-click-failed",
-            clickMode: "semantic-dom",
-            clickError: clickResult.error || "Automatic EcomSniper click was not confirmed.",
-            lastActionAt: Date.now()
-          }
-        });
-      }
-      await storageRemove(["pendingManualEcomSniperClick"]);
-      await recordEcomSniperIssue(
-        "Automatic EcomSniper Extract Sellers click was not confirmed.",
-        JSON.stringify({
-          beforeLabel: clickResult.beforeLabel || label,
-          afterLabel: clickResult.afterLabel || currentEcomSniperExtractLabel(),
-          error: clickResult.error || "Unknown automatic click error.",
-          pageUrl: location.href
-        })
-      );
-      renderStatus(`Automatic EcomSniper click stopped safely. ${clickResult.error || "Extract Sellers was not confirmed."}`, "error");
-    }
-    setTimeout(async () => {
-      const latest = findEcomSniperExtractSellersButton();
-      const latestLabel = String(latest?.innerText || latest?.textContent || "").replace(/\s+/g, " ").trim();
-      const verification = verifyEcomSniperExtractCounts(label, latestLabel);
-      if (verification.ok) {
-        await completeEcomSniperExtractStep(verification, latestLabel || label);
-      }
-    }, 2200);
-  }
-
-  function normalizeBulkProductHistoryKey(title) {
-    return String(title || "")
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 180);
-  }
-
-  async function rememberConfirmedBulkProduct(pending) {
-    if (!pending?.bulkQueue || !pending.query) return;
-    const key = normalizeBulkProductHistoryKey(pending.query);
-    if (!key) return;
-    const result = await storageGet(["computerLabel", "bulkProductHistoryByComputer"]);
-    const computer = String(result.computerLabel || "0").trim() || "0";
-    const allHistory = result.bulkProductHistoryByComputer || {};
-    await storageSet({
-      bulkProductHistoryByComputer: {
-        ...allHistory,
-        [computer]: {
-          ...(allHistory[computer] || {}),
-          [key]: Date.now()
-        }
-      }
-    });
-  }
-
-  async function completeEcomSniperExtractStep(verification, label = "") {
-    if (!verification?.ok) {
-      await recordEcomSniperIssue("EcomSniper extraction completion was blocked because its counts were not verified.", label);
-      renderStatus("EcomSniper extraction stopped: the before, after, and new-seller counts did not reconcile.", "error");
-      return false;
-    }
-    const verifiedResult = {
-      ...verification,
-      label,
-      verifiedAt: new Date().toISOString(),
-      pageUrl: location.href
-    };
-    await storageRemove(["pendingManualEcomSniperClick"]);
-    const result = await storageGet(["pendingEcomSniperBulkExtract"]);
-    const bulk = result.pendingEcomSniperBulkExtract;
-    if (!bulk?.active) {
-      await storageSet({ lastEcomSniperExtractResult: verifiedResult });
-      renderStatus(formatVerifiedEcomSniperExtract(verification), "completed");
-      return true;
-    }
-    if (bulk.phase === "after-extract") {
-      renderStatus(`${formatVerifiedEcomSniperExtract(verification)} Continuing workflow.`, "completed");
-      return true;
-    }
-    await rememberConfirmedBulkProduct(bulk);
-    const runStartTotal = Number.isFinite(Number(bulk.runStartTotal)) ? Number(bulk.runStartTotal) : verification.beforeTotal;
-    const runAfterTotal = verification.afterTotal;
-    if (runAfterTotal < runStartTotal) {
-      await recordEcomSniperIssue("EcomSniper run total fell below its verified starting total.", JSON.stringify({ bulk, verification }));
-      renderStatus("EcomSniper workflow stopped: the complete run total could not be reconciled.", "error");
-      return false;
-    }
-    await storageSet({
-      lastEcomSniperExtractResult: verifiedResult,
-      pendingEcomSniperBulkExtract: {
-        ...bulk,
-        phase: "after-extract",
-        pagesDone: Number(bulk.pagesDone || 0) + 1,
-        lastVerifiedExtract: verifiedResult,
-        runStartTotal,
-        runAfterTotal,
-        runNewSellers: runAfterTotal - runStartTotal,
-        runVerifiedSteps: Number(bulk.runVerifiedSteps || 0) + 1,
-        lastActionAt: Date.now()
-      }
-    });
-    renderStatus(`${formatVerifiedEcomSniperExtract(verification)} Continuing workflow.`, "completed");
-    return true;
-  }
-
-  async function resumeAfterEcomSniperClick() {
-    const result = await storageGet(["pendingManualEcomSniperClick", "pendingEcomSniperBulkExtract"]);
-    const pending = result.pendingManualEcomSniperClick;
-    if (!pending?.active) return false;
-    if (Date.now() - Number(pending.startedAt || 0) > ECOMSNIPER_CLICK_TIMEOUT_MS) {
-      await storageRemove(["pendingManualEcomSniperClick", "pendingEcomSniperBulkExtract"]);
-      await recordEcomSniperIssue(
-        "EcomSniper Extract Sellers click timed out.",
-        JSON.stringify({
-          pending,
-          bulk: result.pendingEcomSniperBulkExtract || null,
-          currentLabel: currentEcomSniperExtractLabel(),
-          pageUrl: location.href
-        })
-      );
-      renderStatus("EcomSniper click timed out. Start the workflow again.", "error");
-      return false;
-    }
-    const label = currentEcomSniperExtractLabel();
-    const totals = parseEcomSniperExtractTotals(label);
-    const verification = verifyEcomSniperExtractCounts({ total: pending.total, fresh: pending.fresh }, totals);
-    if (verification.ok) {
-      return completeEcomSniperExtractStep(verification, label || pending.manualClickedLabel || "automatic click");
-    }
-    return false;
-  }
-
-  async function resumePendingEcomSniperBulkExtract() {
-    const result = await storageGet(["pendingEcomSniperBulkExtract", "gldnStopRequested", "bulkLinksAmazonQueue"]);
-    const pending = result.pendingEcomSniperBulkExtract;
-    if (!pending?.active) return false;
-    if (result.gldnStopRequested) {
-      const queue = result.bulkLinksAmazonQueue;
-      await storageRemove(["pendingEcomSniperBulkExtract", "pendingManualEcomSniperClick"]);
-      if (queue?.active) {
-        await storageSet({
-          bulkLinksAmazonQueue: {
-            ...queue,
-            active: false,
-            stoppedAt: Date.now()
-          }
-        });
-      }
-      renderStatus("EcomSniper workflow stopped safely.", "completed");
-      return true;
-    }
-    const timeout = pending.phase === "waiting-manual-click" || pending.phase === "clicking"
-      ? ECOMSNIPER_CLICK_TIMEOUT_MS
-      : ECOMSNIPER_WORKFLOW_TIMEOUT_MS;
-    if (Date.now() - Number(pending.startedAt || 0) > timeout) {
-      await storageRemove(["pendingEcomSniperBulkExtract", "pendingManualEcomSniperClick"]);
-      await recordEcomSniperIssue(
-        "EcomSniper seller extraction workflow timed out.",
-        JSON.stringify({
-          pending,
-          currentLabel: currentEcomSniperExtractLabel(),
-          isEbaySearchResultsPage: isEbaySearchResultsPage(),
-          pageUrl: location.href
-        })
-      );
-      renderStatus("EcomSniper extract timed out. Open the eBay results page and try again.", "error");
-      return false;
-    }
-    if (!isEbaySearchResultsPage()) return false;
-    if (pending.phase === "auto-click-failed") {
-      renderStatus(`Automatic EcomSniper click stopped safely. ${pending.clickError || "Reset and try again on this search page."}`, "error");
-      return false;
-    }
-    if (pending.phase === "after-extract") {
-      const elapsed = Date.now() - Number(pending.lastActionAt || 0);
-      if (elapsed < 3500) return false;
-      const nextPage = findEbayResultsNextPage();
-      if (!nextPage || Number(pending.pagesDone || 0) >= Number(pending.maxPages || 20)) {
-        const workflowResult = summarizeVerifiedEcomSniperRun(pending);
-        if (!workflowResult.ok) {
-          await recordEcomSniperIssue("The complete EcomSniper extraction run could not be verified.", JSON.stringify(pending));
-          await storageSet({ pendingEcomSniperBulkExtract: { ...pending, active: false, phase: "count-verification-failed", countError: workflowResult.error } });
-          renderStatus(`EcomSniper workflow stopped: ${workflowResult.error}`, "error");
-          return false;
-        }
-        const completedWorkflowResult = {
-          ...workflowResult,
-          completedAt: new Date().toISOString(),
-          lastPageUrl: location.href
-        };
-        if (pending.bulkQueue) {
-          const queueResult = await storageGet(["bulkLinksAmazonQueue"]);
-          const queue = queueResult.bulkLinksAmazonQueue;
-          const nextIndex = Number(queue?.index || 0) + 1;
-          const titles = Array.isArray(queue?.titles) ? queue.titles : [];
-          if (queue?.active && titles[nextIndex]) {
-            await storageSet({
-              bulkLinksAmazonQueue: { ...queue, index: nextIndex, updatedAt: Date.now() },
-              pendingEcomSniperBulkExtract: {
-                ...pending,
-                query: titles[nextIndex],
-                phase: "extract",
-                pagesDone: 0,
-                startedAt: Date.now(),
-                lastActionAt: Date.now()
-              },
-              lastProductResearchTitle: titles[nextIndex]
-            });
-            renderStatus(`Next Amazon product ${nextIndex + 1}/${titles.length}: opening eBay search.`, "ready");
-            location.assign(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(titles[nextIndex])}`);
-            return true;
-          }
-          await storageSet({
-            bulkLinksAmazonQueue: { ...(queue || {}), active: false, completedAt: Date.now(), verifiedResult: completedWorkflowResult },
-            lastEcomSniperWorkflowResult: completedWorkflowResult
-          });
-        } else {
-          await storageSet({ lastEcomSniperWorkflowResult: completedWorkflowResult });
-        }
-        await storageRemove(["pendingEcomSniperBulkExtract"]);
-        renderStatus(`${formatVerifiedEcomSniperRun(workflowResult)} Opening EcomSniper Competitor Scanner.`, "completed");
-        await openEcomSniperPageFromContent("competitorScanner");
-        return true;
-      }
-      await storageSet({
-        pendingEcomSniperBulkExtract: {
-          ...pending,
-          phase: "next-page",
-          lastActionAt: Date.now()
-        }
-      });
-      renderStatus(`Opening next eBay page for more sellers (${Number(pending.pagesDone || 0).toLocaleString()} done).`, "ready");
-      const href = String(nextPage.getAttribute("href") || nextPage.href || "");
-      if (href) {
-        location.assign(href);
-      } else {
-        dispatchFullClick(nextPage, "Next page");
-      }
-      return true;
-    }
-    if (pending.phase === "clicking") {
-      if (Date.now() - Number(pending.lastActionAt || 0) > 15000) {
-        await storageSet({
-          pendingEcomSniperBulkExtract: {
-            ...pending,
-            phase: "extract",
-            lastActionAt: Date.now()
-          }
-        });
-        renderStatus("Automatic EcomSniper click was not confirmed. Reset and try again on this search page.", "error");
-        return true;
-      }
-      renderStatus("Waiting for EcomSniper to confirm the automatic Extract Sellers click...", "ready");
-      return false;
-    }
-    const button = findEcomSniperExtractSellersButton();
-    if (button) {
-      await clickEcomSniperExtractButton(button, { keepPending: Boolean(pending.autoPages) });
-      return true;
-    }
-    renderStatus("Waiting for EcomSniper Extract Sellers button...", "ready");
-    return false;
-  }
-
-  async function extractBulkSellersForProductWorkflow() {
-    const extractButton = findEcomSniperExtractSellersButton();
-    if (extractButton) {
-      const query = await bestBulkExtractSearchQuery();
-      const pending = {
-        active: true,
-        autoPages: true,
-        query,
-        phase: "extract",
-        pagesDone: 0,
-        maxPages: 20,
-        startedAt: Date.now(),
-        lastActionAt: Date.now()
-      };
-      await storageSet({ pendingEcomSniperBulkExtract: pending });
-      await clickEcomSniperExtractButton(extractButton, { keepPending: true });
-      return;
-    }
-    const query = await bestBulkExtractSearchQuery();
-    if (!query) {
-      renderStatus("Search an Amazon product on eBay first, then run EcomSniper Extract.", "error");
-      return;
-    }
-    await storageSet({
-      pendingEcomSniperBulkExtract: {
-        active: true,
-        autoPages: true,
-        query,
-        phase: "extract",
-        pagesDone: 0,
-        maxPages: 20,
-        startedAt: Date.now()
-      }
-    });
-    const url = `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(query)}`;
-    renderStatus("Opening eBay results, then I will click EcomSniper Extract.", "ready");
-    if (location.href !== url) location.assign(url);
   }
 
   function extractEbayResultCards() {
@@ -1341,21 +718,11 @@
   }
 
   async function resetAutomation() {
-    await storageRemove([
-      "pendingMarkShippedRun",
-      "pendingSellerLevelScan",
-      "pendingReviewMonthlyLimits",
-      "pendingEbaySnapshotScan",
-      "pendingMove99Run",
-      "pendingEcomSniperBulkExtract",
-      "pendingSnipingExtract",
-      "pendingManualEcomSniperClick",
-      "pendingAmazonBulkWorkflowStart",
-      "pendingAmazonSnipingWorkflowStart",
-      "pendingSnipingWinner",
-      "bulkLinksAmazonQueue"
-    ]);
-    await storageSet({ gldnStopRequested: false });
+    const result = await runtimeMessage({ type: "resetAutomationState" });
+    if (!result?.ok) {
+      renderStatus(`Reset failed: ${result?.error || "extension background unavailable"}`, "error");
+      return;
+    }
     markShippedRunning = false;
     move99Running = false;
     document.querySelectorAll(".gldn-modal-backdrop").forEach((element) => element.remove());
@@ -1375,7 +742,7 @@
   async function reloadExtensionFromPanel() {
     const version = chrome.runtime.getManifest().version;
     renderStatus(`Checking for a verified update after v${version}...`, "ready");
-    const response = await runtimeMessage({ type: "updateExtension", returnUrl: location.href });
+    const response = await runtimeMessage({ type: "updateExtension", returnUrl: location.href, reloadWhenCurrent: true });
     if (!response?.ok) {
       renderStatus(`Update failed: ${response?.error || "extension background unavailable"}`, "error");
       return;
@@ -2421,8 +1788,16 @@
   }
 
   async function startSellerLevelScan() {
-    await storageSet({ gldnStopRequested: false });
-    await storageSet({ pendingSellerLevelScan: true });
+    let reservationToken = "";
+    try {
+      reservationToken = await U.claimWorkflowStart("seller-level", "Seller Level scan");
+      await storageSet({ gldnStopRequested: false, pendingSellerLevelScan: true });
+    } catch (error) {
+      renderStatus(error.message || "Seller Level scan could not start.", "error");
+      return;
+    } finally {
+      await U.releaseWorkflowStart(reservationToken);
+    }
     scanHealthPage();
   }
 
@@ -2592,99 +1967,185 @@
     }, 8000, 200);
     if (!shippingButton) throw new Error("I selected the orders but could not find the enabled Shipping button.");
     shippingButton.click();
-
-    const activateMarkAsShipped = async () => {
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        const label = await U.waitFor(() => findExactVisible("Mark as shipped"), 5000, 120);
-        if (!label) return null;
-        const target = label.closest('button, a, li, [role="menuitem"], [role="button"], [tabindex]') || label;
-        target.scrollIntoView?.({ block: "center", inline: "center" });
-        await new Promise((resolve) => setTimeout(resolve, 120));
-
-        const rect = label.getBoundingClientRect();
-        const hit = document.elementFromPoint(
-          Math.max(1, Math.min(window.innerWidth - 1, rect.left + rect.width / 2)),
-          Math.max(1, Math.min(window.innerHeight - 1, rect.top + rect.height / 2))
-        );
-        const clickTargets = [target, hit, label].filter(Boolean).filter((item, index, array) => array.indexOf(item) === index);
-        for (const clickTarget of clickTargets) dispatchFullClick(clickTarget, label);
-
-        const outcome = await U.waitFor(() => {
-          const dialog = findMarkShippedDialog();
-          if (dialog) return { dialog };
-          const count = parseAwaitingResultsCount();
-          if (count !== null && count < ready.count) return { markedWithoutDialog: ready.count - count };
-          const stillVisible = findExactVisible("Mark as shipped");
-          if (!stillVisible) return { menuClosed: true };
-          return null;
-        }, 3500, 120);
-
-        if (outcome?.dialog || outcome?.markedWithoutDialog) return outcome;
-        if (outcome?.menuClosed) {
-          const delayed = await U.waitFor(() => {
-            const dialog = findMarkShippedDialog();
-            if (dialog) return { dialog };
-            const count = parseAwaitingResultsCount();
-            if (count !== null && count < ready.count) return { markedWithoutDialog: ready.count - count };
-            return null;
-          }, 6500, 180);
-          if (delayed) return delayed;
-        }
-
-        if (attempt < 2 && !findExactVisible("Mark as shipped")) {
-          const shippingAgain = findExactVisible("Shipping", 'button, [role="button"]');
-          if (shippingAgain) dispatchFullClick(shippingAgain);
-          await U.waitFor(() => findExactVisible("Mark as shipped"), 3500, 150);
-        }
-      }
-      return null;
-    };
-
-    const activation = await activateMarkAsShipped();
-    if (!activation) {
-      const stillVisible = Boolean(findExactVisible("Mark as shipped"));
-      throw new Error(stillVisible
-        ? "The Mark as shipped menu item was visible, but eBay did not accept the click."
-        : "The Mark as shipped confirmation did not open and the order count did not change.");
-    }
-
-    if (activation.markedWithoutDialog) {
-      return {
-        selected: ready.count,
-        marked: activation.markedWithoutDialog,
-        noOrders: false,
-        completedWithoutConfirmation: true
-      };
-    }
-
-    const dialog = activation.dialog;
-    const dialogText = dialog.innerText || dialog.textContent || "";
-    const confirmationSelection = resolveMarkShippedConfirmationCount(
-      parseMarkShippedSelectedCount(dialogText),
-      selectedStatus.count,
-      ready.count
-    );
-    const selected = confirmationSelection?.count ?? null;
-    const validation = validateMarkShippedConfirmation(ready.count, selected);
-    const continueButton = [...dialog.querySelectorAll('button, [role="button"]')].find((element) => {
-      return U.isVisible(element) && U.normalizeText(element.innerText || element.textContent || "") === "continue";
-    });
-    if (!continueButton) throw new Error("The confirmation opened, but the Continue button was not found.");
-    if (!validation.ok) {
-      await dismissAnyMarkShippedConfirmation();
-      throw new Error(validation.error);
-    }
-
+    const menuItem = await U.waitFor(() => findExactVisible("Mark as shipped"), 5000, 120);
+    if (!menuItem) throw new Error("I selected the orders, but eBay did not open the Mark as shipped menu item.");
     return {
-      selected,
+      selected: selectedStatus.count,
       selectionSource: selectedStatus.source,
-      confirmationCountSource: confirmationSelection?.source || "",
       beforeCount: ready.count,
       noOrders: false,
-      awaitingApproval: true,
-      confirmationText: U.normalizeText(dialogText),
-      confirmationOpenedAt: new Date().toISOString()
+      awaitingActivationApproval: true,
+      menuOpenedAt: new Date().toISOString()
     };
+  }
+
+  async function ensureMarkShippedMenuForApproval(state) {
+    if (!isAwaitingShipmentPage()) throw new Error("Return to eBay Awaiting shipment before approving Mark as Shipped.");
+    const currentCount = parseAwaitingResultsCount();
+    if (currentCount === null || currentCount !== Number(state.beforeCount)) {
+      throw new Error(`The awaiting order count changed from ${Number(state.beforeCount || 0).toLocaleString()} to ${currentCount === null ? "unknown" : currentCount.toLocaleString()}. Reset and review the orders again.`);
+    }
+    const checkbox = findActionsMasterCheckbox();
+    const selection = checkbox && currentMarkShippedSelectionEvidence(checkbox, currentCount);
+    const validation = validateMarkShippedConfirmation(currentCount, selection?.count ?? null);
+    if (!validation.ok) throw new Error("The approved order selection is no longer intact. Reset and review the orders again.");
+    let label = findExactVisible("Mark as shipped");
+    if (!label) {
+      const shippingButton = findExactVisible("Shipping", 'button, [role="button"]');
+      if (!shippingButton || shippingButton.disabled || shippingButton.getAttribute("aria-disabled") === "true") {
+        throw new Error("The Shipping menu is no longer available. Reset and review the orders again.");
+      }
+      dispatchFullClick(shippingButton);
+      label = await U.waitFor(() => findExactVisible("Mark as shipped"), 4000, 120);
+    }
+    if (!label) throw new Error("The Mark as shipped menu item is no longer available. Reset and review the orders again.");
+    return label;
+  }
+
+  async function activateApprovedMarkShipped(state) {
+    const label = await ensureMarkShippedMenuForApproval(state);
+    const target = label.closest('button, a, li, [role="menuitem"], [role="button"], [tabindex]') || label;
+    target.scrollIntoView?.({ block: "center", inline: "center" });
+    await storageSet({
+      pendingMarkShippedRun: {
+        ...state,
+        phase: "activating-approved-action",
+        activationApprovedAt: new Date().toISOString()
+      }
+    });
+    dispatchFullClick(target, label);
+    return U.waitFor(() => {
+      const dialog = findMarkShippedDialog();
+      if (dialog) return { dialog };
+      const count = parseAwaitingResultsCount();
+      if (count !== null && count < Number(state.beforeCount)) {
+        return { markedWithoutDialog: Number(state.beforeCount) - count, remaining: count };
+      }
+      return null;
+    }, 10000, 150);
+  }
+
+  async function cancelMarkShippedActivationApproval() {
+    const checkbox = findActionsMasterCheckbox();
+    if (checkbox && isCheckedControl(checkbox)) checkbox.click();
+    await storageSet({ pendingMarkShippedRun: null, gldnStopRequested: false });
+    document.getElementById("gldn-mark-shipped-activation-approval")?.remove();
+    renderStatus("Mark as Shipped canceled before eBay was changed.", "ready");
+  }
+
+  async function reconcileApprovedMarkShippedActivation(state) {
+    const remaining = parseAwaitingResultsCount();
+    const evidence = markShippedCompletionEvidence(
+      document.body?.innerText || "",
+      state.beforeCount,
+      state.selectedCount,
+      remaining
+    );
+    if (evidence) {
+      await finalizePendingMarkShipped(state, evidence);
+      return;
+    }
+    renderStatus("Mark as Shipped was approved, but its result is not yet provable. Review eBay, then use Reset only after confirming the order state.", "error");
+  }
+
+  function showMarkShippedActivationApproval(state) {
+    if (document.getElementById("gldn-mark-shipped-activation-approval")) return;
+    const overlay = document.createElement("div");
+    overlay.id = "gldn-mark-shipped-activation-approval";
+    overlay.className = "gldn-modal-backdrop gldn-review-backdrop";
+    overlay.innerHTML = `
+      <div class="gldn-modal gldn-review-modal">
+        <h2>Approve Mark as Shipped</h2>
+        <p>eBay reports <strong>${Number(state.selectedCount || 0).toLocaleString()}</strong> of <strong>${Number(state.beforeCount || 0).toLocaleString()}</strong> awaiting orders selected.</p>
+        <p>This next click may mark every selected order as shipped immediately. Review the eBay rows behind this window before approving.</p>
+        <div class="gldn-actions">
+          <button type="button" class="gldn-secondary" data-action="cancel">Cancel safely</button>
+          <button type="button" class="gldn-primary" data-action="approve">Approve Mark as Shipped</button>
+        </div>
+        <div class="gldn-modal-status">No eBay order has been changed by this run yet.</div>
+      </div>`;
+    document.documentElement.appendChild(overlay);
+    U.enhanceModal?.(overlay.querySelector(".gldn-modal"));
+    const status = overlay.querySelector(".gldn-modal-status");
+    overlay.querySelector('[data-action="cancel"]').addEventListener("click", () => {
+      cancelMarkShippedActivationApproval().catch((error) => {
+        status.textContent = error.message || String(error);
+      });
+    });
+    overlay.querySelector('[data-action="approve"]').addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const cancelButton = overlay.querySelector('[data-action="cancel"]');
+      button.disabled = true;
+      cancelButton.disabled = true;
+      status.textContent = "Applying your approval to eBay...";
+      try {
+        const stored = await storageGet(["pendingMarkShippedRun"]);
+        const current = stored.pendingMarkShippedRun;
+        if (!current?.active || current.phase !== "awaiting-activation-approval") {
+          throw new Error("This approval is stale. Reset and review the orders again.");
+        }
+        const activation = await activateApprovedMarkShipped(current);
+        if (!activation) throw new Error("eBay did not show a confirmation or report a changed order count. Reset and review before retrying.");
+        overlay.remove();
+        if (activation.markedWithoutDialog) {
+          const evidence = {
+            marked: activation.markedWithoutDialog,
+            remaining: activation.remaining,
+            exact: activation.markedWithoutDialog === Number(current.selectedCount)
+          };
+          await finalizePendingMarkShipped(current, evidence);
+          return;
+        }
+        const dialog = activation.dialog;
+        const dialogText = dialog.innerText || dialog.textContent || "";
+        const confirmationSelection = resolveMarkShippedConfirmationCount(
+          parseMarkShippedSelectedCount(dialogText),
+          current.selectedCount,
+          current.beforeCount
+        );
+        const selected = confirmationSelection?.count ?? null;
+        const validation = validateMarkShippedConfirmation(current.beforeCount, selected);
+        const continueButton = [...dialog.querySelectorAll('button, [role="button"]')].find((element) => {
+          return U.isVisible(element) && U.normalizeText(element.innerText || element.textContent || "") === "continue";
+        });
+        if (!continueButton) throw new Error("The confirmation opened, but the Continue button was not found.");
+        if (!validation.ok) {
+          await dismissAnyMarkShippedConfirmation();
+          throw new Error(validation.error);
+        }
+        const approvalState = {
+          ...current,
+          phase: "awaiting-approval",
+          selectedCount: selected,
+          confirmationCountSource: confirmationSelection?.source || "",
+          confirmationText: U.normalizeText(dialogText),
+          confirmationOpenedAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        await storageSet({ pendingMarkShippedRun: approvalState });
+        renderStatus(`Second approval required - ${selected.toLocaleString()} orders selected. Do not click Continue without approval.`, "error");
+        monitorPendingMarkShippedApproval();
+      } catch (error) {
+        const stored = await storageGet(["pendingMarkShippedRun"]).catch(() => ({}));
+        const actionMayHaveRun = stored.pendingMarkShippedRun?.phase === "activating-approved-action";
+        if (actionMayHaveRun) {
+          await storageSet({
+            pendingMarkShippedRun: {
+              ...stored.pendingMarkShippedRun,
+              phase: "manual-review-required",
+              error: error.message || String(error),
+              updatedAt: new Date().toISOString()
+            }
+          });
+          status.textContent = `${error.message || String(error)} Review eBay before using Reset.`;
+        } else {
+          button.disabled = false;
+          cancelButton.disabled = false;
+          status.textContent = error.message || String(error);
+        }
+        renderStatus(`Mark as Shipped stopped safely: ${error.message || String(error)}`, "error");
+      }
+    });
   }
 
   async function finalizePendingMarkShipped(state, evidence) {
@@ -2765,8 +2226,16 @@
         markedCount: 0,
         batchCount: 0
       };
+      if (state.phase === "awaiting-activation-approval") {
+        showMarkShippedActivationApproval(state);
+        return;
+      }
       if (state.phase === "awaiting-approval") {
         monitorPendingMarkShippedApproval();
+        return;
+      }
+      if (state.phase !== "prepare") {
+        renderStatus("Mark as Shipped needs manual review before another run. Review eBay, then use Reset.", "error");
         return;
       }
       if (!isAwaitingShipmentPage()) {
@@ -2775,7 +2244,7 @@
         return;
       }
 
-      renderStatus("Selecting every awaiting shipment order and opening eBay confirmation...", "ready");
+      renderStatus("Selecting every awaiting shipment order for review...", "ready");
       const result = await runOneMarkShippedBatch();
       if (result.noOrders) {
         const record = await saveMarkShippedResult({
@@ -2790,37 +2259,19 @@
         return;
       }
 
-      if (result.completedWithoutConfirmation) {
-        const record = await saveMarkShippedResult({
-          startedAt: state.startedAt,
-          status: "Completed without confirmation",
-          markedCount: Number(result.marked || 0),
-          selectedCount: Number(result.selected || 0),
-          beforeCount: Number(result.selected || 0),
-          batchCount: 1,
-          error: "eBay changed the orders without showing its expected confirmation dialog.",
-          pageUrl: location.href
-        });
-        renderStatus("eBay completed Mark as Shipped without the expected approval dialog. Review required.", "error");
-        alert("eBay completed Mark as Shipped without showing the expected confirmation dialog. The result was logged for review.");
-        return record;
-      }
-
       const approvalState = {
         ...state,
         active: true,
-        phase: "awaiting-approval",
+        phase: "awaiting-activation-approval",
         beforeCount: result.beforeCount,
         selectedCount: result.selected,
         selectionSource: result.selectionSource,
-        confirmationCountSource: result.confirmationCountSource,
-        confirmationText: result.confirmationText,
-        confirmationOpenedAt: result.confirmationOpenedAt,
+        menuOpenedAt: result.menuOpenedAt,
         updatedAt: new Date().toISOString()
       };
       await storageSet({ pendingMarkShippedRun: approvalState });
-      renderStatus(`Approval required - ${result.selected.toLocaleString()} orders selected. Do not click Continue without approval.`, "error");
-      monitorPendingMarkShippedApproval();
+      renderStatus(`Approval required - review ${result.selected.toLocaleString()} selected orders before activating Mark as Shipped.`, "error");
+      showMarkShippedActivationApproval(approvalState);
     } catch (error) {
       const stopped = taskWasStopped(error);
       await saveMarkShippedResult({
@@ -2838,22 +2289,31 @@
   }
 
   async function startMarkShipped() {
-    await storageSet({ gldnStopRequested: false });
-    const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel"]);
-    const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
-    if (!identity.computerLabel || !identity.ebayAccountLabel) {
-      alert("This computer is Poshmark-only or is not configured. Mark as Shipped requires an eBay computer.");
-      return;
-    }
-    await storageSet({
-      pendingMarkShippedRun: {
-        active: true,
-        phase: "prepare",
-        startedAt: new Date().toISOString(),
-        markedCount: 0,
-        batchCount: 0
+    let reservationToken = "";
+    try {
+      const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel"]);
+      const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
+      if (!identity.computerLabel || !identity.ebayAccountLabel) {
+        alert("This computer is Poshmark-only or is not configured. Mark as Shipped requires an eBay computer.");
+        return;
       }
-    });
+      reservationToken = await U.claimWorkflowStart("mark-shipped", "Mark as Shipped");
+      await storageSet({
+        gldnStopRequested: false,
+        pendingMarkShippedRun: {
+          active: true,
+          phase: "prepare",
+          startedAt: new Date().toISOString(),
+          markedCount: 0,
+          batchCount: 0
+        }
+      });
+    } catch (error) {
+      renderStatus(error.message || "Mark as Shipped could not start.", "error");
+      return;
+    } finally {
+      await U.releaseWorkflowStart(reservationToken);
+    }
     runMarkShippedAutomation();
   }
 
@@ -3202,6 +2662,7 @@
     const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
     if (!identity.computerLabel || !identity.ebayAccountLabel) {
       alert("This computer is Poshmark-only or is not configured. eBay snapshot requires an eBay computer.");
+      await storageRemove(["pendingEbaySnapshotScan"]);
       return;
     }
     if (!/\/sh\/ovw/i.test(location.href)) {
@@ -3227,6 +2688,7 @@
       location.reload();
       return;
     }
+    await storageRemove(["pendingEbaySnapshotScan"]);
     renderStatus("Reading Seller Hub snapshot...", "ready");
     showEbaySnapshotPreview(extractEbaySnapshot(identity));
     renderStatus(
@@ -3235,6 +2697,23 @@
         : "Review eBay snapshot before saving.",
       missingCards.length ? "error" : "ready"
     );
+  }
+
+  async function startEbaySnapshotScan() {
+    let reservationToken = "";
+    try {
+      reservationToken = await U.claimWorkflowStart("ebay-snapshot", "eBay sales snapshot");
+      await storageSet({
+        gldnStopRequested: false,
+        pendingEbaySnapshotScan: { active: true, startedAt: Date.now(), retryCount: 0 }
+      });
+    } catch (error) {
+      renderStatus(error.message || "eBay snapshot could not start.", "error");
+      return;
+    } finally {
+      await U.releaseWorkflowStart(reservationToken);
+    }
+    await scanEbaySnapshot();
   }
 
   async function resumePendingEbaySnapshotScan() {
@@ -3449,11 +2928,12 @@
       "CHECK DOLLAR LIMIT"
     );
     const evaluations = [storeAllowance, sellerQuantity, sellerDollar];
+    const requiredEvaluations = [storeAllowance, sellerDollar];
     const overallStatus = evaluations.some((entry) => entry.state === "critical")
       ? "CHECK LIMITS"
       : values.limitChanged
         ? "LIMIT CHANGED"
-        : evaluations.some((entry) => entry.state === "unknown")
+        : requiredEvaluations.some((entry) => entry.state === "unknown")
           ? "NOT DETECTED"
           : "GOOD";
     return { storeAllowance, sellerQuantity, sellerDollar, overallStatus };
@@ -4309,6 +3789,19 @@
 
   async function clickSavedBulkEditContinueIfPresent() {
     if (savedBulkEditContinueInProgress) return false;
+    const stored = await storageGet(["pendingMove99Run"]);
+    const run = stored.pendingMove99Run;
+    const runId = String(run?.runId || "");
+    const eligiblePhase = ["bulk-editor", "bulk-editor-scan", "bulk-editor-range"].includes(String(run?.phase || ""));
+    if (
+      !run?.active
+      || run.confirmed !== true
+      || !runId
+      || !eligiblePhase
+      || String(run.extensionVersion || "") !== EXTENSION_VERSION
+    ) return false;
+    const claim = await runtimeMessage({ type: "claimMove99Tab", runId });
+    if (!claim?.ok || !claim.owned || String(claim.runId || "") !== runId) return false;
     const found = findSavedBulkEditContinueButton();
     if (!found) return false;
     savedBulkEditContinueInProgress = true;
@@ -4354,70 +3847,6 @@
       await new Promise((resolve) => setTimeout(resolve, 300));
     }
     return false;
-  }
-
-  async function runEcomSniperRecoveryProbeFromUrl() {
-    const url = new URL(location.href);
-    if (
-      url.searchParams.get("gldnC04Probe") !== ECOMSNIPER_RECOVERY_PROBE
-      || url.searchParams.get("gldnC04Confirm") !== "1"
-    ) return false;
-
-    const sessionKey = `gldn-c04-probe:${url.href}`;
-    if (sessionStorage.getItem(sessionKey)) return false;
-    sessionStorage.setItem(sessionKey, new Date().toISOString());
-
-    const now = Date.now();
-    await storageSet({
-      pendingEcomSniperBulkExtract: {
-        active: true,
-        recoveryProbe: true,
-        autoPages: false,
-        query: "C-04 forced timeout safety probe",
-        phase: "clicking",
-        pagesDone: 0,
-        maxPages: 1,
-        startedAt: now - ECOMSNIPER_CLICK_TIMEOUT_MS - 1000,
-        lastActionAt: now - ECOMSNIPER_CLICK_TIMEOUT_MS - 1000
-      }
-    });
-
-    await resumePendingEcomSniperBulkExtract();
-    const after = await storageGet(["pendingEcomSniperBulkExtract", "pendingManualEcomSniperClick"]);
-    const checkpointsCleared = !after.pendingEcomSniperBulkExtract && !after.pendingManualEcomSniperClick;
-    const result = {
-      id: "C-04",
-      mode: "forced-timeout",
-      ok: checkpointsCleared,
-      marketplaceActions: 0,
-      pageUrl: location.href,
-      completedAt: new Date().toISOString(),
-      message: checkpointsCleared
-        ? "Forced EcomSniper timeout stopped safely and cleared its pending checkpoints."
-        : "Forced EcomSniper timeout did not clear every pending checkpoint."
-    };
-    await storageSet({ lastEcomSniperRecoveryProbe: result });
-    const saved = (await storageGet(["lastEcomSniperRecoveryProbe"])).lastEcomSniperRecoveryProbe;
-    const passed = Boolean(
-      checkpointsCleared
-      && saved?.ok === true
-      && saved?.id === "C-04"
-      && saved?.mode === "forced-timeout"
-      && saved?.marketplaceActions === 0
-    );
-    await U.recordExtensionLog?.({
-      source: "ecomsniper-workflow",
-      level: passed ? "info" : "error",
-      message: result.message,
-      detail: JSON.stringify(result)
-    });
-    renderStatus(
-      passed
-        ? "C-04 live recovery passed: forced timeout stopped safely, storage verified; no marketplace action ran."
-        : "C-04 live recovery failed: a pending checkpoint remains.",
-      passed ? "completed" : "error"
-    );
-    return true;
   }
 
   async function runDiagnosticLogProbeFromUrl() {
@@ -4543,40 +3972,61 @@
 
   function installSavedBulkEditDialogWatcher() {
     let observerTimer = 0;
-    const observer = new MutationObserver(() => {
-      clearTimeout(observerTimer);
-      observerTimer = setTimeout(async () => {
-        try {
-          const state = await storageGet(["pendingMove99Run"]);
-          if (!state.pendingMove99Run?.active) return;
-          if (!["bulk-editor", "bulk-editor-scan", "bulk-editor-range"].includes(state.pendingMove99Run.phase)) return;
-          if (findSavedBulkEditContinueButton()) {
-            await clickSavedBulkEditContinueIfPresent();
-          }
-        } catch (error) {
-          if (invalidContextError(error)) shutdownInvalidatedContext(error);
-        }
-      }, 300);
-    });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
-
-    // Mutation notifications can be coalesced or missed by highly dynamic
-    // pages, so keep a short-lived polling fallback while a run is pending.
-    const interval = setInterval(async () => {
+    let interval = 0;
+    let watching = false;
+    const eligible = (run) => Boolean(
+      run?.active
+      && run.confirmed === true
+      && run.runId
+      && String(run.extensionVersion || "") === EXTENSION_VERSION
+      && ["bulk-editor", "bulk-editor-scan", "bulk-editor-range"].includes(String(run.phase || ""))
+    );
+    const inspect = async () => {
       try {
         const state = await storageGet(["pendingMove99Run"]);
-        if (!state.pendingMove99Run?.active || !["bulk-editor", "bulk-editor-scan", "bulk-editor-range"].includes(state.pendingMove99Run.phase)) return;
-        if (findSavedBulkEditContinueButton()) {
-          await clickSavedBulkEditContinueIfPresent();
-        }
+        if (!eligible(state.pendingMove99Run)) return;
+        if (findSavedBulkEditContinueButton()) await clickSavedBulkEditContinueIfPresent();
       } catch (error) {
         if (invalidContextError(error)) shutdownInvalidatedContext(error);
       }
-    }, 750);
-    savedBulkEditCleanup = () => {
+    };
+    const observer = new MutationObserver(() => {
+      if (!watching) return;
+      clearTimeout(observerTimer);
+      observerTimer = setTimeout(inspect, 300);
+    });
+    const stopWatching = () => {
+      watching = false;
       observer.disconnect();
       clearInterval(interval);
+      interval = 0;
       clearTimeout(observerTimer);
+    };
+    const syncWatcher = (run) => {
+      if (!eligible(run)) {
+        stopWatching();
+        return;
+      }
+      if (watching) return;
+      watching = true;
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+      // Mutation notifications can be coalesced on eBay's virtualized editor,
+      // so poll only while this exact confirmed run owns a Bulk Edit phase.
+      interval = setInterval(inspect, 750);
+      inspect();
+    };
+    const storageListener = (changes, areaName) => {
+      if (areaName === "local" && changes.pendingMove99Run) syncWatcher(changes.pendingMove99Run.newValue);
+    };
+    chrome.storage.onChanged.addListener(storageListener);
+    storageGet(["pendingMove99Run"])
+      .then((state) => syncWatcher(state.pendingMove99Run))
+      .catch((error) => {
+        if (invalidContextError(error)) shutdownInvalidatedContext(error);
+      });
+    savedBulkEditCleanup = () => {
+      stopWatching();
+      try { chrome.storage.onChanged.removeListener(storageListener); } catch (_) {}
     };
     window.addEventListener("beforeunload", () => {
       savedBulkEditCleanup?.();
@@ -6670,10 +6120,6 @@
     return rect.width * rect.height;
   }
 
-  function uniqueElements(elements) {
-    return [...new Set(elements.filter(Boolean))];
-  }
-
   function isEnabledAction(element) {
     return Boolean(element)
       && U.isVisible(element)
@@ -7330,6 +6776,20 @@
       currentBatchOffset: 0,
       currentPageTotalIds: 0,
       currentBatchKey: ""
+    };
+  }
+
+  function pauseMove99ForReconciliation(state, reason = "") {
+    return {
+      ...state,
+      active: false,
+      confirmed: false,
+      ownerTabId: null,
+      phase: "reconciliation-required",
+      reviewReady: false,
+      reconciliationRequiredAt: new Date().toISOString(),
+      reconciliationReason: reason || "The last Move .99 batch needs a read-only verification pass.",
+      error: reason || state.error || "The last Move .99 batch needs reconciliation."
     };
   }
 
@@ -9621,10 +9081,9 @@
         const recoveredState = recoverMove99VerifiedScanSummary(failedState, error.message);
         await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: recoveredState });
       } else if (canRecoverMove99ThroughVerification(failedState)) {
-        const recoveredState = recoverMove99ThroughVerification(failedState, error.message);
-        await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: recoveredState });
-        renderStatus("Move .99 was interrupted. Starting a read-only verification scan before any retry.", "error");
-        await navigateToMove99ScanPage(1, recoveredState.filteredUrl || MOVE99_ACTIVE_URL);
+        const pausedState = pauseMove99ForReconciliation(failedState, error.message);
+        await storageSet({ pendingMove99Run: pausedState, lastMove99Scan: pausedState });
+        renderStatus("Move .99 stopped. Run Move .99 again to start a read-only reconciliation scan; no new tab or batch was opened.", "error");
         return;
       } else {
         await storageSet({ pendingMove99Run: failedState });
@@ -9637,6 +9096,9 @@
   }
 
   async function startMove99Listings(scanMode = "price99") {
+    let reservationToken = "";
+    try {
+    reservationToken = await U.claimWorkflowStart("move99", "Move .99");
     await storageSet({ gldnStopRequested: false });
     const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel", "pendingMove99Run"]);
     const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
@@ -9646,9 +9108,29 @@
     }
     const accountConfig = await applyMove99AccountConfig(identity.ebayAccountLabel);
     const interruptedState = storedIdentity.pendingMove99Run;
+    if (scanMode === "price99"
+      && interruptedState?.phase === "reconciliation-required"
+      && canRecoverMove99ThroughVerification(interruptedState)) {
+      const tabInfo = await runtimeMessage({ type: "currentTabInfo" });
+      if (!tabInfo?.ok || !Number.isInteger(tabInfo.tabId)) {
+        throw new Error("The current eBay tab could not be identified for reconciliation.");
+      }
+      const recoveredState = {
+        ...recoverMove99ThroughVerification(interruptedState, interruptedState.reconciliationReason),
+        ownerTabId: tabInfo.tabId
+      };
+      await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: recoveredState });
+      await U.releaseWorkflowStart(reservationToken);
+      reservationToken = "";
+      renderStatus("Starting the saved read-only reconciliation scan. No listing changes will be attempted.", "ready");
+      runMove99Automation();
+      return;
+    }
     if (scanMode === "price99" && canRecoverMove99FirstBatchFromVerifiedScan(interruptedState)) {
       const recoveredState = recoverMove99VerifiedScanSummary(interruptedState);
       await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: recoveredState });
+      await U.releaseWorkflowStart(reservationToken);
+      reservationToken = "";
       renderStatus("Recovered the verified Move .99 scan. Review it and click Apply to continue.", "ready");
       const recoveryUrl = move99ScanPageUrl(
         1,
@@ -9691,17 +9173,47 @@
         backburnerItemIds: accountConfig.backburnerItemIds
       }
     });
+    await U.releaseWorkflowStart(reservationToken);
+    reservationToken = "";
     renderStatus("Starting the full eBay Active Listings exact-ID scan...", "ready");
     runMove99Automation();
+    } catch (error) {
+      renderStatus(error.message || "Move .99 could not start.", "error");
+    } finally {
+      await U.releaseWorkflowStart(reservationToken);
+    }
+  }
+
+  async function startListingLimitCheck() {
+    let reservationToken = "";
+    try {
+      reservationToken = await U.claimWorkflowStart("listing-limits", "Listing limit check");
+      await storageSet({
+        gldnStopRequested: false,
+        pendingReviewMonthlyLimits: { active: true, phase: "active-listings", startedAt: new Date().toISOString() }
+      });
+    } catch (error) {
+      renderStatus(error.message || "Listing limit check could not start.", "error");
+      return;
+    } finally {
+      await U.releaseWorkflowStart(reservationToken);
+    }
+    reviewMonthlyLimits();
   }
 
   async function resumePendingActions() {
     const result = await storageGet(["pendingMarkShippedRun", "pendingSellerLevelScan", "pendingReviewMonthlyLimits", "pendingMove99Run"]);
     if (result.pendingMarkShippedRun?.active) {
-      if (result.pendingMarkShippedRun.phase === "awaiting-approval") {
+      if (result.pendingMarkShippedRun.phase === "awaiting-activation-approval") {
+        setTimeout(() => showMarkShippedActivationApproval(result.pendingMarkShippedRun), 600);
+      } else if (result.pendingMarkShippedRun.phase === "awaiting-approval") {
         setTimeout(monitorPendingMarkShippedApproval, 600);
-      } else if (isAwaitingShipmentPage()) {
+      } else if (result.pendingMarkShippedRun.phase === "activating-approved-action") {
+        setTimeout(() => reconcileApprovedMarkShippedActivation(result.pendingMarkShippedRun), 600);
+      } else if (result.pendingMarkShippedRun.phase === "prepare" && isAwaitingShipmentPage()) {
         setTimeout(runMarkShippedAutomation, 600);
+      } else if (result.pendingMarkShippedRun.phase === "manual-review-required") {
+        renderStatus("Mark as Shipped needs manual review. Review eBay, then use Reset.", "error");
       }
     }
     if (result.pendingSellerLevelScan && isSellerLevelPage()) {
@@ -9723,6 +9235,9 @@
     }
     if (pendingMove99?.phase === "awaiting-submit-approval") {
       setTimeout(() => resumeMove99AfterManualSubmit(pendingMove99), 900);
+    }
+    if (pendingMove99?.phase === "reconciliation-required") {
+      renderStatus("Move .99 needs reconciliation. Run Move .99 again to start the saved read-only verification scan.", "error");
     }
     const passiveMove99Summary = pendingMove99?.phase === "scan-summary" || pendingMove99?.phase === "completed";
     const shouldResumeMove99 = pendingMove99?.active
@@ -9838,13 +9353,9 @@
     panel.querySelector("[data-action='mark-shipped']").addEventListener("click", startMarkShipped);
     panel.querySelector("[data-action='prepare']").addEventListener("click", prepareNote);
     panel.querySelector("[data-action='health']").addEventListener("click", startSellerLevelScan);
-    panel.querySelector("[data-action='snapshot']").addEventListener("click", scanEbaySnapshot);
+    panel.querySelector("[data-action='snapshot']").addEventListener("click", startEbaySnapshotScan);
     limitsButtonElement = panel.querySelector("[data-action='limits']");
-    limitsButtonElement.addEventListener("click", async () => {
-      await storageSet({ gldnStopRequested: false });
-      await storageSet({ pendingReviewMonthlyLimits: { active: true, phase: "active-listings", startedAt: new Date().toISOString() } });
-      reviewMonthlyLimits();
-    });
+    limitsButtonElement.addEventListener("click", startListingLimitCheck);
     panel.querySelector("[data-action='open-dashboard']").addEventListener("click", openDashboard);
     panel.querySelector("[data-action='dashboard-setup']").addEventListener("click", setupDashboardFromPanel);
     panel.querySelector("[data-action='feature-health']").addEventListener("click", runFeatureHealthFromPanel);
@@ -9865,7 +9376,6 @@
   });
 
   createPanel();
-  installEcomSniperClickWatcher();
   installSavedBulkEditDialogWatcher();
   (async () => {
     if (await stopForEbayInterruption("eBay page initialization")) return;
@@ -9876,10 +9386,6 @@
     if (diagnosticProbeHandled) return;
     const dashboardProbeHandled = await runDashboardQueueProbeFromUrl();
     if (dashboardProbeHandled) return;
-    const probeHandled = await runEcomSniperRecoveryProbeFromUrl();
-    if (probeHandled) return;
-    await resumePendingEcomSniperBulkExtract();
-    await resumeAfterEcomSniperClick();
   })().catch((error) => {
     if (invalidContextError(error)) {
       shutdownInvalidatedContext(error);
@@ -9900,15 +9406,20 @@
   ebayHeartbeatTimer = setInterval(async () => {
     if (extensionContextInvalidated || move99Running) return;
     try {
-      if (await stopForEbayInterruption("eBay workflow heartbeat")) return;
       const result = await storageGet([
         "pendingMove99Run",
         "pendingEbaySnapshotScan",
-        "pendingManualEcomSniperClick",
-        "pendingEcomSniperBulkExtract",
         "pendingSnipingExtract"
       ]);
       const pending = result.pendingMove99Run;
+      const hasPendingWork = Boolean(
+        pending?.active
+        || pending?.phase === "awaiting-submit-approval"
+        || result.pendingEbaySnapshotScan?.active
+        || result.pendingSnipingExtract?.active
+      );
+      if (!hasPendingWork) return;
+      if (await stopForEbayInterruption("eBay workflow heartbeat")) return;
       if (pending?.phase === "awaiting-submit-approval") {
         await resumeMove99AfterManualSubmit(pending);
       }
@@ -9916,8 +9427,6 @@
         await runMove99Automation();
       }
       if (result.pendingEbaySnapshotScan?.active) await resumePendingEbaySnapshotScan();
-      if (result.pendingManualEcomSniperClick?.active) await resumeAfterEcomSniperClick();
-      if (result.pendingEcomSniperBulkExtract?.active) await resumePendingEcomSniperBulkExtract();
       if (result.pendingSnipingExtract?.active) await resumePendingSnipingExtract();
     } catch (error) {
       if (invalidContextError(error)) {

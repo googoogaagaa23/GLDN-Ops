@@ -22,7 +22,7 @@ $extensionFiles = @(
   "ebay.js", "ecomsniper.js", "poshmark.js", "reload.html", "reload.js",
   "start-move99.html", "start-move99.js", "README.txt"
 )
-$projectDirectories = @("tools", "docs", "dashboard", "apps-script-live", "apps-script-live-2", "apps-script-live-3", "releases", "tests", "installer")
+$projectDirectories = @("tools", "docs", "dashboard", "releases", "tests", "installer")
 $projectFiles = @(
   "CHANGELOG.md", "INSTALL.md", "package.json", "pnpm-lock.yaml",
   "bootstrap-install.ps1", "install-latest.ps1",

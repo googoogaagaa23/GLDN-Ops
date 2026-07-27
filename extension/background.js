@@ -13,13 +13,6 @@ const DASHBOARD_QUEUE_KEY = 'gldnDashboardQueue';
 const DASHBOARD_RETRY_ALARM = 'gldnDashboardRetry';
 const UPDATER_CHECK_ALARM = 'gldnUpdaterCheck';
 const UPDATER_API = 'http://127.0.0.1:39417/v1';
-const MARKETPLACE_TAB_PATTERNS = [
-  'https://*.ebay.com/*',
-  'https://*.amazon.com/*',
-  'https://*.walmart.com/*',
-  'https://*.poshmark.com/*',
-  'https://ecomsniper.io/*'
-];
 const SETTINGS_BACKUP_KEY = 'gldnSettingsBackups';
 const SETTINGS_SCHEMA_KEY = 'settingsSchemaVersion';
 const ECOMSNIPER_EXTENSION_ID = String(globalThis.GLDN_CONFIG?.ecomSniperExtensionId || 'eohieelgcgopcnjjjanjgfjdaifolokm').trim();
@@ -37,6 +30,218 @@ const PROFIT_BACKFILL_BACKGROUND = globalThis.GLDN_PROFIT_BACKFILL_BACKGROUND;
 const COMPUTER_ACCOUNT_MAP = FOUNDATION.computerAccounts;
 const COMPUTER_OPTIONS = FOUNDATION.computerOptions;
 let move99ClaimQueue = Promise.resolve();
+let workflowStartQueue = Promise.resolve();
+let openReviewQueue = Promise.resolve();
+
+const AUTOMATION_RESET_KEYS = Object.freeze([
+  ...FOUNDATION.workflowStateKeys,
+  'pendingEcomSniperBulkExtract',
+  'pendingManualEcomSniperClick',
+  'pendingAmazonBulkWorkflowStart',
+  'bulkLinksAmazonQueue',
+  'pendingPoshmarkProfitContext',
+  'pendingAmazonOrderDetailMatch',
+  'pendingAmazonOrderSearchSubmission'
+]);
+const VERSIONED_WORKFLOW_KEYS = Object.freeze([
+  'gldnWorkflowReservation',
+  'pendingMarkShippedRun',
+  'pendingSellerLevelScan',
+  'pendingReviewMonthlyLimits',
+  'pendingEbaySnapshotScan',
+  'pendingSnipingExtract',
+  'pendingSnipingWinner',
+  'pendingAmazonSnipingWorkflowStart',
+  'pendingPoshmarkStatsScan',
+  'pendingWalmartAutoOrder',
+  'pendingPoshmarkProfitContext',
+  'pendingAmazonOrderDetailMatch',
+  'pendingAmazonOrderSearchSubmission'
+]);
+
+function stampVersionedWorkflowValue(value) {
+  if (value === true) {
+    return { active: true, extensionVersion: EXTENSION_VERSION, stateUpdatedAt: new Date().toISOString() };
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  return {
+    ...value,
+    extensionVersion: EXTENSION_VERSION,
+    stateUpdatedAt: new Date().toISOString()
+  };
+}
+
+async function activeWorkflowStatus() {
+  const stored = await storageGet(FOUNDATION.workflowStateKeys);
+  const workflows = FOUNDATION.activeWorkflowEntries(stored);
+  return { busy: workflows.length > 0, workflows };
+}
+
+function workflowBlockerMessage(operation, workflows) {
+  const labels = workflows.map((entry) => `${entry.label}${entry.approvalReady ? " (approval/review open)" : ""}`);
+  return `${operation} is blocked while ${labels.join(", ")} is in progress. Finish it or use Stop/Reset, then try again.`;
+}
+
+async function assertUpdaterIdle(operation) {
+  const status = await activeWorkflowStatus();
+  if (status.busy) throw new Error(workflowBlockerMessage(operation, status.workflows));
+  return status;
+}
+
+function claimWorkflowStart(id, label, sender = {}) {
+  const claim = workflowStartQueue.then(async () => {
+    const stored = await storageGet(FOUNDATION.workflowStateKeys);
+    const blockers = FOUNDATION.activeWorkflowEntries(stored);
+    if (blockers.length) {
+      return { ok: false, busy: true, workflows: blockers, error: workflowBlockerMessage(`Starting ${label}`, blockers) };
+    }
+    const token = globalThis.crypto?.randomUUID?.() || `workflow-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const claimedAt = Date.now();
+    await storageSet({
+      gldnWorkflowReservation: {
+        active: true,
+        id: String(id || "workflow"),
+        label: String(label || "Workflow"),
+        token,
+        ownerTabId: sender?.tab?.id ?? null,
+        claimedAt,
+        expiresAt: claimedAt + 30000
+      }
+    });
+    return { ok: true, token };
+  });
+  workflowStartQueue = claim.then(() => undefined, () => undefined);
+  return claim;
+}
+
+async function releaseWorkflowStart(token) {
+  const stored = await storageGet(["gldnWorkflowReservation"]);
+  if (!stored.gldnWorkflowReservation) return { ok: true, released: false };
+  if (token && stored.gldnWorkflowReservation.token !== token) {
+    return { ok: false, released: false, error: "The workflow reservation belongs to another start request." };
+  }
+  await storageRemove(["gldnWorkflowReservation"]);
+  return { ok: true, released: true };
+}
+
+const AUTOMATION_RESET_TAB_TIMEOUT_MS = 750;
+
+function notifyTabOfAutomationReset(tabId) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(finish, AUTOMATION_RESET_TAB_TIMEOUT_MS);
+    try {
+      chrome.tabs.sendMessage(tabId, { type: 'gldnAutomationReset' }, () => {
+        void chrome.runtime.lastError;
+        finish();
+      });
+    } catch {
+      finish();
+    }
+  });
+}
+
+function broadcastAutomationReset(senderTabId = null) {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true }, (tabs) => {
+      void chrome.runtime.lastError;
+      const tabIds = new Set((tabs || [])
+        .filter((tab) => Number.isInteger(tab?.id) && /^https?:/i.test(String(tab.url || '')))
+        .map((tab) => tab.id));
+      if (Number.isInteger(senderTabId)) tabIds.add(senderTabId);
+      Promise.all([...tabIds].map(notifyTabOfAutomationReset))
+        .then(() => resolve({ notifiedTabs: tabIds.size }));
+    });
+  });
+}
+
+async function resetAutomationState(sender = {}) {
+  await PROFIT_BACKFILL_BACKGROUND.reset().catch(() => ({ ok: false }));
+  await storageRemove(AUTOMATION_RESET_KEYS);
+  await storageSet({ gldnStopRequested: false });
+  void broadcastAutomationReset(sender?.tab?.id).catch((error) => {
+    recordExtensionLog({ source: 'background', operation: 'reset-tab-notification', message: error.message });
+  });
+  return { ok: true, reset: true, tabNotification: 'scheduled' };
+}
+
+async function startPoshmarkProfitBackfillGuarded(options = {}, sender = {}) {
+  const reservation = await claimWorkflowStart('poshmark-profit', 'Poshmark profit backfill', sender);
+  if (!reservation.ok) return reservation;
+  try {
+    return await PROFIT_BACKFILL_BACKGROUND.start(options, sender);
+  } finally {
+    await releaseWorkflowStart(reservation.token);
+  }
+}
+
+function updateOpenReviews(mutator) {
+  const update = openReviewQueue.then(async () => {
+    const stored = await storageGet(['gldnOpenReviews']);
+    const now = Date.now();
+    const reviews = Object.fromEntries(Object.entries(stored.gldnOpenReviews || {}).filter(([, review]) => (
+      review?.active === true && Number(review.expiresAt || 0) > now
+    )));
+    const result = await mutator(reviews, now);
+    await storageSet({ gldnOpenReviews: reviews });
+    return result;
+  });
+  openReviewQueue = update.then(() => undefined, () => undefined);
+  return update;
+}
+
+function registerOpenReview(message = {}, sender = {}) {
+  return updateOpenReviews((reviews, now) => {
+    const token = String(message.token || '').trim();
+    if (!token) return { ok: false, error: 'The review window token is missing.' };
+    const ownerTabId = sender?.tab?.id ?? null;
+    for (const [key, review] of Object.entries(reviews)) {
+      if (Number(review.ownerTabId) === Number(ownerTabId) && review.documentInstanceId !== message.documentInstanceId) delete reviews[key];
+    }
+    reviews[token] = {
+      active: true,
+      phase: 'review-open',
+      token,
+      label: String(message.label || 'GLDN review').slice(0, 120),
+      page: String(sender?.tab?.url || message.page || '').slice(0, 1000),
+      ownerTabId,
+      documentInstanceId: String(message.documentInstanceId || ''),
+      extensionVersion: EXTENSION_VERSION,
+      openedAt: new Date(now).toISOString(),
+      expiresAt: now + (4 * 60 * 60 * 1000)
+    };
+    return { ok: true, token };
+  });
+}
+
+function releaseOpenReview(token) {
+  return updateOpenReviews((reviews) => {
+    const key = String(token || '').trim();
+    const released = Boolean(key && reviews[key]);
+    if (key) delete reviews[key];
+    return { ok: true, released };
+  });
+}
+
+function clearOpenReviewsForTab(sender = {}) {
+  return updateOpenReviews((reviews) => {
+    const ownerTabId = sender?.tab?.id;
+    let cleared = 0;
+    for (const [key, review] of Object.entries(reviews)) {
+      if (Number.isInteger(ownerTabId) && Number(review.ownerTabId) === Number(ownerTabId)) {
+        delete reviews[key];
+        cleared += 1;
+      }
+    }
+    return { ok: true, cleared };
+  });
+}
 
 async function updaterRequest(path, options = {}) {
   const controller = new AbortController();
@@ -46,6 +251,7 @@ async function updaterRequest(path, options = {}) {
       method: options.method || 'GET',
       headers: {
         'X-GLDN-Updater': '1',
+        'X-GLDN-Extension-Id': chrome.runtime.id,
         ...(options.body ? { 'Content-Type': 'application/json' } : {})
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
@@ -70,7 +276,8 @@ async function updaterRequest(path, options = {}) {
   }
 }
 
-async function queueRuntimeReload({ returnUrl = '', sourceTabUrl = '', reason = 'manual-reload', targetVersion = '' } = {}) {
+async function queueRuntimeReload({ returnUrl = '', sourceTabId = null, sourceTabUrl = '', reason = 'manual-reload', targetVersion = '' } = {}) {
+  await assertUpdaterIdle('Reloading GLDN Ops');
   await storageSet({
     lastExtensionReloadRequest: {
       at: new Date().toISOString(),
@@ -79,6 +286,7 @@ async function queueRuntimeReload({ returnUrl = '', sourceTabUrl = '', reason = 
       reason,
       pending: true,
       returnUrl: String(returnUrl || ''),
+      sourceTabId: Number.isInteger(sourceTabId) ? sourceTabId : null,
       sourceTabUrl: String(sourceTabUrl || '')
     }
   });
@@ -86,20 +294,29 @@ async function queueRuntimeReload({ returnUrl = '', sourceTabUrl = '', reason = 
 }
 
 async function updateExtensionAndReload(message = {}, sender = {}) {
+  await assertUpdaterIdle('Updating GLDN Ops');
   recordExtensionLog({ source: 'updater', level: 'info', operation: 'update', message: 'Verified extension update requested.' });
   const result = await updaterRequest('/update', { method: 'POST', body: {}, timeoutMs: 180000 });
-  if (result.updated) {
+  const diskVersion = String(result.currentVersion || result.diskVersion || '');
+  const needsRuntimeReload = Boolean(
+    result.updated
+    || (diskVersion && diskVersion !== EXTENSION_VERSION)
+    || message.reloadWhenCurrent === true
+  );
+  if (needsRuntimeReload) {
     await queueRuntimeReload({
       returnUrl: message.returnUrl,
+      sourceTabId: Number.isInteger(message.sourceTabId) ? message.sourceTabId : sender?.tab?.id,
       sourceTabUrl: sender?.tab?.url,
       reason: 'verified-update',
-      targetVersion: result.currentVersion
+      targetVersion: diskVersion
     });
   }
-  return { ...result, reloading: Boolean(result.updated) };
+  return { ...result, runtimeVersion: EXTENSION_VERSION, diskVersion, reloading: needsRuntimeReload };
 }
 
 async function rollbackExtensionAndReload(message = {}, sender = {}) {
+  await assertUpdaterIdle('Rolling back GLDN Ops');
   recordExtensionLog({ source: 'updater', level: 'info', operation: 'rollback', message: 'Extension rollback requested.' });
   const result = await updaterRequest('/rollback', {
     method: 'POST',
@@ -108,6 +325,7 @@ async function rollbackExtensionAndReload(message = {}, sender = {}) {
   });
   await queueRuntimeReload({
     returnUrl: message.returnUrl,
+    sourceTabId: Number.isInteger(message.sourceTabId) ? message.sourceTabId : sender?.tab?.id,
     sourceTabUrl: sender?.tab?.url,
     reason: 'rollback',
     targetVersion: result.currentVersion
@@ -128,13 +346,24 @@ async function checkUpdaterDiskVersion() {
   }
   const diskVersion = String(status.diskVersion || '');
   if (!diskVersion || diskVersion === EXTENSION_VERSION) {
-    await storageSet({ gldnUpdaterAutoReloadAttempt: null });
+    await storageSet({ gldnUpdaterAutoReloadAttempt: null, gldnUpdaterDeferredReload: null });
     return { ok: true, current: true, diskVersion };
   }
   const stored = await storageGet(['gldnUpdaterAutoReloadAttempt']);
   const prior = stored.gldnUpdaterAutoReloadAttempt;
   if (prior?.fromVersion === EXTENSION_VERSION && prior?.targetVersion === diskVersion) {
     return { ok: false, pathMismatch: true, diskVersion };
+  }
+  const workflowStatus = await activeWorkflowStatus();
+  if (workflowStatus.busy) {
+    const deferred = {
+      at: new Date().toISOString(),
+      fromVersion: EXTENSION_VERSION,
+      targetVersion: diskVersion,
+      workflows: workflowStatus.workflows
+    };
+    await storageSet({ gldnUpdaterDeferredReload: deferred });
+    return { ok: true, deferred: true, diskVersion, workflows: workflowStatus.workflows };
   }
   await storageSet({
     gldnUpdaterAutoReloadAttempt: {
@@ -145,6 +374,22 @@ async function checkUpdaterDiskVersion() {
   });
   await queueRuntimeReload({ reason: 'shared-folder-update', targetVersion: diskVersion });
   return { ok: true, reloading: true, diskVersion };
+}
+
+async function getUpdaterRuntimeStatus(refresh = false) {
+  const [status, workflowStatus, stored] = await Promise.all([
+    updaterRequest(`/status${refresh ? '?refresh=1' : ''}`, { timeoutMs: refresh ? 20000 : 3000 }),
+    activeWorkflowStatus(),
+    storageGet(['gldnUpdaterDeferredReload', 'gldnUpdaterAutoReloadAttempt'])
+  ]);
+  return {
+    ...status,
+    runtimeVersion: EXTENSION_VERSION,
+    workflowBusy: workflowStatus.busy,
+    workflows: workflowStatus.workflows,
+    deferredReload: stored.gldnUpdaterDeferredReload || null,
+    autoReloadAttempt: stored.gldnUpdaterAutoReloadAttempt || null
+  };
 }
 
 function normalizeComputer(value) {
@@ -167,6 +412,11 @@ function storageGet(keys) {
 
 function storageSet(values) {
   const payload = { ...values };
+  for (const key of VERSIONED_WORKFLOW_KEYS) {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      payload[key] = stampVersionedWorkflowValue(payload[key]);
+    }
+  }
   if (payload.pendingMove99Run && typeof payload.pendingMove99Run === 'object') {
     payload.pendingMove99Run = {
       ...payload.pendingMove99Run,
@@ -314,6 +564,12 @@ function move99ActiveUrl(sourceStoreCategoryIds) {
 }
 
 async function startMove99WorkflowFromExtension(message = {}) {
+  const reservation = await claimWorkflowStart('move99', 'Move .99');
+  if (!reservation.ok) throw new Error(reservation.error);
+  let runId = '';
+  let runTab = null;
+  let stateReserved = false;
+  try {
   const scanMode = message.scanMode === 'non99' ? 'non99' : 'price99';
   const stored = await storageGet(['computerLabel', 'ebayAccountLabel', 'move99AccountSettings']);
   const identity = identityForComputer(stored.computerLabel);
@@ -334,42 +590,124 @@ async function startMove99WorkflowFromExtension(message = {}) {
   const destinationCategory = scanMode === 'non99' ? normalized.sourceCategories[0] : normalized.destinationCategory;
   const sourceStoreCategoryIds = scanMode === 'non99' ? [] : normalized.sourceStoreCategoryIds;
   const activeUrl = move99ActiveUrl(sourceStoreCategoryIds);
-  const runId = globalThis.crypto?.randomUUID?.() || `move99-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  runId = globalThis.crypto?.randomUUID?.() || `move99-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const startedAt = new Date().toISOString();
-  const runTab = await createChromeTab({ url: 'about:blank', active: true });
-
-  try {
-    await storageSet({
+  const runState = {
+    active: true,
+    confirmed: true,
+    runId,
+    ownerTabId: null,
+    phase: 'starting-tab',
+    scanMode,
+    scanStrategy: 'active-page-exact-id-v1',
+    ebayAccountLabel: account,
+    currentPage: 1,
+    scanPages: {},
+    verificationPages: {},
+    failedIds: [],
+    processedIds: [],
+    totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
+    startedAt,
+    sourceCategories,
+    destinationCategory,
+    sourceStoreCategoryIds,
+    backburnerItemIds: normalized.backburnerItemIds
+  };
+  await storageSet({
+    gldnStopRequested: false,
+    pendingMove99Run: runState
+  });
+  stateReserved = true;
+  await releaseWorkflowStart(reservation.token);
+  runTab = await createChromeTab({ url: 'about:blank', active: true });
+  await storageSet({
       gldnStopRequested: false,
       pendingMove99Run: {
-        active: true,
-        confirmed: true,
-        runId,
+        ...runState,
         ownerTabId: runTab.id,
         phase: 'active-prepare',
-        scanMode,
-        scanStrategy: 'active-page-exact-id-v1',
-        ebayAccountLabel: account,
-        currentPage: 1,
-        scanPages: {},
-        verificationPages: {},
-        failedIds: [],
-        processedIds: [],
-        totals: { batches: 0, selected: 0, categoryApplied: 0, live: 0, failed: 0 },
-        startedAt,
-        sourceCategories,
-        destinationCategory,
-        sourceStoreCategoryIds,
-        backburnerItemIds: normalized.backburnerItemIds
       }
-    });
-    await updateChromeTab(runTab.id, { url: activeUrl, active: true });
-    return { ok: true, started: true, tabId: runTab.id, runId, account, scanMode, activeUrl };
+  });
+  await updateChromeTab(runTab.id, { url: activeUrl, active: true });
+  return { ok: true, started: true, tabId: runTab.id, runId, account, scanMode, activeUrl };
   } catch (error) {
-    await storageRemove(['pendingMove99Run']).catch(() => {});
-    await closeChromeTab(runTab.id);
+    if (stateReserved && runId) {
+      const current = await storageGet(['pendingMove99Run']).catch(() => ({}));
+      if (current.pendingMove99Run?.runId === runId) await storageRemove(['pendingMove99Run']).catch(() => {});
+    }
+    await releaseWorkflowStart(reservation.token).catch(() => {});
+    if (runTab?.id) await closeChromeTab(runTab.id);
     throw error;
   }
+}
+
+async function clearIncompatibleWorkflowState(reason = 'extension-start') {
+  const stored = await storageGet([...VERSIONED_WORKFLOW_KEYS, 'gldnOpenReviews']);
+  const remove = [];
+  for (const key of VERSIONED_WORKFLOW_KEYS) {
+    const value = stored[key];
+    if (value == null || value === false) continue;
+    if (value === true || typeof value !== 'object' || String(value.extensionVersion || '') !== EXTENSION_VERSION) {
+      remove.push(key);
+    }
+  }
+  const reviews = stored.gldnOpenReviews && typeof stored.gldnOpenReviews === 'object'
+    ? stored.gldnOpenReviews
+    : {};
+  const compatibleReviews = Object.fromEntries(Object.entries(reviews).filter(([, review]) => (
+    review?.active === true
+      && String(review.extensionVersion || '') === EXTENSION_VERSION
+      && Number(review.expiresAt || 0) > Date.now()
+  )));
+  const reviewsChanged = Object.keys(compatibleReviews).length !== Object.keys(reviews).length;
+  if (remove.length) await storageRemove(remove);
+  if (reviewsChanged) await storageSet({ gldnOpenReviews: compatibleReviews });
+  if (!remove.length && !reviewsChanged) return { ok: true, changed: false };
+  await recordExtensionLog({
+    source: 'foundation',
+    level: 'info',
+    operation: 'workflow-version-migration',
+    message: `Cleared workflow state from an incompatible extension context: ${[...remove, ...(reviewsChanged ? ['gldnOpenReviews'] : [])].join(', ')}.`,
+    detail: reason
+  });
+  return { ok: true, changed: true, removed: remove, reviewsChanged };
+}
+
+async function clearRemovedBulkAutomationState() {
+  const keys = [
+    'pendingEcomSniperBulkExtract',
+    'pendingManualEcomSniperClick',
+    'pendingAmazonBulkWorkflowStart',
+    'bulkLinksAmazonQueue'
+  ];
+  const stored = await storageGet([...keys, 'findProductsWorkflow']);
+  const removed = keys.filter((key) => stored[key] != null);
+  const workflow = stored.findProductsWorkflow && typeof stored.findProductsWorkflow === 'object'
+    ? stored.findProductsWorkflow
+    : null;
+  const nestedWorkflows = workflow?.workflows && typeof workflow.workflows === 'object'
+    ? workflow.workflows
+    : null;
+  const hadLegacyBulkListing = Boolean(nestedWorkflows && Object.prototype.hasOwnProperty.call(nestedWorkflows, 'bulkListing'));
+  if (!removed.length && !hadLegacyBulkListing) return false;
+  if (removed.length) await storageRemove(removed);
+  if (hadLegacyBulkListing) {
+    const { bulkListing: _retiredBulkListing, ...remainingWorkflows } = nestedWorkflows;
+    await storageSet({
+      findProductsWorkflow: {
+        ...workflow,
+        workflows: remainingWorkflows,
+        savedAt: new Date().toISOString()
+      }
+    });
+  }
+  await recordExtensionLog({
+    source: 'ecomsniper',
+    level: 'info',
+    operation: 'removed-bulk-automation-migration',
+    message: `Cleared retired Bulk Listing automation state: ${[...removed, ...(hadLegacyBulkListing ? ['findProductsWorkflow.workflows.bulkListing'] : [])].join(', ')}.`
+  });
+  return true;
 }
 
 async function createMove99BulkWorkspace(tabId, request = {}) {
@@ -1060,26 +1398,6 @@ async function runDashboardQueueProbe(sender) {
   return result;
 }
 
-async function localClick(record = {}) {
-  return {
-    ok: false,
-    disabled: true,
-    localOnly: true,
-    deprecated: true,
-    error: 'The local click helper is retired. GLDN Ops now uses the semantic Extract Sellers control on the eBay page.'
-  };
-}
-
-async function localHelperHealth() {
-  return {
-    ok: true,
-    disabled: true,
-    required: false,
-    mode: 'semantic-dom',
-    message: 'Built-in automation targets Extract Sellers by its visible label and waits for EcomSniper confirmation.'
-  };
-}
-
 async function findEcomSniperExtension() {
   return {
     ok: true,
@@ -1127,7 +1445,11 @@ async function openAmazonOrderSearch(asin) {
 }
 
 async function runExtensionHealthCheck() {
-  const [helper, ecomSniper] = await Promise.all([localHelperHealth(), findEcomSniperExtension()]);
+  const [ecomSniper, workflowStatus, updater] = await Promise.all([
+    findEcomSniperExtension(),
+    activeWorkflowStatus(),
+    getUpdaterRuntimeStatus(false).catch((error) => ({ ok: false, error: error.message }))
+  ]);
 
   let dashboard = { ok: false, error: 'Not tested.' };
   try {
@@ -1152,7 +1474,7 @@ async function runExtensionHealthCheck() {
     ? storedIdentity[DASHBOARD_QUEUE_KEY]
     : [];
   return {
-    ok: Boolean(dashboard.ok && (!ecomSniperRequired || ecomSniper.ok)),
+    ok: Boolean(dashboard.ok && updater.ok && (!ecomSniperRequired || ecomSniper.ok)),
     version: chrome.runtime.getManifest().version,
     name: chrome.runtime.getManifest().name,
     identity: {
@@ -1161,7 +1483,8 @@ async function runExtensionHealthCheck() {
     },
     requirements: {
       ecomSniperRequired,
-      localHelperRequired: false
+      localHelperRequired: false,
+      updaterRequired: true
     },
     foundation: {
       deploymentMode: FOUNDATION.deploymentMode,
@@ -1173,7 +1496,8 @@ async function runExtensionHealthCheck() {
       dashboardQueuedRecords: dashboardQueue.length
     },
     dashboard,
-    localHelper: helper,
+    updater,
+    workflows: workflowStatus,
     ecomSniper
   };
 }
@@ -1236,13 +1560,13 @@ function scheduleDashboardRetry() {
   chrome.alarms.create(DASHBOARD_RETRY_ALARM, { delayInMinutes: 1, periodInMinutes: 5 });
 }
 
-const queryTabs = (queryInfo) => new Promise((resolve, reject) => {
-  chrome.tabs.query(queryInfo, (tabs) => {
-    const error = chrome.runtime.lastError;
-    if (error) reject(new Error(error.message));
-    else resolve(tabs || []);
-  });
-});
+function pauseIncompatibleProfitBackfill(reason) {
+  if (!PROFIT_BACKFILL_BACKGROUND?.pauseIncompatibleVersion) {
+    return Promise.resolve({ ok: true, changed: false, unavailable: true });
+  }
+  return PROFIT_BACKFILL_BACKGROUND.pauseIncompatibleVersion(reason);
+}
+
 const reloadTab = (tabId) => new Promise((resolve) => {
   chrome.tabs.reload(tabId, () => {
     const error = chrome.runtime.lastError;
@@ -1262,16 +1586,17 @@ async function resumeExtensionReloadRequest() {
         ...request,
         pending: false,
         completedAt: new Date().toISOString(),
-        error: 'Reload request expired before marketplace tabs refreshed.'
+        error: 'Reload request expired before the requesting tab refreshed.'
       }
     });
     return { ok: false, expired: true };
   }
 
-  const tabs = await queryTabs({ url: MARKETPLACE_TAB_PATTERNS });
-  const tabIds = tabs.map((tab) => tab.id).filter(Number.isInteger);
-  const results = await Promise.all(tabIds.map(reloadTab));
-  const failed = results.filter((result) => !result.ok);
+  const sourceTabId = Number.isInteger(request.sourceTabId) ? request.sourceTabId : null;
+  const result = Number.isInteger(sourceTabId)
+    ? await reloadTab(sourceTabId)
+    : { tabId: null, ok: true, skipped: true, error: '' };
+  const failed = result.ok ? [] : [result];
   const attempts = Number(request.attempts || 0) + 1;
   const shouldRetry = failed.length > 0 && attempts < 3;
   await storageSet({
@@ -1280,7 +1605,8 @@ async function resumeExtensionReloadRequest() {
       pending: shouldRetry,
       attempts,
       completedAt: shouldRetry ? '' : new Date().toISOString(),
-      reloadedTabCount: results.filter((result) => result.ok).length,
+      reloadedTabCount: result.ok && !result.skipped ? 1 : 0,
+      reloadScope: 'requesting-tab-only',
       failedTabIds: failed.map((result) => result.tabId),
       error: failed.length ? failed.map((result) => result.error).filter(Boolean).join('; ') : '',
       activeVersion: chrome.runtime.getManifest().version
@@ -1290,7 +1616,8 @@ async function resumeExtensionReloadRequest() {
   return {
     ok: failed.length === 0,
     retrying: shouldRetry,
-    reloadedTabCount: results.filter((result) => result.ok).length,
+    reloadedTabCount: result.ok && !result.skipped ? 1 : 0,
+    reloadScope: 'requesting-tab-only',
     failedTabIds: failed.map((result) => result.tabId)
   };
 }
@@ -1300,6 +1627,15 @@ chrome.runtime.onInstalled.addListener((details) => {
   seedAutomaticDashboardSetup(`installed:${details?.reason || 'unknown'}`);
   clearIncompatibleMove99State().catch((error) => {
     recordExtensionLog({ source: 'move99', operation: 'version-migration', message: error.message });
+  });
+  clearIncompatibleWorkflowState(`installed:${details?.reason || 'unknown'}`).catch((error) => {
+    recordExtensionLog({ source: 'foundation', operation: 'workflow-version-migration', message: error.message });
+  });
+  clearRemovedBulkAutomationState().catch((error) => {
+    recordExtensionLog({ source: 'ecomsniper', operation: 'removed-bulk-automation-migration', message: error.message });
+  });
+  pauseIncompatibleProfitBackfill(`installed:${details?.reason || 'unknown'}`).catch((error) => {
+    recordExtensionLog({ source: 'poshmark-profit', operation: 'version-migration', message: error.message });
   });
   migrateFoundationSettings(`installed:${details?.reason || 'unknown'}`).catch((error) => {
     recordExtensionLog({ source: 'foundation', operation: 'settings-migration', message: error.message });
@@ -1321,6 +1657,15 @@ chrome.runtime.onStartup.addListener(() => {
   clearIncompatibleMove99State().catch((error) => {
     recordExtensionLog({ source: 'move99', operation: 'version-migration', message: error.message });
   });
+  clearIncompatibleWorkflowState('chrome-startup').catch((error) => {
+    recordExtensionLog({ source: 'foundation', operation: 'workflow-version-migration', message: error.message });
+  });
+  clearRemovedBulkAutomationState().catch((error) => {
+    recordExtensionLog({ source: 'ecomsniper', operation: 'removed-bulk-automation-migration', message: error.message });
+  });
+  pauseIncompatibleProfitBackfill('chrome-startup').catch((error) => {
+    recordExtensionLog({ source: 'poshmark-profit', operation: 'version-migration', message: error.message });
+  });
   migrateFoundationSettings('chrome-startup').catch((error) => {
     recordExtensionLog({ source: 'foundation', operation: 'settings-migration', message: error.message });
   });
@@ -1333,6 +1678,9 @@ chrome.runtime.onStartup.addListener(() => {
 
 if (chrome.tabs?.onRemoved?.addListener) {
   chrome.tabs.onRemoved.addListener((tabId) => {
+    clearOpenReviewsForTab({ tab: { id: tabId } }).catch((error) => {
+      recordExtensionLog({ source: 'background', operation: 'review-tab-closed', message: error.message });
+    });
     storageGet(['ecomSniperHandoffStatus']).then((result) => {
       const handoff = result.ecomSniperHandoffStatus;
       if (!handoff || handoff.state !== 'open' || Number(handoff.tabId) !== Number(tabId)) return;
@@ -1368,6 +1716,15 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 migrateFoundationSettings('worker-start').catch((error) => {
   recordExtensionLog({ source: 'foundation', operation: 'settings-migration', message: error.message });
 });
+clearRemovedBulkAutomationState().catch((error) => {
+  recordExtensionLog({ source: 'ecomsniper', operation: 'removed-bulk-automation-migration', message: error.message });
+});
+clearIncompatibleWorkflowState('worker-start').catch((error) => {
+  recordExtensionLog({ source: 'foundation', operation: 'workflow-version-migration', message: error.message });
+});
+pauseIncompatibleProfitBackfill('worker-start').catch((error) => {
+  recordExtensionLog({ source: 'poshmark-profit', operation: 'version-migration', message: error.message });
+});
 seedAutomaticDashboardSetup('worker-start');
 scheduleDashboardRetry();
 scheduleUpdaterCheck();
@@ -1402,6 +1759,48 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'getActiveWorkflowStatus') {
+    activeWorkflowStatus().then((result) => sendResponse({ ok: true, ...result }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'claimWorkflowStart') {
+    claimWorkflowStart(message.workflowId, message.label, sender).then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'releaseWorkflowStart') {
+    releaseWorkflowStart(message.token).then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'resetAutomationState') {
+    resetAutomationState(sender).then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'registerOpenReview') {
+    registerOpenReview(message, sender).then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'releaseOpenReview') {
+    releaseOpenReview(message.token).then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'clearOpenReviewsForTab') {
+    clearOpenReviewsForTab(sender).then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message.type === 'startMove99Workflow') {
     startMove99WorkflowFromExtension(message)
       .then(sendResponse)
@@ -1415,7 +1814,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'startPoshmarkProfitBackfill') {
-    PROFIT_BACKFILL_BACKGROUND.start(message.options || {}, sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
+    startPoshmarkProfitBackfillGuarded(message.options || {}, sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 
@@ -1468,6 +1867,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     recordExtensionLog({ source: 'background', level: 'info', message: 'Extension reload requested.' });
     queueRuntimeReload({
       returnUrl: message.returnUrl,
+      sourceTabId: Number.isInteger(message.sourceTabId) ? message.sourceTabId : sender?.tab?.id,
       sourceTabUrl: sender?.tab?.url,
       reason: 'manual-reload'
     }).then(() => sendResponse({ ok: true, version: chrome.runtime.getManifest().version }))
@@ -1476,7 +1876,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'getUpdaterStatus') {
-    updaterRequest(`/status${message.refresh ? '?refresh=1' : ''}`, { timeoutMs: message.refresh ? 20000 : 3000 })
+    getUpdaterRuntimeStatus(Boolean(message.refresh))
       .then(sendResponse)
       .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -1597,16 +1997,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'syncMarketplaceProfits') {
     const records = Array.isArray(message.records) ? message.records : [];
     handleSync('marketplaceProfitBatch', { records }, 'Marketplace profit batch synced').then(sendResponse);
-    return true;
-  }
-
-  if (message.type === 'localClick') {
-    localClick(message.record || {}).then(sendResponse);
-    return true;
-  }
-
-  if (message.type === 'localHelperHealth') {
-    localHelperHealth().then(sendResponse);
     return true;
   }
 

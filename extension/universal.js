@@ -3,6 +3,10 @@
   const FOUNDATION = globalThis.GLDN_FOUNDATION;
   if (!U || !FOUNDATION || document.getElementById('gldn-universal-panel')) return;
 
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+
   let statusElement = null;
   const setStatus = (message, type = 'ready') => {
     if (!statusElement) return;
@@ -33,6 +37,7 @@
       <button type="button" data-action="setup" class="gldn-secondary">Setup</button>
       <button type="button" data-action="health" class="gldn-secondary">Health Check</button>
       <button type="button" data-action="stop" class="gldn-stop-task">Stop Task</button>
+      <button type="button" data-action="reset" class="gldn-reset-task">Reset</button>
       <button type="button" data-action="reload" class="gldn-dev-reload">Update &amp; Reload</button>
     </div>
     <div class="gldn-status">Global controls ready. Marketplace actions appear only on supported sites.</div>`;
@@ -47,8 +52,8 @@
       ? 'Poshmark only'
       : identity.ebayAccountLabel || 'Not configured';
     panel.querySelector('.gldn-panel-identity').innerHTML = `
-      <span>Computer: <strong>${computer || 'Not set'}</strong></span>
-      <span>Account: <strong>${account}</strong></span>`;
+      <span>Computer: <strong>${escapeHtml(computer || 'Not set')}</strong></span>
+      <span>Account: <strong>${escapeHtml(account)}</strong></span>`;
   });
 
   panel.querySelector('[data-action="open-extension"]').addEventListener('click', () => openExtensionPage('popup.html'));
@@ -70,10 +75,21 @@
   panel.querySelector('[data-action="stop"]').addEventListener('click', () => {
     chrome.storage.local.set({ gldnStopRequested: true }, () => setStatus('Stop requested at the next safe checkpoint.', 'error'));
   });
+  panel.querySelector('[data-action="reset"]').addEventListener('click', async () => {
+    if (!window.confirm('Reset unfinished GLDN Ops workflow state? Saved settings and completed records will be kept.')) return;
+    setStatus('Resetting unfinished workflow state...');
+    const response = await U.runtimeMessage({ type: 'resetAutomationState' });
+    setStatus(response?.ok ? 'Unfinished workflow state cleared.' : response?.error || 'Reset failed.', response?.ok ? 'completed' : 'error');
+  });
   panel.querySelector('[data-action="reload"]').addEventListener('click', async () => {
     setStatus('Checking and verifying the latest stable GLDN Ops...');
-    const response = await U.runtimeMessage({ type: 'updateExtension', returnUrl: location.href });
+    const response = await U.runtimeMessage({ type: 'updateExtension', returnUrl: location.href, reloadWhenCurrent: true });
     if (!response?.ok) setStatus(response?.error || 'Verified update failed.', 'error');
     else if (!response.updated) setStatus(response.message || 'GLDN Ops is already current.', 'completed');
+  });
+
+  U.registerExtensionCleanup?.(() => {
+    panel.querySelectorAll('button').forEach((button) => { button.disabled = true; });
+    setStatus('GLDN Ops was updated. Refresh this tab when you are ready.', 'error');
   });
 })();

@@ -15,6 +15,7 @@ if (-not $MetadataPath) { $MetadataPath = Join-Path $repoRoot "dist\latest.json"
 
 $testRoot = Join-Path $env:TEMP ("gldn-one-time-installer-" + [guid]::NewGuid().ToString("N"))
 $installRoot = Join-Path $testRoot "GLDN Ops"
+$fixtureDashboardCode = "fixture-dashboard-" + [guid]::NewGuid().ToString("N")
 $agentProcess = $null
 try {
   New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
@@ -23,6 +24,7 @@ try {
     -SourceZipPath $LocalPackagePath `
     -ReleaseMetadataPath $MetadataPath `
     -PrivateExtensionZipPath $PrivateExtensionPath `
+    -DashboardSetupCode $fixtureDashboardCode `
     -SkipChromeOpen `
     -SkipUpdaterStart | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "One-time installer fixture failed." }
@@ -37,7 +39,7 @@ try {
   $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
   $configText = Get-Content -Raw -LiteralPath $configPath
   $keyMatch = [regex]::Match($configText, 'dashboardKey\s*:\s*["'']([^"'']+)["'']')
-  if (-not $keyMatch.Success -or $keyMatch.Groups[1].Value -match '^YOUR_') {
+  if (-not $keyMatch.Success -or $keyMatch.Groups[1].Value -ne $fixtureDashboardCode) {
     throw "One-time installer did not seed the automatic dashboard connection."
   }
   $updaterConfig = Get-Content -Raw -LiteralPath $updaterConfigPath | ConvertFrom-Json
@@ -58,6 +60,7 @@ try {
     -SourceZipPath $LocalPackagePath `
     -ReleaseMetadataPath $MetadataPath `
     -PrivateExtensionZipPath $PrivateExtensionPath `
+    -DashboardSetupCode $fixtureDashboardCode `
     -SkipChromeOpen `
     -SkipUpdaterStart | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "Reinstall with a running updater failed." }
