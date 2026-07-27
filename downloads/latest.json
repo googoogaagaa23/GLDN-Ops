@@ -1,10 +1,10 @@
 {
     "schemaVersion":  1,
     "channel":  "stable",
-    "version":  "3.11.6",
-    "publishedAt":  "2026-07-27T00:50:45.9511582Z",
-    "url":  "https://raw.githubusercontent.com/googoogaagaa23/GLDN-Ops/main/downloads/GLDN-Ops-extension-v3.11.6.zip",
-    "sha256":  "6528D39BD1937ECB0FF4B9F48735F8B68B96534083C086719B9337D7554369A1",
+    "version":  "3.11.7",
+    "publishedAt":  "2026-07-27T04:50:51.8853854Z",
+    "url":  "https://raw.githubusercontent.com/googoogaagaa23/GLDN-Ops/main/downloads/GLDN-Ops-extension-v3.11.7.zip",
+    "sha256":  "5CC4FEB813CAC03B0677515F41084B5879084153233373407A73CFCA325D1E98",
     "minimumUpdaterVersion":  "1.0.0",
-    "notesUrl":  "https://github.com/googoogaagaa23/GLDN-Ops/blob/main/releases/v3.11.6.md"
+    "notesUrl":  "https://github.com/googoogaagaa23/GLDN-Ops/blob/main/releases/v3.11.7.md"
 }

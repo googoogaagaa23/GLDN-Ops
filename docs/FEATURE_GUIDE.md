@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.6. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.7. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -526,11 +526,12 @@ Profile 2 moved 2,564 successful exact .99 listings in earlier approved batches 
 
 1. Open Workflows and click Move Non-.99 Out of Sale.
 2. Review the complete sale-category scan summary.
-3. Confirm every selected listing has a valid non-.99 price.
-4. Confirm backburner items are excluded.
-5. Verify only Primary Store category changes to the configured non-sale destination.
-6. Approve each final Submit separately.
-7. Run a final clean rescan.
+3. If the summary is closed, click the count-specific Review Non-.99 Matches control in the eBay panel to reopen the saved verified scan without rescanning.
+4. Confirm every selected listing has a valid non-.99 price.
+5. Confirm backburner items are excluded.
+6. Verify only Primary Store category changes to the configured non-sale destination.
+7. Approve each final Submit separately.
+8. Run a final clean rescan.
 
 ### Approval Stop
 
@@ -543,12 +544,13 @@ Submitted batch results and a final zero-mismatch rescan.
 ### Failure Recovery
 
 - Missing or ambiguous prices are excluded.
+- A completed verified scan remains available through its count-specific Review control after the summary is closed or the page is reloaded.
 - Any uncertain submission returns to read-only reconciliation.
 - Do not use the reverse workflow on Poshmark.
 
 ### Evidence
 
-The older FAK12 proof corrected 62 listings, but a later M0 / CLICKNCARRY failure report exposed reverse category-ID persistence corrupting forward settings. v3.10.4 retains that account-generic repair and passes automated contracts; M0 still needs a fresh BALK to BEST SELLERS signed-in scan and final-review proof.
+The older FAK12 proof corrected 62 listings, but later cross-computer reports exposed category-setting and completed-scan handoff failures. v3.11.7 preserves a verified completed scan as a count-specific panel action and reopens it without rescanning; the 136-match / 15,807-inspected regression passes focused and full automated contracts. Computer 2 / FANCYFI still needs a current-version live review and final-review proof before any Submit.
 
 
 <a id="move99-recovery"></a>

@@ -2,6 +2,15 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.11.7 - 2026-07-26
+
+- Fixed completed Move .99 and reverse non-.99 scans becoming stranded after their summary window was closed.
+- The everyday eBay panel now shows a count-specific Review control only while a verified saved scan is waiting.
+- Review reopens the exact saved scan and does not repeat the full account scan.
+- The action persists across page and extension reloads, then disappears when the saved run advances or is cleared.
+- Added a 136-match / 15,807-inspected reverse-scan regression plus panel, persistence, no-rescan, and approval-boundary coverage.
+- All 254 JavaScript contracts pass; eBay Submit remains untouched and separately approval-gated.
+
 ## v3.11.6 - 2026-07-26
 
 - Made the panel and popup **Update & Reload** control reload the verified current files even when no newer download is needed.

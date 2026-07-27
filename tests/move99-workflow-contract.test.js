@@ -54,6 +54,17 @@ function loadMove99ExactBatchBuilder() {
   `)(500);
 }
 
+function loadMove99SavedSummaryDescriptor() {
+  const flatten = ebay.match(/function flattenMove99Pages\(pages\) \{[\s\S]*?\n  \}/)?.[0];
+  const descriptor = ebay.match(/function move99SavedSummaryDescriptor\(state\) \{[\s\S]*?\n  \}/)?.[0];
+  assert.ok(flatten && descriptor, "saved Move .99 summary helpers must be extractable");
+  return new Function("MOVE99_SCAN_STRATEGY", `
+    ${flatten}
+    ${descriptor}
+    return move99SavedSummaryDescriptor;
+  `)("active-page-exact-id-v1");
+}
+
 function loadMove99FingerprintPlanner() {
   const normalize = ebay.match(/function normalizedMove99BatchTitle\(value\) \{[\s\S]*?\n  \}/)?.[0];
   const fingerprint = ebay.match(/function move99BatchFingerprint\(record\) \{[\s\S]*?\n  \}/)?.[0];
@@ -546,6 +557,54 @@ test("Apply transfers a saved Move .99 checkpoint to the current healthy tab", (
     summary.indexOf("ownerTabId: tabInfo.tabId") < summary.indexOf("runMove99Automation();"),
     "the active checkpoint must transfer ownership before the runner resumes"
   );
+});
+
+test("a verified completed scan remains actionable from the everyday panel without rescanning", () => {
+  const describe = loadMove99SavedSummaryDescriptor();
+  const qualifying = Array.from({ length: 136 }, (_, index) => ({
+    itemId: String(318000000000 + index),
+    title: `Reverse match ${index + 1}`,
+    price: "10.00"
+  }));
+  const state = {
+    phase: "scan-summary",
+    scanMode: "non99",
+    scanStrategy: "active-page-exact-id-v1",
+    scanIntegrity: "verified",
+    uniqueInspected: 15807,
+    filteredCount: 15807,
+    scanPages: { "1": { qualifying } }
+  };
+  assert.deepEqual(describe(state), {
+    completed: false,
+    count: 136,
+    scanMode: "non99",
+    buttonLabel: "Review 136 Non-.99 Matches"
+  });
+  assert.equal(describe({ ...state, phase: "scan-page" }), null);
+  assert.equal(describe({ ...state, uniqueInspected: 15806 }), null);
+  assert.equal(describe({ ...state, scanPages: {} }), null);
+
+  const panelStart = ebay.indexOf("function createPanel");
+  const panel = ebay.slice(panelStart, ebay.indexOf("chrome.storage.onChanged.addListener", panelStart));
+  assert.match(panel, /data-action="review-move99-scan"[^>]*hidden/);
+  assert.match(panel, /move99ReviewButtonElement\.addEventListener\("click", openSavedMove99Summary\)/);
+  assert.match(panel, /refreshMove99ReviewButton\(\)/);
+
+  const opener = ebay.slice(
+    ebay.indexOf("async function openSavedMove99Summary"),
+    ebay.indexOf("function canRecoverMove99FirstBatchFromVerifiedScan")
+  );
+  assert.match(opener, /move99SavedSummaryDescriptor\(state\)/);
+  assert.match(opener, /showMove99ScanSummary\(\{ \.\.\.state, active: false, ownerTabId: null \}, descriptor\.completed\)/);
+  assert.doesNotMatch(opener, /startMove99Listings|phase:\s*"active-prepare"|phase:\s*"scan-page"/);
+
+  const storageListener = ebay.slice(
+    ebay.indexOf("chrome.storage.onChanged.addListener"),
+    ebay.indexOf("createPanel();", ebay.indexOf("chrome.storage.onChanged.addListener"))
+  );
+  assert.match(storageListener, /changes\.pendingMove99Run/);
+  assert.match(storageListener, /refreshMove99ReviewButton\(\)/);
 });
 
 test("Apply partitions only verified qualifying IDs into publishable eBay workspaces of at most 500", () => {

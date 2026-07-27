@@ -1,4 +1,10 @@
-GLDN Ops v3.11.6
+GLDN Ops v3.11.7
+
+v3.11.7 saved category-scan handoff repair:
+- A verified Move .99 or reverse non-.99 scan now leaves a count-specific Review button in the everyday eBay panel.
+- Closing the scan summary or reloading the page no longer strands the saved matches.
+- Review reopens the exact saved IDs without scanning the account again.
+- Every eBay Submit remains a separate approval stop.
 
 v3.11.6 complete Update & Reload behavior:
 - Update & Reload always activates the verified files, even when the disk and running versions already match.

@@ -13,6 +13,7 @@
   let noteSaveDetectionPending = false;
   let panelIdentityElement;
   let limitsButtonElement;
+  let move99ReviewButtonElement;
   let markShippedRunning = false;
   let markShippedMonitorRunning = false;
   let snipingWinnerButtonElement;
@@ -8142,6 +8143,63 @@
     });
   }
 
+  function move99SavedSummaryDescriptor(state) {
+    if (!state || !["scan-summary", "completed"].includes(state.phase)) return null;
+    if (state.scanStrategy !== MOVE99_SCAN_STRATEGY || state.scanIntegrity !== "verified") return null;
+    if (Number(state.uniqueInspected || 0) !== Number(state.filteredCount || 0)) return null;
+    const completed = state.phase === "completed";
+    const records = flattenMove99Pages(completed ? state.verificationPages : state.scanPages);
+    if (!records.length) return null;
+    const reverse = state.scanMode === "non99";
+    return {
+      completed,
+      count: records.length,
+      scanMode: reverse ? "non99" : "price99",
+      buttonLabel: completed
+        ? `Review ${records.length.toLocaleString()} Remaining ${reverse ? "Non-.99" : ".99"}`
+        : `Review ${records.length.toLocaleString()} ${reverse ? "Non-.99" : ".99"} Matches`
+    };
+  }
+
+  async function refreshMove99ReviewButton() {
+    if (!move99ReviewButtonElement) return;
+    const stored = await storageGet(["pendingMove99Run"]);
+    const descriptor = move99SavedSummaryDescriptor(stored.pendingMove99Run);
+    move99ReviewButtonElement.hidden = !descriptor;
+    if (!descriptor) {
+      move99ReviewButtonElement.textContent = "Review Saved Category Scan";
+      move99ReviewButtonElement.removeAttribute("title");
+      return;
+    }
+    move99ReviewButtonElement.textContent = descriptor.buttonLabel;
+    move99ReviewButtonElement.title = "Open the saved verified scan without scanning the listings again.";
+  }
+
+  async function openSavedMove99Summary() {
+    const stored = await storageGet(["pendingMove99Run", "ebayAccountLabel"]);
+    const state = stored.pendingMove99Run;
+    const descriptor = move99SavedSummaryDescriptor(state);
+    if (!descriptor) {
+      await refreshMove99ReviewButton();
+      renderStatus("There is no verified category scan waiting for review.", "error");
+      return;
+    }
+    await applyMove99AccountConfig(state.ebayAccountLabel || stored.ebayAccountLabel || "");
+    MOVE99_SCAN_MODE = descriptor.scanMode;
+    if (state.sourceCategories?.length) MOVE99_SOURCE_CATEGORIES = asStringArray(state.sourceCategories);
+    if (state.destinationCategory) MOVE99_DESTINATION_CATEGORY = String(state.destinationCategory).trim();
+    if (state.sourceStoreCategoryIds) MOVE99_SOURCE_STORE_CATEGORY_IDS = asStringArray(state.sourceStoreCategoryIds);
+    MOVE99_ACTIVE_URL = buildMove99ActiveUrl(MOVE99_SOURCE_STORE_CATEGORY_IDS);
+    if (!isMove99ActiveListingsPage()) {
+      renderStatus(`Opening the saved ${descriptor.count.toLocaleString()}-listing scan for review...`, "ready");
+      location.assign(move99ScanPageUrl(1, state.filteredUrl || MOVE99_ACTIVE_URL));
+      return;
+    }
+    document.getElementById("gldn-move99-preview")?.remove();
+    showMove99ScanSummary({ ...state, active: false, ownerTabId: null }, descriptor.completed);
+    renderStatus(`Reviewing the saved ${descriptor.count.toLocaleString()} ${descriptor.scanMode === "non99" ? "non-.99" : ".99"} matches.`, "completed");
+  }
+
   function canRecoverMove99FirstBatchFromVerifiedScan(state) {
     if (!state || !["apply-exact-workspace", "apply-range", "bulk-editor-range", "bulk-editor"].includes(state.phase)) return false;
     if (state.scanStrategy !== MOVE99_SCAN_STRATEGY || state.scanIntegrity !== "verified") return false;
@@ -9292,6 +9350,7 @@
       <button type="button" data-action="snapshot" class="gldn-secondary">Scan Sales Snapshot</button>
       <button type="button" data-action="limits" class="gldn-danger">Confirm Listings Under Limit</button>
       <button type="button" data-action="prepare" class="gldn-primary">Prepare Order Note</button>
+      <button type="button" data-action="review-move99-scan" class="gldn-warning" hidden>Review Saved Category Scan</button>
       <div class="gldn-task-controls">
         <button type="button" data-action="open-dashboard" class="gldn-dashboard">Dashboard</button>
         <button type="button" data-action="dashboard-setup" class="gldn-secondary">Setup</button>
@@ -9356,6 +9415,8 @@
     panel.querySelector("[data-action='snapshot']").addEventListener("click", startEbaySnapshotScan);
     limitsButtonElement = panel.querySelector("[data-action='limits']");
     limitsButtonElement.addEventListener("click", startListingLimitCheck);
+    move99ReviewButtonElement = panel.querySelector("[data-action='review-move99-scan']");
+    move99ReviewButtonElement.addEventListener("click", openSavedMove99Summary);
     panel.querySelector("[data-action='open-dashboard']").addEventListener("click", openDashboard);
     panel.querySelector("[data-action='dashboard-setup']").addEventListener("click", setupDashboardFromPanel);
     panel.querySelector("[data-action='feature-health']").addEventListener("click", runFeatureHealthFromPanel);
@@ -9365,12 +9426,20 @@
     refreshPanelIdentity();
     refreshLimitsButton();
     refreshSnipingWinnerButton();
+    refreshMove99ReviewButton().catch((error) => {
+      if (!invalidContextError(error)) U.recordExtensionLog({ source: "ebay", operation: "refresh-move99-review", level: "error", message: error.message });
+    });
   }
 
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== "local" || !changes.gldnStopRequested) return;
-    if (changes.gldnStopRequested.newValue) {
+    if (areaName !== "local") return;
+    if (changes.pendingMove99Run) {
+      refreshMove99ReviewButton().catch((error) => {
+        if (!invalidContextError(error)) U.recordExtensionLog({ source: "ebay", operation: "refresh-move99-review", level: "error", message: error.message });
+      });
+    }
+    if (changes.gldnStopRequested?.newValue) {
       renderStatus("Stop requested — waiting for the next safe checkpoint…", "error");
     }
   });
