@@ -306,7 +306,7 @@ const LOCAL_CONTROL_PLATFORM = Object.freeze({
   ebay: {
     patterns: ['*://*.ebay.com/*'],
     messageType: 'runEbayPageAction',
-    actions: new Set(['mark-shipped', 'seller-level', 'sales-snapshot', 'listing-limits', 'prepare-order-note'])
+    actions: new Set(['show-panel', 'mark-shipped', 'seller-level', 'sales-snapshot', 'listing-limits', 'prepare-order-note'])
   },
   poshmark: {
     patterns: ['*://*.poshmark.com/*'],
@@ -519,6 +519,24 @@ async function readLocalControlState(payload = {}) {
   return { ok: true, state };
 }
 
+async function reloadLocalControlExtension() {
+  await assertUpdaterIdle('Reloading the Profile 2 extension');
+  await storageSet({
+    lastExtensionReloadRequest: {
+      at: new Date().toISOString(),
+      version: EXTENSION_VERSION,
+      targetVersion: EXTENSION_VERSION,
+      reason: 'local-control',
+      pending: true,
+      returnUrl: '',
+      sourceTabId: null,
+      sourceTabUrl: ''
+    }
+  });
+  setTimeout(() => chrome.runtime.reload(), 1500);
+  return { ok: true, reloading: true, version: EXTENSION_VERSION };
+}
+
 async function runLocalControlPageAction(payload = {}) {
   const platform = String(payload.platform || '').toLowerCase();
   const action = String(payload.action || '').toLowerCase();
@@ -552,6 +570,8 @@ async function executeLocalControlCommand(command = {}) {
     case 'inspect-page': return inspectLocalControlPage(payload);
     case 'read-state': return readLocalControlState(payload);
     case 'page-action': return runLocalControlPageAction(payload);
+    case 'reset-state': return resetAutomationState({});
+    case 'reload-extension': return reloadLocalControlExtension();
     default: throw new Error('The local-control command is not supported by this GLDN Ops version.');
   }
 }

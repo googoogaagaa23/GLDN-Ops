@@ -1,5 +1,5 @@
 param(
-  [ValidateSet("Inspect", "Open", "Focus", "ReloadTab", "InspectPage", "ReadState", "PageAction")]
+  [ValidateSet("Inspect", "Open", "Focus", "ReloadTab", "InspectPage", "ReadState", "PageAction", "ResetState", "ReloadExtension")]
   [string]$Action = "Inspect",
   [string]$Url = "",
   [ValidateSet("", "ebay", "poshmark", "amazon", "ecomsniper")]
@@ -107,6 +107,8 @@ function ConvertTo-ControlRequest {
         payload = [pscustomobject]@{ tabId = $TabId; platform = $Platform; action = $PageAction; waitMs = 3500 }
       }
     }
+    "ResetState" { return [pscustomobject]@{ action = "reset-state"; payload = [pscustomobject]@{} } }
+    "ReloadExtension" { return [pscustomobject]@{ action = "reload-extension"; payload = [pscustomobject]@{} } }
   }
 }
 

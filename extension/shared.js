@@ -1033,6 +1033,16 @@
     }
     if (message?.type === 'inspectGldnPageState') {
       const visible = (element) => isVisible(element) && !element.hidden;
+      const appearance = (element) => {
+        if (!(element instanceof Element)) return null;
+        const style = getComputedStyle(element);
+        return {
+          backgroundColor: String(style.backgroundColor || ''),
+          color: String(style.color || ''),
+          colorScheme: String(style.colorScheme || ''),
+          opacity: String(style.opacity || '')
+        };
+      };
       const panels = [...document.querySelectorAll('.gldn-order-panel')]
         .filter(visible)
         .map((panel) => ({
@@ -1040,6 +1050,7 @@
           title: String(panel.querySelector('.gldn-panel-title')?.textContent || '').trim().slice(0, 160),
           status: String(panel.querySelector('.gldn-status')?.textContent || '').trim().slice(0, 500),
           statusType: String(panel.querySelector('.gldn-status')?.dataset?.type || ''),
+          appearance: appearance(panel),
           actions: [...panel.querySelectorAll('button')]
             .filter(visible)
             .map((button) => String(button.textContent || '').trim())
@@ -1052,6 +1063,7 @@
           id: String(backdrop.id || ''),
           title: String(backdrop.querySelector('h1, h2, h3')?.textContent || '').trim().slice(0, 160),
           status: String(backdrop.querySelector('.gldn-modal-status')?.textContent || '').trim().slice(0, 500),
+          appearance: appearance(backdrop.querySelector('.gldn-modal') || backdrop),
           actions: [...backdrop.querySelectorAll('button')]
             .filter(visible)
             .map((button) => String(button.textContent || '').trim())
@@ -1059,11 +1071,32 @@
             .slice(0, 30)
         }));
       const bodySignal = normalizeText(document.body?.innerText || '').slice(0, 250000);
+      const rootStyle = document.documentElement.style;
+      const gldnTheme = String(document.documentElement.dataset.gldnTheme || '');
+      const gldnColorScheme = String(rootStyle.getPropertyValue('--gldn-color-scheme') || '').trim();
+      const genericTheme = String(document.documentElement.dataset.theme || '');
+      const inlineColorScheme = String(rootStyle.colorScheme || '').trim();
+      const leakedAliases = ['--bg', '--panel', '--panel2', '--line', '--ink', '--muted', '--gold', '--blue']
+        .filter((variable) => String(rootStyle.getPropertyValue(variable) || '').trim());
       sendResponse?.({
         ok: true,
         url: location.href,
         title: document.title,
         readyState: document.readyState,
+        hostAppearance: {
+          html: appearance(document.documentElement),
+          body: appearance(document.body),
+          gldnThemeLeak: Boolean(
+            (gldnTheme && genericTheme === gldnTheme)
+            || (gldnColorScheme && inlineColorScheme === gldnColorScheme)
+            || leakedAliases.length
+          ),
+          legacyThemeSettings: {
+            genericTheme,
+            inlineColorScheme,
+            leakedAliases
+          }
+        },
         panels,
         modals,
         interruption: bodySignal.includes('pardon our interruption')

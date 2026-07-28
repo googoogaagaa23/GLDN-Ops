@@ -1,0 +1,81 @@
+{
+  "capturedAt": "2026-07-27T19:00:24-05:00",
+  "runtimeVersion": "3.11.14",
+  "profile": "Profile 2",
+  "identity": {
+    "computerLabel": "0",
+    "ebayAccountLabel": "FAK12"
+  },
+  "ebayMessages": {
+    "url": "https://www.ebay.com/cnt/ViewMessage?_caprdt=1&group_type=CORE",
+    "hostAppearance": {
+      "html": {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "color": "rgb(0, 0, 0)",
+        "colorScheme": "normal",
+        "opacity": "1"
+      },
+      "body": {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "color": "rgb(0, 0, 0)",
+        "colorScheme": "normal",
+        "opacity": "1"
+      },
+      "gldnThemeLeak": false,
+      "legacyThemeSettings": {
+        "genericTheme": "",
+        "inlineColorScheme": "",
+        "leakedAliases": []
+      }
+    },
+    "gldnPanel": {
+      "title": "GLDN Ops v3.11.14",
+      "backgroundColor": "rgba(15, 23, 42, 0.65)",
+      "color": "rgb(248, 250, 252)",
+      "colorScheme": "dark"
+    },
+    "marketplaceActions": 0
+  },
+  "poshmarkStats": {
+    "url": "https://poshmark.com/users/self/closet_stats",
+    "hostAppearance": {
+      "html": {
+        "backgroundColor": "rgba(0, 0, 0, 0)",
+        "color": "rgb(0, 0, 0)",
+        "colorScheme": "normal",
+        "opacity": "1"
+      },
+      "body": {
+        "backgroundColor": "rgb(251, 251, 251)",
+        "color": "rgb(18, 18, 18)",
+        "colorScheme": "normal",
+        "opacity": "1"
+      },
+      "gldnThemeLeak": false,
+      "legacyThemeSettings": {
+        "genericTheme": "",
+        "inlineColorScheme": "",
+        "leakedAliases": []
+      }
+    },
+    "gldnPanel": {
+      "backgroundColor": "rgba(15, 23, 42, 0.65)",
+      "color": "rgb(248, 250, 252)",
+      "colorScheme": "dark"
+    },
+    "gldnReview": {
+      "title": "Review Poshmark Stats",
+      "backgroundColor": "rgba(15, 23, 42, 0.65)",
+      "color": "rgb(248, 250, 252)",
+      "colorScheme": "dark",
+      "saveClicked": false
+    },
+    "marketplaceActions": 0
+  },
+  "finalState": {
+    "resetCommandOk": true,
+    "workflowBusy": false,
+    "workflows": [],
+    "openReviews": []
+  }
+}

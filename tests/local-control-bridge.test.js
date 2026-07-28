@@ -47,6 +47,13 @@ test('control execution is a named allowlist without arbitrary script or marketp
   assert.match(agentPayload, /safe review-only allowlist/);
   assert.match(backgroundExecution, /case 'inspect-session'/);
   assert.match(backgroundExecution, /case 'page-action'/);
+  assert.match(agentPayload, /"reset-state"/);
+  assert.match(backgroundExecution, /case 'reset-state': return resetAutomationState/);
+  assert.match(controller, /"ResetState"/);
+  assert.match(agentPayload, /"reload-extension"/);
+  assert.match(backgroundExecution, /case 'reload-extension': return reloadLocalControlExtension/);
+  assert.match(controller, /"ReloadExtension"/);
+  assert.match(background, /setTimeout\(\(\) => chrome\.runtime\.reload\(\), 1500\)/);
 });
 
 test('marketplace page actions route only to existing review-gated feature entry points', () => {
@@ -54,10 +61,18 @@ test('marketplace page actions route only to existing review-gated feature entry
   assert.match(poshmark, /type === "runPoshmarkPageAction"/);
   assert.match(amazon, /type === "runAmazonPageAction"/);
   assert.match(background, /prepare-order-note/);
+  assert.match(background, /'show-panel'/);
+  assert.match(ebay, /"show-panel": \(\) => null/);
   assert.match(background, /posh-stats/);
   assert.match(background, /review-copy/);
   assert.match(shared, /type === 'inspectGldnPageState'/);
   assert.match(shared, /visibleMarketplaceDialogs/);
+  assert.match(shared, /hostAppearance/);
+  assert.match(shared, /gldnThemeLeak/);
+  assert.match(shared, /legacyThemeSettings/);
+  assert.match(shared, /leakedAliases/);
+  assert.match(shared, /genericTheme === gldnTheme/);
+  assert.match(shared, /appearance: appearance\(panel\)/);
 });
 
 test('local controller refuses a different loaded folder and waits for an auditable result', () => {

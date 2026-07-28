@@ -132,6 +132,8 @@ function ConvertTo-AgentControlPayload {
   $value = if ($Payload) { $Payload } else { [pscustomobject]@{} }
   switch ($Action) {
     "inspect-session" { return [pscustomobject]@{} }
+    "reset-state" { return [pscustomobject]@{} }
+    "reload-extension" { return [pscustomobject]@{} }
     "open-url" {
       $raw = [string]$value.url
       try { $uri = [System.Uri]$raw } catch { throw "The control URL is invalid." }
@@ -171,7 +173,7 @@ function ConvertTo-AgentControlPayload {
       $platform = ([string]$value.platform).Trim().ToLowerInvariant()
       $pageAction = ([string]$value.action).Trim().ToLowerInvariant()
       $allowed = @{
-        ebay = @("mark-shipped", "seller-level", "sales-snapshot", "listing-limits", "prepare-order-note")
+        ebay = @("show-panel", "mark-shipped", "seller-level", "sales-snapshot", "listing-limits", "prepare-order-note")
         poshmark = @("posh-stats", "posh-profit", "visible-sales", "historical-profit")
         amazon = @("review-copy", "sniping-seller-review", "sniping-winner-review")
       }

@@ -2,6 +2,16 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.11.14 - 2026-07-27
+
+- Added bounded live appearance readback to the Profile-2-only inspector so host-page colors and GLDN panel/modal colors can be verified without broad page scraping.
+- Added an explicit `gldnThemeLeak` signal for legacy generic theme settings and short CSS aliases on marketplace roots; GLDN's namespaced marker is not treated as a leak.
+- Added a token-protected `ResetState` operator command that clears stale workflow state through the existing safe reset path without clicking a floating panel.
+- Added a token-protected `ReloadExtension` command that reloads the already-installed Profile 2 runtime without launching Chrome or opening a reload tab.
+- Added a UI-only eBay `show-panel` inspection action so appearance checks never need to start a marketplace workflow.
+- Kept the bridge loopback-only, locked to exactly one GLDN Ops instance in Profile 2, and incapable of marketplace Submit, Save, Apply, Continue, or purchase actions.
+- All 267 JavaScript contracts pass. Signed-in Profile 2 appearance readback remains required before the U-01 visual gate changes verdict.
+
 ## v3.11.13 - 2026-07-27
 
 - Fixed historical Poshmark profit backfill when Amazon exposes multiple URL variants for the same order.

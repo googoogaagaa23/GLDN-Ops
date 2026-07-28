@@ -1,4 +1,13 @@
-GLDN Ops v3.11.13
+GLDN Ops v3.11.14
+
+v3.11.14 Profile 2 diagnostics and recovery:
+- Reports bounded host and GLDN surface appearance values through the loopback-only Profile 2 inspector.
+- Detects legacy generic GLDN theme settings and short CSS aliases on marketplace roots without treating namespaced GLDN markers as leaks.
+- Adds a token-protected ResetState operator command that uses the same safe reset path as the panel.
+- Adds a token-protected ReloadExtension operator command that reloads the installed Profile 2 runtime without starting Chrome.
+- Adds a UI-only eBay show-panel inspection action that starts no marketplace workflow.
+- Cannot click or submit marketplace controls; all existing approval boundaries remain unchanged.
+- All 267 JavaScript contracts pass; signed-in Profile 2 appearance readback is the remaining U-01 live gate.
 
 v3.11.13 historical Poshmark profit repair:
 - Deduplicates Amazon order-search URL variants by their stable Amazon order ID.

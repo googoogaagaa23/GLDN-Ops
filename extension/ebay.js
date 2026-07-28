@@ -9763,6 +9763,7 @@
       return false;
     }
     const actions = {
+      "show-panel": () => null,
       "mark-shipped": startMarkShipped,
       "seller-level": startSellerLevelScan,
       "sales-snapshot": startEbaySnapshotScan,
