@@ -1,4 +1,11 @@
-GLDN Ops v3.11.13
+GLDN Ops v3.11.14
+
+v3.11.14 exact-ID Move .99 hotfix:
+- Builds eBay Bulk Edit workspaces from only the verified qualifying item numbers.
+- Selects the complete admitted batch with eBay's table-header checkbox instead of clicking qualifying rows one by one.
+- Keeps each batch at 500 listings or fewer and cross-checks eBay's selected and Submit counts.
+- Fixes the final verification counter crash after an explicit eBay submission result.
+- Stops before every eBay Submit for separate action-time approval.
 
 v3.11.13 historical Poshmark profit repair:
 - Deduplicates Amazon order-search URL variants by their stable Amazon order ID.

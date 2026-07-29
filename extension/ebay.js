@@ -8277,19 +8277,16 @@
         return;
       }
       const applyFilteredCount = uniqueMove99InspectedCount(sourcePages);
-      let verifiedApplyRanges;
+      let exactBatches;
       try {
-        verifiedApplyRanges = assertMove99EditRangeBatchLimits(
-          buildMove99EditRanges(sourcePages, applyFilteredCount)
-        );
+        exactBatches = buildMove99ExactBatches(sourcePages);
       } catch (error) {
         overlay.remove();
-        renderStatus(`The saved scan could not be divided into safe eBay edit ranges: ${error.message}`, "error");
+        renderStatus(`The saved scan could not be divided into exact eBay workspaces: ${error.message}`, "error");
         return;
       }
-      const applyRanges = compactMove99EditRanges(verifiedApplyRanges);
-      const applyCount = flattenMove99Pages(sourcePages).length;
-      if (!applyCount || !applyRanges.length) {
+      const applyCount = exactBatches.reduce((sum, batch) => sum + batch.length, 0);
+      if (!applyCount || !exactBatches.length) {
         overlay.remove();
         renderStatus("The saved scan has no qualifying listings to apply.", "completed");
         return;
@@ -8312,11 +8309,11 @@
           active: true,
           confirmed: true,
           ownerTabId: tabInfo.tabId,
-          phase: "apply-range",
-          applyStrategy: MOVE99_APPLY_STRATEGY,
+          phase: "apply-exact-workspace",
+          applyStrategy: MOVE99_EXACT_APPLY_STRATEGY,
           scanPages: sourcePages,
           applyFilteredCount,
-          applyRanges,
+          exactBatches,
           applyIndex: 0,
           currentBatchIds: [],
           currentBatchCount: 0,
@@ -9062,7 +9059,7 @@
           live: Number(state.totals?.live || 0),
           failed: Number(state.totals?.failed || 0),
           failedCount: Number(state.totals?.failed || 0),
-          verificationScannedCount: normalizedVerificationPages.reduce((sum, page) => sum + Number(page?.scannedCount || page?.records?.length || 0), 0),
+          verificationScannedCount: Object.values(normalizedVerificationPages).reduce((sum, page) => sum + Number(page?.scannedCount || page?.records?.length || 0), 0),
           proofType: "final-zero-scan",
           verifiedZeroRemaining: remainingRecords.length === 0,
           audit: originalRecords.map((record) => ({ itemId: record.itemId, price: record.price, result: remainingIds.has(String(record.itemId)) ? "Remaining" : "Moved" }))

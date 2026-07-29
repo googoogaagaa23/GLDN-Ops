@@ -2,6 +2,15 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.11.14 - 2026-07-29
+
+- Replaced Move `.99` and reverse cleanup's row-by-row title/price Apply route with exact eBay item-number workspaces.
+- Each verified batch is capped at 500 listings, selected once through eBay's native table-header checkbox, and cross-checked against eBay's selected and Submit counts.
+- Eliminated false title/price mismatch stops caused by eBay reformatting a Bulk Edit row after the verified scan.
+- Fixed the final verification counter crash that could report `stopped safely` after eBay had already returned an explicit submission result.
+- Every eBay Submit remains a separate action-time approval stop.
+- The complete JavaScript suite passes 268/268.
+
 ## v3.11.13 - 2026-07-27
 
 - Fixed historical Poshmark profit backfill when Amazon exposes multiple URL variants for the same order.

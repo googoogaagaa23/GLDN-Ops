@@ -682,7 +682,7 @@ test("saved Move .99 review is forced into the viewport with a direct no-rescan 
   assert.doesNotMatch(recovery, /startMove99Listings|scan-page|active-prepare/);
 });
 
-test("Apply uses verified edit ranges and refuses any range with more than 500 saved matches", () => {
+test("Apply partitions only verified qualifying IDs into publishable eBay workspaces of at most 500", () => {
   const buildMove99ExactBatches = loadMove99ExactBatchBuilder();
   const records = Array.from({ length: 2_606 }, (_, index) => ({
     itemId: String(310000000000 + index),
@@ -702,46 +702,14 @@ test("Apply uses verified edit ranges and refuses any range with more than 500 s
   assert.deepEqual(batches.map((batch) => batch.length), [500, 500, 500, 500, 500, 106]);
   assert.deepEqual(batches.flat(), records.map((record) => record.itemId));
 
-  const guard = loadMove99EditRangeLimitGuard();
-  assert.equal(guard([{ rangeStart: 1, rangeEnd: 2000, targetIds: records.slice(0, 500).map((record) => record.itemId) }]).length, 1);
-  assert.throws(
-    () => guard([{ rangeStart: 1, rangeEnd: 2000, targetIds: records.slice(0, 501).map((record) => record.itemId) }]),
-    /contains 501 verified matches.*safe limit is 500/i
-  );
-
   const summary = ebay.slice(
     ebay.indexOf("function showMove99ScanSummary"),
     ebay.indexOf("function bulkEditorSelectionProgress")
   );
-  assert.match(summary, /assertMove99EditRangeBatchLimits/);
-  assert.match(summary, /buildMove99EditRanges\(sourcePages, applyFilteredCount\)/);
-  assert.match(summary, /phase:\s*"apply-range"/);
-  assert.match(summary, /applyStrategy:\s*MOVE99_APPLY_STRATEGY/);
-  assert.match(summary, /const applyRanges = compactMove99EditRanges\(verifiedApplyRanges\)/);
-  assert.match(summary, /scanPages:\s*sourcePages/);
-  assert.doesNotMatch(summary, /applySourcePages:\s*sourcePages/);
-  assert.match(summary, /lastMove99Scan:\s*FOUNDATION\.compactMove99HistoryRecord\(pendingApplyState\)/);
-  assert.match(summary, /could not save its compact Apply checkpoint/i);
-
-  const compactRanges = loadMove99EditRangeCompactor()([{
-    rangeStart: 1,
-    rangeEnd: 2000,
-    rangeCount: 2000,
-    targetIds: records.slice(0, 500).map((record) => record.itemId),
-    targetRecords: records.slice(0, 500),
-    rangeRecords: Array.from({ length: 2000 }, (_, index) => ({
-      itemId: String(320000000000 + index),
-      title: `Range listing ${index + 1}`,
-      price: "9.99"
-    }))
-  }]);
-  assert.deepEqual(compactRanges, [{
-    rangeStart: 1,
-    rangeEnd: 2000,
-    rangeCount: 2000,
-    targetCount: 500
-  }]);
-  assert.ok(JSON.stringify(compactRanges).length < 200);
+  assert.match(summary, /buildMove99ExactBatches\(sourcePages\)/);
+  assert.match(summary, /phase:\s*"apply-exact-workspace"/);
+  assert.match(summary, /applyStrategy:\s*MOVE99_EXACT_APPLY_STRATEGY/);
+  assert.match(summary, /exactBatches/);
 
   const exactRunner = ebay.slice(
     ebay.indexOf('if (state.phase === "apply-exact-workspace")'),
@@ -749,6 +717,15 @@ test("Apply uses verified edit ranges and refuses any range with more than 500 s
   );
   assert.match(exactRunner, /assertMove99ExactBatchIntegrity/);
   assert.match(exactRunner, /openExactMove99Workspace/);
+});
+
+test("Move .99 totals final verification pages without treating the page map as an array", () => {
+  const verification = ebay.slice(
+    ebay.indexOf("const normalizedVerificationPages = dedupeMove99Pages(pages)"),
+    ebay.indexOf('if (state.phase === "apply-exact-workspace")')
+  );
+  assert.match(verification, /Object\.values\(normalizedVerificationPages\)\.reduce/);
+  assert.doesNotMatch(verification, /normalizedVerificationPages\.reduce/);
 });
 
 test("Move .99 recovers an oversized variation workspace into 500-item batches", () => {

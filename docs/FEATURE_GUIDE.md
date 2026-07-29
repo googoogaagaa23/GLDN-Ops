@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.13. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.14. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -482,7 +482,7 @@ Profile 2 FAK12 exact categories, IDs, backup, restore, and reload persistence a
 1. Open Workflows in the popup and click Open Move .99 Workflow.
 2. Wait for the complete filtered Active Listings exact-ID scan.
 3. Review total scanned, qualifying, omitted, and failed counts.
-4. Apply the saved scan through eBay's native edit ranges; GLDN selects only exact saved title/price fingerprints and refuses a range with more than 500 matches.
+4. Apply the saved scan; GLDN creates exact eBay item-number workspaces in batches of at most 500 and selects each admitted batch once with eBay's table-header checkbox.
 5. Confirm eBay's native selected count and Submit count both match the intended batch.
 6. Confirm only Primary Store category changed to the exact destination.
 7. Approve Submit only for the exact reviewed batch.
@@ -528,8 +528,8 @@ Profile 2 moved 2,564 successful exact .99 listings in earlier approved batches 
 1. Open Workflows and click Move Non-.99 Out of Sale.
 2. Review the complete sale-category scan summary.
 3. If the summary is closed, open the extension popup and reopen the saved verified scan without rescanning.
-4. Choose Apply Saved Changes to open eBay's native edit ranges and select only exact saved title/price fingerprints.
-5. Confirm every selected listing has a valid non-.99 price and every range contains at most 500 saved matches.
+4. Choose Apply Saved Changes to create exact eBay item-number workspaces in batches of at most 500 and select each admitted batch with eBay's table-header checkbox.
+5. Confirm every selected listing has a valid non-.99 price.
 6. Confirm backburner items are excluded.
 7. Verify the native selected count and Submit count equal the exact batch.
 8. Verify only Primary Store category changes to the configured non-sale destination.
@@ -555,7 +555,7 @@ Submitted batch results and a final zero-mismatch rescan.
 
 ### Evidence
 
-The older FAK12 proof corrected 62 listings. Computer 2 later preserved 551 exact non-.99 matches from 15,807 inspected listings. A v3.11.9 Apply attempt admitted all 2,000 workspace rows and was safely canceled before Submit. A later Apply attempt stopped before marketplace changes when duplicated scan state exceeded Chrome's quota. v3.11.10 replaces that route with exact fingerprint selection inside eBay's native edit ranges, a 500-match range cap, two independent exact-count gates, one authoritative scan copy, compact range/history checkpoints, and unlimited extension-storage headroom. Current-version FANCYFI Bulk Edit and final-review proof remain required before any Submit.
+The older FAK12 proof corrected 62 listings. Computer 2 later preserved 551 exact non-.99 matches from 15,807 inspected listings. A v3.11.13 Apply attempt safely stopped before changes when two title/price fingerprints no longer matched. v3.11.14 replaces that row-level route with exact item-number workspaces, a 500-item batch cap, one native select-all action, and two independent exact-count gates. Current-version FANCYFI final-review proof remains required before any Submit.
 
 
 <a id="move99-recovery"></a>
