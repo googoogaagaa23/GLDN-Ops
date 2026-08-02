@@ -55,6 +55,27 @@ function Stop-GldnUpdaterForInstall([string]$TargetInstallRoot) {
     Write-Warning "The existing GLDN Ops updater could not be inspected: $($_.Exception.Message)"
   }
 
+  $pidPath = Join-Path $TargetInstallRoot "updater-agent.pid"
+  if (Test-Path -LiteralPath $pidPath) {
+    try {
+      $pidRecord = Get-Content -Raw -LiteralPath $pidPath | ConvertFrom-Json
+      $recordedInstallRoot = [System.IO.Path]::GetFullPath([string]$pidRecord.installRoot)
+      $recordedAgentPath = [System.IO.Path]::GetFullPath([string]$pidRecord.agentPath)
+      $process = Get-Process -Id ([int]$pidRecord.processId) -ErrorAction Stop
+      $recordedStart = [datetime]::Parse([string]$pidRecord.processStartTimeUtc).ToUniversalTime()
+      $actualStart = $process.StartTime.ToUniversalTime()
+      if ($recordedInstallRoot -ieq [System.IO.Path]::GetFullPath($TargetInstallRoot) -and
+          $recordedAgentPath -ieq $agentPath -and
+          [Math]::Abs(($actualStart - $recordedStart).TotalSeconds) -lt 2) {
+        $matches += [pscustomobject]@{ ProcessId = $process.Id }
+      }
+    } catch {
+      Write-Warning "The existing GLDN Ops updater PID record could not be verified: $($_.Exception.Message)"
+    }
+  }
+
+  $matches = @($matches | Sort-Object ProcessId -Unique)
+
   foreach ($process in $matches) {
     Write-Host "Stopping the existing GLDN Ops updater before installation..."
     Stop-Process -Id ([int]$process.ProcessId) -Force -ErrorAction Stop
@@ -68,6 +89,9 @@ function Stop-GldnUpdaterForInstall([string]$TargetInstallRoot) {
     if (Get-Process -Id ([int]$process.ProcessId) -ErrorAction SilentlyContinue) {
       throw "The existing GLDN Ops updater did not stop. Close it and run Setup again."
     }
+  }
+  if ($matches.Count -and (Test-Path -LiteralPath $pidPath)) {
+    Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
   }
 }
 
@@ -99,7 +123,17 @@ try {
     Stop-GldnUpdaterForInstall $resolvedInstallRoot
     $backup = "$resolvedInstallRoot.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
     if (-not $backup.StartsWith($userRoot, [StringComparison]::OrdinalIgnoreCase)) { throw "Unsafe backup path: $backup" }
-    Move-Item -LiteralPath $resolvedInstallRoot -Destination $backup
+    $moved = $false
+    for ($attempt = 0; $attempt -lt 20; $attempt++) {
+      try {
+        Move-Item -LiteralPath $resolvedInstallRoot -Destination $backup -ErrorAction Stop
+        $moved = $true
+        break
+      } catch [System.IO.IOException] {
+        Start-Sleep -Milliseconds 100
+      }
+    }
+    if (-not $moved) { throw "The previous GLDN Ops folder is still in use. Close it and run Setup again." }
     Write-Host "Previous install backed up to: $backup"
   }
   New-Item -ItemType Directory -Force -Path (Split-Path $resolvedInstallRoot -Parent) | Out-Null
@@ -140,14 +174,15 @@ try {
   Write-Host "GLDN Ops is ready at:"
   Write-Host "  $resolvedInstallRoot"
   Write-Host ""
-  Write-Host "One-time Chrome step for each intended profile:"
+  Write-Host "One-time Chrome step for each fresh profile:"
   Write-Host "  1. Turn on Developer mode"
   Write-Host "  2. Click Load unpacked"
   Write-Host "  3. Select $extensionRoot"
   Write-Host "  4. Open GLDN Ops and choose only the computer number/name"
   Write-Host ""
   Write-Host "After that, use Update & Reload inside GLDN Ops. The verified updater runs automatically with Windows."
-  Write-Host "Every Chrome profile that uses this exact folder sees the same installed version."
+  Write-Host "Fresh profiles that use this exact folder see the same installed version."
+  Write-Host "Existing GLDN Ops profiles must keep their current loaded folder; Update & Reload discovers and updates it in place so Chrome identity and saved settings remain intact."
   Write-Host "No Git, Node.js, Chrome policy, Web Store approval, or marketplace click helper is required."
 } finally {
   if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }
