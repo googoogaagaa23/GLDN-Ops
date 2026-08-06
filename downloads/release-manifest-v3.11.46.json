@@ -1,0 +1,36 @@
+{
+    "schemaVersion":  1,
+    "version":  "3.11.46",
+    "generatedAt":  "2026-08-06T03:12:08.6631348Z",
+    "files":  [
+                  {
+                      "path":  "downloads/GLDN-Ops-extension-v3.11.46.zip",
+                      "sha256":  "189C10B8811C6D1DD0638DED4A788C96991FB69BB4E145BAFC6A01DB14EDCA5C"
+                  },
+                  {
+                      "path":  "downloads/GLDN-Ops-local-v3.11.46.zip",
+                      "sha256":  "A922E27C26222E25168393FA79AB4A9A5B3E3E8780612CA68D6F1DF1AB6EC8BD"
+                  },
+                  {
+                      "path":  "downloads/GLDN-Ops-latest.zip",
+                      "sha256":  "A922E27C26222E25168393FA79AB4A9A5B3E3E8780612CA68D6F1DF1AB6EC8BD"
+                  },
+                  {
+                      "path":  "downloads/GLDN-Ops-Setup.exe",
+                      "sha256":  "6293CCE5AC06EA6E82137182C6A821B351F71C26B919FA6E7CA982BBFEB17AE6"
+                  },
+                  {
+                      "path":  "bootstrap-install.ps1",
+                      "sha256":  "4E45C22D0A63325CCCD14D64F2E0FA1A00BE994EF23ABC1BD74A1C3F3CF4A7B1"
+                  },
+                  {
+                      "path":  "install-latest.ps1",
+                      "sha256":  "E7899ED5086051CE26ADE83933841C2689EB1FB572A917C8C31BDBD253F5E73F"
+                  },
+                  {
+                      "path":  "releases/v3.11.46.md",
+                      "sha256":  "E47CF95ED10ABDFBA41D2B1087EE489127190D55FE0E720B9C6FB2F7B3354049"
+                  }
+              ],
+    "publishLast":  "downloads/latest.json"
+}
