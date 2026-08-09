@@ -11,15 +11,15 @@ SHA-256: $installerHash
 
 ## Current extension package
 
-- [Download GLDN Ops v3.11.49](./GLDN-Ops-extension-v3.11.49.zip)
+- [Download GLDN Ops v3.12.3](./GLDN-Ops-extension-v3.12.3.zip)
 
 SHA-256: $extensionHash
 
 ## Current full local bundle
 
-- [Download the GLDN Ops v3.11.49 local bundle](./GLDN-Ops-local-v3.11.49.zip)
+- [Download the GLDN Ops v3.12.3 local bundle](./GLDN-Ops-local-v3.12.3.zip)
 
 SHA-256: $localHash
 
 The complete machine-readable file list is in
-[elease-manifest-v3.11.49.json](./release-manifest-v3.11.49.json).
+[elease-manifest-v3.12.3.json](./release-manifest-v3.12.3.json).
