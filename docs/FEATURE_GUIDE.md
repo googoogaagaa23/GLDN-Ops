@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.11.14. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.14. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -13,6 +13,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - **PENDING USER REVIEW:** Recorded evidence exists, but the user has not accepted the gate.
 - **PARTIAL:** Only the stated portion is proven. Do not assume the entire workflow works.
 - **IMPLEMENTED, UNPROVEN:** Code exists, but no valid current live proof exists.
+- **IMPLEMENTED, LIVE REVIEW PENDING:** The implementation and deterministic data checks pass, but the current signed-in marketplace review still needs to be reached.
 
 ## Feature Index
 
@@ -20,16 +21,22 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Floating Panel](#panel) - **LIVE PASS**
 - [Dashboard and Sync Queue](#dashboard) - **PARTIAL**
 - [Local Update and Rollback](#deployment) - **PARTIAL**
-- [Mark as Shipped](#mark-shipped) - **IMPLEMENTED, UNPROVEN**
+- [Mark as Shipped](#mark-shipped) - **PARTIAL**
 - [eBay Order Note and Profit](#ebay-note-profit) - **LIVE PASS**
+- [Monthly eBay Profit](#ebay-monthly-profit) - **PARTIAL LIVE**
 - [Seller Level and Tasks Metrics](#seller-metrics) - **LIVE PASS**
 - [Confirm Listings Under Limit](#listing-limits) - **LIVE PASS**
+- [Cancel Amazon Subscribe & Save](#amazon-subscribe-save) - **LIVE PASS**
 - [eBay Sales Snapshot](#ebay-snapshot) - **LIVE PASS**
 - [Store Category Configuration](#store-categories) - **LIVE PASS**
 - [Move .99 Listings Into Sale](#move99) - **LIVE PASS WITH BOUNDARY**
 - [Move Non-.99 Listings Out of Sale](#reverse99) - **IMPLEMENTED, UNPROVEN**
+- [Find and End Variation Listings](#ebay-variations) - **IMPLEMENTED, LIVE REVIEW PENDING**
+- [Existing Listings Policy Audit](#existing-listings-policy-audit) - **IMPLEMENTED, LIVE REVIEW PENDING**
 - [Move Category Recovery](#move99-recovery) - **LIVE PASS**
-- [EcomSniper Handoffs and Status](#ecomsniper-handoffs) - **PARTIAL**
+- [EcomSniper Handoffs and Status](#ecomsniper-handoffs) - **LIVE PASS**
+- [Profile 2 Research and Listing Preflight](#listing-preflight) - **LIVE PASS**
+- [Product Hunter Active Listing Guard](#product-hunter-listing-guard) - **IMPLEMENTED, LIVE REVIEW PENDING**
 - [Sniping Workflow](#sniping) - **PENDING USER REVIEW**
 - [Poshmark Stats](#poshmark-stats) - **LIVE PASS**
 - [Poshmark Sales and Profit](#poshmark-profit) - **PARTIAL**
@@ -93,16 +100,18 @@ Identity mapping and health diagnostics are live-proven in Profile 2. Saved-prof
 
 ### Prerequisites
 
-- Any ordinary webpage is open. Marketplace actions appear only on their supported sites.
+- A supported eBay, Amazon, Poshmark, or Walmart page is open.
 
 ### Exact Steps
 
-1. Use Side to dock the panel to the right edge.
-2. Use the minus control to minimize it.
-3. Drag the resize handle while expanded.
-4. Open the three-dot settings menu to change theme, transparency, or reset layout.
-5. Use Stop Task for a safe checkpoint and Reset only for abandoned state.
-6. Use Update & Reload after a stable release is published.
+1. On an eBay Order Details page, use the always-available panel for Prepare Order Note and daily actions.
+2. On eBay Listings pages, start a workflow or press Ctrl+Shift+G before expecting the panel; it stays hidden otherwise.
+3. Use Side to dock the panel to the right edge.
+4. Use the minus control to minimize it.
+5. Drag the resize handle while expanded.
+6. Open the three-dot settings menu to change theme, transparency, or reset layout.
+7. Use Stop Task for a safe checkpoint and Reset only for abandoned state.
+8. Use Reload Ext after local files are updated.
 
 ### Approval Stop
 
@@ -115,12 +124,12 @@ A saved per-profile panel mode, size, position, theme, and transparency.
 ### Failure Recovery
 
 - Use Reset panel layout if the panel is off-screen or awkwardly sized.
-- Update & Reload waits while a workflow or approval window is active.
-- If the runtime version remains old after a verified update, run the newest one-time updater setup once; it links the updater to Chrome's exact loaded folder without replacing profile settings.
+- Use Reload Ext when page controls are stale after an update.
+- If eBay navigates without a full reload, GLDN Ops re-evaluates whether the panel belongs on the new page.
 
 ### Evidence
 
-Profile 2 proved Graphite at 75%, persisted resize, normal reload persistence, and right-edge docking.
+Profile 2 proved Graphite at 75%, persisted resize, normal reload persistence, and right-edge docking. v3.11.46 adds contract coverage for always-visible eBay order details and workflow-gated Listings pages.
 
 
 <a id="dashboard"></a>
@@ -180,13 +189,12 @@ Dashboard opening and the production queue timeout path are live-proven in Profi
 
 ### Exact Steps
 
-1. Finish or safely stop every active workflow and close approval windows.
-2. Click Update & Reload in the panel or popup from the tab you are prepared to refresh.
-3. Wait for download validation, snapshot creation, extension reload, and that requesting tab's refresh.
+1. Run Update-GLDN-Ops.cmd from the project folder.
+2. Wait for validation, snapshot creation, and matching-profile reload.
+3. Refresh active marketplace tabs.
 4. Confirm the panel and popup show the expected version.
-5. Leave every other open work tab untouched; refresh one later only when you are ready to use GLDN there.
-6. Run Feature Health Check and verify the saved computer, dashboard connection, and Store categories.
-7. Use Version Recovery only for a confirmed broken release.
+5. Run Feature Health Check.
+6. Use the local manager rollback only for a confirmed broken release.
 
 ### Approval Stop
 
@@ -194,19 +202,17 @@ A real rollback in an active signed-in profile requires explicit approval becaus
 
 ### Expected Output
 
-Validated local files, preserved settings, a timestamped snapshot, a reloaded extension runtime, and only the requesting tab refreshed.
+Validated local files, preserved settings, a timestamped snapshot, and reloaded matching profiles.
 
 ### Failure Recovery
 
 - Do not use Chrome policy or a Web Store path for this local build.
-- If validation fails, the updater keeps the current working files; copy diagnostics before retrying.
-- Do not reinstall or repoint Chrome when the extension already loads correctly.
-- If only one profile stays old, run the newest updater setup once and retry Update & Reload.
+- If validation fails, keep the current working files and copy diagnostics.
 - Real Profile 2 rollback remains intentionally untested.
 
 ### Evidence
 
-Clean install, update, checksum rejection, settings preservation, rollback, exact Chrome-loaded-folder resolution, unknown-ID rejection, ambiguous-path rejection, no-Origin service-worker authorization, website-origin rejection, requesting-tab-only reload, and current-file reload fixtures pass. Profile 2 live-proved v3.11.4 identity, dashboard health, prompt Reset, eBay seller metrics, eBay snapshot, listing limits, Poshmark stats, visible-sales review, and the historical-profit launcher. Profile 2 then updated from v3.11.5 to v3.11.6 and repeated an already-current reload; both runs refreshed only the requesting tab, preserved computer 0 / FAK12, left the Tasks, eBay, and Poshmark tabs unchanged, and returned dashboard/updater health OK with queue 0 and workflow idle.
+Clean install/update fixtures pass. Another physical computer and a real Profile 2 rollback remain pending.
 
 
 <a id="mark-shipped"></a>
@@ -214,9 +220,9 @@ Clean install, update, checksum rejection, settings preservation, rollback, exac
 
 **Matrix:** E-01
 
-**Evidence status:** IMPLEMENTED, UNPROVEN
+**Evidence status:** PARTIAL
 
-**Purpose:** Select every awaiting order, require approval before activating Mark as shipped, require another approval before eBay Continue when shown, and sync only an exact completion count.
+**Purpose:** Select every awaiting order, pause before activating eBay, stop again at eBay's final confirmation, and sync only an exact completion count.
 
 ### Prerequisites
 
@@ -227,14 +233,15 @@ Clean install, update, checksum rejection, settings preservation, rollback, exac
 
 1. Click Mark as Shipped.
 2. Wait while GLDN Ops verifies every visible row, the master checkbox, and the awaiting total.
-3. Review GLDN Ops' exact selected count and approve activation of eBay's Mark as shipped command only for that count.
-4. If eBay presents Continue, review eBay's confirmation and approve Continue separately for the same exact count.
-5. After the operator clicks Continue, wait for eBay success and zero remaining results.
-6. Confirm the dashboard and matching Tasks checkbox update.
+3. Review GLDN's exact selected count and approve only the activation of eBay's Mark as shipped action.
+4. Review eBay's own confirmation count.
+5. Approve eBay's final confirmation button only when the selected count equals the intended awaiting total.
+6. After approval, wait for eBay success and zero remaining results.
+7. Confirm the dashboard and matching Tasks checkbox update.
 
 ### Approval Stop
 
-STOP before activating Mark as shipped. That activation requires explicit approval for the exact selected count. If eBay then presents Continue, STOP again; only the operator may click Continue after a fresh action-time approval.
+STOP before activating eBay and STOP again at eBay's final confirmation. Each action requires explicit approval for the exact count shown.
 
 ### Expected Output
 
@@ -243,12 +250,16 @@ Exact awaiting, selected, shipped, remaining, status, dashboard history, and Tas
 ### Failure Recovery
 
 - If eBay omits a confirmation number, GLDN Ops may reuse only the exact pre-confirm count.
-- Any count mismatch or unknown outcome stops safely and cannot auto-rerun.
+- Any count mismatch stops safely.
+- The first approved eBay Mark as shipped activation uses one trusted, hit-tested Chrome press/release; it never retries or clicks a second target.
+- The Profile 2 local control may activate an already-open GLDN review only with the exact live-count token. A separate APPROVE EBAY CONTINUE N token is required for one trusted press/release on eBay's exact reviewed final button.
+- A stale, duplicate, wrong-tab, wrong-page, changed-count, changed-label, ambiguous target, or failed hit-test request stops without another click.
+- Updating to a new extension version clears an unfinished Mark as Shipped run from the older extension context.
 - Copy diagnostics before Reset if the confirmation remains stale.
 
 ### Evidence
 
-The earlier Profile 2 proof completed 3 of 3 orders under the prior one-stop flow. The stricter two-stage approval boundary retained in v3.11.4 is contract-tested and requires a fresh signed-in Profile 2 live proof.
+Profile 2 previously completed 3 of 3 orders and read back zero remaining plus exact dashboard and Tasks rows. Computer 2 / FANCYFI on v3.11.33 verified 4 of 4 selections but exposed that the synthetic first activation did not open eBay's confirmation. v3.11.34 replaces that activation with one trusted exact-count, exact-tab, exact-page, hit-tested press/release and passes the complete 309-test JavaScript suite. A signed-in Computer 2 completion and dashboard/Tasks readback remain required.
 
 
 <a id="ebay-note-profit"></a>
@@ -293,6 +304,58 @@ Saved eBay note plus one upserted profit row with supplier order, ASIN, cost, pr
 ### Evidence
 
 Profile 2 matched an exact Amazon order and ASIN, filled the real eBay note, and later read back one deduplicated profit row.
+
+
+<a id="ebay-monthly-profit"></a>
+## Monthly eBay Profit
+
+**Matrix:** E-12
+
+**Evidence status:** PARTIAL LIVE
+
+**Purpose:** Read a complete eBay order month, preserve saved-note profit, and independently reconcile each SKU against exact Amazon order-item costs across separately signed-in Amazon Chrome profiles.
+
+### Prerequisites
+
+- Use the Chrome profile already signed into the intended eBay account for the month collection.
+- The saved computer identity must map to that eBay account.
+- Set one permanent Amazon profile name in Setup in every Chrome profile used for cost reconciliation.
+- Orders count as saved-note exact only when their existing eBay note follows earnings - Amazon cost - Amazon profile - ETA.
+
+### Exact Steps
+
+1. Open Workflows in the eBay Chrome profile and click Open Monthly eBay Profit.
+2. Choose the calendar month and click Start Month.
+3. Let the one inactive signed-in eBay worker index the month's order pages and open each exact order detail.
+4. Review eBay earnings, saved-note Amazon cost, saved-note profit, Amazon profile, and every unresolved reason.
+5. Keep missing notes, malformed notes, earnings mismatches, missing earnings, and date mismatches outside exact saved-note totals.
+6. Type the displayed APPROVE SYNC EBAY YYYY-MM N token only after reviewing the exact month and exact unsynced row count.
+7. Confirm dashboard delivery or a retained retry queue, then read back the computer profit sheet.
+8. In an Amazon Chrome profile, verify its permanent Amazon profile name in Setup, choose the same month, and click Resolve eBay Amazon Costs.
+9. Review the exact supplier profile, exact matches, misses, and live pending count. Type APPROVE RESOLVE EBAY COSTS N only for that unchanged review.
+10. Move to each other signed-in Amazon Chrome profile and repeat. Rows already attempted by that named profile are excluded; unresolved rows remain open without becoming zero.
+11. Compare saved-note profit and Amazon-order profit in the shared reconciliation sheet. Missing SKU and substituted-item cases remain manual review.
+
+### Approval Stop
+
+STOP at both reviews. The eBay month write requires APPROVE SYNC EBAY YYYY-MM N. Each independent Amazon-profile result requires APPROVE RESOLVE EBAY COSTS N. Neither approval changes an eBay order, listing, or Amazon order.
+
+### Expected Output
+
+A resumable eBay month checkpoint, saved-note totals, independent exact Amazon costs, both profit calculations, discrepancy status, attempted supplier profiles, and a durable unresolved queue.
+
+### Failure Recovery
+
+- Pause closes only the worker tab and preserves the exact checkpoint.
+- Resume recreates one inactive worker in the same Chrome profile.
+- An extension update pauses an in-progress run instead of mixing versions.
+- Never guess a missing Amazon cost or substitute a current product price.
+- Do not rename an Amazon profile after it has recorded attempts; use the same permanent label on that Chrome profile.
+- Copy diagnostics if eBay or Amazon changes its order-row or order-detail layout.
+
+### Evidence
+
+The signed-in July 2026 eBay month was reviewed and synced with an exact count-bound approval. A separately approved 100-row Amazon-profile review was durably delivered in two 50-row batches with its supplier profile retained. The separately approved F9132 review delivered all 29 rows, left zero F9132-eligible rows, and cleared the retry queue. Other signed-in Amazon profiles and final comparison-sheet completion remain separate live gates.
 
 
 <a id="seller-metrics"></a>
@@ -344,7 +407,7 @@ Exact Profile 2 values, dashboard rows, Tasks H14:H18, grey Poshmark-only cells,
 
 **Evidence status:** LIVE PASS
 
-**Purpose:** Evaluate Store insertion allowance, seller quantity, and seller dollar limits independently.
+**Purpose:** Evaluate Store insertion allowance, seller quantity, and seller dollar limits independently, preserving near-limit warnings without confusing them with a reached hard cap.
 
 ### Prerequisites
 
@@ -371,12 +434,61 @@ Monthly confirmation, dashboard history, and the matching Tasks completion row.
 ### Failure Recovery
 
 - Never treat active listings as the Store insertion allowance.
-- Missing Store allowance data cannot produce GOOD.
+- A 95% warning may remain visible while Under limit is still YES.
+- Missing Store allowance or seller-dollar data cannot check the task.
 - Reopen Seller Hub Overview if a card is incomplete.
 
 ### Evidence
 
-Profile 2 exact Store, quantity, dollar, dashboard, history, receipt, and Tasks readbacks are live-proven.
+Production dashboard @38 separates near-limit warnings from hard-cap completion. The focused v3.11.29 contract passes 7/7 and the complete release gate passes 269/269. Signed-in Profile 2 retained the 98.79% warning while Tasks H20 checked with Under limit: YES; Sync Receipts row 84 confirms taskChecked true.
+
+
+<a id="amazon-subscribe-save"></a>
+## Cancel Amazon Subscribe & Save
+
+**Matrix:** A-01
+
+**Evidence status:** LIVE PASS
+
+**Purpose:** Scan only real active subscriptions for the current signed-in Amazon Chrome profile, including additional carousel cards and distinct duplicate products; exclude recommendations, require exact-count approval, cancel the reviewed set one at a time, and prove zero remain.
+
+### Prerequisites
+
+- The intended Amazon account is signed in in this Chrome profile.
+- The correct Tasks computer identity is saved.
+- Repeat the workflow separately in every Chrome profile that uses a different Amazon account.
+
+### Exact Steps
+
+1. Open the popup and click Open Amazon Subscribe & Save.
+2. Let GLDN Ops open Manage Your Subscriptions and settle the complete page.
+3. On Amazon's newer layout, confirm All addresses is the selected scope; on the older layout, confirm the active-subscription total.
+4. Review the exact list under Your Subscriptions. Additional carousel cards and separate subscriptions for the same product remain separate. Recommended for you, Subscribe now, Add new subscriptions, and Buy it again are excluded.
+5. Type the exact count-bound token shown only when every reviewed item should be cancelled.
+6. After approval, GLDN Ops opens each reviewed subscription, clicks Cancel subscription, verifies Amazon's Cancel your subscription? dialog, leaves the optional reason unchanged, and uses Cancel my subscription once.
+7. Wait for Cancellation Confirmed after each item.
+8. Let GLDN Ops return to the manager and run a final zero-active scan.
+9. Confirm the current-profile proof in Amazon Subscribe Save History.
+10. Repeat in every other signed-in Amazon Chrome profile. A current-profile proof does not check the ALL Amazon Accounts task.
+
+### Approval Stop
+
+STOP before any cancellation. The exact token APPROVE CANCEL SUBSCRIPTIONS N authorizes only the unchanged reviewed set of N subscriptions; no Amazon cancellation control is clicked before that token is accepted.
+
+### Expected Output
+
+Exact scanned and cancelled counts, per-profile scope, zero-active proof, local result, and one shared current-profile audit row. The all-accounts Tasks checkbox remains separate.
+
+### Failure Recovery
+
+- If Amazon shows sign-in, CAPTCHA, a different count, an unloaded card, or an unknown final result, GLDN Ops stops without retrying the irreversible click.
+- Never treat Recommended for you or Subscribe now cards as subscriptions.
+- A zero result in one Amazon profile does not prove another Chrome profile/account is clear and cannot check the ALL Amazon Accounts task.
+- Copy diagnostics before Reset when a final cancellation result is uncertain.
+
+### Evidence
+
+The updated V2 tutorial was reviewed end to end. It confirms the exact Your Subscriptions > subscription details > Cancel subscription > Cancel your subscription? > Cancel my subscription > Cancellation Confirmed sequence, optional reason behavior, carousel cards, duplicate-looking subscriptions, recommendation exclusion, and separate Chrome-profile repetition. Signed-in Profile 2 has live-proven the zero-active current-profile path; a nonzero destructive run still requires a fresh exact-count approval.
 
 
 <a id="ebay-snapshot"></a>
@@ -482,11 +594,12 @@ Profile 2 FAK12 exact categories, IDs, backup, restore, and reload persistence a
 1. Open Workflows in the popup and click Open Move .99 Workflow.
 2. Wait for the complete filtered Active Listings exact-ID scan.
 3. Review total scanned, qualifying, omitted, and failed counts.
-4. Apply the saved scan; GLDN creates exact eBay item-number workspaces in batches of at most 500 and selects each admitted batch once with eBay's table-header checkbox.
-5. Confirm eBay's native selected count and Submit count both match the intended batch.
+4. Apply only the verified exact-ID batches, each capped at 500.
+5. Confirm eBay's native selected count matches the intended batch.
 6. Confirm only Primary Store category changed to the exact destination.
 7. Approve Submit only for the exact reviewed batch.
-8. After a trusted Submit click and an explicit eBay success/failure result, let GLDN Ops continue from the saved checkpoint.
+8. After the approved final eBay Submit, let the workflow stop while eBay propagates the category changes.
+9. Start a later deliberate run for any saved remaining batches only after eBay has finished updating listings.
 
 ### Approval Stop
 
@@ -494,13 +607,13 @@ STOP before every eBay Submit. Each exact batch requires separate action-time ap
 
 ### Expected Output
 
-Per-batch selected/submitted result, final remaining/failed counts, audit data, and Tasks completion only after exact zero remaining and zero failed.
+The exact submitted batch, propagation-pending status, saved remaining-batch count, and audit data. Tasks completion still requires a later exact zero-remaining and zero-failed proof.
 
 ### Failure Recovery
 
-- Any incomplete scan, mixed price, selected-count mismatch, missing picker, storage-checkpoint failure, or uncertain submit result stops safely without opening another tab or batch.
-- Large scans retain one authoritative record copy while range and history checkpoints remain compact; a failed checkpoint save leaves the verified review open and attempts no marketplace change.
-- If the review page disappears before a trusted Submit click or explicit eBay result, the run enters Approval Lost and requires manual reconciliation.
+- Any incomplete scan, mixed price, selected-count mismatch, missing picker, or uncertain submit result stops safely without opening another tab or batch.
+- A completed Submit is terminal for that run: GLDN Ops must not reopen Active Listings, rescan, or create another workspace while eBay propagates changes.
+- If the review page disappears before a trusted Submit click, the run enters Approval Lost and requires manual reconciliation.
 - Do not alter item specifics to force category failures through.
 - Six known FAK12 failures remain backburnered and must not be resubmitted without new approval.
 
@@ -516,25 +629,27 @@ Profile 2 moved 2,564 successful exact .99 listings in earlier approved batches 
 
 **Evidence status:** IMPLEMENTED, UNPROVEN
 
-**Purpose:** Find valid non-.99 prices in the sale category and return them to the configured non-sale category.
+**Purpose:** Require the sale event to be off, then find valid non-.99 prices in the sale category and return them to the configured non-sale category.
 
 ### Prerequisites
 
 - The sale and non-sale categories are configured for the signed-in account.
+- The sale event is turned off before scanning displayed prices.
 - Backburner exclusions are current.
 
 ### Exact Steps
 
 1. Open Workflows and click Move Non-.99 Out of Sale.
-2. Review the complete sale-category scan summary.
-3. If the summary is closed, open the extension popup and reopen the saved verified scan without rescanning.
-4. Choose Apply Saved Changes to create exact eBay item-number workspaces in batches of at most 500 and select each admitted batch with eBay's table-header checkbox.
-5. Confirm every selected listing has a valid non-.99 price.
-6. Confirm backburner items are excluded.
-7. Verify the native selected count and Submit count equal the exact batch.
+2. Answer whether the sale event is active.
+3. If Sale Event Is ON, stop and turn the sale event off; GLDN Ops must not start a scan.
+4. Choose Sale Event Is OFF only after confirming it is off.
+5. Review the complete sale-category scan summary.
+6. Confirm every selected listing has a valid non-.99 price.
+7. Confirm backburner items are excluded.
 8. Verify only Primary Store category changes to the configured non-sale destination.
-9. Approve each final Submit separately.
-10. Run a final clean rescan.
+9. Approve the exact final Submit.
+10. Let the workflow stop while eBay propagates the category changes.
+11. Start a later deliberate run for any saved remainder only after eBay has finished updating listings.
 
 ### Approval Stop
 
@@ -542,20 +657,119 @@ STOP before every eBay Submit and approve only the exact reviewed count.
 
 ### Expected Output
 
-Submitted batch results and a final zero-mismatch rescan.
+The exact submitted batch, propagation-pending status, saved remaining-batch count, and audit data.
 
 ### Failure Recovery
 
+- Sale Event Is ON, a closed prompt, or an unconfirmed answer blocks before workflow reservation, tab creation, or scanning.
 - Missing or ambiguous prices are excluded.
-- A completed verified scan remains available from the popup after the summary is closed or the page is reloaded, without forcing the floating panel onto every Listings page.
-- One authoritative scan copy is retained while Apply ranges and history remain compact, preventing large inventories from duplicating records in Chrome storage.
-- A range with more than 500 saved matches, a fingerprint ambiguity, a storage-checkpoint failure, or any selected/Submit count mismatch stops before final approval.
-- Any uncertain submission returns to read-only reconciliation.
+- A completed Submit is terminal for that run and cannot automatically rescan or create another workspace.
+- Any uncertain pre-submit state returns to read-only reconciliation.
 - Do not use the reverse workflow on Poshmark.
 
 ### Evidence
 
-The older FAK12 proof corrected 62 listings. Computer 2 later preserved 551 exact non-.99 matches from 15,807 inspected listings. A v3.11.13 Apply attempt safely stopped before changes when two title/price fingerprints no longer matched. v3.11.14 replaces that row-level route with exact item-number workspaces, a 500-item batch cap, one native select-all action, and two independent exact-count gates. Current-version FANCYFI final-review proof remains required before any Submit.
+v3.11.30 adds the fail-closed sale-event gate to the popup, internal starter, eBay panel, background launcher, and saved-state runner. Automated contracts prove only an explicit Sale Event Is OFF answer can start the reverse workflow. The live ON-path block is the required signed-in gate; the OFF-path scan must wait until the sale event is actually off.
+
+
+<a id="ebay-variations"></a>
+## Find and End Variation Listings
+
+**Matrix:** E-11
+
+**Evidence status:** IMPLEMENTED, LIVE REVIEW PENDING
+
+**Purpose:** Scan every eBay Active Listings page automatically, use eBay's signed-in read-only End review to identify exact variation parents, and prepare durable approval-gated End batches.
+
+### Prerequisites
+
+- The intended eBay account is signed in in this Chrome profile.
+- No other GLDN Ops workflow or variation review is active.
+- Keep the Variation Listings extension page open while the account-wide scan runs.
+
+### Exact Steps
+
+1. Open Workflows and click Find / End Variation Listings.
+2. Click Scan & Prepare Review; no report download or CSV import is required.
+3. GLDN Ops opens one inactive signed-in eBay tab and verifies every 200-row Active Listings page by exact item number.
+4. GLDN Ops checks exact IDs through eBay's read-only End review in batches of at most 200 and keeps only listings eBay identifies as true variation parents.
+5. Review the searchable variation-parent table and download the audit CSV if a permanent copy is needed.
+6. GLDN Ops automatically prepares the first exact batch of at most 200 parent listings and opens eBay's visible Bulk Edit review.
+7. Inspect every visible eBay row and return to Variation Listings.
+8. Type APPROVE END VARIATIONS N only after the exact batch count and rows are correct.
+9. Wait for eBay's exact success and failure counts. Successful IDs become Ended, disappear from the remaining set, and the next review is prepared automatically.
+10. Give a new exact approval for every remaining batch. After the final result, run Scan & Prepare Review again for a fresh zero-variation verification.
+
+### Approval Stop
+
+STOP before every eBay End action. The exact token APPROVE END VARIATIONS N must match the current verified batch and eBay's displayed count; preparing or viewing a review is never approval.
+
+### Expected Output
+
+An automated account-wide exact-ID scan, searchable variation-parent audit, exportable CSV, exact eBay review batches, durable completion ledger, exact approval receipts, and remaining count.
+
+### Failure Recovery
+
+- A missing page range, incomplete row count, duplicate item number, changing Active Listings total, browser check, or classification mismatch stops with no listing changes.
+- Every active listing must be accounted for before any variation parent is accepted.
+- No more than 200 parent listings can enter one End review.
+- A missing or mismatched eBay count blocks approval.
+- An unfinished exact review can be reopened from the Variation Listings page.
+- GLDN Ops may prepare the next review after a proven successful result, but it never ends that batch without a new exact approval token.
+
+### Evidence
+
+The exact ending path is already live-proven in signed-in Profile 2 across 736 parents: eBay reported 200 already ended, then 200 of 200, 200 of 200, and 136 of 136 successful with zero failures. v3.11.48 replaces manual report generation and import with an automated complete-page scan, eBay-confirmed variation classification, and a Profile 2 launch path that stops at the same exact approval review. Current-version signed-in read-only review proof is required before release.
+
+
+<a id="existing-listings-policy-audit"></a>
+## Existing Listings Policy Audit
+
+**Matrix:** E-12
+
+**Evidence status:** IMPLEMENTED, LIVE REVIEW PENDING
+
+**Purpose:** Read every active eBay listing, classify it with current reviewed policy rules, and allow only exact reviewed Block matches into an approval-gated native eBay End review.
+
+### Prerequisites
+
+- The intended eBay account is signed in in this Chrome profile and its computer identity is saved.
+- No other GLDN Ops scan or marketplace review is active.
+- The shared reviewed Listing Preflight rule pack is present.
+
+### Exact Steps
+
+1. Open Workflows, choose Listings, and click Scan Existing Listings.
+2. Click Start Fresh Complete Scan, or Resume Scan after a saved interruption.
+3. GLDN Ops opens one quiet signed-in eBay tab and verifies every 200-row Active Listings page by exact item number.
+4. Wait for Scanned to equal eBay's reported total; a partial or changing total cannot publish an audit.
+5. Review No rule match, Needs review, and reviewed Block rows. No rule match is not eBay approval, and Needs review rows can never be selected for ending.
+6. Download the full source-linked CSV audit if needed.
+7. Select reviewed Block rows and click Review Selected on eBay. At most 200 exact item numbers enter one native eBay review.
+8. Inspect every visible eBay row, return to the audit page, and type APPROVE END POLICY LISTINGS N only when the exact count and rows are correct.
+9. Wait for eBay's exact success and failure counts. GLDN Ops records the receipt and stops.
+10. Start another batch only as a separate deliberate action after reviewing the remaining Block rows.
+
+### Approval Stop
+
+STOP before every eBay End action. Preparing or opening a review is never approval. The exact phrase APPROVE END POLICY LISTINGS N must match the current reviewed batch.
+
+### Expected Output
+
+A complete resumable exact-ID audit, source-linked classifications, exportable CSV, exact native eBay review, durable End receipt, and remaining reviewed Block rows.
+
+### Failure Recovery
+
+- A missing page range, incomplete row count, duplicate item number, changing total, browser check, or missing rule pack pauses or fails with no eBay listing change.
+- Resume continues from the next unverified page; Start Fresh discards old page checkpoints only after explicit operator action.
+- An audit older than 48 hours, a changed reviewed-rule pack, or a different computer/account blocks End review.
+- Only current reviewed Block rows are selectable. Review and No rule match rows cannot enter the ending path.
+- After an approved submission the workflow stops and never auto-prepares another batch.
+- If eBay reports that a listing item is missing, GLDN Ops records it as unresolved rather than ended. Use Cancel Review & Rescan to clear an abandoned review and immediately start a complete read-only scan.
+
+### Evidence
+
+v3.12.14 focused contracts prove full-count reconciliation, source-linked classification, Block-only selection, stale-account and stale-rule rejection, exact approval phrasing, terminal post-submit behavior, missing-listing failure classification, and Cancel Review & Rescan recovery. The prior signed-in Profile 2 scan verified all 7,294 Active Listings; a fresh post-recovery read-only scan remains the current live gate.
 
 
 <a id="move99-recovery"></a>
@@ -605,23 +819,24 @@ Profile 2 recovered a cancelled review into a complete read-only scan and export
 
 **Matrix:** C-01, C-02, C-04
 
-**Evidence status:** PARTIAL
+**Evidence status:** LIVE PASS
 
-**Purpose:** Open EcomSniper handoff tabs and report only whether a GLDN-opened tab is open or closed.
+**Purpose:** Verify GLDN seller-extraction counts and handoff-tab state without claiming that GLDN runs or reads EcomSniper Bulk Poster.
 
 ### Prerequisites
 
 - eBay and EcomSniper are signed in in the same Chrome profile.
-- Use EcomSniper itself for Extract Sellers, Scanner, Product Hunter, Bulk Poster, and listing controls.
+- EcomSniper's visible Extract Sellers control is present on an eBay search-results page for seller extraction.
 
 ### Exact Steps
 
 1. Open Workflows and review EcomSniper Handoffs.
-2. Use Open EcomSniper Competitor Scanner, Prepare Product Hunter Handoff, or Open EcomSniper Product Hunter only for the handoff you intend.
-3. Click Refresh Status to read current GLDN-observable tab state.
-4. Treat Handoff open or Handoff closed as tab-lifecycle information only.
-5. Complete every EcomSniper control manually inside EcomSniper.
-6. Do not infer seller counts, Bulk Poster progress, item counts, completion, or failure from the handoff monitor.
+2. Use Open EcomSniper Competitor Scanner or Filter Titles & Open Product Hunter only for the handoff you intend.
+3. Click Refresh Status to read current GLDN-observable state.
+4. Treat Extracting as seller extraction on eBay only; confirm the before total, after total, and reported new count reconcile.
+5. Treat Handoff open or Handoff closed as tab-lifecycle information only.
+6. Do not infer Bulk Poster progress, item counts, completion, or failure from the handoff monitor.
+7. Use Stop GLDN Assist to request a safe stop of GLDN's seller-extraction queue; stop EcomSniper work from EcomSniper itself.
 
 ### Approval Stop
 
@@ -629,18 +844,112 @@ GLDN Ops cannot approve or click EcomSniper's private Scanner, Product Hunter, e
 
 ### Expected Output
 
-Honest open, closed, or unknown GLDN handoff-tab state with no EcomSniper completion claim.
+Verified seller-count progression plus honest open, closed, stopped, or unknown handoff state.
 
 ### Failure Recovery
 
+- Missing, stale, wrong-page, mismatched, or timed-out seller counts stop safely.
 - An open or closed private EcomSniper tab never proves processing completion.
-- Use EcomSniper itself to inspect or stop its work.
-- Copy the full diagnostic report before Reset if a GLDN handoff fails to open.
+- Copy the full diagnostic report before Reset.
 - No Windows local helper is required.
 
 ### Evidence
 
-Earlier versions proved seller-count extraction, but that automation is retired in v3.11 because it was unreliable across computers. The read-only handoff monitor is contract-tested and requires one signed-in Profile 2 UI proof; EcomSniper private-page progress remains unreadable by Chrome design.
+Profile 2 previously reconciled seller extraction from 892 to 1,607. Signed-in Profile 2 then live-proved the exact Competitor Scanner and Product Hunter routes, open-state readback, lifecycle-only scope, and Stop closing only the GLDN-opened Product Hunter tab. GLDN made no private-processing claim and performed zero marketplace actions.
+
+
+<a id="listing-preflight"></a>
+## Profile 2 Research and Listing Preflight
+
+**Matrix:** C-05
+
+**Evidence status:** LIVE PASS
+
+**Purpose:** Collect source-linked listing-restriction evidence from approved EcomSniper Discord channels, require human review, and check Amazon links before bulk listing without using an eBay API.
+
+### Prerequisites
+
+- Use only the signed-in Discord interface in Chrome Profile 2.
+- Research only approved EcomSniper channels and preserve exact source-message URLs.
+- Do not use a bot, Discord token, self-bot, or hidden account access.
+
+### Exact Steps
+
+1. Open the EcomSniper Discord server in signed-in Chrome Profile 2.
+2. Search approved channels for listing restrictions, prohibited items, restricted products, VeRO reports, listing takedowns, suspensions, and reported resolutions.
+3. Open each relevant result in context and record its exact message URL, date, channel, relevant text, attachments, and outcome.
+4. Exclude dropshipping-policy and fulfillment-source discussions.
+5. Mark every candidate Ignore, Review, or Block and provide reviewer and reason for Review or Block.
+6. Publish reviewed decisions with tools/listing-preflight/publish-reviewed-rules.ps1, then update or reload GLDN Ops.
+7. For title research, use Prepare Product Hunter Handoff. Fashion rows and duplicates are removed before preflight, and Product Hunter stays closed when Review or Block rows exist.
+8. After Product Hunter produces Amazon links, copy them and click Preflight Bulk Poster Links.
+9. Review Ready to copy, Needs review, and Blocked results. A bare ASIN or opaque URL without product-name evidence remains Needs review.
+10. Click Copy Ready and Open Bulk Poster. Only canonical Ready Amazon links reach the clipboard; Review, Blocked, duplicate, and non-Amazon rows remain excluded.
+11. Review the final link set again inside EcomSniper before starting its private listing workflow.
+
+### Approval Stop
+
+Rule publication requires human-reviewed decisions. Listing Preflight is read-only and never authorizes or submits an eBay listing.
+
+### Expected Output
+
+Source-linked Profile 2 research, a reviewer-approved shared rule pack, a ready-to-copy list, and separate review and blocked results.
+
+### Failure Recovery
+
+- If Discord sources or attachments cannot be verified visibly in Profile 2, do not publish the rule.
+- If the rule pack is empty or unavailable, every input stays in Needs review and no ready list is produced.
+- A Ready result does not mean eBay permits the item.
+- Do not add dropshipping-policy or fulfillment-source discussion to this research set.
+
+### Evidence
+
+Signed-in Profile 2 source research is preserved with exact Discord message links and no Discord write. The shared pack contains 175 human-reviewed official rules. Signed-in Profile 2 visibly classified one controlled Ready, one Review, and one Block input, copied only the canonical Ready Amazon URL, and opened the exact Bulk Poster route without starting it or performing any marketplace action.
+
+
+<a id="product-hunter-listing-guard"></a>
+## Product Hunter Active Listing Guard
+
+**Matrix:** C-06
+
+**Evidence status:** IMPLEMENTED, LIVE REVIEW PENDING
+
+**Purpose:** Build a verified read-only index of one eBay computer's complete Active Listings inventory and prevent Product Hunter from returning products that are already active.
+
+### Prerequisites
+
+- Load the separate GLDN Product Hunter extension in the Chrome profile signed into the intended eBay account and Amazon.
+- Choose one of the five eBay computers: M0, 2, 6, 0, or M1.
+
+### Exact Steps
+
+1. Open GLDN Product Hunter and select Open Product Hunter.
+2. Choose the eBay computer for this signed-in Chrome profile.
+3. Click Scan Active Listings and leave the inactive eBay worker tab available until every 200-row page and the final count are verified.
+4. If eBay live scanning is unavailable, download its current All active listings CSV and choose Import Active Listings CSV.
+5. Confirm the indexed listing count, decoded ASIN count, account label, and Last verified time.
+6. Leave Exclude products already active on eBay enabled and start the Amazon hunt.
+7. Review Excluded rows for exact active SKU/ASIN matches and Review rows for exact normalized-title matches.
+8. Copy only Ready links and continue through EcomSniper manually.
+
+### Approval Stop
+
+The guard never edits eBay and requires no marketplace approval. Any later EcomSniper listing action retains its own explicit approval boundary.
+
+### Expected Output
+
+A computer-bound verified Active Listings index, duplicate decisions in the audit CSV, and a Ready-link set with known active duplicates removed.
+
+### Failure Recovery
+
+- A partial scan never replaces the prior verified index.
+- If eBay displays a browser check, complete it in the saved worker tab and click Resume Scan.
+- If the Active Listings total changes during scanning, stop and rerun after eBay settles.
+- Protected hunts cannot start without a verified index for the selected computer unless the operator explicitly disables the guard.
+
+### Evidence
+
+The complete scanner, CSV import, exact SKU/ASIN exclusion, title-review, computer binding, permission boundary, and fail-closed behavior are deterministic-test proven. A current signed-in Profile 2 full scan remains the live gate.
 
 
 <a id="sniping"></a>
@@ -779,7 +1088,7 @@ Ten exact Profile 2 order-cost/profit matches are live-proven. The separate visi
 
 **Evidence status:** LIVE PASS
 
-**Purpose:** Index paginated Poshmark sales, read each exact SKU-linked order, allocate exact Amazon purchase units once, and stage a review before dashboard sync.
+**Purpose:** Index paginated Poshmark sales by range or calendar month, read each exact SKU-linked order, allocate exact Amazon purchase units once, and stage a review before any spreadsheet write.
 
 ### Prerequisites
 
@@ -789,34 +1098,35 @@ Ten exact Profile 2 order-cost/profit matches are live-proven. The separate visi
 
 ### Exact Steps
 
-1. Open Workflows in the popup, or click Historical Profit Backfill on a Poshmark page, and choose Pilot, New since last sync, Last 90 days, or All sales. On one sale-detail page, Current sale only is also available for an exact audit or retry.
-2. Click Start Historical Profit Backfill or Start New Run.
-3. Let the single background worker switch Poshmark to Show 100 and index every available sales page in the selected range, or open the selected current sale directly.
+1. Open Workflows in the popup, or click Historical Profit Backfill on a Poshmark page, and choose Current sale, Pilot, New since last sync, Last 90 days, One month, or All sales.
+2. For the initial history, use One month and enter YYYY-MM, such as 2026-04 for April 2026. Month-by-month is recommended; All sales is available for a deliberate full-history migration but creates a much larger review and recovery surface.
+3. Let the single background worker switch Poshmark to Show 100 and index only the selected range or month.
 4. Let the worker open each Poshmark sale detail and decode every EcomSniper SKU into an exact ASIN.
 5. Let it search all matching Amazon order result pages and open each exact order detail in the same worker tab.
-6. Review Exact, Needs Review, Missing SKU, and Amazon Not Found counts.
-7. Inspect earnings, Amazon item cost, supplier order, and profit rows.
-8. Click Sync Exact Profits only after approving the exact review count; ambiguous rows remain unsynced.
-9. Use New since last sync for later incremental runs.
+6. Review every row, including earnings, exact Amazon item cost, supplier order, unresolved reason, and attempted Amazon profile.
+7. Approve the exact month and live row count before creating or updating the month tab; unresolved costs remain blank and enter the shared queue.
+8. On another signed-in Amazon Chrome profile, use Resolve Missing Amazon Costs to retry open queue rows, then approve the exact resolution count.
+9. Repeat each missing historical month once, then use New since last sync for ongoing additions. The dashboard totals the saved monthly tabs without rescanning completed sales.
 
 ### Approval Stop
 
-STOP at the review. Sync Exact Profits requires a separate confirmation and is the only step that writes historical rows to the shared dashboard.
+STOP at the review. A month write requires APPROVE SYNC POSHMARK YYYY-MM N, and a cross-profile resolution requires APPROVE RESOLVE POSHMARK COSTS N.
 
 ### Expected Output
 
-A resumable local checkpoint, one-use Amazon unit ledger, exact profit rows, quarantined ambiguous rows, and idempotent Profit - 7 and Marketplace Profit History upserts after approval.
+A resumable checkpoint, one-use Amazon unit ledger, a formatted month tab, exact profit rows, and a shared unresolved-cost queue that can be completed from another signed-in Amazon profile without duplicate sales.
 
 ### Failure Recovery
 
 - Pause at Safe Checkpoint before closing the worker tab.
 - Resume recreates one worker tab if the old worker was closed.
-- A missing SKU, missing purchase date, multiple matching Amazon orders, or differing costs cannot become an exact row.
+- Missing or ambiguous Amazon costs remain blank rather than becoming zero.
+- Use Resolve Missing Amazon Costs from another signed-in Amazon profile; every attempted profile is retained.
 - Never substitute EcomSniper markup, a product-page price, cart total, checkout total, or a different Amazon order.
 
 ### Evidence
 
-v3.9.1 has 14 focused allocation and workflow contracts within a 217-test passing suite. Signed-in Profile 2 matched Poshmark order 6a49c5d84fab7b10343cc819 at $29.17 earnings to Amazon order 114-5900136-8324212, ASIN B07T88F8B2, and exact $19.96 item cost, producing $9.21 profit. The in-panel approval synced it once to row 32 in Profit - 7 and Marketplace Profit History, Apps Script receipt row 72 confirmed one upsert, the local checkpoint refreshed to Already synced 1, and the sync button disabled. Phone-readable proof: https://drive.google.com/file/d/1qJllE5jCt5pUE3JSNruWQsMjes7YqFNi/view?usp=drivesdk
+The original exact single-order path is live-proven in Profile 2. v3.11.35 added month filtering, formatted monthly output, unresolved-cost queuing, and cross-profile resolution. v3.11.36 through v3.11.41 hardened empty-page rejection, reload recovery, complete page loading, pagination, Show 100 selection, and review-time detail repair. Dashboard deployment @42 is live. The approved April 2026 run saved 317 unique reviewed orders: 260 exact Amazon costs and 57 unresolved costs retained blank and queued without duplicate sales. v3.11.42 aligns approval with every reviewed row, uses deterministic durable batches, and closes completed worker checkpoints. May, June, and July remain separate signed-in Profile 2 review and count-bound approval gates.
 
 
 <a id="tasks-automation"></a>
@@ -839,8 +1149,10 @@ v3.9.1 has 14 focused allocation and workflow contracts within a 217-test passin
 3. Review daily stale warnings after more than three days.
 4. Review NEED TO SNIPE after more than five days since the latest computer timestamp.
 5. Review the Subscribe & Save reminder beginning one day before month end.
-6. Allow only seller metrics, listing limits, Mark as Shipped, and exact zero-remaining Move .99 proof to auto-check their allowlisted rows.
-7. Keep the second-round row manual.
+6. Allow only seller metrics, listing limits, Mark as Shipped, and exact zero-remaining Move .99 proof to auto-check directly.
+7. Keep one Amazon Subscribe & Save proof per cleared Chrome profile; a single profile cannot check the ALL Amazon Accounts row.
+8. Require explicit all-profile proof and the exact token APPROVE ALL AMAZON PROFILES N before that monthly row can be checked.
+9. Keep the second-round row manual.
 
 ### Approval Stop
 

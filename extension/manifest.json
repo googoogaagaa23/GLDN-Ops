@@ -1,13 +1,15 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.11.14",
+  "version": "3.12.14",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",
     "unlimitedStorage",
     "alarms",
+    "tabs",
     "scripting",
+    "debugger",
     "clipboardRead",
     "clipboardWrite"
   ],
@@ -41,9 +43,11 @@
         "theme-catalog.js",
         "foundation.js",
         "shared.js",
+        "control-heartbeat.js",
         "profit-audit.js",
         "profit-backfill.js",
         "sniping-audit.js",
+        "subscribe-save.js",
         "amazon.js"
       ],
       "css": [
@@ -60,6 +64,7 @@
         "theme-catalog.js",
         "foundation.js",
         "shared.js",
+        "control-heartbeat.js",
         "walmart.js"
       ],
       "css": [
@@ -76,7 +81,9 @@
         "theme-catalog.js",
         "foundation.js",
         "shared.js",
+        "control-heartbeat.js",
         "profit-audit.js",
+        "ebay-profit-core.js",
         "sniping-audit.js",
         "ebay.js"
       ],
@@ -94,6 +101,7 @@
         "theme-catalog.js",
         "foundation.js",
         "shared.js",
+        "control-heartbeat.js",
         "profit-audit.js",
         "profit-backfill.js",
         "poshmark.js"
@@ -112,6 +120,7 @@
         "theme-catalog.js",
         "foundation.js",
         "shared.js",
+        "control-heartbeat.js",
         "ecomsniper.js"
       ],
       "css": [
@@ -136,6 +145,7 @@
         "theme-catalog.js",
         "foundation.js",
         "shared.js",
+        "control-heartbeat.js",
         "universal.js"
       ],
       "css": [

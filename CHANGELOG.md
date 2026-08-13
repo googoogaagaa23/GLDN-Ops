@@ -2,147 +2,405 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
-## v3.11.14 - 2026-07-29
+## v3.12.14 - 2026-08-12
 
-- Replaced Move `.99` and reverse cleanup's row-by-row title/price Apply route with exact eBay item-number workspaces.
-- Each verified batch is capped at 500 listings, selected once through eBay's native table-header checkbox, and cross-checked against eBay's selected and Submit counts.
-- Eliminated false title/price mismatch stops caused by eBay reformatting a Bulk Edit row after the verified scan.
-- Fixed the final verification counter crash that could report `stopped safely` after eBay had already returned an explicit submission result.
-- Every eBay Submit remains a separate action-time approval stop.
-- The complete JavaScript suite passes 268/268.
+- Fixed Existing Listings Policy Audit result handling so eBay's "Listing item is missing" response is recorded as unresolved instead of ended.
+- Added a visible Cancel Review & Rescan recovery action for stale or abandoned native eBay reviews.
+- Fresh Scan now recovers from a pending policy review and starts a complete read-only Active Listings scan.
 
-## v3.11.13 - 2026-07-27
+## v3.12.13 - 2026-08-09
 
-- Fixed historical Poshmark profit backfill when Amazon exposes multiple URL variants for the same order.
-- Amazon search results now deduplicate by stable order ID and retain the first usable order URL plus any captured purchase date.
-- Repeated detail captures can no longer overwrite a valid Amazon purchase date with a blank value.
-- Added an exact regression for Poshmark order `6a49c5d84fab7b10343cc819`, Amazon order `114-5900136-8324212`, ASIN `B07T88F8B2`, `$29.17` earnings, `$19.96` supplier cost, and `$9.21` profit.
-- All 267 JavaScript contracts pass. Final signed-in Profile 2 review proof remains required before this gate is marked live.
+- Added exact read-only Profile 2 status retrieval for complete Existing Listings Policy Audits.
+- Added the policy-audit page to the controller and updater service allowlists.
+- Live-verified all 7,294 FAK12 Active Listings across 37 pages: 7,154 no-match, 139 review, and 1 reviewed Block, with no listing changes.
 
-## v3.11.12 - 2026-07-27
+## v3.12.12 - 2026-08-09
 
-- Added a localhost-only control bridge to the existing GLDN Ops updater so approved live checks can reuse the already-open, signed-in Chrome Profile 2 without launching another Chrome profile.
-- Locked the bridge to exactly one matching GLDN Ops instance loaded in Profile 2 and refused ambiguous, missing, or mismatched extension folders.
-- Added a per-install control token, strict marketplace host allowlist, named read/review actions, and structured results; arbitrary JavaScript and arbitrary button clicks are not accepted.
-- Kept marketplace writes behind the existing review gates. The bridge cannot issue eBay Submit, Save, Apply, Continue, Mark as shipped activation, or any purchase action.
-- Added a Profile 2 command-line controller for safe inspection, tab focus/open/reload, approved state reads, and review-only workflow launch.
-- Added loopback tests proving Profile 2 command round trips, token enforcement, and rejection of an attempted `submit` command.
-- All 266 JavaScript contracts pass, and the complete local updater fixture passes.
+- Made Audit Listing Policies a one-click read-only action on Active Listings.
+- Reopening the window shows an active or complete saved run instead of starting a duplicate scan.
 
-## v3.11.11 - 2026-07-27
+## v3.12.11 - 2026-08-09
 
-- Added `Ctrl+Shift+G` to explicitly open the hidden eBay daily-actions panel on the active signed-in eBay tab.
-- Kept the panel hidden during ordinary browsing; the shortcut reveals it only after an operator asks for it.
-- Routed the shortcut through the extension service worker and the same trusted GLDN message boundary used by popup-launched actions.
-- Preserved every marketplace approval stop and made no automatic listing, shipping, or note action.
+- Added a read-only Active Listings policy-scan window directly on eBay with live page and classification totals.
+- Kept every listing End control out of the eBay-page window; exact review and approval remain in the detailed audit.
 
-## v3.11.10 - 2026-07-27
+## v3.12.10 - 2026-08-09
 
-- Replaced the saved-scan Apply route that could admit an entire 2,000-listing workspace with exact fingerprint selection inside eBay's native edit ranges.
-- Refuses any range containing more than 500 saved matches before opening a category editor.
-- Requires eBay's native selected count and final Submit count to equal the exact verified batch; the full workspace total is never an accepted substitute.
-- Added a second independent count gate immediately before the approval stop.
-- Fixed `Resource::QuotaBytes quota exceeded` on large saved scans by retaining one authoritative listing-record copy, compacting Apply ranges and history to counts only, and enabling Chrome unlimited extension storage.
-- A failed compact-checkpoint write now keeps the verified review open and attempts no marketplace change.
-- Keeps the floating eBay panel hidden while idle or while a saved scan is merely dormant; eBay daily actions are now launchable from the extension popup.
-- The preserved Computer 2 checkpoint remains 551 non-.99 matches from 15,807 inspected listings. Live Bulk Edit and final-review proof remain pending.
-- All 259 JavaScript contracts pass, including a 15,807-listing quota regression.
+- Separated the visible Active Listings audit launcher from the hidden three-dot launcher so each receives its own click handler.
+- Added regression coverage for the distinct action names and context-only visibility.
 
-## v3.11.9 - 2026-07-27
+## v3.12.9 - 2026-08-09
 
-- Fixed the saved Move .99 / reverse non-.99 Review control reporting success while its review window remained invisible.
-- The saved review is now forced above the host page, clamped into the current viewport, and rechecked after persisted modal settings restore.
-- Added a count-specific `Apply N Saved Changes` panel fallback that reuses the same verified exact IDs without rescanning.
-- The fallback prepares exact eBay Bulk Edit workspaces only; every final eBay Submit remains untouched and separately approval-gated.
-- Computer 2's 551-match / 15,807-inspected checkpoint remains preserved through the update.
-- All 257 JavaScript contracts pass.
+- Added a direct Audit Listing Policies button to the floating panel only on eBay Active Listings.
+- Kept the audit out of daily order and overview pages while avoiding reliance on the panel settings menu.
 
-## v3.11.8 - 2026-07-26
+## v3.12.8 - 2026-08-09
 
-- Preserves a verified, read-only Move .99 or reverse non-.99 scan summary when the extension updates from an older version.
-- The migration retains the exact inspected and qualifying item IDs, then restamps the checkpoint as inactive and unconfirmed for review.
-- Active, partially applied, approval-ready, duplicate-ID, invalid-ID, count-mismatched, or otherwise mutated checkpoints are still cleared fail-closed.
-- Computer 2's saved v3.11.6 result can therefore become `Review 136 Non-.99 Matches` in v3.11.8 without rescanning 15,807 listings.
-- All 256 JavaScript contracts pass; no scan, selection, Bulk Edit workspace, category change, or eBay Submit is triggered by migration.
+- Added Listing Policy Audit to the signed-in eBay panel's three-dot tools so the complete scanner can be opened without browser-internal URLs.
+- Added the policy-audit page to the background worker's explicit extension-page allowlist.
+- Preserved the v3.12.7 full-scan, Block-only review, exact approval, and terminal stop protections.
 
-## v3.11.7 - 2026-07-26
+## v3.12.7 - 2026-08-09
 
-- Fixed completed Move .99 and reverse non-.99 scans becoming stranded after their summary window was closed.
-- The everyday eBay panel now shows a count-specific Review control only while a verified saved scan is waiting.
-- Review reopens the exact saved scan and does not repeat the full account scan.
-- The action persists across page and extension reloads, then disappears when the saved run advances or is cleared.
-- Added a 136-match / 15,807-inspected reverse-scan regression plus panel, persistence, no-rescan, and approval-boundary coverage.
-- All 254 JavaScript contracts pass; eBay Submit remains untouched and separately approval-gated.
+- Added an Existing Listings Policy Audit that reads and reconciles every eBay Active Listings page before publishing any result.
+- Added resumable 200-row page checkpoints, safe pause/recovery, complete unique-item verification, and a downloadable source-linked audit.
+- Classifies existing listings with the same 175 reviewed policy rules as Listing Preflight; Needs Review rows can never enter an End batch.
+- Added exact native eBay review batches for reviewed Block matches only, capped at 200 item numbers and gated by `APPROVE END POLICY LISTINGS N`.
+- Revalidates the computer/account, 48-hour audit age, reviewed-rule fingerprint, exact Block status, completed ledger, and live eBay eligible set at approval time.
+- Stops after every approved End submission and never prepares or submits a later batch automatically.
 
-## v3.11.6 - 2026-07-26
+## v3.12.6 - 2026-08-09
 
-- Made the panel and popup **Update & Reload** control reload the verified current files even when no newer download is needed.
-- The forced current-file reload keeps v3.11.5's requesting-tab-only isolation, so unrelated work tabs stay untouched.
-- This removes the manual page refresh that was still needed during the first v3.11.5 activation.
-- Signed-in Profile 2 live proof passed twice: v3.11.5 updated to v3.11.6 and an already-current v3.11.6 reload both refreshed only the requesting tab, preserved computer `0` / FAK12, left the Tasks, eBay, and Poshmark tabs unchanged, and returned dashboard/updater health OK with queue `0` and workflow idle.
+- Reorganized the advanced popup into persistent Daily, Listings, Research, Profit, Supplier, and Poshmark workflow lanes.
+- Corrected platform visibility so Poshmark tools appear only on Poshmark-enabled computers and eBay actions are disabled for the Poshmark-only computer.
+- Added clear page-context feedback for Prepare Order Note and temporary busy states for page actions that previously appeared unresponsive.
+- Simplified the everyday eBay panel and moved monthly profit, dashboard setup, and feature health into its three-dot settings menu.
+- Released GLDN Product Hunter v0.2.0 with a verified, read-only eBay Active Listings index that excludes exact active SKU/ASIN duplicates and sends exact title matches to review.
+- Added resumable live pagination, current Active Listings CSV import, computer-bound indexes, fail-closed incomplete-scan handling, and audit output for eBay duplicate matches.
 
-## v3.11.5 - 2026-07-26
+## v3.12.5 - 2026-08-09
 
-- Fixed Update & Reload refreshing every open marketplace tab and interrupting unrelated eBay, Amazon, Poshmark, Walmart, and EcomSniper work.
-- Update, reload, and rollback now refresh only the tab that requested the action.
-- Other open tabs keep their page state and show a disabled refresh-needed panel only if the old content script is used after the update.
-- Automatic shared-folder runtime updates no longer refresh any webpage in the background.
-- Added regression coverage proving unrelated tabs cannot be reloaded by an extension update.
-- v3.11.4 was live-verified in signed-in Profile 2 for Reset, Health Check, eBay seller metrics, eBay sales snapshot, listing limits, Poshmark stats, visible-sales review, and the historical-profit launcher before this release was built.
+- Increased the bounded dashboard wait for marketplace profit batches to 90 seconds so slow Apps Script responses do not falsely strand an approved batch.
+- Completed the approved 29-row F9132 eBay Amazon-cost review: all 29 rows were durably delivered, zero rows remain eligible for F9132, and the retry queue is empty.
+- Added an exact visible Listing Preflight diagnostic and live-proved one Ready, one Review, and one Block input. Only the canonical Ready Amazon URL reached the clipboard and exact EcomSniper Bulk Poster page; no listing run started.
+- Added an exact EcomSniper handoff proof and live-proved the Scanner and Product Hunter routes plus lifecycle-only Stop behavior. GLDN Ops made no claim about EcomSniper's private processing state and performed zero marketplace actions.
+- Preserved unresolved eBay costs for other separately signed-in Amazon profiles; no cross-profile result is inferred from F9132.
 
-## v3.11.4 - 2026-07-26
+## v3.12.4 - 2026-08-09
 
-- Fixed an abandoned Poshmark historical-profit worker preventing Reset from clearing its saved approval state.
-- Reset now deletes the profit checkpoint before stale worker-tab cleanup.
-- Worker-tab closure is best effort, nonblocking, and bounded to 750 ms.
-- Added regression coverage proving worker cleanup cannot keep Update & Reload blocked.
+- Added a safe Product Hunter-to-Bulk Poster preflight handoff. It copies only canonical Ready Amazon links and excludes Review, Blocked, duplicate, opaque, and non-Amazon inputs.
+- Expanded the reviewed official eBay listing-policy baseline to 175 source-linked rules and preserved the signed-in Profile 2 Discord research separately from official policy.
+- Made independent eBay Amazon-cost status display the permanent supplier profile and live pending count.
+- Added durable action-time approval for both eBay and Poshmark missing-cost reviews, including the exact `APPROVE RESOLVE EBAY COSTS N` gate.
+- Regenerated the in-extension guide with the full repeat-per-Amazon-profile eBay reconciliation workflow and Bulk Poster handoff.
+- Verified all 377 deterministic extension contracts. The current 29-row F9132 review, visible preflight UI proof, and other-account reconciliation remain live gates.
 
-## v3.11.3 - 2026-07-26
+## v3.12.3 - 2026-08-08
 
-- Fixed the universal Reset control appearing frozen when old marketplace runs left many tabs open.
-- Reset now returns immediately after clearing saved workflow and worker state.
-- Best-effort visual cleanup targets active tabs only and gives each tab notification a 750 ms deadline.
-- Added regression coverage proving reset acknowledgement does not await tab cleanup.
+- Added a required permanent Amazon-profile identity before eBay or Poshmark missing-cost reconciliation can start.
+- Records that profile in every reviewed result and filters the shared queue so the same Amazon profile cannot repeatedly inspect the same unresolved orders.
+- Gives a direct next-profile message when no eligible rows remain for the current signed-in Amazon profile.
+- Deployed the matching Google Apps Script queue contract as dashboard revision 45.
+- Verified the focused reconciliation suite at 33/33, the complete extension suite at 375/375, and the live dashboard contract.
 
-## v3.11.2 - 2026-07-26
+## v3.12.2 - 2026-08-08
 
-- Changed Mark as Shipped into a strict two-stage approval workflow: first approve activation of eBay's exact Mark as shipped command, then approve eBay Continue separately if eBay presents it.
-- The extension no longer clicks Mark as shipped before approval and never clicks eBay Continue.
-- Unknown shipment outcomes, stale approval state, and interrupted pages now fail closed without automatically restarting the action.
-- Added a confirmed Reset control to the universal panel for clearing abandoned local workflow state without entering a marketplace page.
-- Removed unscoped health-status CSS classes that could alter host-page elements outside GLDN-owned panels.
-- Added regression contracts for the activation boundary, universal Reset, and host-page CSS selector scope.
+- Expanded Listing Preflight to 166 source-linked, human-reviewed rules based on official eBay listing policies.
+- Added coverage for electronic surveillance, lockpicking, vehicle parts, government and police items, food and alcohol, payment cards, military items, animal products, plants and seeds, product safety, and illegal-activity items.
+- Added false-positive regression coverage for ordinary products whose titles contain ambiguous words such as spoon, ivory, wine, Slim Jim, or charger.
+- Kept unmatched and uncertain products out of the Ready output whenever the reviewed rule pack is empty or unavailable.
+- Documented the official evidence files and publication command while preserving signed-in Profile 2 Discord review as a separate live gate.
 
-## v3.11.1 - 2026-07-26
+## v3.12.1 - 2026-08-08
 
-- Fixed Update & Reload health and update calls after Chrome omitted the `Origin` header from extension service-worker requests.
-- The local updater now requires the runtime extension ID plus Chrome's no-origin service-worker request shape, resolves that ID to Chrome's exact loaded unpacked folder, and rejects ordinary website origins.
-- Added fixture coverage for the real Chrome request shape and the website-origin rejection boundary.
-- Added Stop Task and confirmed Reset controls directly to the Poshmark panel.
-- Health output now distinguishes an approval-ready saved review from a workflow that is actively running.
+- Removed the Discord bot, token setup, server authorization, and background collector path. Restriction research now uses only the signed-in Discord interface in Chrome Profile 2.
+- Changed Listing Preflight to fail closed: an empty or unavailable reviewed rule pack sends every input to Needs review and produces no copy-ready links.
+- Added distinct Ready to copy, Needs review, and Blocked counts plus Copy Ready Links and Download Ready Links actions.
+- Ready output preserves the original input order and excludes every Review and Block result.
+- Replaced the bot-specific rule publisher with a source-linked human-review publisher under `tools/listing-preflight`.
 
-## v3.11.0 - 2026-07-26
+## v3.12.0 - 2026-08-08
 
-- Added one shared workflow lock so overlapping marketplace runs, open review windows, updater reloads, and stale tabs cannot race each other.
-- Update & Reload now defers while any workflow or approval window is active, preserves Chrome-profile settings, and refreshes stale marketplace tabs after the verified runtime changes.
-- The updater now resolves the exact unpacked GLDN Ops folder loaded by the requesting Chrome extension ID. It no longer updates a disconnected stable folder while Chrome runs an older project/download copy, and it fails closed if Chrome reports no match or more than one match.
-- Version-stamped resumable state across eBay, Amazon, Poshmark, Walmart, Move .99, reviews, and profit backfill. Old-version checkpoints are cleared or safely paused instead of silently resuming under new code.
-- Move .99 keeps exact tab ownership, exact-ID batches, interruption pacing, bounded recovery, and the manual eBay Submit stop; completed or failed scans no longer reopen workspaces indefinitely.
-- Poshmark historical profit backfill now pauses at its saved checkpoint if the extension version changes and requires an explicit Resume.
-- Retired unreliable GLDN-controlled EcomSniper seller extraction and Bulk Listing automation. GLDN now opens and monitors handoff tabs only; EcomSniper owns all private controls and listing work.
-- Removed legacy local-helper state and misleading seller-count/completion claims from the popup, guide, diagnostics, migrations, and active workflow classification.
-- Reduced idle eBay inspection, tightened saved Bulk Edit Continue ownership, and hardened popup/universal history rendering against stored markup injection.
-- Preserved universal access, isolated themes, per-window 0-100% transparency, saved layout, computer/account mappings, dashboard queue, Store categories, and approval boundaries.
-- The complete restored test suite passes 248 tests, including destructive update/rollback, exact loaded-folder resolution, unknown-ID rejection, and ambiguous-path rejection. Signed-in Profile 2 live launch remains the final acceptance gate.
+- Added a private, primary-computer Discord research runner that performs Discord API GET requests only and never connects to an eBay API.
+- Added DPAPI-protected local token storage under the current Windows account, outside the extension, repository, dashboard, and logs.
+- Added an effective-permission audit that requires View Channel and Read Message History and rejects inherited or explicit posting, reaction, moderation, role, webhook, channel, guild, or administrator capabilities.
+- Added bounded historical collection for approved EcomSniper channels, preserving dates, source-message URLs, attachment URLs, local attachment hashes, and reported resolutions in a local review report.
+- Excluded dropshipping-policy and fulfillment-source discussion from restriction evidence, as requested.
+- Added a human review and publication gate: only explicitly reviewed BLOCK or REVIEW decisions can enter the shared extension rules file.
+- Added a Listing Preflight page for Amazon URLs, ASINs, and titles. It reports BLOCK, REVIEW, or no shared-rule match without claiming eBay approval or changing any marketplace data.
+- Added focused contracts for message filtering, source preservation, inherited Discord permissions, GET-only operation, token isolation, and preflight rule evaluation.
 
-## v3.10.5 - 2026-07-26
+## v3.11.56 - 2026-08-07
 
-- Fixed GLDN themes partially forcing eBay Messages and Poshmark into dark mode.
-- Marketplace pages no longer receive GLDN's generic `data-theme`, root `color-scheme`, or short theme variables.
-- GLDN panels, modals, popup, onboarding, and guide pages retain their selected theme and local color scheme.
-- Older leaked root settings are removed after the updated content script runs on a refreshed page.
-- The complete automated suite passes `237/237`, including three host-theme isolation regressions.
-- Signed-in Profile 2 confirmed the pre-fix leak on Poshmark: GLDN had applied `data-theme="dark"`, `data-gldn-theme="dark"`, and inline/computed `color-scheme: dark` to the marketplace root. No marketplace action was performed.
+- Reads eBay All Orders row dates such as `Jul 31` even when eBay omits both the year and a nearby Sold label.
+- Resolves the missing year against the explicitly selected profit month instead of discarding every visible order row.
+- Adds a focused regression for labeled, unlabeled, yearless, and full-year order-date formats.
+
+## v3.11.55 - 2026-08-07
+
+- Forces Monthly eBay Profit onto the signed-in All orders view and Last 90 days before indexing July.
+- Replaces the unsafe page-ready shortcut with proof of rendered order-detail rows or an explicit eBay zero-result state.
+- Rejects persisted Awaiting Shipment, interruption pages, and unparsed order rows without creating a false zero-order review.
+- Pauses the durable checkpoint with an actionable diagnostic whenever page evidence is incomplete.
+
+## v3.11.54 - 2026-08-07
+
+- Removed the unsupported `autoDiscardable` property from eBay monthly-profit worker creation after Chrome rejected the first signed-in live launch.
+- Keeps the inactive worker non-discardable through the supported tab-update path.
+- Added a regression contract that forbids unsupported create properties while preserving the one-worker checkpoint model.
+
+## v3.11.53 - 2026-08-07
+
+- Added Monthly eBay Profit to the persistent Profile 2 update-agent allowlist so the live controller can actually reach the signed-in eBay page.
+- Enforced the same exact `YYYY-MM` validation in the update agent, background, page receiver, and launcher.
+- Added a regression gate covering the installed agent path that rejected the first v3.11.52 live start.
+
+## v3.11.52 - 2026-08-07
+
+- Added an exact `YYYY-MM` Profile 2 control path for starting Monthly eBay Profit from the already signed-in eBay Orders page.
+- Added compact monthly-profit checkpoint readback to diagnostics and the local controller.
+- Included the monthly-profit parser in safe content-script receiver recovery so a reloaded eBay tab cannot silently lose the launcher.
+- Preserved launcher errors visibly instead of replacing them with a generic empty state.
+
+## v3.11.51 - 2026-08-07
+
+- Added Monthly eBay Profit directly to the signed-in eBay Orders panel, including month selection, live checkpoint totals, pause/resume controls, and a full-review launcher.
+- Kept the daily panel hidden on ordinary Listings pages while making it available on Seller Hub Orders, where monthly profit collection belongs.
+- Preserved the exact dashboard approval stop: starting the run is read-only and no dashboard row is written without `APPROVE SYNC EBAY YYYY-MM N`.
+
+## v3.11.50 - 2026-08-07
+
+- Added an account-wide Monthly eBay Profit workflow for one selected calendar month.
+- Uses one inactive tab in the current signed-in Chrome profile to index the complete eBay month and inspect each exact order detail.
+- Verifies visible eBay Order earnings against the existing saved note before accepting its Amazon cost, Amazon profile, ETA, and calculated profit.
+- Separates missing, malformed, mismatched, or out-of-month orders from exact totals instead of guessing values.
+- Preserves a resumable checkpoint and closes the worker at review so ordinary eBay browsing remains quiet.
+- Requires the exact count-bound token `APPROVE SYNC EBAY YYYY-MM N` before any reviewed rows can reach the shared dashboard; the workflow never changes an eBay order or listing.
+
+## v3.11.49 - 2026-08-06
+
+- Variation Listings now always displays the explicit minimum and maximum price, including equal ranges such as `$43.99 - $43.99`.
+- Renamed the audit column to Price range so the two values are unambiguous.
+- Added the exact count-bound approval instruction directly below the current review token field.
+- Preserved the existing safety boundary: ending remains blocked until `APPROVE END VARIATIONS N` exactly matches the open eBay review.
+
+## v3.11.48 - 2026-08-06
+
+- Added a bounded Profile 2 launch action for the automated Variation Listings scan so GLDN can run the same account-wide discovery without interacting with an internal Chrome page.
+- The launch scans every Active Listings page, keeps only eBay-confirmed variation parents, and automatically opens the first exact review batch.
+- Signed-in Profile 2 live verification scanned all `7,094` FAK12 active listings and found `0` remaining variation parents; no End review opened and no listing changed.
+- The control response is summary-only and cannot dispatch End; ending still requires `APPROVE END VARIATIONS N` inside GLDN Ops.
+
+## v3.11.47 - 2026-08-05
+
+- Replaced the manual eBay report download and CSV import for Variation Listings with one automated account-wide scan.
+- Verifies every 200-row Active Listings page by exact unique item number and stops safely if eBay's count changes, a page is incomplete, or a browser check appears.
+- Uses eBay's signed-in read-only End review to retain only listings eBay identifies as true variation parents.
+- Automatically prepares the first exact eBay review and, after each proven successful batch, prepares the next remaining review.
+- Preserves a separate exact `APPROVE END VARIATIONS N` requirement before every irreversible End action.
+
+## v3.11.46 - 2026-08-05
+
+- Restored the GLDN daily panel on eBay Order Details pages so Prepare Order Note and related controls remain available without an active workflow.
+- Kept ordinary eBay Listings pages workflow-gated so the panel does not reappear just from browsing listings.
+- Added same-tab eBay navigation detection so panel visibility updates when eBay changes routes without a full reload.
+- Added focused regression coverage for both order-detail visibility and Listings-page quiet mode.
+
+## v3.11.45 - 2026-08-05
+
+- Completed the built-in Variation Listings workflow with durable report-linked progress across separately approved 200-item batches.
+- Added visible completed and remaining counts, Ended row status, current-review resume, exact approval entry, and exact eBay result readback to the extension page.
+- Prevents successful IDs from appearing in later batches and blocks stale reports when eBay says listings are already ended.
+- Repaired approved submissions from the exact visible Bulk Edit workspace.
+- Live Profile 2 proof covered the complete 736-parent audit: 200 already ended, then 200/200, 200/200, and 136/136 successful with zero failures.
+
+## v3.11.44 - 2026-08-04
+
+- Added a complete eBay Variation Listings workflow backed by eBay's authoritative All active listings CSV rather than visible-page guesses.
+- Deduplicates child variation rows to exact parent item numbers and provides searchable review, selection, counts, price ranges, and an audit CSV.
+- Creates exact-ID eBay End workspaces in batches of at most 200 parent listings.
+- Blocks eBay End or Submit until the workspace count matches the saved batch and the exact token `APPROVE END VARIATIONS N` is entered.
+- Never opens a second batch automatically and does not end any listing during report import or review preparation.
+- Added operator documentation and focused parser, batching, workspace, and approval-gate contracts.
+
+## v3.11.43 - 2026-08-04
+
+- Made an approved final eBay Submit terminal for both Move `.99` and Move Non-`.99` workflows.
+- Prevents the completed run from reopening Active Listings, rescanning temporarily stale eBay results, creating another Bulk Edit workspace, or retrying while eBay propagates Store-category changes.
+- Preserves the exact submitted batch and the count of unsubmitted saved batches for a later deliberate run.
+- Clears stale review-request and auto-resume flags in every terminal submit state.
+- Passed all `64/64` focused Move-category contracts and the complete `332/332` extension regression suite.
+
+## v3.11.42 - 2026-08-02
+
+- Fixed monthly Poshmark approval counts so a calendar-month save includes every reviewed row, including unresolved Amazon costs that must remain blank.
+- Added deterministic batch IDs, a single in-flight sync lock, 90-second dashboard batch waits, and durable retry handling to prevent false timeouts and duplicate month rows.
+- Completes and closes a monthly worker only after every reviewed order is delivered directly or secured in the retry queue.
+- Reports completed delivery state accurately when a review is reopened.
+- Isolated GLDN text, links, form fields, statuses, and disabled controls from marketplace CSS so all catalog themes remain readable.
+- Made the shared theme layer load after page-specific styles in popup, guide, and onboarding, including generated rebuilds.
+- Passed the complete 330-test JavaScript regression suite.
+
+## v3.11.41 - 2026-08-02
+
+- Added review-time repair for a Poshmark sale detail missed by a transient page shell.
+- Repairs only unresolved detail pages and searches Amazon only for newly recovered ASINs; the completed month index is not repeated.
+- Rebuilds the unchanged count-bound review after repair and keeps every spreadsheet write behind `APPROVE SYNC POSHMARK YYYY-MM N`.
+- Moves successfully repaired transient errors into resolved history and leaves genuinely unresolved Amazon costs blank for another signed-in profile.
+- Recreates discarded or unloaded worker tabs from the exact saved checkpoint.
+- Falls back to the exact Amazon order-detail purchase date when an order-search card omits its date, preventing captured costs from becoming unmatchable.
+
+## v3.11.40 - 2026-08-02
+
+- Fixed monthly Poshmark traversal choosing the wrong unlabelled pagination control and ending on the first, newest-sales page.
+- Targets Poshmark's sales-table pagination pair directly and uses the enabled final control as Next.
+- Strengthened the custom `Show 100` interaction and verifies the selected size before requiring a 100-row render.
+- Self-repairs a missing approved marketplace content script once before retrying the exact Profile 2 page action.
+- Adds a bounded Profile 2 resume action that recreates a discarded Poshmark worker from its saved checkpoint.
+- Keeps the April run read-only and preserves the exact count-bound sheet approval gate.
+
+## v3.11.39 - 2026-08-02
+
+- Fixed historical Poshmark collection accepting the first partially rendered sale row in a background tab.
+- Added support for Poshmark's custom `Show 20` / `Show 100` dropdown and waits for the selected page size before pagination.
+- Added a hard stop that refuses to turn an unverified zero-row calendar month into a completed review.
+- Added bounded sales-table diagnostics for row count, page-size controls, and pagination controls.
+
+## v3.11.38 - 2026-08-02
+
+- Added a persistent popup reload bridge that observes the saved reload request and immediately reloads the extension runtime.
+- Prevents Manifest V3 worker suspension from leaving new installed files paired with an old in-memory service worker.
+- Keeps the request auditable by recording the bridge version and acceptance time before reload.
+
+## v3.11.37 - 2026-08-02
+
+- Added a second, background-level guard that rejects empty Poshmark sales loading shells instead of accepting them as a completed zero-row month.
+- Empty pages retry with a bounded saved counter; repeated failures pause at the indexing checkpoint with no spreadsheet write.
+- The Poshmark page adapter also waits and handles the background retry instruction before pagination can advance.
+
+## v3.11.36 - 2026-08-02
+
+- Added a validated Profile 2 control action for starting one exact Poshmark calendar month without using the launcher UI.
+- The action accepts only `YYYY-MM`, starts the existing resumable background worker, and does not grant the later sheet-write approval.
+- April 2026 still stops at the full review and requires `APPROVE SYNC POSHMARK 2026-04 N` for the exact live row count.
+
+## v3.11.35 - 2026-08-02
+
+- Added a calendar-month Poshmark profit scope with `YYYY-MM` filtering, beginning with the requested April 2026 backfill.
+- Added a formatted month tab with readable money columns, exact Poshmark earnings, exact Amazon order-item cost, profit, status, notes, source links, and supplier-profile evidence.
+- Missing or ambiguous Amazon costs remain blank and are upserted into a shared retry queue instead of being written as zero.
+- Added cross-profile Amazon cost resolution that records every attempted Amazon profile and updates the existing month row without duplicating the Poshmark sale.
+- Added exact count-bound approvals: `APPROVE SYNC POSHMARK YYYY-MM N` for a month and `APPROVE RESOLVE POSHMARK COSTS N` for retry results.
+- Deployed the shared dashboard as Apps Script `@42` and passed the complete 316-test JavaScript suite.
+- The separately approved 20-row visible-sales batch is verified in both shared profit sheets. The April 2026 month backfill still requires its signed-in Profile 2 review and separate count-bound approval.
+
+## v3.11.34 - 2026-08-02
+
+- Replaced the cross-computer synthetic first `Mark as shipped` activation with one trusted, exact-count, exact-tab, exact-page, hit-tested Chrome press/release.
+- Preserved both irreversible-action stops: `APPROVE MARK SHIPPED N` before activating eBay and `APPROVE EBAY CONTINUE N` before eBay's final confirmation.
+- Rejects stale, duplicate, changed-count, wrong-tab, wrong-page, ambiguous-target, and failed-hit-test activation requests without another click.
+- Version migration clears an unfinished Mark as Shipped run from the previous extension context so a failed Computer 2 run cannot remain stuck after update.
+- Completed and saved Move .99 summaries remain passive, discard stale review-request flags during update, and no longer expose the page panel or reopen a results window on ordinary Listings visits.
+- Focused Mark as Shipped contracts pass 14/14 and the complete JavaScript suite passes 309/309. A signed-in Computer 2 / FANCYFI live rerun remains required.
+
+## v3.11.33 - 2026-08-01
+
+- Added a truthful updater warning when the public release feed is older than the installed extension instead of reporting that the stale public build is current.
+- Added a one-time dashboard-queue migration that removes only obsolete current-profile Amazon Subscribe & Save task-completion records created before the all-profile safety correction.
+- Preserves every unrelated queued record and writes a compact local migration audit with the removed sync IDs.
+- Extended Feature Health Check to refresh updater status, expose a stale public feed as a real deployment issue, and report the dashboard queue after migration.
+- Added a compact read-only queue summary to the signed-in Profile 2 control channel without exposing dashboard credentials or full queued records.
+- Live baseline work preserved computer `0` / FAK12, dashboard setup, Move .99 category settings, tabs, workflow state, and the exact state hash through reload and verified recovery.
+
+## v3.11.32 - 2026-08-01
+
+- Reconciled Cancel Subscribe & Save against the complete updated V2 tutorial.
+- Preserves separate subscriptions for duplicate-looking products while collapsing only repeated wrappers that carry the same explicit Amazon subscription key.
+- Includes real subscription cards hidden in Amazon's `Your Subscriptions` carousel and fails closed if Amazon reports more subscriptions than GLDN Ops can identify exactly.
+- Restricts carousel navigation to the real subscription-card container and never advances a recommendation carousel.
+- Uses Amazon's exact `Cancel subscription` -> `Cancel your subscription?` -> `Cancel my subscription` -> `Cancellation Confirmed` sequence and leaves the optional reason unchanged.
+- Saves a zero-active proof to `Amazon Subscribe Save History` for the current signed-in Amazon Chrome profile.
+- Prevents one Amazon profile from checking `Cancel All Subscribe & Save Items on ALL Amazon Accounts`; the all-profile task requires separate explicit proof for every expected Amazon Chrome profile.
+- Updated popup status, feature tour, guide, dashboard contract, and safety tests to describe the per-profile boundary honestly.
+- Deployed the corrected shared dashboard as Apps Script `@41` and cleared only the invalid computer `0` all-profile checkbox while preserving the valid current-profile proof in its note.
+- Live-ran the zero-active path in signed-in Profile 2 on Amazon account `Farrukh`; dashboard run `a366c2fe-1c62-4f7e-91b0-9412e6d4065b` records `0` canceled and `0` remaining while the all-profile task stays unchecked.
+
+## v3.11.31 - 2026-08-01
+
+- Added the Amazon Cancel Subscribe & Save workflow for the current signed-in Amazon Chrome profile.
+- Supports the updated `/gp/subscribe-and-save/manager/viewsubscriptions` flow and Amazon's older `/auto-deliveries/subscriptionList` layout.
+- Scans only real `Your Subscriptions` cards and excludes `Recommended for you`, `Subscribe now`, `Add new subscriptions`, and `Buy it again` content.
+- Stops before every cancellation set and requires the exact token `APPROVE CANCEL SUBSCRIPTIONS N` for the unchanged reviewed count.
+- Cancels the approved set one subscription at a time, verifies Amazon's final `Cancel my subscription` control and `Cancellation Confirmed`, and never retries an uncertain final result.
+- Carries the selected computer's tied eBay identity and complete address-scope proof through dashboard normalization; production Apps Script deployment `@40` checks the monthly Tasks row only after exact zero-active proof.
+- Syncs the monthly Tasks checkbox only after a fresh scan proves zero active subscriptions, zero failures, and complete scope for that computer/profile.
+- Added popup, in-page, local-control, diagnostics, guide, dashboard, and test coverage for the workflow.
+
+## v3.11.30 - 2026-08-01
+
+- Added a mandatory sale-event question before Move Non-.99 Out of Sale.
+- `Sale Event Is ON` now stops before workflow reservation, tab creation, scanning, or listing changes and tells the operator to turn the sale event off.
+- `Sale Event Is OFF` is the only answer that permits the reverse scan to start; closing or bypassing the prompt fails closed.
+- Enforced the same rule in the popup, internal starter page, floating eBay panel, background launcher, saved-state runner, and portable scan-summary validation.
+- Preserved the separate exact-count approval stop before every eBay Submit.
+- The active sale-event reverse run was reset intentionally after three approved 500-item batches; no fourth batch was submitted, and no prior submitted result is being reclassified as proof while the sale is active.
+
+## v3.11.29 - 2026-07-31
+
+- Completed the signed-in Profile 2 Move .99 gate for computer `0` / FAK12: `356` listings scanned, `126` exact `.99` matches, `126/126` primary Store-category updates to `Abra Cadabra .99`, and eBay's final result `126 live / 0 failed`.
+- Added exact Review fees fingerprinting and read-only post-click reconciliation so an inert click cannot silently lose or repeat an approved batch.
+- Added one bounded, non-repeatable DOM activation fallback that is available only while the exact count, `$0.00` fee review, destination, workspace, item IDs, and `APPROVE SUBMIT 126` token remain unchanged.
+- Focused Move .99 and Profile 2 contracts pass `82/82`; the complete serial JavaScript suite passes `273/273`. Evidence is preserved in `evidence/profile2-move99-review-recovery-v31129-2026-07-31/`.
+- Fixed `Confirm Listings Under Limit` treating the 95% near-limit warning as if the account had already reached a hard cap.
+- The Tasks checkbox now uses the detected used-versus-limit numbers: Store allowance and seller dollars are required, while seller quantity is enforced whenever eBay exposes it.
+- Preserved the existing orange warning labels and `CHECK LIMITS` review status so approaching a cap remains visible without falsely reporting `Under limit: NO`.
+- Missing required values and values equal to or above a hard cap remain unchecked.
+- Deployed the identical dashboard code as production Apps Script `@38`; the focused listing-limit contract passes `7/7` and the complete release gate passes `269/269`.
+- Signed-in Profile 2 live verification matched Store `9,879 / 10,000`, seller quantity `9,514 / 88,000`, and dollars `$445,276.41 / $1,000,000`; the warning remained visible while `Tasks!H20` checked with `Under limit: YES`, and Sync Receipts row 84 reported `taskChecked:true`.
+- Compacted large Move .99 and Poshmark diagnostics so healthy long-running checkpoints fit the updater's bounded local-control channel.
+- Preserved the currently saved private configuration through rollback and proved Chrome profile metadata remained byte-identical.
+- Added an exact updater PID identity record and safe running-updater replacement so one-time Setup can reinstall the stable folder without opening Chrome or requiring administrator access.
+- Defined the safe two-path deployment model: fresh profiles load the stable folder once, while existing profiles retain and update their exact current folder in place so Chrome identity and saved settings are preserved.
+- Added updater status fields and popup messaging that distinguish a shared stable-folder profile from an existing separate-folder profile without telling the user to remove a working unpacked extension.
+- Added a guarded public-release assembler that rebuilds every distributable, verifies exact updater version/URL/SHA-256, stages installer and recovery artifacts together, records seven file hashes, and writes `latest.json` last.
+- All `285/285` JavaScript contracts pass, and the current complete offline packaged release gate passes `286/286`. v3.11.29 remains deliberately unpublished until its active Profile 2 approval gate is resolved, the repaired build is reloaded with preserved state, and the required live proof and user release green light are complete.
+
+## v3.11.28 - 2026-07-31
+
+- Fixed Mark as Shipped losing eBay's final confirmation when the signed-in Profile 2 tab was background-sized and had no normal viewport layout.
+- Detects the semantic eBay confirmation and its exact final action without requiring foreground geometry, while retaining the stricter hit-tested geometry check at the separately approved final dispatch.
+- Recovers an interrupted activation only to `awaiting-approval` when the owner run, unchanged all-orders count, dialog, and action all agree.
+- Recovery never clicks, dispatches input, reuses a final approval, or bypasses the separate `APPROVE EBAY CONTINUE N` gate.
+- Focused E-01 and Profile 2 contracts pass `31/31`; the complete release gate passes `269/269`, including install, update, rollback, checksum rejection, package contents, dashboard, Apps Script, and JavaScript checks. Signed-in completion and exact dashboard/Tasks readback remain pending.
+
+## v3.11.27 - 2026-07-30
+
+- Added a separately approved final eBay Mark as Shipped action using the exact token `APPROVE EBAY CONTINUE N`.
+- Bound the one-shot action to the saved Profile 2 owner tab, exact Awaiting shipment URL, unchanged all-orders count, reviewed dialog, reviewed action label, and live hit-tested button.
+- Records the dispatch before input, sends exactly one mouse press and one mouse release, always detaches, rejects duplicates, and never retries an ambiguous result.
+- Reserved Chrome debugger input for this exact reviewed eBay final action; EcomSniper handoffs remain debugger-free status-only integrations.
+- Added executable one-shot, duplicate-rejection, mismatched-state, target-probe, detach, and cross-control contracts.
+- The focused gate passes `114/114`; the complete release gate passes `268/268`, including install, update, rollback, package, dashboard, Apps Script, and JavaScript checks.
+- Signed-in Profile 2 live completion, exact dashboard/Tasks readback, proof video, and user acceptance remain pending.
+
+## v3.11.26 - 2026-07-30
+
+- Removed Windows UI control from the Mark as Shipped approval handoff.
+- Added a Profile 2-locked local approval action that requires the exact token `APPROVE MARK SHIPPED N`, where `N` must equal both the saved selected count and the unchanged awaiting-order count.
+- Rejects missing, stale, mismatched, partial-selection, wrong-tab, wrong-page, wrong-profile, and wrong-count approvals before any eBay action.
+- Keeps eBay's final confirmation as a separate approval gate and never clicks that final button automatically.
+- Added focused contracts for the exact-count approval path and retained the existing guarded eBay activation repair.
+- The focused Profile 2 control suite passes `19/19`; the complete release gate passes `259/259`, including clean install, update, rollback, checksum rejection, package contents, and dashboard contracts.
+
+## v3.11.25 - 2026-07-29
+
+- Fixed a cross-computer Mark as Shipped activation regression that stopped after a trustworthy all-orders selection because GLDN's full-screen review remained above eBay while the menu action was dispatched.
+- Performs one final exact-selection preflight, removes the GLDN review, and then targets the physically visible eBay Mark as shipped action.
+- Restored one bounded fallback target only when the menu remains open, the awaiting count is unchanged, and the master checkbox, checked rows, and Shipping control still agree.
+- Recognizes equivalent eBay final-confirmation wording without clicking the final confirmation button.
+- Any missing or ambiguous result remains in manual-review state; no order is reported changed without exact evidence.
+- Focused Mark as Shipped contracts pass `5/5`; the complete release gate passes `258/258`, including clean install, update, rollback, checksum rejection, package contents, and dashboard contracts.
+- The historical three-order signed-in flow remains valid, but this exact v3.11.25 repair still requires a current signed-in run to the eBay confirmation screen before it is labeled live-proven.
+
+## v3.11.24 - 2026-07-29
+
+- Fixed clean-install and update ZIPs omitting `control-heartbeat.js`, which is required by every manifest content-script bundle.
+- Added a package gate that checks every manifest-referenced JavaScript and CSS file inside the built local ZIP.
+- Made the updater fixture model the real shared extension folder loaded in Chrome Profile 2 and verify authenticated loopback control, update, rollback, and checksum rejection.
+- Made the one-time installer fixture provide and verify its required dashboard setup code; public packages remain credential-free.
+- Added fail-closed Amazon title filtering so unsupported or unrelated order rows cannot become exact supplier-cost evidence.
+- Added a truthful EcomSniper handoff stop action without claiming that GLDN Ops controls EcomSniper's private workflow.
+- Added an exact Profile 2 background cancel action for an open Mark as Shipped approval; marketplace activation and Continue remain separate approval gates.
+- Guarded every previously silent background feature-message rejection so the caller receives an actionable error and the operation is recorded in diagnostics.
+- Replaced eBay's unbounded private message wrapper with the shared timeout and invalid-context-safe runtime channel.
+- Hardened update-time cleanup across eBay, Amazon, Poshmark, EcomSniper, and universal pages so stale controls disable and pending startup/status reads consume Chrome context errors.
+- Removed blocking native alert dialogs from marketplace pages; failures and setting errors stay visible inline without pausing the browser for an OK click.
+- Kept the canonical feature catalog and all generated guide/onboarding surfaces locked to the current manifest version.
+- Verified the deployed shared dashboard's read-only contract for every supported record shape.
+- Routed every advanced-popup background action through a bounded, visible failure response.
+- Routed Amazon and Poshmark panel updates plus internal reload, Move .99 launch, sniping review, and Product Hunter handoff requests through the same bounded failure-aware response path.
+- Made the updater update/rollback/checksum/loopback simulation mandatory in the main release gate.
+- Automated contracts and all cross-computer packaging fixtures pass. Signed-in Profile 2 live proof and Drive-video verification remain pending before distribution.
 
 ## v3.10.4 - 2026-07-26
 
