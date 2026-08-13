@@ -67,18 +67,37 @@ $script:AgentControlCommands = @()
 $script:AgentControlResults = @{}
 $script:AgentControlAllowedHosts = @("ebay.com", "amazon.com", "poshmark.com", "ecomsniper.io")
 $script:AgentControlStateKeys = @(
+  "settingsSchemaVersion",
   "computerLabel",
   "ebayAccountLabel",
+  "gldnUiOpacity",
+  "gldnUiTheme",
+  "move99AccountSettings",
+  "dashboardConfigurationStatus",
+  "dashboardQueueSummary",
   "pendingMove99Run",
+  "ebayPolicyListingScanState",
+  "ebayPolicyListingAudit",
+  "pendingPolicyListingEndReview",
+  "lastPolicyListingEndResult",
   "pendingMarkShippedRun",
   "pendingSellerLevelScan",
   "pendingEbaySnapshotScan",
   "pendingReviewMonthlyLimits",
+  "pendingAmazonSubscribeSaveRun",
+  "lastAmazonSubscribeSaveResult",
   "poshmarkProfitBackfill",
   "lastSellerLevelCheck",
+  "latestAccountHealth",
   "lastEbaySalesSnapshot",
+  "latestEbaySnapshot",
   "lastListingLimitCheck",
+  "latestListingStatus",
   "lastPoshmarkStats",
+  "latestPoshmarkStats",
+  "latestPoshmarkVisibleSales",
+  "latestMarketplaceProfit",
+  "ebayMonthlyProfit",
   "lastPreparedNote",
   "gldnErrorLog"
 )
@@ -100,9 +119,17 @@ function Get-AgentExtensionId {
 
 function Add-AgentTargetMetadata {
   param($Value, $Target)
+  $configuredExtensionRoot = [System.IO.Path]::GetFullPath((Join-Path $InstallRoot "extension"))
+  $targetExtensionRoot = [System.IO.Path]::GetFullPath([string]$Target.extensionRoot)
+  $targetMatchesConfiguredInstallRoot = $targetExtensionRoot.TrimEnd('\').Equals(
+    $configuredExtensionRoot.TrimEnd('\'),
+    [StringComparison]::OrdinalIgnoreCase
+  )
   $Value | Add-Member -NotePropertyName targetSource -NotePropertyValue ([string]$Target.source) -Force
   $Value | Add-Member -NotePropertyName extensionId -NotePropertyValue ([string]$Target.extensionId) -Force
-  $Value | Add-Member -NotePropertyName extensionRoot -NotePropertyValue ([string]$Target.extensionRoot) -Force
+  $Value | Add-Member -NotePropertyName extensionRoot -NotePropertyValue $targetExtensionRoot -Force
+  $Value | Add-Member -NotePropertyName configuredExtensionRoot -NotePropertyValue $configuredExtensionRoot -Force
+  $Value | Add-Member -NotePropertyName targetMatchesConfiguredInstallRoot -NotePropertyValue $targetMatchesConfiguredInstallRoot -Force
   $Value | Add-Member -NotePropertyName profileDirectories -NotePropertyValue @($Target.profileDirectories) -Force
   $Value | Add-Member -NotePropertyName controlBridge -NotePropertyValue "profile2-safe-v1" -Force
   return $Value
@@ -132,6 +159,105 @@ function ConvertTo-AgentControlPayload {
   $value = if ($Payload) { $Payload } else { [pscustomobject]@{} }
   switch ($Action) {
     "inspect-session" { return [pscustomobject]@{} }
+    "reset-state" { return [pscustomobject]@{} }
+    "reload-extension" { return [pscustomobject]@{} }
+    "inspect-tab" {
+      $tabId = [int]$value.tabId
+      if ($tabId -le 0) { throw "A valid Chrome tab ID is required." }
+      return [pscustomobject]@{ tabId = $tabId }
+    }
+    "inspect-amazon-subscribe-save" {
+      $tabId = if ($null -ne $value.tabId) { [int]$value.tabId } else { 0 }
+      $url = ""
+      if ([string]$value.url) {
+        try { $uri = [System.Uri]([string]$value.url) } catch { throw "The exact Subscribe & Save URL is invalid." }
+        if ($uri.Scheme -cne "https" -or -not (Test-AgentAllowedHost $uri.DnsSafeHost) -or $uri.AbsolutePath -notmatch '^/(?:gp/subscribe-and-save/manager/viewsubscriptions|auto-deliveries/)') {
+          throw "Subscribe & Save inspection is limited to Amazon's subscription manager."
+        }
+        $url = $uri.AbsoluteUri
+      }
+      return [pscustomobject]@{ tabId = $tabId; url = $url }
+    }
+    "inspect-ebay-variations" {
+      $tabId = if ($null -ne $value.tabId) { [int]$value.tabId } else { 0 }
+      if ($tabId -le 0) { throw "A valid Chrome tab ID is required." }
+      $url = ""
+      if ([string]$value.url) {
+        try { $uri = [System.Uri]([string]$value.url) } catch { throw "The exact Active Listings URL is invalid." }
+        if ($uri.Scheme -cne "https" -or $uri.DnsSafeHost -notmatch '(^|\.)ebay\.com$' -or $uri.AbsolutePath -notmatch '^/sh/lst/active(?:/|$)') {
+          throw "Variation inspection is limited to eBay Seller Hub Active Listings."
+        }
+        $url = $uri.AbsoluteUri
+      }
+      return [pscustomobject]@{ tabId = $tabId; url = $url }
+    }
+    "prepare-variation-end-review" {
+      $itemIds = @($value.itemIds | ForEach-Object { ([string]$_).Trim() })
+      $uniqueItemIds = @($itemIds | Select-Object -Unique)
+      if ($itemIds.Count -lt 1 -or
+          $itemIds.Count -gt 200 -or
+          $uniqueItemIds.Count -ne $itemIds.Count -or
+          @($itemIds | Where-Object { $_ -notmatch '^\d{9,15}$' }).Count) {
+        throw "Variation review requires 1 to 200 unique eBay parent item numbers."
+      }
+      $selectedTotal = [int]$value.selectedTotal
+      if ($selectedTotal -lt $itemIds.Count) {
+        throw "The selected variation total cannot be less than the exact batch count."
+      }
+      $reportName = ([string]$value.reportName).Trim()
+      $reportFingerprint = ([string]$value.reportFingerprint).Trim()
+      if ($reportName.Length -gt 260 -or $reportFingerprint.Length -gt 200) {
+        throw "Variation report metadata is too long."
+      }
+      return [pscustomobject]@{
+        itemIds = $itemIds
+        selectedTotal = $selectedTotal
+        reportName = $reportName
+        reportFingerprint = $reportFingerprint
+      }
+    }
+    "close-tab" {
+      $tabId = [int]$value.tabId
+      if ($tabId -le 0) { throw "A valid Chrome tab ID is required." }
+      return [pscustomobject]@{ tabId = $tabId }
+    }
+    "open-extension-page" {
+      $page = ([string]$value.page).Trim().ToLowerInvariant()
+      if ($page -notin @("popup", "onboarding", "guide", "variations", "policyaudit", "preflight")) {
+        throw "The requested GLDN Ops page is not on the approved page list."
+      }
+      return [pscustomobject]@{ page = $page; active = $value.active -ne $false }
+    }
+    "open-dashboard" {
+      return [pscustomobject]@{ active = $value.active -ne $false }
+    }
+    "extension-action" {
+      $extensionAction = ([string]$value.action).Trim().ToLowerInvariant()
+      if ($extensionAction -notin @("health-check", "dashboard-test", "dashboard-retry", "dashboard-setup", "variation-scan", "policy-listing-scan", "listing-preflight-proof", "ecomsniper-handoff-proof", "sync-ebay-monthly-profit", "start-ebay-amazon-resolution")) {
+        throw "The requested GLDN Ops action is not on the approved action list."
+      }
+      if ($extensionAction -eq "start-ebay-amazon-resolution") {
+        $monthKey = ([string]$value.monthKey).Trim()
+        if ($monthKey -cnotmatch '^\d{4}-(?:0[1-9]|1[0-2])$') {
+          throw "The eBay Amazon-cost resolver requires a valid YYYY-MM month."
+        }
+        return [pscustomobject]@{
+          action = $extensionAction
+          monthKey = $monthKey
+        }
+      }
+      if ($extensionAction -eq "sync-ebay-monthly-profit") {
+        $confirmationToken = ([string]$value.confirmationToken).Trim()
+        if ($confirmationToken -cnotmatch '^APPROVE SYNC EBAY \d{4}-(?:0[1-9]|1[0-2]) [1-9]\d*$') {
+          throw "Monthly eBay profit sync requires the exact month and live-count approval token."
+        }
+        return [pscustomobject]@{
+          action = $extensionAction
+          confirmationToken = $confirmationToken
+        }
+      }
+      return [pscustomobject]@{ action = $extensionAction }
+    }
     "open-url" {
       $raw = [string]$value.url
       try { $uri = [System.Uri]$raw } catch { throw "The control URL is invalid." }
@@ -143,6 +269,16 @@ function ConvertTo-AgentControlPayload {
         reuse = $value.reuse -ne $false
         active = $value.active -ne $false
       }
+    }
+    "navigate-tab" {
+      $tabId = [int]$value.tabId
+      if ($tabId -le 0) { throw "A valid Chrome tab ID is required." }
+      $raw = [string]$value.url
+      try { $uri = [System.Uri]$raw } catch { throw "The control URL is invalid." }
+      if ($uri.Scheme -cne "https" -or -not (Test-AgentAllowedHost $uri.DnsSafeHost)) {
+        throw "Local control can only navigate to approved HTTPS marketplace pages."
+      }
+      return [pscustomobject]@{ tabId = $tabId; url = $uri.AbsoluteUri; active = $value.active -ne $false }
     }
     "focus-tab" {
       $tabId = [int]$value.tabId
@@ -162,25 +298,133 @@ function ConvertTo-AgentControlPayload {
       }
       return [pscustomobject]@{ tabId = $tabId; platform = $platform }
     }
+    "inspect-move99" {
+      $tabId = if ($null -ne $value.tabId) { [int]$value.tabId } else { 0 }
+      return [pscustomobject]@{ tabId = $tabId }
+    }
+    "inspect-move99-final-review" {
+      $tabId = if ($null -ne $value.tabId) { [int]$value.tabId } else { 0 }
+      $expectedCount = if ($null -ne $value.expectedCount) { [int]$value.expectedCount } else { 0 }
+      $workspaceId = ([string]$value.workspaceId).Trim()
+      $confirmationToken = ([string]$value.confirmationToken).Trim()
+      if ($tabId -le 0 -or $expectedCount -le 0 -or -not $workspaceId) {
+        throw "The exact Move .99 final-review tab, count, and workspace are required."
+      }
+      if ($confirmationToken -cne "APPROVE SUBMIT $expectedCount") {
+        throw "Move .99 final-review inspection requires the exact approved Submit token."
+      }
+      return [pscustomobject]@{
+        tabId = $tabId
+        url = [string]$value.url
+        expectedCount = $expectedCount
+        workspaceId = $workspaceId
+        confirmationToken = $confirmationToken
+      }
+    }
+    "approve-move99-final-review" {
+      $tabId = if ($null -ne $value.tabId) { [int]$value.tabId } else { 0 }
+      $expectedCount = if ($null -ne $value.expectedCount) { [int]$value.expectedCount } else { 0 }
+      $workspaceId = ([string]$value.workspaceId).Trim()
+      $confirmationToken = ([string]$value.confirmationToken).Trim()
+      if ($tabId -le 0 -or $expectedCount -le 0 -or -not $workspaceId) {
+        throw "The exact Move .99 final-review tab, count, and workspace are required."
+      }
+      if ($confirmationToken -cne "APPROVE SUBMIT $expectedCount") {
+        throw "Move .99 final-review approval requires the exact approved Submit token."
+      }
+      return [pscustomobject]@{
+        tabId = $tabId
+        url = [string]$value.url
+        expectedCount = $expectedCount
+        workspaceId = $workspaceId
+        confirmationToken = $confirmationToken
+      }
+    }
     "read-state" {
       $keys = @($value.keys | ForEach-Object { [string]$_ } | Where-Object { $_ -in $script:AgentControlStateKeys } | Select-Object -Unique)
       if (-not $keys.Count) { throw "No approved GLDN Ops state keys were requested." }
       return [pscustomobject]@{ keys = $keys }
     }
+    "read-ebay-profit-review" {
+      $status = ([string]$value.status).Trim().ToLowerInvariant()
+      if ($status -notin @("all", "exact", "unresolved")) {
+        throw "eBay profit review status must be all, exact, or unresolved."
+      }
+      $offset = if ($null -ne $value.offset) { [int]$value.offset } else { 0 }
+      $limit = if ($null -ne $value.limit) { [int]$value.limit } else { 50 }
+      if ($offset -lt 0 -or $offset -gt 5000 -or $limit -lt 1 -or $limit -gt 100) {
+        throw "eBay profit review pagination is outside the allowed range."
+      }
+      return [pscustomobject]@{ status = $status; offset = $offset; limit = $limit }
+    }
+    "read-profit-backfill-review" {
+      $status = ([string]$value.status).Trim().ToLowerInvariant()
+      if ($status -notin @("all", "exact", "unresolved")) {
+        throw "Profit backfill review status must be all, exact, or unresolved."
+      }
+      $offset = if ($null -ne $value.offset) { [int]$value.offset } else { 0 }
+      $limit = if ($null -ne $value.limit) { [int]$value.limit } else { 50 }
+      if ($offset -lt 0 -or $offset -gt 5000 -or $limit -lt 1 -or $limit -gt 100) {
+        throw "Profit backfill review pagination is outside the allowed range."
+      }
+      return [pscustomobject]@{ status = $status; offset = $offset; limit = $limit }
+    }
     "page-action" {
       $platform = ([string]$value.platform).Trim().ToLowerInvariant()
       $pageAction = ([string]$value.action).Trim().ToLowerInvariant()
       $allowed = @{
-        ebay = @("mark-shipped", "seller-level", "sales-snapshot", "listing-limits", "prepare-order-note")
-        poshmark = @("posh-stats", "posh-profit", "visible-sales", "historical-profit")
-        amazon = @("review-copy", "sniping-seller-review", "sniping-winner-review")
+        ebay = @("show-panel", "mark-shipped", "approve-mark-shipped-review", "approve-ebay-mark-shipped-confirmation", "cancel-mark-shipped-review", "seller-level", "save-seller-level-review", "sales-snapshot", "save-sales-snapshot-review", "listing-limits", "save-listing-limits-review", "prepare-order-note", "start-monthly-profit", "start-move99-scan", "start-move99-reverse-scan", "apply-saved-move99", "approve-move99-submit")
+        poshmark = @("posh-stats", "posh-profit", "visible-sales", "save-visible-sales-review", "historical-profit", "start-historical-profit-month", "resume-historical-profit", "approve-historical-profit-review")
+        amazon = @("review-copy", "sniping-seller-review", "sniping-winner-review", "subscribe-save-scan", "subscribe-save-show-review", "approve-subscribe-save", "approve-historical-profit-review")
       }
       if (-not $allowed.ContainsKey($platform) -or $pageAction -notin $allowed[$platform]) {
         throw "The requested page action is not on the safe review-only allowlist."
       }
       $tabId = if ($null -ne $value.tabId) { [int]$value.tabId } else { 0 }
       $waitMs = if ($null -ne $value.waitMs) { [Math]::Max(0, [Math]::Min(15000, [int]$value.waitMs)) } else { 2500 }
-      return [pscustomobject]@{ platform = $platform; action = $pageAction; tabId = $tabId; waitMs = $waitMs }
+      $url = ""
+      if ([string]$value.url) {
+        try { $uri = [System.Uri]([string]$value.url) } catch { throw "The exact page-action URL is invalid." }
+        if ($uri.Scheme -cne "https" -or -not (Test-AgentAllowedHost $uri.DnsSafeHost)) {
+          throw "Page actions can recover only an exact approved HTTPS URL."
+        }
+        $url = $uri.AbsoluteUri
+      }
+      $confirmationToken = ([string]$value.confirmationToken).Trim()
+      $monthKey = ([string]$value.monthKey).Trim()
+      if ($pageAction -eq "start-historical-profit-month" -and $monthKey -cnotmatch '^\d{4}-(?:0[1-9]|1[0-2])$') {
+        throw "Historical-profit month start requires a valid YYYY-MM month."
+      }
+      if ($pageAction -eq "start-monthly-profit" -and $monthKey -cnotmatch '^\d{4}-(?:0[1-9]|1[0-2])$') {
+        throw "Monthly eBay profit start requires a valid YYYY-MM month."
+      }
+      if ($pageAction -eq "approve-mark-shipped-review" -and $confirmationToken -cnotmatch '^APPROVE MARK SHIPPED [1-9]\d*$') {
+        throw "Mark as Shipped approval requires the exact live-count confirmation token."
+      }
+      if ($pageAction -eq "approve-ebay-mark-shipped-confirmation" -and $confirmationToken -cnotmatch '^APPROVE EBAY CONTINUE [1-9]\d*$') {
+        throw "eBay Continue approval requires the exact live-count confirmation token."
+      }
+      if ($pageAction -eq "approve-move99-submit" -and $confirmationToken -cnotmatch '^APPROVE SUBMIT [1-9]\d*$') {
+        throw "Move .99 Submit approval requires the exact live-count confirmation token."
+      }
+      if ($pageAction -eq "approve-subscribe-save" -and $confirmationToken -cnotmatch '^APPROVE CANCEL SUBSCRIPTIONS [1-9]\d*$') {
+        throw "Subscribe & Save approval requires the exact live-count confirmation token."
+      }
+      if ($pageAction -eq "save-visible-sales-review" -and $confirmationToken -cnotmatch '^APPROVE SAVE VISIBLE SALES [1-9]\d*$') {
+        throw "Visible-sales save requires the exact live-count confirmation token."
+      }
+      if ($pageAction -eq "approve-historical-profit-review" -and $confirmationToken -cnotmatch '^APPROVE (?:SYNC POSHMARK \d{4}-(?:0[1-9]|1[0-2])|RESOLVE (?:POSHMARK|EBAY) COSTS) [1-9]\d*$') {
+        throw "Historical-profit save requires the exact month and live-count confirmation token."
+      }
+      return [pscustomobject]@{
+        platform = $platform
+        action = $pageAction
+        tabId = $tabId
+        url = $url
+        waitMs = $waitMs
+        confirmationToken = $confirmationToken
+        monthKey = $monthKey
+      }
     }
     default { throw "The requested local-control action is not allowed." }
   }
@@ -445,6 +689,16 @@ function Test-AgentOperatorRequestAllowed {
 
 $listener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
 $listener.Start()
+$agentPidPath = Join-Path $InstallRoot "updater-agent.pid"
+$currentProcess = Get-Process -Id $PID
+[pscustomobject]@{
+  schemaVersion = 1
+  processId = $PID
+  processStartTimeUtc = $currentProcess.StartTime.ToUniversalTime().ToString("o")
+  installRoot = $InstallRoot
+  agentPath = [System.IO.Path]::GetFullPath($PSCommandPath)
+  port = $Port
+} | ConvertTo-Json | Set-Content -LiteralPath $agentPidPath -Encoding UTF8
 try {
   while ($true) {
     $client = $listener.AcceptTcpClient()
@@ -485,4 +739,12 @@ try {
   }
 } finally {
   $listener.Stop()
+  if (Test-Path -LiteralPath $agentPidPath) {
+    try {
+      $pidRecord = Get-Content -Raw -LiteralPath $agentPidPath | ConvertFrom-Json
+      if ([int]$pidRecord.processId -eq $PID) {
+        Remove-Item -LiteralPath $agentPidPath -Force
+      }
+    } catch {}
+  }
 }

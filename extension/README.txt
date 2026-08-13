@@ -1,4 +1,8 @@
-GLDN Ops v3.12.14
+GLDN Ops v3.12.15
+
+v3.12.15 policy-audit control release:
+- Adds a Profile 2-only command that cancels an abandoned policy review and runs the complete read-only Active Listings scan.
+- Returns exact total, no-match, review, and Block counts without exposing any listing End action.
 
 v3.12.14 policy-audit recovery release:
 - Treats eBay messages such as "Listing item is missing" as unresolved failures, never as successful listing Ends.

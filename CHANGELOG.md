@@ -2,6 +2,12 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.15 - 2026-08-13
+
+- Added a Profile 2-only complete read-only Existing Listings Policy Scan command.
+- The command safely cancels an abandoned policy review before scanning and returns exact classification totals.
+- The control path cannot prepare or submit a listing End action.
+
 ## v3.12.14 - 2026-08-12
 
 - Fixed Existing Listings Policy Audit result handling so eBay's "Listing item is missing" response is recorded as unresolved instead of ended.

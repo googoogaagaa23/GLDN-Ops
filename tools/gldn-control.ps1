@@ -1,13 +1,31 @@
 param(
-  [ValidateSet("Inspect", "Open", "Focus", "ReloadTab", "InspectPage", "ReadState", "PageAction")]
+  [ValidateSet("Inspect", "Open", "Navigate", "Focus", "ReloadTab", "InspectTab", "InspectTutorialVideo", "InspectAmazonSubscribeSave", "InspectEbayVariations", "CloseTab", "InspectPage", "InspectMove99", "InspectMove99FinalReview", "ApproveMove99FinalReview", "PrepareVariationEndReview", "OpenExtension", "OpenDashboard", "ExtensionAction", "ReadState", "ReadEbayProfitReview", "ReadProfitBackfillReview", "PageAction", "ResetState", "ReloadExtension")]
   [string]$Action = "Inspect",
   [string]$Url = "",
   [ValidateSet("", "ebay", "poshmark", "amazon", "ecomsniper")]
   [string]$Platform = "",
   [string]$PageAction = "",
+  [string]$ConfirmationToken = "",
+  [string]$MonthKey = "",
+  [int]$ExpectedCount = 0,
+  [string]$WorkspaceId = "",
+  [string[]]$ItemIds = @(),
+  [string]$ItemIdsFile = "",
+  [int]$SelectedTotal = 0,
+  [string]$ReportName = "",
+  [string]$ReportFingerprint = "",
+  [ValidateSet("", "popup", "onboarding", "guide", "variations", "policyaudit", "preflight")]
+  [string]$ExtensionPage = "",
+  [ValidateSet("", "health-check", "dashboard-test", "dashboard-retry", "dashboard-setup", "variation-scan", "policy-listing-scan", "listing-preflight-proof", "ecomsniper-handoff-proof", "sync-ebay-monthly-profit", "start-ebay-amazon-resolution")]
+  [string]$ExtensionAction = "",
   [int]$TabId = 0,
   [string[]]$Keys = @(),
+  [ValidateSet("all", "exact", "unresolved")]
+  [string]$ReviewStatus = "all",
+  [int]$Offset = 0,
+  [int]$Limit = 50,
   [int]$WaitSeconds = 90,
+  [switch]$Background,
   [switch]$NoWait
 )
 
@@ -73,7 +91,12 @@ function ConvertTo-ControlRequest {
     "Inspect" { return [pscustomobject]@{ action = "inspect-session"; payload = [pscustomobject]@{} } }
     "Open" {
       if (-not $Url) { throw "Open requires -Url." }
-      return [pscustomobject]@{ action = "open-url"; payload = [pscustomobject]@{ url = $Url; reuse = $true; active = $true } }
+      return [pscustomobject]@{ action = "open-url"; payload = [pscustomobject]@{ url = $Url; reuse = $true; active = -not $Background.IsPresent } }
+    }
+    "Navigate" {
+      if ($TabId -le 0) { throw "Navigate requires -TabId." }
+      if (-not $Url) { throw "Navigate requires -Url." }
+      return [pscustomobject]@{ action = "navigate-tab"; payload = [pscustomobject]@{ tabId = $TabId; url = $Url; active = -not $Background.IsPresent } }
     }
     "Focus" {
       if ($TabId -le 0) { throw "Focus requires -TabId." }
@@ -83,30 +106,196 @@ function ConvertTo-ControlRequest {
       if ($TabId -le 0) { throw "ReloadTab requires -TabId." }
       return [pscustomobject]@{ action = "reload-tab"; payload = [pscustomobject]@{ tabId = $TabId } }
     }
+    "InspectTab" {
+      if ($TabId -le 0) { throw "InspectTab requires -TabId." }
+      return [pscustomobject]@{ action = "inspect-tab"; payload = [pscustomobject]@{ tabId = $TabId } }
+    }
+    "InspectTutorialVideo" {
+      return [pscustomobject]@{
+        action = "inspect-tutorial-video"
+        payload = [pscustomobject]@{ tabId = $TabId; url = $Url }
+      }
+    }
+    "InspectAmazonSubscribeSave" {
+      return [pscustomobject]@{
+        action = "inspect-amazon-subscribe-save"
+        payload = [pscustomobject]@{ tabId = $TabId; url = $Url }
+      }
+    }
+    "InspectEbayVariations" {
+      if ($TabId -le 0) { throw "InspectEbayVariations requires -TabId." }
+      return [pscustomobject]@{
+        action = "inspect-ebay-variations"
+        payload = [pscustomobject]@{ tabId = $TabId; url = $Url }
+      }
+    }
+    "CloseTab" {
+      if ($TabId -le 0) { throw "CloseTab requires -TabId." }
+      return [pscustomobject]@{ action = "close-tab"; payload = [pscustomobject]@{ tabId = $TabId } }
+    }
     "InspectPage" {
       return [pscustomobject]@{ action = "inspect-page"; payload = [pscustomobject]@{ tabId = $TabId; platform = $Platform } }
     }
+    "InspectMove99" {
+      return [pscustomobject]@{ action = "inspect-move99"; payload = [pscustomobject]@{ tabId = $TabId } }
+    }
+    "InspectMove99FinalReview" {
+      if ($TabId -le 0 -or $ExpectedCount -le 0 -or -not $WorkspaceId -or -not $ConfirmationToken) {
+        throw "InspectMove99FinalReview requires -TabId, -ExpectedCount, -WorkspaceId, and -ConfirmationToken."
+      }
+      return [pscustomobject]@{
+        action = "inspect-move99-final-review"
+        payload = [pscustomobject]@{
+          tabId = $TabId
+          url = $Url
+          expectedCount = $ExpectedCount
+          workspaceId = $WorkspaceId
+          confirmationToken = $ConfirmationToken
+        }
+      }
+    }
+    "ApproveMove99FinalReview" {
+      if ($TabId -le 0 -or $ExpectedCount -le 0 -or -not $WorkspaceId -or -not $ConfirmationToken) {
+        throw "ApproveMove99FinalReview requires -TabId, -ExpectedCount, -WorkspaceId, and -ConfirmationToken."
+      }
+      return [pscustomobject]@{
+        action = "approve-move99-final-review"
+        payload = [pscustomobject]@{
+          tabId = $TabId
+          url = $Url
+          expectedCount = $ExpectedCount
+          workspaceId = $WorkspaceId
+          confirmationToken = $ConfirmationToken
+        }
+      }
+    }
+    "PrepareVariationEndReview" {
+      $resolvedItemIds = @($ItemIds | ForEach-Object { [string]$_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+      if ($ItemIdsFile) {
+        $itemIdsPath = [System.IO.Path]::GetFullPath($ItemIdsFile)
+        if (-not (Test-Path -LiteralPath $itemIdsPath -PathType Leaf)) {
+          throw "PrepareVariationEndReview could not find -ItemIdsFile."
+        }
+        try {
+          $fileValue = Get-Content -Raw -LiteralPath $itemIdsPath | ConvertFrom-Json
+        } catch {
+          throw "PrepareVariationEndReview requires -ItemIdsFile to contain a JSON array or an object with itemIds."
+        }
+        $fileIds = if ($fileValue.PSObject.Properties.Name -contains "itemIds") { @($fileValue.itemIds) } else { @($fileValue) }
+        $resolvedItemIds += @($fileIds | ForEach-Object { [string]$_ })
+      }
+      $resolvedItemIds = @($resolvedItemIds | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+      $uniqueItemIds = @($resolvedItemIds | Select-Object -Unique)
+      if ($resolvedItemIds.Count -lt 1 -or
+          $resolvedItemIds.Count -gt 200 -or
+          $uniqueItemIds.Count -ne $resolvedItemIds.Count -or
+          @($resolvedItemIds | Where-Object { $_ -notmatch '^\d{9,15}$' }).Count) {
+        throw "PrepareVariationEndReview requires 1 to 200 unique eBay parent item numbers."
+      }
+      $resolvedSelectedTotal = if ($SelectedTotal -gt 0) { $SelectedTotal } else { $resolvedItemIds.Count }
+      if ($resolvedSelectedTotal -lt $resolvedItemIds.Count) {
+        throw "PrepareVariationEndReview -SelectedTotal cannot be less than the batch count."
+      }
+      return [pscustomobject]@{
+        action = "prepare-variation-end-review"
+        payload = [pscustomobject]@{
+          itemIds = $resolvedItemIds
+          selectedTotal = $resolvedSelectedTotal
+          reportName = $ReportName
+          reportFingerprint = $ReportFingerprint
+        }
+      }
+    }
+    "OpenExtension" {
+      if (-not $ExtensionPage) { throw "OpenExtension requires -ExtensionPage." }
+      return [pscustomobject]@{
+        action = "open-extension-page"
+        payload = [pscustomobject]@{ page = $ExtensionPage; active = -not $Background.IsPresent }
+      }
+    }
+    "OpenDashboard" {
+      return [pscustomobject]@{
+        action = "open-dashboard"
+        payload = [pscustomobject]@{ active = -not $Background.IsPresent }
+      }
+    }
+    "ExtensionAction" {
+      if (-not $ExtensionAction) { throw "ExtensionAction requires -ExtensionAction." }
+      if ($ExtensionAction -eq "start-ebay-amazon-resolution" -and $MonthKey -cnotmatch '^\d{4}-(?:0[1-9]|1[0-2])$') {
+        throw "start-ebay-amazon-resolution requires -MonthKey YYYY-MM."
+      }
+      return [pscustomobject]@{
+        action = "extension-action"
+        payload = [pscustomobject]@{ action = $ExtensionAction; confirmationToken = $ConfirmationToken; monthKey = $MonthKey }
+      }
+    }
     "ReadState" {
       $requestedKeys = if ($Keys.Count) { $Keys } else { @(
+        "settingsSchemaVersion",
         "computerLabel",
         "ebayAccountLabel",
+        "gldnUiOpacity",
+        "gldnUiTheme",
+        "move99AccountSettings",
+        "dashboardConfigurationStatus",
+        "dashboardQueueSummary",
         "pendingMove99Run",
+        "pendingVariationEndReview",
+        "lastVariationEndResult",
+        "ebayPolicyListingScanState",
+        "ebayPolicyListingAudit",
+        "pendingPolicyListingEndReview",
+        "lastPolicyListingEndResult",
         "pendingMarkShippedRun",
         "pendingSellerLevelScan",
         "pendingEbaySnapshotScan",
         "pendingReviewMonthlyLimits",
+        "latestAccountHealth",
+        "latestEbaySnapshot",
+        "latestListingStatus",
+        "latestPoshmarkStats",
+        "latestPoshmarkVisibleSales",
+        "latestMarketplaceProfit",
+        "ebayMonthlyProfit",
         "poshmarkProfitBackfill",
         "gldnErrorLog"
       ) }
+      $requestedKeys = @($requestedKeys | ForEach-Object { [string]$_ -split ',' } | ForEach-Object { $_.Trim() } | Where-Object { $_ })
       return [pscustomobject]@{ action = "read-state"; payload = [pscustomobject]@{ keys = $requestedKeys } }
+    }
+    "ReadEbayProfitReview" {
+      if ($Offset -lt 0 -or $Offset -gt 5000) { throw "ReadEbayProfitReview -Offset must be between 0 and 5000." }
+      if ($Limit -lt 1 -or $Limit -gt 100) { throw "ReadEbayProfitReview -Limit must be between 1 and 100." }
+      return [pscustomobject]@{
+        action = "read-ebay-profit-review"
+        payload = [pscustomobject]@{ status = $ReviewStatus; offset = $Offset; limit = $Limit }
+      }
+    }
+    "ReadProfitBackfillReview" {
+      if ($Offset -lt 0 -or $Offset -gt 5000) { throw "ReadProfitBackfillReview -Offset must be between 0 and 5000." }
+      if ($Limit -lt 1 -or $Limit -gt 100) { throw "ReadProfitBackfillReview -Limit must be between 1 and 100." }
+      return [pscustomobject]@{
+        action = "read-profit-backfill-review"
+        payload = [pscustomobject]@{ status = $ReviewStatus; offset = $Offset; limit = $Limit }
+      }
     }
     "PageAction" {
       if (-not $Platform -or -not $PageAction) { throw "PageAction requires -Platform and -PageAction." }
       return [pscustomobject]@{
         action = "page-action"
-        payload = [pscustomobject]@{ tabId = $TabId; platform = $Platform; action = $PageAction; waitMs = 3500 }
+        payload = [pscustomobject]@{
+          tabId = $TabId
+          platform = $Platform
+          action = $PageAction
+          url = $Url
+          waitMs = 3500
+          confirmationToken = $ConfirmationToken
+          monthKey = $MonthKey
+        }
       }
     }
+    "ResetState" { return [pscustomobject]@{ action = "reset-state"; payload = [pscustomobject]@{} } }
+    "ReloadExtension" { return [pscustomobject]@{ action = "reload-extension"; payload = [pscustomobject]@{} } }
   }
 }
 

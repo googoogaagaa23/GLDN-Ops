@@ -160,6 +160,21 @@ test('background policy workflow is resumable, exact, approval-gated, and stops 
   assert.doesNotMatch(submitSource, /prepareEbayPolicyListingEndReview\(/);
 });
 
+test('Profile 2 control can run only the complete read-only policy scan', () => {
+  const background = fs.readFileSync(path.join(ROOT, 'extension', 'background.js'), 'utf8');
+  const control = fs.readFileSync(path.join(ROOT, 'tools', 'gldn-control.ps1'), 'utf8');
+  const agent = fs.readFileSync(path.join(ROOT, 'tools', 'gldn-update-agent.ps1'), 'utf8');
+  assert.match(background, /'policy-listing-scan'/);
+  assert.match(control, /"policy-listing-scan"/);
+  assert.match(agent, /"policy-listing-scan"/);
+  const start = background.indexOf("if (action === 'policy-listing-scan')");
+  const end = background.indexOf('const result = await seedDashboardSetupFromLocalConfig', start);
+  const source = background.slice(start, end);
+  assert.match(source, /cancelEbayPolicyListingEndReview\(\)/);
+  assert.match(source, /scanEbayPolicyListings\(\{ fresh: true \}/);
+  assert.doesNotMatch(source, /prepareEbayPolicyListingEndReview|submitEbayPolicyListingEndReview/);
+});
+
 test('policy audit page exposes recovery, exact review, and Block-only safety language', () => {
   const ebay = fs.readFileSync(path.join(ROOT, 'extension', 'ebay.js'), 'utf8');
   const background = fs.readFileSync(path.join(ROOT, 'extension', 'background.js'), 'utf8');

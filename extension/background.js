@@ -435,6 +435,7 @@ const LOCAL_CONTROL_EXTENSION_ACTIONS = new Set([
   'dashboard-retry',
   'dashboard-setup',
   'variation-scan',
+  'policy-listing-scan',
   'listing-preflight-proof',
   'ecomsniper-handoff-proof',
   'sync-ebay-monthly-profit',
@@ -1596,6 +1597,25 @@ async function runLocalControlExtensionAction(payload = {}) {
         workspaceUrl: String(review.workspaceUrl || ''),
         approvalToken: `APPROVE END VARIATIONS ${Number(review.requestedCount || 0)}`
       }
+    };
+  }
+  if (action === 'policy-listing-scan') {
+    const canceledReview = await cancelEbayPolicyListingEndReview();
+    const scan = await scanEbayPolicyListings({ fresh: true }, {});
+    if (!scan?.ok) throw new Error(scan?.error || 'The complete read-only policy scan stopped safely.');
+    return {
+      ok: true,
+      action,
+      canceledReview: Boolean(canceledReview?.changed),
+      scannedListings: Number(scan.scannedListings || 0),
+      summary: {
+        total: Number(scan.summary?.total || 0),
+        clear: Number(scan.summary?.clear || 0),
+        review: Number(scan.summary?.review || 0),
+        block: Number(scan.summary?.block || 0)
+      },
+      reportFingerprint: String(scan.audit?.reportFingerprint || ''),
+      scannedAt: String(scan.audit?.scannedAt || '')
     };
   }
   const result = await seedDashboardSetupFromLocalConfig();
