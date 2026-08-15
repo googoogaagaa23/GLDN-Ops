@@ -4,6 +4,7 @@
 
   const U = window.OrderNoteUtils;
   const AUDIT = window.GLDN_PROFIT_AUDIT;
+  const EBAY_PROFIT = window.GLDN_EBAY_PROFIT_CORE;
   const SNIPING = window.GLDN_SNIPING_AUDIT;
   let panel;
   let statusElement;
@@ -24,6 +25,8 @@
   let ebayPageObserver = null;
   let savedBulkEditCleanup = null;
   let panelWorkflowVisible = false;
+  let variationEndReviewState = null;
+  let ebayMonthlyProfitWorkerRunning = false;
 
   const AWAITING_SHIPMENT_URL = "https://www.ebay.com/sh/ord/?filter=status:AWAITING_SHIPMENT";
   const SELLER_LEVEL_URL = "https://www.ebay.com/sh/performance";
@@ -33,10 +36,15 @@
   const FOUNDATION = globalThis.GLDN_FOUNDATION;
   const COMPUTER_ACCOUNT_MAP = FOUNDATION.computerAccounts;
   const COMPUTER_OPTIONS = FOUNDATION.computerOptions;
+  const COMPUTER_SELECT_OPTIONS = COMPUTER_OPTIONS.map((value) => ({
+    value,
+    label: value === "7" ? "7 - Posh" : value
+  }));
   const EBAY_ACCOUNT_OPTIONS = FOUNDATION.ebayAccountOptions;
   const STORE_PLAN_LIMITS = { Premium: 10000, Anchor: 25000 };
   const DEFAULT_DOLLAR_LIMIT = 1000000;
   const EXTENSION_VERSION = chrome.runtime.getManifest().version;
+  const VARIATION_END_STATE_KEY = "pendingVariationEndReview";
 
   const MOVE99_DEFAULT_CONFIG = Object.freeze({
     sourceStoreCategoryIds: [],
@@ -49,7 +57,13 @@
       sourceStoreCategoryIds: ["44678633011", "1"],
       sourceCategories: ["Not .99", "Other"],
       destinationCategory: "Abra Cadabra .99",
-      backburnerItemIds: ["318521296686"]
+      backburnerItemIds: [
+        "318521296686",
+        "318572900833",
+        "318576390693",
+        "318576892301",
+        "318601468678"
+      ]
     }
   });
   let MOVE99_SOURCE_STORE_CATEGORY_IDS = [];
@@ -71,6 +85,7 @@
   // eBay only offers 2,000-listing edit ranges, but mounting every row can
   // exhaust Chrome. Scan a smaller rendered window and repeat after each batch.
   const MOVE99_RENDER_BATCH_LIMIT = 500;
+  const MOVE99_SELECTION_MUTATION_BATCH_SIZE = 20;
   const MOVE99_FILTER_BASELINE_RESTART_LIMIT = 2;
   const MOVE99_NAVIGATION_COOLDOWN_MS = 8000;
   const MOVE99_NAVIGATION_JITTER_MS = 2500;
@@ -102,6 +117,7 @@
       statusElement.dataset.type = "error";
     }
     panel?.setAttribute?.("data-gldn-context-invalidated", "true");
+    panel?.querySelectorAll?.("button, input, select, textarea").forEach((control) => { control.disabled = true; });
     if (error) U?.markExtensionContextInvalidated?.(error);
   }
 
@@ -626,8 +642,7 @@
     const amazonPrice = numberFromMoneyText(anchorProduct?.price || sniping.amazonPrice || workflow.lastAmazonPrice);
     const minMarkupPercent = Math.max(0, Number(sniping.minMarkupPercent || 70));
     if (!anchorProduct?.title || !amazonPrice || !anchorProduct.asin || !SNIPING.amazonUrlMatchesAsin(anchorProduct.url, anchorProduct.asin)) {
-      renderStatus("Sniping needs one exact Amazon ASIN and price first.", "error");
-      alert("Open the exact Amazon product page and start Sniping Workflow again. A visible price and ASIN are required.");
+      renderStatus("Sniping needs one exact Amazon ASIN and visible price. Open the exact Amazon product page, then start Sniping Workflow again.", "error");
       return;
     }
 
@@ -646,8 +661,7 @@
       .slice(0, 12);
     if (!candidates.length) {
       const minimum = SNIPING.calculateEconomics({ amazonPrice, ebayPrice: amazonPrice * (1 + minMarkupPercent / 100), minMarkupPercent }).minimumEbayPrice;
-      renderStatus(`No exact-review candidates met ${minMarkupPercent}% markup over $${amazonPrice.toFixed(2)}.`, "error");
-      alert(`No eligible seller candidates were found.\n\nAmazon price: $${amazonPrice.toFixed(2)}\nMinimum eBay price: $${minimum.toFixed(2)}\nApparel, missing item IDs, and non-profitable estimates were excluded.`);
+      renderStatus(`No eligible seller candidates. Amazon $${amazonPrice.toFixed(2)}; minimum eBay $${minimum.toFixed(2)}. Apparel, missing IDs, and non-profitable estimates were excluded.`, "error");
       return;
     }
 
@@ -732,15 +746,195 @@
     renderStatus("Automation reset — ready.", "ready");
   }
 
-  const runtimeMessage = (message) => new Promise((resolve) => {
-    chrome.runtime.sendMessage(message, (response) => {
-      if (chrome.runtime.lastError) {
-        resolve({ ok: false, error: chrome.runtime.lastError.message });
+  const runtimeMessage = (message, timeoutMs = 30000) => U.runtimeMessage(message, timeoutMs);
+
+  function variationWorkspaceId(value = location.href) {
+    try {
+      const url = new URL(String(value || ""), location.origin);
+      return url.pathname === "/bulksell" ? String(url.searchParams.get("workspaceId") || "") : "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function exactVariationReviewState(state = variationEndReviewState) {
+    const workspaceId = variationWorkspaceId();
+    const itemIds = [...new Set((state?.itemIds || []).map(String).filter((itemId) => /^\d{9,15}$/.test(itemId)))];
+    const requestedCount = Number(state?.requestedCount || 0);
+    const nativeReview = state?.reviewMode === "native-endpoint"
+      && /^\/sh\/lst\/active(?:\/|$)/i.test(location.pathname)
+      && Number(state?.ebayEligibleCount || 0) === requestedCount;
+    const legacyWorkspaceReview = Boolean(workspaceId)
+      && workspaceId === String(state?.workspaceId || "");
+    return Boolean(state?.active)
+      && (nativeReview || legacyWorkspaceReview)
+      && requestedCount > 0
+      && requestedCount <= 200
+      && itemIds.length === requestedCount;
+  }
+
+  function variationEndActionElement(target) {
+    const element = target?.closest?.("button, [role='button'], input[type='submit'], input[type='button'], a");
+    if (!element || element.closest("#gldn-variation-end-approval")) return null;
+    const label = U.normalizeText([
+      element.innerText,
+      element.textContent,
+      element.getAttribute?.("aria-label"),
+      element.getAttribute?.("title"),
+      element.value
+    ].filter(Boolean).join(" "));
+    if (!/\b(end(?: listings?)?|submit)\b/i.test(label)) return null;
+    if (/\b(cancel|back|close|download|preview)\b/i.test(label)) return null;
+    return { element, label };
+  }
+
+  function variationEndDisplayedCount(actionLabel = "") {
+    const samples = [
+      actionLabel,
+      ...[...document.querySelectorAll("button, [role='button'], [aria-label], h1, h2, h3")]
+        .filter(U.isVisible)
+        .slice(0, 300)
+        .map((element) => U.normalizeText(`${element.innerText || element.textContent || ""} ${element.getAttribute?.("aria-label") || ""}`)),
+      U.normalizeText(document.body?.innerText || "").slice(0, 25000)
+    ];
+    const patterns = [
+      /(?:submit|end(?: listings?)?)\s*\(?\s*([\d,]+)\s*\)?/i,
+      /([\d,]+)\s+(?:of\s+[\d,]+\s+)?(?:items?|listings?)\s+selected/i,
+      /(?:selected|eligible)\s+(?:items?|listings?)\s*[:\-]?\s*([\d,]+)/i
+    ];
+    for (const sample of samples) {
+      for (const pattern of patterns) {
+        const match = String(sample || "").match(pattern);
+        const count = Number(String(match?.[1] || "").replace(/,/g, ""));
+        if (Number.isInteger(count) && count > 0) return count;
+      }
+    }
+    return 0;
+  }
+
+  function showVariationEndApproval(state, displayedCount) {
+    document.getElementById("gldn-variation-end-approval")?.remove();
+    const expectedCount = Number(state.requestedCount || 0);
+    const exactCount = displayedCount === expectedCount;
+    const nativeReview = String(state?.reviewMode || "").startsWith("native-endpoint");
+    const token = `APPROVE END VARIATIONS ${expectedCount}`;
+    const overlay = document.createElement("div");
+    overlay.id = "gldn-variation-end-approval";
+    overlay.className = "gldn-modal-backdrop gldn-review-backdrop";
+    overlay.innerHTML = `
+      <div class="gldn-modal gldn-review-modal gldn-variation-end-modal">
+        <h2>Approve Ending Variation Listings</h2>
+        <p>GLDN Ops prepared exactly <strong>${expectedCount.toLocaleString()}</strong> parent listings from the imported eBay report.</p>
+        <div class="gldn-review-grid">
+          <div><span>Saved exact IDs</span><strong>${expectedCount.toLocaleString()}</strong></div>
+          <div><span>eBay eligible count</span><strong>${displayedCount ? displayedCount.toLocaleString() : "Not verified"}</strong></div>
+          <div><span>Review method</span><strong>${nativeReview ? "Native eBay End review" : escapeHtml(String(state.workspaceId || "Bulk editor"))}</strong></div>
+          <div><span>Report</span><strong>${escapeHtml(String(state.reportName || "Imported Active Listings report"))}</strong></div>
+        </div>
+        <p class="gldn-warning">Ending removes these active listings from sale. This cannot continue unless eBay's count exactly matches the saved report batch.</p>
+        <label class="gldn-field-row" for="gldn-variation-end-token">
+          <span>Exact approval token</span>
+          <input id="gldn-variation-end-token" class="gldn-text-input" type="text" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(token)}" ${exactCount ? "" : "disabled"}>
+        </label>
+        <div id="gldn-variation-end-error" class="gldn-inline-error">${exactCount ? "" : `Blocked: eBay must show exactly ${expectedCount.toLocaleString()} selected listings before approval.`}</div>
+        <div class="gldn-actions">
+          <button type="button" class="gldn-secondary" data-cancel>Keep Reviewing</button>
+          <button type="button" class="gldn-danger" data-approve ${exactCount ? "" : "disabled"}>Authorize eBay End Action</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    const modal = overlay.querySelector(".gldn-modal");
+    U.enhanceModal?.(modal);
+    overlay.querySelector("[data-cancel]")?.addEventListener("click", () => overlay.remove());
+    overlay.querySelector("[data-approve]")?.addEventListener("click", async () => {
+      const input = overlay.querySelector("#gldn-variation-end-token");
+      const errorElement = overlay.querySelector("#gldn-variation-end-error");
+      if (String(input?.value || "").trim() !== token) {
+        errorElement.textContent = `Type exactly: ${token}`;
         return;
       }
-      resolve(response || { ok: false, error: "No response from extension background service." });
+      const approveButton = overlay.querySelector("[data-approve]");
+      approveButton.disabled = true;
+      errorElement.textContent = nativeReview
+        ? `Ending exactly ${expectedCount.toLocaleString()} variation parent listings through eBay...`
+        : "Authorization recorded. Use eBay's End control once.";
+      if (nativeReview) {
+        const result = await runtimeMessage({
+          type: "submitEbayVariationEndReview",
+          confirmationToken: token
+        }, 120000);
+        if (!result?.ok) {
+          approveButton.disabled = false;
+          errorElement.textContent = result?.error || result?.message || "eBay did not complete the exact End request.";
+          return;
+        }
+        overlay.remove();
+        renderStatus(`eBay ended ${Number(result.successfulCount || 0).toLocaleString()} of ${expectedCount.toLocaleString()} exact variation parent listings.`, result.failedCount ? "error" : "completed");
+        return;
+      }
+      const approvedAt = new Date().toISOString();
+      variationEndReviewState = {
+        ...state,
+        phase: "approved",
+        approvalToken: token,
+        approvedAt,
+        displayedCount,
+        updatedAt: approvedAt
+      };
+      await storageSet({ [VARIATION_END_STATE_KEY]: variationEndReviewState });
+      overlay.remove();
+      renderStatus(`Variation End action authorized for exactly ${expectedCount.toLocaleString()} listings. Review eBay once more, then use its End control.`, "completed");
     });
-  });
+    overlay.querySelector("#gldn-variation-end-token")?.focus?.();
+  }
+
+  function installVariationEndApprovalGuard() {
+    storageGet([VARIATION_END_STATE_KEY]).then((stored) => {
+      variationEndReviewState = stored[VARIATION_END_STATE_KEY] || null;
+      if (exactVariationReviewState()) {
+        setEbayPanelWorkflowVisible(true);
+        renderStatus(`Variation End review ready for exactly ${Number(variationEndReviewState.requestedCount).toLocaleString()} listings. No listing has been ended.`, "ready");
+        if (variationEndReviewState.reviewMode === "native-endpoint") {
+          showVariationEndApproval(variationEndReviewState, Number(variationEndReviewState.ebayEligibleCount || 0));
+        }
+      }
+    }).catch(() => {});
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === "local" && changes[VARIATION_END_STATE_KEY]) {
+        variationEndReviewState = changes[VARIATION_END_STATE_KEY].newValue || null;
+      }
+    });
+    document.addEventListener("click", (event) => {
+      if (!exactVariationReviewState()) return;
+      const action = variationEndActionElement(event.target);
+      if (!action) return;
+      const expectedToken = `APPROVE END VARIATIONS ${Number(variationEndReviewState.requestedCount || 0)}`;
+      const approved = variationEndReviewState.phase === "approved"
+        && variationEndReviewState.approvalToken === expectedToken
+        && variationEndReviewState.approvedAt;
+      if (approved) {
+        const observedAt = new Date().toISOString();
+        variationEndReviewState = {
+          ...variationEndReviewState,
+          phase: "approved-action-observed",
+          approvedActionLabel: action.label,
+          approvedActionObservedAt: observedAt,
+          updatedAt: observedAt
+        };
+        storageSet({ [VARIATION_END_STATE_KEY]: variationEndReviewState }).catch(() => {});
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const displayedCount = variationEndDisplayedCount(action.label)
+        || (variationEndReviewState.reviewMode === "native-endpoint-visible-workspace"
+          ? Number(variationEndReviewState.ebayEligibleCount || 0)
+          : 0);
+      showVariationEndApproval(variationEndReviewState, displayedCount);
+    }, true);
+  }
 
   async function reloadExtensionFromPanel() {
     const version = chrome.runtime.getManifest().version;
@@ -942,9 +1136,16 @@
         pendingSnipingWinner: { active: true, winner: capturedWinner, startedAt: Date.now() }
       });
       try { await navigator.clipboard.writeText(capturedWinner.title); } catch (_) {}
-      renderStatus("Winner captured. Product Hunter is opening for the exact Amazon match.", "completed");
+      const opened = await runtimeMessage({ type: "openEcomSniperPage", page: "productHunter" });
+      if (!opened?.ok) {
+        const message = opened?.error || "Product Hunter did not open.";
+        status.textContent = message;
+        status.dataset.type = "error";
+        renderStatus(message, "error");
+        return;
+      }
+      renderStatus("Winner captured. Product Hunter opened for the exact Amazon match.", "completed");
       close();
-      chrome.runtime.sendMessage({ type: "openEcomSniperPage", page: "productHunter" }, () => void chrome.runtime.lastError);
     });
   }
 
@@ -1090,6 +1291,259 @@
       .trim();
   }
 
+  function ebayProfitOrderNumberFromValue(value) {
+    const raw = String(value || "");
+    const standard = raw.match(/\b\d{2}-\d{5}-\d{5}\b/);
+    if (standard) return standard[0];
+    try {
+      const parsed = new URL(raw, location.origin);
+      return String(parsed.searchParams.get("orderid") || parsed.searchParams.get("orderId") || "").trim();
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function ebayProfitDateFromText(value) {
+    return EBAY_PROFIT.extractOrderDateText(value);
+  }
+
+  function ebayProfitOrderContainer(anchor) {
+    const direct = anchor.closest?.("tr, [role='row'], article, li, [data-testid*='order'], [class*='order-card'], [class*='orderCard']");
+    if (direct && direct !== document.body) return direct;
+    let candidate = anchor.parentElement;
+    for (let depth = 0; candidate && candidate !== document.body && depth < 8; depth += 1, candidate = candidate.parentElement) {
+      const body = String(candidate.innerText || candidate.textContent || "");
+      if (ebayProfitDateFromText(body) && body.length < 5000) return candidate;
+    }
+    return anchor.parentElement;
+  }
+
+  function ebayProfitOrderTitle(container, orderNumber) {
+    const candidates = [...(container?.querySelectorAll?.("a[href], h1, h2, h3, h4") || [])]
+      .map((element) => String(element.innerText || element.textContent || "").replace(/\s+/g, " ").trim())
+      .filter((value) => value.length >= 5 && value.length <= 300)
+      .filter((value) => !value.includes(orderNumber))
+      .filter((value) => !/^(?:edit|view order details|order details|message buyer|add tracking|get shipping label)$/i.test(value));
+    return candidates.sort((left, right) => right.length - left.length)[0] || "";
+  }
+
+  function ebayProfitNextPageControl() {
+    return [...document.querySelectorAll("a[href], button, [role='button']")]
+      .filter((element) => U.isVisible(element))
+      .filter((element) => !element.disabled && element.getAttribute("aria-disabled") !== "true")
+      .find((element) => {
+        const signal = U.normalizeText([
+          element.getAttribute("aria-label"),
+          element.getAttribute("title"),
+          element.innerText,
+          element.textContent
+        ].filter(Boolean).join(" "));
+        return signal === "next" || signal === "go to next page" || signal === "next page";
+      }) || null;
+  }
+
+  function ebayProfitOrdersPageState() {
+    const visibleText = (selector) => [...document.querySelectorAll(selector)]
+      .filter((element) => U.isVisible(element))
+      .filter((element) => !element.closest?.("[id^='gldn-'], .gldn-modal-backdrop"))
+      .map((element) => U.normalizeText(element.innerText || element.textContent || ""))
+      .filter(Boolean);
+    const headings = visibleText("h1, h2, [role='heading']");
+    const heading = headings.find((value) => /^(?:manage )?(?:all )?orders(?: awaiting shipment)?$/i.test(value))
+      || headings.find((value) => /orders/i.test(value))
+      || "";
+    const selectedStatuses = visibleText('[aria-current="page"], [aria-selected="true"]');
+    const selectedStatus = selectedStatuses.find((value) => /^(?:all orders|awaiting shipment(?: \d+)?)$/i.test(value)) || "";
+    const detailLinkCount = [...document.querySelectorAll("a[href]")]
+      .filter((anchor) => /\/(?:sh|mesh)\/ord\/details/i.test(String(anchor.href || anchor.getAttribute("href") || "")))
+      .length;
+    return EBAY_PROFIT.classifyOrdersIndexPage({
+      heading,
+      selectedStatus,
+      detailLinkCount,
+      bodyText: String(document.body?.innerText || document.body?.textContent || "")
+    });
+  }
+
+  function ebayProfitExactControl(text) {
+    const target = U.normalizeText(text);
+    return [...document.querySelectorAll('a[href], button, [role="button"], [role="menuitem"], [role="option"]')]
+      .filter((element) => U.isVisible(element))
+      .filter((element) => !element.disabled && element.getAttribute("aria-disabled") !== "true")
+      .filter((element) => !element.closest?.("[id^='gldn-'], .gldn-modal-backdrop"))
+      .find((element) => U.normalizeText(element.innerText || element.textContent || "") === target) || null;
+  }
+
+  function ebayProfitPeriodControl() {
+    return [...document.querySelectorAll('button, [role="button"], select')]
+      .filter((element) => U.isVisible(element))
+      .filter((element) => !element.disabled && element.getAttribute("aria-disabled") !== "true")
+      .filter((element) => !element.closest?.("[id^='gldn-'], .gldn-modal-backdrop"))
+      .find((element) => {
+        const value = element instanceof HTMLSelectElement
+          ? `${element.getAttribute("aria-label") || ""} ${element.options[element.selectedIndex]?.text || ""}`
+          : `${element.getAttribute("aria-label") || ""} ${element.innerText || element.textContent || ""}`;
+        const normalized = U.normalizeText(value);
+        return normalized === "period" || normalized.startsWith("period ");
+      }) || null;
+  }
+
+  function rerunEbayMonthlyProfitWorkerSoon() {
+    setTimeout(() => {
+      ebayMonthlyProfitWorkerRunning = false;
+      runEbayMonthlyProfitWorker().catch(() => {});
+    }, 2500);
+  }
+
+  async function prepareEbayMonthlyProfitOrdersPage() {
+    const initial = await U.waitFor(() => {
+      const state = ebayProfitOrdersPageState();
+      return state.heading || state.detailLinkCount || state.explicitEmpty || state.interrupted ? state : null;
+    }, 30000, 200);
+    if (!initial) throw new Error("The eBay Orders page did not expose its view or any order rows within 30 seconds.");
+    if (initial.interrupted) throw new Error(initial.reason);
+    if (!initial.allOrders) {
+      const allOrders = await U.waitFor(() => ebayProfitExactControl("All orders"), 10000, 200);
+      if (!allOrders) throw new Error(`${initial.reason} The All orders control was not available.`);
+      dispatchFullClick(allOrders);
+      rerunEbayMonthlyProfitWorkerSoon();
+      return null;
+    }
+
+    const period = await U.waitFor(() => ebayProfitPeriodControl(), 10000, 200);
+    if (!period) throw new Error("The eBay All orders period control was not available.");
+    const currentPeriod = period instanceof HTMLSelectElement
+      ? U.normalizeText(period.options[period.selectedIndex]?.text || "")
+      : U.normalizeText(`${period.getAttribute("aria-label") || ""} ${period.innerText || period.textContent || ""}`);
+    if (!currentPeriod.includes("last 90 days")) {
+      if (period instanceof HTMLSelectElement) {
+        const option = [...period.options].find((item) => U.normalizeText(item.text) === "last 90 days");
+        if (!option) throw new Error("The eBay period menu did not offer Last 90 days.");
+        U.setNativeValue(period, option.value);
+      } else {
+        dispatchFullClick(period);
+        const last90 = await U.waitFor(() => ebayProfitExactControl("Last 90 days"), 8000, 150);
+        if (!last90) throw new Error("The eBay period menu did not open Last 90 days.");
+        dispatchFullClick(last90);
+      }
+      rerunEbayMonthlyProfitWorkerSoon();
+      return null;
+    }
+
+    const ready = await U.waitFor(() => {
+      const state = ebayProfitOrdersPageState();
+      return state.interrupted || state.ready ? state : null;
+    }, 30000, 250);
+    if (!ready) throw new Error("The eBay All orders page did not render order rows or an explicit empty result within 30 seconds.");
+    if (ready.interrupted) throw new Error(ready.reason);
+    return ready;
+  }
+
+  function extractEbayMonthlyProfitOrdersPage(monthKey, pageState = ebayProfitOrdersPageState()) {
+    const links = [...document.querySelectorAll("a[href]")]
+      .filter((anchor) => /\/(?:sh|mesh)\/ord\/details/i.test(String(anchor.href || anchor.getAttribute("href") || "")));
+    const records = new Map();
+    links.forEach((anchor) => {
+      const pageUrl = String(anchor.href || anchor.getAttribute("href") || "");
+      const container = ebayProfitOrderContainer(anchor);
+      const body = String(container?.innerText || container?.textContent || "").replace(/\s+/g, " ").trim();
+      const orderNumber = ebayProfitOrderNumberFromValue(`${pageUrl} ${body}`);
+      const orderDate = ebayProfitDateFromText(body);
+      if (!orderNumber || !orderDate) return;
+      records.set(orderNumber, {
+        orderNumber,
+        orderDate,
+        itemTitle: ebayProfitOrderTitle(container, orderNumber),
+        pageUrl: new URL(pageUrl, location.origin).href
+      });
+    });
+    const next = ebayProfitNextPageControl();
+    return {
+      monthKey,
+      records: [...records.values()],
+      hasNext: Boolean(next),
+      nextUrl: next instanceof HTMLAnchorElement && next.href ? next.href : "",
+      scope: pageState,
+      readyEvidence: pageState.explicitEmpty ? "explicit-empty" : "order-detail-links"
+    };
+  }
+
+  function extractEbayMonthlyProfitOrderDate() {
+    const text = String(document.body?.innerText || "");
+    const labeled = text.match(/\b(?:Sold|Date sold|Order date|Buyer paid)\s*:?\s*((?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+\d{1,2}(?:,?\s+\d{4})?)/i);
+    return labeled?.[1] || ebayProfitDateFromText(text);
+  }
+
+  function extractEbayMonthlyProfitOrderStatus() {
+    const text = String(document.body?.innerText || "").replace(/\s+/g, " ");
+    const patterns = [
+      /\b(Delivered(?: on [A-Za-z]+ \d{1,2})?)\b/i,
+      /\b(Shipped(?: on [A-Za-z]+ \d{1,2})?)\b/i,
+      /\b(Awaiting shipment)\b/i,
+      /\b(Cancelled|Canceled|Refunded)\b/i
+    ];
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match) return match[1];
+    }
+    return "";
+  }
+
+  function extractEbayMonthlyProfitDetail() {
+    const skus = extractEbaySkuValues();
+    return {
+      orderNumber: extractEbayOrderNumber(),
+      orderDate: extractEbayMonthlyProfitOrderDate(),
+      marketplaceEarnings: extractEbayEarnings(),
+      note: extractExistingNote(),
+      itemTitle: firstUsefulEbayTitle(),
+      skus,
+      asins: [...new Set(skus.map(decodeSkuToAsin).filter(Boolean))],
+      orderStatus: extractEbayMonthlyProfitOrderStatus(),
+      pageUrl: location.href,
+      capturedAt: new Date().toISOString()
+    };
+  }
+
+  async function runEbayMonthlyProfitWorker() {
+    if (ebayMonthlyProfitWorkerRunning || !EBAY_PROFIT) return;
+    ebayMonthlyProfitWorkerRunning = true;
+    try {
+      const status = await runtimeMessage({ type: "getEbayMonthlyProfit" });
+      const state = status?.state;
+      if (!status?.ok || !state?.active) return;
+      if (state.phase === "index-orders" && /\/sh\/ord\/?(?:[?#]|$)/i.test(location.href)) {
+        const pageState = await prepareEbayMonthlyProfitOrdersPage();
+        if (!pageState) return;
+        const payload = extractEbayMonthlyProfitOrdersPage(state.monthKey, pageState);
+        const response = await runtimeMessage({ type: "ebayMonthlyProfitOrdersPage", payload }, 45000);
+        if (response?.instruction === "next-page") {
+          const next = ebayProfitNextPageControl();
+          if (!next) throw new Error("The eBay Orders next-page control disappeared before it could be used.");
+          dispatchFullClick(next);
+          setTimeout(() => {
+            ebayMonthlyProfitWorkerRunning = false;
+            runEbayMonthlyProfitWorker().catch(() => {});
+          }, 2500);
+          return;
+        }
+      } else if (state.phase === "capture-details" && isEbayOrderDetailsPage()) {
+        await U.waitFor(() => extractEbayOrderNumber() && (extractEbayEarnings() !== null || extractExistingNote()), 20000);
+        await runtimeMessage({ type: "ebayMonthlyProfitOrderDetail", detail: extractEbayMonthlyProfitDetail() }, 45000);
+      }
+    } catch (error) {
+      if (!invalidContextError(error)) {
+        U.recordExtensionLog({ source: "ebay-profit", operation: "monthly-worker", level: "error", message: error?.message || String(error) });
+        await runtimeMessage({
+          type: "ebayMonthlyProfitWorkerError",
+          error: { message: error?.message || String(error), url: location.href, phase: "index-orders" }
+        }, 45000).catch(() => {});
+      }
+    } finally {
+      ebayMonthlyProfitWorkerRunning = false;
+    }
+  }
+
   function buildEtaText(etas) {
     const unique = [...new Set((etas || []).filter(Boolean))];
     if (unique.length <= 1) return unique[0] || "";
@@ -1141,14 +1595,83 @@
     };
   }
 
-  async function readAmazonClipboard() {
-    const text = await navigator.clipboard.readText();
-    if (!text.startsWith(U.PAYLOAD_PREFIX)) {
-      throw new Error("Clipboard does not contain Amazon order information. Click Copy Amazon Info in the Amazon profile first.");
+  async function readAmazonClipboard(order = {}) {
+    const candidates = [];
+    const addCandidate = (value, source) => {
+      if (!value || value.source !== "amazon") return;
+      const fingerprint = JSON.stringify(value);
+      if (candidates.some((candidate) => candidate.fingerprint === fingerprint)) return;
+      candidates.push({ payload: value, source, fingerprint });
+    };
+
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text.startsWith(U.PAYLOAD_PREFIX)) {
+        addCandidate(JSON.parse(text.slice(U.PAYLOAD_PREFIX.length)), "clipboard");
+      }
+    } catch (error) {
+      U.recordExtensionLog?.({
+        source: "ebay-order-note",
+        operation: "clipboard-read",
+        level: "warning",
+        message: "Chrome blocked the optional Amazon clipboard read. GLDN Ops checked its saved reviewed handoff instead.",
+        detail: error?.message || String(error)
+      });
     }
-    const payload = JSON.parse(text.slice(U.PAYLOAD_PREFIX.length));
-    if (!payload || payload.source !== "amazon") throw new Error("Amazon clipboard data is invalid.");
-    return payload;
+
+    const stored = await storageGet(["lastCopiedAmazonPayload"]);
+    addCandidate(stored.lastCopiedAmazonPayload, "saved-review");
+    if (!candidates.length) {
+      throw new Error("No reviewed Amazon order information is ready. Open the exact Amazon order details, click Review & Copy Amazon Info, then return here.");
+    }
+
+    const requiredAsins = [...new Set((order.asins || []).map((value) => String(value || "").trim().toUpperCase()).filter(Boolean))];
+    const exactAsinMatch = ({ payload }) => {
+      const payloadAsins = [...new Set((payload.asins || []).map((value) => String(value || "").trim().toUpperCase()).filter(Boolean))];
+      return requiredAsins.length > 0
+        && payloadAsins.length === requiredAsins.length
+        && requiredAsins.every((asin) => payloadAsins.includes(asin));
+    };
+    candidates.sort((left, right) => {
+      const matchDelta = Number(exactAsinMatch(right)) - Number(exactAsinMatch(left));
+      if (matchDelta) return matchDelta;
+      return new Date(right.payload.capturedAt || 0).getTime() - new Date(left.payload.capturedAt || 0).getTime();
+    });
+    return candidates[0].payload;
+  }
+
+  function showOrderNoteFailure(message, order = {}) {
+    document.getElementById("gldn-note-error")?.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "gldn-note-error";
+    overlay.className = "gldn-modal-backdrop";
+    const firstAsin = String(order.asins?.[0] || "").trim();
+    overlay.innerHTML = `
+      <div class="gldn-modal">
+        <button type="button" class="gldn-close" aria-label="Close">×</button>
+        <h2>Prepare Order Note stopped</h2>
+        <p class="gldn-modal-message"></p>
+        <div class="gldn-actions">
+          <button type="button" class="gldn-secondary" data-action="close">Close</button>
+          ${firstAsin ? '<button type="button" class="gldn-primary" data-action="open-amazon">Open Amazon Orders</button>' : ""}
+        </div>
+        <div class="gldn-modal-status"></div>
+      </div>
+    `;
+    overlay.querySelector(".gldn-modal-message").textContent = String(message || "Prepare Order Note could not continue.");
+    document.documentElement.appendChild(overlay);
+    U.makePanelDraggable(overlay.querySelector(".gldn-modal"), "gldnEbayNoteErrorModalPosition");
+    const close = () => overlay.remove();
+    overlay.querySelector(".gldn-close").addEventListener("click", close);
+    overlay.querySelector("[data-action='close']").addEventListener("click", close);
+    overlay.querySelector("[data-action='open-amazon']")?.addEventListener("click", async () => {
+      const status = overlay.querySelector(".gldn-modal-status");
+      status.textContent = "Opening signed-in Amazon Orders...";
+      const response = await runtimeMessage({ type: "openAmazonOrderSearch", asin: firstAsin });
+      status.textContent = response?.ok
+        ? `Amazon Orders opened for eBay SKU ASIN ${firstAsin}. Open the exact order and click Review & Copy Amazon Info.`
+        : response?.error || "Amazon Orders could not open.";
+    });
   }
 
   function showPreview({ payload, earnings, match, order, supplierAudit }) {
@@ -1333,22 +1856,39 @@
   }
 
   async function prepareNote() {
+    let order = null;
+    const button = panel?.querySelector("[data-action='prepare']");
+    if (button) button.disabled = true;
     try {
-      renderStatus("Reading Amazon clipboard…");
-      const payload = await readAmazonClipboard();
+      order = extractEbayOrderIdentity();
+      if (!order.orderNumber) throw new Error("I could not verify the eBay order number on this Order Details page.");
+      if (!order.skus.length || !order.asins.length) throw new Error("I could not decode an exact Amazon ASIN from this order's Custom label (SKU).");
+      renderStatus("Reading reviewed Amazon order information...");
+      const payload = await readAmazonClipboard(order);
       const earnings = extractEbayEarnings();
       if (earnings === null) throw new Error("I could not find Order earnings. Make sure the eBay Order Details page is open and the What you earned section is visible.");
       if (payload.total === null || payload.total === undefined) throw new Error("Amazon order total is missing.");
       if (!AUDIT?.validateAmazonPayloadForEbayOrder) throw new Error("The exact supplier-order validator is unavailable. Reload GLDN Ops.");
-      const order = extractEbayOrderIdentity();
       const audit = AUDIT.validateAmazonPayloadForEbayOrder(payload, order, { now: Date.now() });
       if (!audit.ok) throw new Error(audit.error);
       const match = calculateMatch(payload);
       showPreview({ payload, earnings, match, order, supplierAudit: audit.supplierAudit });
       renderStatus("Preview ready", "ready");
+      return { ok: true, orderNumber: order.orderNumber, asins: order.asins };
     } catch (error) {
-      renderStatus(error.message, "error");
-      alert(error.message);
+      const message = error?.message || String(error);
+      renderStatus(message, "error");
+      showOrderNoteFailure(message, order || {});
+      U.recordExtensionLog?.({
+        source: "ebay-order-note",
+        operation: "prepare",
+        level: "error",
+        message,
+        detail: location.href
+      });
+      throw error;
+    } finally {
+      if (button) button.disabled = false;
     }
   }
 
@@ -1661,7 +2201,7 @@
         <h2>Review Seller Level</h2>
         <p class="gldn-help-text">The values below come only from eBay's Seller level box. Correct anything before saving.</p>
         <div class="gldn-health-grid gldn-identity-grid">
-          ${selectField("Computer", "gldn-health-computer", initialIdentity.computerLabel, COMPUTER_OPTIONS)}
+          ${selectField("Computer", "gldn-health-computer", initialIdentity.computerLabel, COMPUTER_SELECT_OPTIONS)}
           ${derivedAccountField("eBay account", "gldn-health-ebay-account", initialIdentity)}
         </div>
         <div class="gldn-health-grid">
@@ -1756,7 +2296,7 @@
     const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel"]);
     const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
     if (!identity.computerLabel || !identity.ebayAccountLabel) {
-      alert("This computer is Poshmark-only or is not configured. Seller Level checks require an eBay computer.");
+      renderStatus("This computer is Poshmark-only or is not configured. Seller Level checks require an eBay computer.", "error");
       await storageSet({ pendingSellerLevelScan: false });
       return;
     }
@@ -1776,8 +2316,7 @@
 
     await storageSet({ pendingSellerLevelScan: false });
     if (!metrics) {
-      renderStatus("Seller Level could not be read.", "error");
-      alert("I could not read the Seller Level metrics after opening the Performance page. Refresh the page and try again.");
+      renderStatus("Seller Level could not be read after opening Performance. Refresh the page and try again.", "error");
       return;
     }
 
@@ -1880,20 +2419,70 @@
     return saved;
   }
 
-  function findMarkShippedDialog() {
+  function isMarkShippedDialogText(value) {
+    const text = String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+    const mentionsMarkingShipped = /\bmark(?:ing)?\b.*\bshipped\b|\bshipped\b.*\bmark(?:ing)?\b/.test(text);
+    const requestsConfirmation = text.includes("are you sure")
+      || text.includes("continue")
+      || text.includes("confirm")
+      || text.includes("mark selected orders");
+    return mentionsMarkingShipped && requestsConfirmation;
+  }
+
+  function markShippedElementDisplayed(element) {
+    if (!element) return false;
+    const style = getComputedStyle(element);
+    return style.visibility !== "hidden" && style.display !== "none";
+  }
+
+  function findMarkShippedFinalAction(dialog, options = {}) {
+    if (!dialog) return null;
+    const requireLayout = options.requireLayout !== false;
+    const allowed = new Set(["continue", "confirm", "mark as shipped", "mark orders as shipped"]);
+    return [...dialog.querySelectorAll('button, [role="button"]')].find((element) => {
+      if (requireLayout ? !U.isVisible(element) : !markShippedElementDisplayed(element)) return false;
+      const label = U.normalizeText(
+        element.getAttribute("aria-label")
+        || element.innerText
+        || element.textContent
+        || element.title
+        || ""
+      );
+      return allowed.has(label);
+    }) || null;
+  }
+
+  function findMarkShippedMenuAction() {
+    const selector = 'button, a, [role="menuitem"], [role="button"], [tabindex]:not([tabindex="-1"])';
+    return [...document.querySelectorAll(selector)].find((element) => {
+      if (!U.isVisible(element)) return false;
+      if (element.closest('[id^="gldn-"], .gldn-order-panel, .gldn-modal-backdrop')) return false;
+      return U.normalizeText(element.innerText || element.textContent || "") === "mark as shipped";
+    }) || null;
+  }
+
+  function findMarkShippedDialog(options = {}) {
+    const requireLayout = options.requireLayout !== false;
     const candidates = [...document.querySelectorAll('[role="dialog"], .lightbox-dialog, .dialog, [aria-modal="true"], section, div')]
-      .filter((element) => U.isVisible(element))
+      .filter((element) => (requireLayout ? U.isVisible(element) : markShippedElementDisplayed(element)))
       .map((element) => ({
         element,
         text: U.normalizeText(element.innerText || element.textContent || ""),
         rect: element.getBoundingClientRect()
       }))
       .filter(({ text, rect }) => {
-        if (!text.includes("mark as shipped") || (!text.includes("continue") && !text.includes("are you sure"))) return false;
-        if (rect.width < 240 || rect.height < 120 || rect.width > 1000 || rect.height > 850) return false;
+        if (!isMarkShippedDialogText(text)) return false;
+        if (requireLayout) {
+          if (rect.width < 240 || rect.height < 120 || rect.width > 1000 || rect.height > 850) return false;
+        } else if (text.length > 600) {
+          return false;
+        }
         return true;
       })
-      .sort((a, b) => (a.rect.width * a.rect.height) - (b.rect.width * b.rect.height));
+      .sort((a, b) => {
+        if (!requireLayout && a.text.length !== b.text.length) return a.text.length - b.text.length;
+        return (a.rect.width * a.rect.height) - (b.rect.width * b.rect.height);
+      });
     return candidates[0]?.element || null;
   }
 
@@ -1918,7 +2507,7 @@
       const dialog = [...document.querySelectorAll('[role="dialog"], .lightbox-dialog, .dialog, [aria-modal="true"], section, div')]
         .filter(U.isVisible)
         .map((element) => ({ element, text: U.normalizeText(element.innerText || element.textContent || ""), rect: element.getBoundingClientRect() }))
-        .filter(({ text, rect }) => text.includes("mark as shipped") && text.includes("are you sure") && rect.width >= 240 && rect.height >= 120)
+        .filter(({ text, rect }) => isMarkShippedDialogText(text) && rect.width >= 240 && rect.height >= 120)
         .sort((a, b) => (a.rect.width * a.rect.height) - (b.rect.width * b.rect.height))[0]?.element;
       if (!dialog) return false;
       const cancel = [...dialog.querySelectorAll('button, [role="button"]')].find((element) => {
@@ -1970,7 +2559,7 @@
     }, 8000, 200);
     if (!shippingButton) throw new Error("I selected the orders but could not find the enabled Shipping button.");
     shippingButton.click();
-    const menuItem = await U.waitFor(() => findExactVisible("Mark as shipped"), 5000, 120);
+    const menuItem = await U.waitFor(findMarkShippedMenuAction, 5000, 120);
     if (!menuItem) throw new Error("I selected the orders, but eBay did not open the Mark as shipped menu item.");
     return {
       selected: selectedStatus.count,
@@ -1992,23 +2581,56 @@
     const selection = checkbox && currentMarkShippedSelectionEvidence(checkbox, currentCount);
     const validation = validateMarkShippedConfirmation(currentCount, selection?.count ?? null);
     if (!validation.ok) throw new Error("The approved order selection is no longer intact. Reset and review the orders again.");
-    let label = findExactVisible("Mark as shipped");
+    let label = findMarkShippedMenuAction();
     if (!label) {
       const shippingButton = findExactVisible("Shipping", 'button, [role="button"]');
       if (!shippingButton || shippingButton.disabled || shippingButton.getAttribute("aria-disabled") === "true") {
         throw new Error("The Shipping menu is no longer available. Reset and review the orders again.");
       }
       dispatchFullClick(shippingButton);
-      label = await U.waitFor(() => findExactVisible("Mark as shipped"), 4000, 120);
+      label = await U.waitFor(findMarkShippedMenuAction, 4000, 120);
     }
     if (!label) throw new Error("The Mark as shipped menu item is no longer available. Reset and review the orders again.");
     return label;
   }
 
-  async function activateApprovedMarkShipped(state) {
-    const label = await ensureMarkShippedMenuForApproval(state);
-    const target = label.closest('button, a, li, [role="menuitem"], [role="button"], [tabindex]') || label;
-    target.scrollIntoView?.({ block: "center", inline: "center" });
+  function markShippedActivationTargets(label) {
+    const selector = 'button, a, li, [role="menuitem"], [role="button"], [tabindex]';
+    const actionTarget = label.closest(selector) || label;
+    actionTarget.scrollIntoView?.({ block: "center", inline: "center" });
+    const rect = label.getBoundingClientRect();
+    const hit = document.elementFromPoint(
+      Math.max(1, Math.min(window.innerWidth - 1, rect.left + rect.width / 2)),
+      Math.max(1, Math.min(window.innerHeight - 1, rect.top + rect.height / 2))
+    );
+    const hitTarget = hit?.closest?.(selector) || hit;
+    const hitBelongsToAction = Boolean(
+      hitTarget
+      && (hitTarget === actionTarget || actionTarget.contains(hitTarget) || hitTarget.contains(actionTarget))
+    );
+    return [hitBelongsToAction ? hitTarget : null, actionTarget, label]
+      .filter(Boolean)
+      .filter((element, index, list) => list.indexOf(element) === index)
+      .slice(0, 2);
+  }
+
+  function waitForMarkShippedActivationOutcome(state, timeout = 10000) {
+    return U.waitFor(() => {
+      const dialog = findMarkShippedDialog({ requireLayout: false });
+      if (dialog) return { dialog };
+      const count = parseAwaitingResultsCount();
+      if (count !== null && count < Number(state.beforeCount)) {
+        return { markedWithoutDialog: Number(state.beforeCount) - count, remaining: count };
+      }
+      return null;
+    }, timeout, 150);
+  }
+
+  async function activateApprovedMarkShipped(state, approvedLabel = null) {
+    let label = approvedLabel;
+    if (!label || !document.documentElement.contains(label) || !U.isVisible(label)) {
+      label = await ensureMarkShippedMenuForApproval(state);
+    }
     await storageSet({
       pendingMarkShippedRun: {
         ...state,
@@ -2016,16 +2638,20 @@
         activationApprovedAt: new Date().toISOString()
       }
     });
-    dispatchFullClick(target, label);
-    return U.waitFor(() => {
-      const dialog = findMarkShippedDialog();
-      if (dialog) return { dialog };
-      const count = parseAwaitingResultsCount();
-      if (count !== null && count < Number(state.beforeCount)) {
-        return { markedWithoutDialog: Number(state.beforeCount) - count, remaining: count };
-      }
-      return null;
-    }, 10000, 150);
+
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    const dispatched = await runtimeMessage({
+      type: "dispatchTrustedEbayMarkShippedActivation",
+      selectedCount: Number(state.selectedCount || 0),
+      beforeCount: Number(state.beforeCount || 0)
+    }, 15000);
+    if (!dispatched?.ok || dispatched.dispatched !== true) {
+      throw new Error(dispatched?.error || "The trusted eBay Mark as shipped activation failed.");
+    }
+    const outcome = await waitForMarkShippedActivationOutcome(state, 12000);
+    if (outcome) return outcome;
+    if (!findMarkShippedMenuAction()) return waitForMarkShippedActivationOutcome(state, 8000);
+    return null;
   }
 
   async function cancelMarkShippedActivationApproval() {
@@ -2049,6 +2675,50 @@
       return;
     }
     renderStatus("Mark as Shipped was approved, but its result is not yet provable. Review eBay, then use Reset only after confirming the order state.", "error");
+  }
+
+  async function recoverPendingMarkShippedFinalApproval(state) {
+    if (!state?.active || !["activating-approved-action", "manual-review-required"].includes(state.phase)) return null;
+    if (!state.activationApprovedAt
+        || state.finalActionApprovedAt
+        || state.finalActionApprovalToken
+        || state.trustedFinalActionDispatchAt
+        || state.trustedFinalActionReleasedAt) return null;
+
+    const beforeCount = Number(state.beforeCount || 0);
+    const selectedCount = Number(state.selectedCount || 0);
+    if (beforeCount <= 0 || selectedCount !== beforeCount) return null;
+    const currentCount = parseAwaitingResultsCount();
+    if (currentCount === null || currentCount !== beforeCount) return null;
+
+    const dialog = findMarkShippedDialog({ requireLayout: false });
+    if (!dialog) return null;
+    const dialogText = dialog.innerText || dialog.textContent || "";
+    const confirmationSelection = resolveMarkShippedConfirmationCount(
+      parseMarkShippedSelectedCount(dialogText),
+      selectedCount,
+      beforeCount
+    );
+    const validation = validateMarkShippedConfirmation(beforeCount, confirmationSelection?.count ?? null);
+    if (!validation.ok) return null;
+    const finalAction = findMarkShippedFinalAction(dialog, { requireLayout: false });
+    if (!finalAction) return null;
+
+    const recovered = {
+      ...state,
+      phase: "awaiting-approval",
+      selectedCount: confirmationSelection.count,
+      confirmationCountSource: confirmationSelection.source || "",
+      confirmationActionLabel: U.normalizeText(finalAction.innerText || finalAction.textContent || ""),
+      confirmationText: U.normalizeText(dialogText),
+      confirmationOpenedAt: state.confirmationOpenedAt || new Date().toISOString(),
+      confirmationRecoveredAt: new Date().toISOString(),
+      error: "",
+      updatedAt: new Date().toISOString()
+    };
+    await storageSet({ pendingMarkShippedRun: recovered });
+    renderStatus(`Second approval required - ${selectedCount.toLocaleString()} orders selected. Do not click eBay's final confirmation button without approval.`, "error");
+    return recovered;
   }
 
   function showMarkShippedActivationApproval(state) {
@@ -2078,8 +2748,11 @@
     overlay.querySelector('[data-action="approve"]').addEventListener("click", async (event) => {
       const button = event.currentTarget;
       const cancelButton = overlay.querySelector('[data-action="cancel"]');
+      if (overlay.dataset.activationBusy === "true") return;
+      overlay.dataset.activationBusy = "true";
       button.disabled = true;
       cancelButton.disabled = true;
+      overlay.setAttribute("aria-busy", "true");
       status.textContent = "Applying your approval to eBay...";
       try {
         const stored = await storageGet(["pendingMarkShippedRun"]);
@@ -2087,7 +2760,9 @@
         if (!current?.active || current.phase !== "awaiting-activation-approval") {
           throw new Error("This approval is stale. Reset and review the orders again.");
         }
-        const activation = await activateApprovedMarkShipped(current);
+        const approvedLabel = await ensureMarkShippedMenuForApproval(current);
+        overlay.style.display = "none";
+        const activation = await activateApprovedMarkShipped(current, approvedLabel);
         if (!activation) throw new Error("eBay did not show a confirmation or report a changed order count. Reset and review before retrying.");
         overlay.remove();
         if (activation.markedWithoutDialog) {
@@ -2108,10 +2783,8 @@
         );
         const selected = confirmationSelection?.count ?? null;
         const validation = validateMarkShippedConfirmation(current.beforeCount, selected);
-        const continueButton = [...dialog.querySelectorAll('button, [role="button"]')].find((element) => {
-          return U.isVisible(element) && U.normalizeText(element.innerText || element.textContent || "") === "continue";
-        });
-        if (!continueButton) throw new Error("The confirmation opened, but the Continue button was not found.");
+        const continueButton = findMarkShippedFinalAction(dialog, { requireLayout: false });
+        if (!continueButton) throw new Error("The confirmation opened, but eBay's final confirmation button was not found.");
         if (!validation.ok) {
           await dismissAnyMarkShippedConfirmation();
           throw new Error(validation.error);
@@ -2121,16 +2794,21 @@
           phase: "awaiting-approval",
           selectedCount: selected,
           confirmationCountSource: confirmationSelection?.source || "",
+          confirmationActionLabel: U.normalizeText(continueButton.innerText || continueButton.textContent || ""),
           confirmationText: U.normalizeText(dialogText),
           confirmationOpenedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
         await storageSet({ pendingMarkShippedRun: approvalState });
-        renderStatus(`Second approval required - ${selected.toLocaleString()} orders selected. Do not click Continue without approval.`, "error");
+        renderStatus(`Second approval required - ${selected.toLocaleString()} orders selected. Do not click eBay's final confirmation button without approval.`, "error");
         monitorPendingMarkShippedApproval();
       } catch (error) {
         const stored = await storageGet(["pendingMarkShippedRun"]).catch(() => ({}));
         const actionMayHaveRun = stored.pendingMarkShippedRun?.phase === "activating-approved-action";
+        if (overlay.isConnected) {
+          overlay.style.display = "flex";
+          overlay.removeAttribute("aria-busy");
+        }
         if (actionMayHaveRun) {
           await storageSet({
             pendingMarkShippedRun: {
@@ -2140,8 +2818,9 @@
               updatedAt: new Date().toISOString()
             }
           });
-          status.textContent = `${error.message || String(error)} Review eBay before using Reset.`;
+          if (overlay.isConnected) status.textContent = `${error.message || String(error)} Review eBay before using Reset.`;
         } else {
+          delete overlay.dataset.activationBusy;
           button.disabled = false;
           cancelButton.disabled = false;
           status.textContent = error.message || String(error);
@@ -2175,7 +2854,6 @@
     await dismissAnyMarkShippedConfirmation();
     if (!exact) {
       renderStatus(`Mark as Shipped needs review: ${marked} of ${state.selectedCount} confirmed`, "error");
-      alert(`Mark as Shipped needs review.\n\nExpected ${state.selectedCount} orders, but eBay confirmed ${marked}.`);
       return record;
     }
     const syncLabel = record.sync?.ok ? " and synced" : record.sync?.queued ? "; dashboard sync queued" : "; dashboard sync failed";
@@ -2189,7 +2867,7 @@
     try {
       const stored = await storageGet(["pendingMarkShippedRun"]);
       const state = stored.pendingMarkShippedRun;
-      if (!state?.active || state.phase !== "awaiting-approval") return;
+      if (!state?.active || !["awaiting-approval", "awaiting-result"].includes(state.phase)) return;
 
       const remaining = parseAwaitingResultsCount();
       const evidence = markShippedCompletionEvidence(
@@ -2204,10 +2882,28 @@
       }
 
       const dialog = findMarkShippedDialog();
-      if (dialog) {
-        renderStatus(`Approval required - ${Number(state.selectedCount || 0).toLocaleString()} orders selected. Do not click Continue without approval.`, "error");
-      } else {
+      if (state.phase === "awaiting-approval" && dialog) {
+        renderStatus(`Approval required - ${Number(state.selectedCount || 0).toLocaleString()} orders selected. Do not click eBay's final confirmation button without approval.`, "error");
+      } else if (state.phase === "awaiting-approval") {
         renderStatus("Waiting for eBay confirmation/result. Use Reset if the confirmation was canceled.", "ready");
+      } else {
+        const clickedAt = Date.parse(state.finalActionClickedAt || "");
+        const elapsed = Number.isFinite(clickedAt) ? Date.now() - clickedAt : 0;
+        if (elapsed >= 20000) {
+          await storageSet({
+            pendingMarkShippedRun: {
+              ...state,
+              phase: "manual-review-required",
+              error: dialog
+                ? "eBay kept its final confirmation open after the approved click."
+                : "eBay did not expose exact completion evidence after the approved click.",
+              updatedAt: new Date().toISOString()
+            }
+          });
+          renderStatus("Mark as Shipped needs manual review. No second click was attempted.", "error");
+          return;
+        }
+        renderStatus("Approved once - waiting for eBay's exact result...", "ready");
       }
       setTimeout(monitorPendingMarkShippedApproval, 750);
     } finally {
@@ -2233,7 +2929,7 @@
         showMarkShippedActivationApproval(state);
         return;
       }
-      if (state.phase === "awaiting-approval") {
+      if (["awaiting-approval", "awaiting-result"].includes(state.phase)) {
         monitorPendingMarkShippedApproval();
         return;
       }
@@ -2262,6 +2958,10 @@
         return;
       }
 
+      const tabInfo = await runtimeMessage({ type: "currentTabInfo" });
+      if (!tabInfo?.ok || !Number.isInteger(tabInfo.tabId)) {
+        throw new Error("The exact eBay tab could not be identified before approval.");
+      }
       const approvalState = {
         ...state,
         active: true,
@@ -2270,6 +2970,7 @@
         selectedCount: result.selected,
         selectionSource: result.selectionSource,
         menuOpenedAt: result.menuOpenedAt,
+        ownerTabId: tabInfo.tabId,
         updatedAt: new Date().toISOString()
       };
       await storageSet({ pendingMarkShippedRun: approvalState });
@@ -2285,7 +2986,6 @@
         pageUrl: location.href
       });
       renderStatus(`Mark as Shipped failed: ${error.message}`, "error");
-      alert(`Mark as Shipped stopped safely.\n\n${error.message}`);
     } finally {
       markShippedRunning = false;
     }
@@ -2297,7 +2997,7 @@
       const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel"]);
       const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
       if (!identity.computerLabel || !identity.ebayAccountLabel) {
-        alert("This computer is Poshmark-only or is not configured. Mark as Shipped requires an eBay computer.");
+        renderStatus("This computer is Poshmark-only or is not configured. Mark as Shipped requires an eBay computer.", "error");
         return;
       }
       reservationToken = await U.claimWorkflowStart("mark-shipped", "Mark as Shipped");
@@ -2664,7 +3364,7 @@
     const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel"]);
     const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
     if (!identity.computerLabel || !identity.ebayAccountLabel) {
-      alert("This computer is Poshmark-only or is not configured. eBay snapshot requires an eBay computer.");
+      renderStatus("This computer is Poshmark-only or is not configured. eBay snapshot requires an eBay computer.", "error");
       await storageRemove(["pendingEbaySnapshotScan"]);
       return;
     }
@@ -2982,7 +3682,7 @@
         <h2>Confirm Listings Under Limit</h2>
         <p class="gldn-help-text">This separates current inventory, the monthly zero-insertion-fee allowance, and eBay's quantity and dollar selling limits.</p>
         <div class="gldn-health-grid gldn-identity-grid">
-          ${selectField("Computer", "gldn-listings-computer", initialIdentity.computerLabel, COMPUTER_OPTIONS)}
+          ${selectField("Computer", "gldn-listings-computer", initialIdentity.computerLabel, COMPUTER_SELECT_OPTIONS)}
           ${derivedAccountField("eBay account", "gldn-listings-account", initialIdentity)}
         </div>
         <div class="gldn-health-grid">
@@ -3201,7 +3901,7 @@
       pendingReviewMonthlyLimits: storedIdentity.pendingReviewMonthlyLimits
     };
     if (!identity.computerLabel || !identity.ebayAccountLabel) {
-      alert("This computer is Poshmark-only or is not configured. Listing limit checks require an eBay computer.");
+      renderStatus("This computer is Poshmark-only or is not configured. Listing limit checks require an eBay computer.", "error");
       await storageSet({ pendingReviewMonthlyLimits: false });
       return;
     }
@@ -3224,8 +3924,7 @@
       }, 45000, 350);
       if (!summary) {
         await storageSet({ pendingReviewMonthlyLimits: false });
-        renderStatus("Active Listings totals could not be read.", "error");
-        alert("I could not read Results and Qty from Active Listings. Wait for the page to finish loading, then try again.");
+        renderStatus("Active Listings Results and Qty could not be read. Wait for the page to finish loading, then try again.", "error");
         return;
       }
       const next = { ...state, phase: "overview", activeSummary: summary };
@@ -3248,8 +3947,7 @@
     }, 45000, 350);
     if (!loaded) {
       await storageSet({ pendingReviewMonthlyLimits: false });
-      renderStatus("Monthly dollar usage could not be read.", "error");
-      alert("I could not read the current monthly dollar amount. Wait for Seller Hub Overview to finish loading, then try again.");
+      renderStatus("Monthly dollar usage could not be read. Wait for Seller Hub Overview to finish loading, then try again.", "error");
       return;
     }
 
@@ -4318,12 +5016,21 @@
   }
 
   function bulkEditorOmittedNoticeCount() {
-    const candidates = document.querySelectorAll("[role='dialog'], dialog, [role='status'], [role='alert'], [aria-live]");
+    const candidates = [
+      ...document.querySelectorAll("[role='dialog'], dialog, [role='status'], [role='alert'], [aria-live]"),
+      document.body
+    ].filter(Boolean);
     for (const candidate of candidates) {
-      const match = String(candidate.textContent || "").match(
-        /([\d,]+)\s+listings?\s+(?:was|were)\s+not processed\s+(?:due to policy violations|because of (?:a )?failure)/i
-      );
-      if (match) return Number(match[1].replace(/,/g, ""));
+      const text = String(candidate.textContent || "");
+      const patterns = [
+        /([\d,]+)\s+listings?\s+(?:was|were)\s+not processed\s+(?:due to policy violations|because of (?:a )?failure)/i,
+        /listing cannot be revised\.?\s*\(([\d,]+)\)/i,
+        /([\d,]+)\s+listings?\s+(?:could not|cannot|can't)\s+be\s+(?:processed|revised|edited)/i
+      ];
+      for (const pattern of patterns) {
+        const match = text.match(pattern);
+        if (match) return Number(match[1].replace(/,/g, ""));
+      }
     }
     return 0;
   }
@@ -4627,7 +5334,11 @@
   }
 
   function move99BatchFingerprint(record) {
-    const price = Number(String(record?.price ?? "").replace(/[$,\s]/g, ""));
+    // Active Listings shows the lowest price for a variation listing, while
+    // Bulk Edit exposes the full range. Match both views by the first price;
+    // duplicate title/price fingerprints are still rejected by the plan.
+    const primaryPrice = listingPriceParts(record?.price)[0];
+    const price = Number(primaryPrice);
     const title = normalizedMove99BatchTitle(record?.title);
     if (!Number.isFinite(price) || !title) return "";
     return `${Math.round(price * 100)}:${title}`;
@@ -4979,6 +5690,52 @@
     });
   }
 
+  function currentBulkSelectionCount() {
+    const native = nativeBulkSelectionSummary();
+    return Number.isFinite(native?.selected)
+      ? Number(native.selected)
+      : Number(bulkEditorSelectionProgress().selected || 0);
+  }
+
+  async function mutateBulkSelectionChunk(entries, shouldBeChecked, desiredSelectionCount) {
+    const beforeSelected = currentBulkSelectionCount();
+    const remainingDelta = Math.abs(Number(desiredSelectionCount || 0) - beforeSelected);
+    const eligible = (entries || []).filter(({ checkbox }) => (
+      checkbox?.isConnected && controlChecked(checkbox) !== shouldBeChecked
+    ));
+    const chunk = eligible.slice(0, Math.min(MOVE99_SELECTION_MUTATION_BATCH_SIZE, remainingDelta));
+    if (!chunk.length) {
+      return { beforeSelected, afterSelected: beforeSelected, clicked: 0 };
+    }
+
+    let clicked = 0;
+    for (const { checkbox } of chunk) {
+      if (!checkbox?.isConnected || controlChecked(checkbox) === shouldBeChecked) continue;
+      clickElement(checkbox, { preserveScroll: true });
+      clicked += 1;
+      if (clicked % 8 === 0) {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+    }
+
+    const direction = shouldBeChecked ? 1 : -1;
+    const expectedAfter = beforeSelected + (direction * clicked);
+    const observed = clicked
+      ? await U.waitFor(() => {
+          const selected = currentBulkSelectionCount();
+          return selected === expectedAfter ? { selected } : null;
+        }, 3000, 80)
+      : null;
+    const afterSelected = Number(observed?.selected ?? currentBulkSelectionCount());
+    if ((shouldBeChecked && afterSelected > desiredSelectionCount)
+      || (!shouldBeChecked && afterSelected < desiredSelectionCount)) {
+      throw new Error(
+        `Safety stop: eBay moved past the exact ${Number(desiredSelectionCount).toLocaleString()}-listing selection target. No category changes were attempted.`
+      );
+    }
+    return { beforeSelected, afterSelected, clicked };
+  }
+
   async function waitForRawBulkRowProgress(beforeRaw, timeout = 5000, deadline = Infinity, preferredWrapper = null) {
     const started = Date.now();
     while (Date.now() - started < timeout && Date.now() < deadline) {
@@ -5276,7 +6033,10 @@
         throw new Error(`Safety stop: only ${scanState.rowControls.size.toLocaleString()} of ${processedTotal.toLocaleString()} row controls were available after Select all. No category changes were attempted.`);
       }
 
-      const maxExclusionPasses = Math.max(1, excludedSelectionCount + 5);
+      const maxExclusionPasses = Math.max(
+        8,
+        Math.ceil(excludedSelectionCount / MOVE99_SELECTION_MUTATION_BATCH_SIZE) * 4
+      );
       let exclusions = [...scanState.rowControls.values()]
         .filter(({ signature }) => !scanState.selectionCandidates.has(signature));
       if (exclusions.length !== excludedSelectionCount) {
@@ -5297,31 +6057,27 @@
           );
         }
         const pending = exclusions.filter(({ checkbox }) => checkbox?.isConnected && controlChecked(checkbox));
-        const next = pending[0];
-        if (!next) break;
-        const beforeSelected = nativeBulkSelectionSummary()?.selected ?? bulkEditorSelectionProgress().selected;
-        clickElement(next.checkbox, { preserveScroll: true });
-        await settleVirtualRows(900);
-        let afterSelected = nativeBulkSelectionSummary()?.selected ?? bulkEditorSelectionProgress().selected;
-        if (afterSelected >= beforeSelected || controlChecked(next.checkbox)) {
-          await settleVirtualRows(1800);
-          afterSelected = nativeBulkSelectionSummary()?.selected ?? bulkEditorSelectionProgress().selected;
-        }
-        if ((pass + 1) % 5 === 0 || afterSelected === desiredSelectionCount) {
+        if (!pending.length) break;
+        const mutation = await mutateBulkSelectionChunk(pending, false, desiredSelectionCount);
+        const afterSelected = mutation.afterSelected;
+        if ((pass + 1) % 2 === 0 || afterSelected === desiredSelectionCount) {
           renderStatus(
             `All ${scanState.allRows.size.toLocaleString()} rows loaded. Keeping .99 listings: ${afterSelected.toLocaleString()} / ${desiredSelectionCount.toLocaleString()} selected...`,
             "ready"
           );
         }
         if (afterSelected === desiredSelectionCount) break;
-        selectionStagnation = afterSelected === beforeSelected - 1 && !controlChecked(next.checkbox)
+        selectionStagnation = afterSelected < mutation.beforeSelected
           ? 0
           : selectionStagnation + 1;
         if (selectionStagnation >= 3) break;
-        if ((pass + 1) % 5 === 0) await settleVirtualRows(2500);
+        if ((pass + 1) % 4 === 0) await settleVirtualRows(350);
       }
     } else {
-      const maxSelectionPasses = Math.max(1, desiredSelectionCount + 5);
+      const maxSelectionPasses = Math.max(
+        8,
+        Math.ceil(desiredSelectionCount / MOVE99_SELECTION_MUTATION_BATCH_SIZE) * 4
+      );
       for (let pass = 0; pass < maxSelectionPasses && desiredSelectionCount > 0; pass += 1) {
         await ensureTaskCanContinue();
         let candidates = [...scanState.selectionCandidates.values()];
@@ -5330,30 +6086,21 @@
           candidates = [...scanState.selectionCandidates.values()];
         }
         const pending = candidates.filter(({ checkbox }) => checkbox?.isConnected && !controlChecked(checkbox));
-        const next = pending[0];
-        if (!next) break;
-        const beforeSelected = nativeBulkSelectionSummary()?.selected ?? bulkEditorSelectionProgress().selected;
-        clickElement(next.checkbox, { preserveScroll: true });
-        await settleVirtualRows(partialScan ? 250 : 900);
-        let afterSelected = nativeBulkSelectionSummary()?.selected ?? bulkEditorSelectionProgress().selected;
-        if (afterSelected <= beforeSelected || !controlChecked(next.checkbox)) {
-          await settleVirtualRows(partialScan ? 700 : 1800);
-          afterSelected = nativeBulkSelectionSummary()?.selected ?? bulkEditorSelectionProgress().selected;
-        }
-        if ((pass + 1) % 5 === 0 || afterSelected >= desiredSelectionCount) {
+        if (!pending.length) break;
+        const mutation = await mutateBulkSelectionChunk(pending, true, desiredSelectionCount);
+        const afterSelected = mutation.afterSelected;
+        if ((pass + 1) % 2 === 0 || afterSelected >= desiredSelectionCount) {
           renderStatus(
             `All ${scanState.allRows.size.toLocaleString()} rows loaded. Selecting .99 listings: ${afterSelected.toLocaleString()} / ${desiredSelectionCount.toLocaleString()}...`,
             "ready"
           );
         }
         if (afterSelected >= desiredSelectionCount) break;
-        selectionStagnation = afterSelected === beforeSelected + 1 && controlChecked(next.checkbox)
+        selectionStagnation = afterSelected > mutation.beforeSelected
           ? 0
           : selectionStagnation + 1;
         if (selectionStagnation >= 3) break;
-        if ((pass + 1) % (partialScan ? 10 : 5) === 0) {
-          await settleVirtualRows(partialScan ? 900 : 2500);
-        }
+        if ((pass + 1) % 4 === 0) await settleVirtualRows(350);
       }
     }
 
@@ -5500,25 +6247,24 @@
         `Safety stop: only ${scannedRows.toLocaleString()} of ${processed.total.toLocaleString()} Bulk Edit rows were fingerprinted. No category changes were attempted.`
       );
     }
-    if (scanState.unexpectedRows.size) {
-      throw new Error(
-        `Safety stop: ${scanState.unexpectedRows.size.toLocaleString()} Bulk Edit row${scanState.unexpectedRows.size === 1 ? "" : "s"} did not match the verified listing range by title and price. No category changes were attempted.`
-      );
-    }
-
     if (!seenSet.size) {
       throw new Error("Safety stop: the Bulk Edit rows did not contain any verified target fingerprints. No category changes were attempted.");
     }
-    if (unaccountedIds.length && !fullWorkspaceInspected) {
+    if (unaccountedIds.length) {
       throw new Error(
-        `Safety stop: only ${scannedRows.toLocaleString()} of ${processed.total.toLocaleString()} Bulk Edit rows were inspected, leaving ${unaccountedIds.length.toLocaleString()} saved item numbers unverified.`
+        `Safety stop: ${unaccountedIds.length.toLocaleString()} of ${targetIds.length.toLocaleString()} saved target listings were not found by their verified title and price. No category changes were attempted.`
+      );
+    }
+    if (invalidSet.size || missingIds.length || selectedIds.length !== targetIds.length) {
+      throw new Error(
+        `Safety stop: all ${targetIds.length.toLocaleString()} saved targets were required, but ${selectedIds.length.toLocaleString()} were selected and ${invalidSet.size.toLocaleString()} no longer met the price rule. No category changes were attempted.`
       );
     }
 
     const selection = bulkEditorSelectionProgress();
-    if (selection.selected !== selectedIds.length) {
+    if (selection.selected !== targetIds.length) {
       throw new Error(
-        `Safety stop: eBay shows ${selection.selected.toLocaleString()} selected rows, but exactly ${selectedIds.length.toLocaleString()} saved item numbers were selected. No category changes were attempted.`
+        `Safety stop: eBay shows ${selection.selected.toLocaleString()} selected rows, but exactly ${targetIds.length.toLocaleString()} saved item numbers are required. No category changes were attempted.`
       );
     }
     if (selectionFailures.size) {
@@ -5527,7 +6273,7 @@
 
     await recordMove99Trace(
       "Verified Bulk Edit range selected by title/price fingerprint.",
-      `range=${range.rangeStart}-${range.rangeEnd};processed=${processed.total};seen=${scannedRows};targets=${targetIds.length};selected=${selectedIds.length};missing=${missingIds.length};invalid=${invalidSet.size}`
+      `range=${range.rangeStart}-${range.rangeEnd};processed=${processed.total};seen=${scannedRows};targets=${targetIds.length};selected=${selectedIds.length};missing=${missingIds.length};invalid=${invalidSet.size};unmatchedNonTargets=${scanState.unexpectedRows.size}`
     );
     return {
       processedTotal: processed.total,
@@ -5748,6 +6494,64 @@
     });
   }
 
+  function move99ElementDiagnostic(element) {
+    if (!element) return null;
+    const rect = element.getBoundingClientRect?.() || {};
+    return {
+      tag: String(element.tagName || "").toLowerCase(),
+      role: String(element.getAttribute?.("role") || ""),
+      ariaLabel: String(element.getAttribute?.("aria-label") || "").trim().slice(0, 160),
+      name: String(element.getAttribute?.("name") || "").trim().slice(0, 160),
+      text: String(element.innerText || element.textContent || "").replace(/\s+/g, " ").trim().slice(0, 240),
+      disabled: Boolean(element.disabled || element.getAttribute?.("aria-disabled") === "true"),
+      rect: {
+        x: Math.round(Number(rect.x || 0)),
+        y: Math.round(Number(rect.y || 0)),
+        width: Math.round(Number(rect.width || 0)),
+        height: Math.round(Number(rect.height || 0))
+      }
+    };
+  }
+
+  function inspectMove99Dom() {
+    const dialog = findCategoryEditorDialog();
+    const storeHeading = dialog ? findStoreCategoryHeading(dialog) : null;
+    const categoryCandidates = queryAllDeep('button, a, li, [role="button"], [role="menuitem"], [role="option"], h1, h2, h3, [role="heading"]')
+      .filter(U.isVisible)
+      .filter((element) => normalizedElementText(element) === "category")
+      .map(move99ElementDiagnostic)
+      .slice(0, 20);
+    const dialogControls = dialog
+      ? queryAllDeep('button, a, input, [role="button"], [role="radio"], [role="option"], [role="menuitem"]', dialog)
+        .filter(U.isVisible)
+        .map(move99ElementDiagnostic)
+        .slice(0, 60)
+      : [];
+    let dialogDiagnostic = null;
+    if (dialog) {
+      try { dialogDiagnostic = JSON.parse(categoryEditorDiagnostic(dialog)); } catch (_) {}
+    }
+    return {
+      ok: true,
+      url: location.href,
+      title: document.title,
+      readyState: document.readyState,
+      scanMode: MOVE99_SCAN_MODE,
+      sourceCategories: [...MOVE99_SOURCE_CATEGORIES],
+      destinationCategory: MOVE99_DESTINATION_CATEGORY,
+      nativeSelection: nativeBulkSelectionSummary(),
+      submitTotal: parseBulkEditorSubmitTotal(),
+      categoryDialog: {
+        found: Boolean(dialog),
+        storeCategoryReady: Boolean(storeHeading),
+        eligibleCount: dialog ? categoryEditorEligibleCount(dialog) : 0,
+        summary: dialogDiagnostic,
+        controls: dialogControls
+      },
+      categoryCandidates
+    };
+  }
+
   async function recordMove99Diagnostic(message, dialog = null) {
     const detail = categoryEditorDiagnostic(dialog);
     try {
@@ -5802,10 +6606,57 @@
     }
     if (dialog) {
       await recordMove99Diagnostic("Move .99 could not verify the Store category editor inside eBay Category.", dialog);
-      throw new Error("eBay's Category editor was still loading after 2 minutes. The selected batch was not changed. Close the Category window and retry.");
+      const seconds = Math.max(1, Math.round(timeoutMs / 1000));
+      throw new Error(`eBay's Category editor was still loading after ${seconds} seconds. The selected batch was not changed. Close the Category window and retry.`);
     }
     await recordMove99Diagnostic("Move .99 clicked Bulk edit > Category, but no Category dialog appeared.");
     throw new Error("The Category editor did not open. The selected batch was not changed.");
+  }
+
+  async function closeStalledCategoryEditor() {
+    const dialog = findCategoryEditorDialog();
+    if (!dialog) return true;
+    const close = queryAllDeep('button, [role="button"]', dialog)
+      .filter(U.isVisible)
+      .find((element) => {
+        const label = U.normalizeText([
+          element.getAttribute?.("aria-label"),
+          element.getAttribute?.("title"),
+          element.innerText,
+          element.textContent
+        ].filter(Boolean).join(" "));
+        return label === "close" || label === "dismiss" || label === "x" || label === "×";
+      });
+    if (close) {
+      dispatchFullClick(close);
+    } else {
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true, composed: true }));
+      document.dispatchEvent(new KeyboardEvent("keyup", { key: "Escape", code: "Escape", bubbles: true, cancelable: true, composed: true }));
+    }
+    return Boolean(await U.waitFor(() => !U.isVisible(dialog) ? true : null, 5000, 150));
+  }
+
+  async function openBulkCategoryEditor(expectedCount, attempt) {
+    const nativeBeforeMenu = nativeBulkSelectionSummary();
+    if (expectedCount && (!nativeBeforeMenu || nativeBeforeMenu.selected !== expectedCount)) {
+      throw new Error(
+        `Safety stop: eBay's own counter shows ${nativeBeforeMenu?.selected ?? "an unknown number of"} selected listings, `
+        + `but exactly ${expectedCount} verified listings were expected. No category changes were attempted.`
+      );
+    }
+    const bulkEdit = await U.waitFor(() => findSmallestExactText("Bulk edit", "button, [role='button']"), 10000, 180);
+    if (!bulkEdit) throw new Error("I selected the .99 listings but could not find Bulk edit.");
+    dispatchFullClick(bulkEdit);
+    await recordMove99Trace("Bulk edit menu opened.", `expected=${expectedCount};attempt=${attempt}`);
+
+    const categoryMenuItem = await U.waitFor(
+      () => findSmallestExactText("Category", "button, a, li, [role='menuitem'], [role='option'], div"),
+      8000,
+      150
+    );
+    if (!categoryMenuItem) throw new Error("The Bulk edit menu opened, but Category was not found.");
+    dispatchFullClick(actionableElementForText(categoryMenuItem));
+    await recordMove99Trace("Category command selected.", `expected=${expectedCount};attempt=${attempt}`);
   }
 
   function findTextBetweenY(text, minY, maxY, root = document) {
@@ -6026,24 +6877,25 @@
   }
 
   async function choosePrimaryStoreCategory(expectedCount = 0, workspaceTotal = 0) {
-    const nativeBeforeMenu = nativeBulkSelectionSummary();
-    if (expectedCount && (!nativeBeforeMenu || nativeBeforeMenu.selected !== expectedCount)) {
-      throw new Error(
-        `Safety stop: eBay's own counter shows ${nativeBeforeMenu?.selected ?? "an unknown number of"} selected listings, `
-        + `but exactly ${expectedCount} verified listings were expected. No category changes were attempted.`
-      );
+    let ready = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      await openBulkCategoryEditor(expectedCount, attempt);
+      try {
+        ready = await waitForCategoryEditorReady(attempt === 1 ? 45000 : 90000);
+        break;
+      } catch (error) {
+        const recoverable = /category editor (?:was still loading|did not open)/i.test(String(error?.message || error));
+        if (!recoverable || attempt >= 2) throw error;
+        await recordMove99Trace("Category editor shell stalled; closing and retrying once.", `expected=${expectedCount}`);
+        renderStatus("eBay's Category window stalled. Closing it and retrying once…", "ready");
+        const closed = await closeStalledCategoryEditor();
+        if (!closed) {
+          throw new Error("eBay's stalled Category window could not be closed safely. The selected batch was not changed.");
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
     }
-    const bulkEdit = await U.waitFor(() => findSmallestExactText("Bulk edit", "button, [role='button']"), 10000, 180);
-    if (!bulkEdit) throw new Error("I selected the .99 listings but could not find Bulk edit.");
-    clickElement(bulkEdit);
-    await recordMove99Trace("Bulk edit menu opened.", `expected=${expectedCount}`);
-
-    const categoryMenuItem = await U.waitFor(() => findSmallestExactText("Category", "button, a, li, [role='menuitem'], [role='option'], div"), 8000, 150);
-    if (!categoryMenuItem) throw new Error("The Bulk edit menu opened, but Category was not found.");
-    clickElement(categoryMenuItem);
-    await recordMove99Trace("Category command selected.", `expected=${expectedCount}`);
-
-    const ready = await waitForCategoryEditorReady(120000);
+    if (!ready) throw new Error("The Store category editor did not become ready. The selected batch was not changed.");
     const categoryDialog = ready.dialog;
     const storeHeading = ready.storeHeading;
     const eligibleCount = categoryEditorEligibleCount(categoryDialog);
@@ -6477,6 +7329,14 @@
     }) || null;
   }
 
+  function findMove99ReviewFeesDialog() {
+    return [...document.querySelectorAll('[role="dialog"], [aria-modal="true"]')].find((dialog) => {
+      if (!U.isVisible(dialog) || dialog.closest('.gldn-modal-backdrop')) return false;
+      const heading = dialog.querySelector('h1, h2, h3, [role="heading"]');
+      return U.normalizeText(heading?.textContent || dialog.getAttribute('aria-label') || '') === 'review fees';
+    }) || null;
+  }
+
   function selectedStoreCategoryGridUpdate(expectedCount = 0) {
     const expected = Number(expectedCount || 0);
     if (!expected) return null;
@@ -6593,8 +7453,12 @@
     } catch (_) {
       // The storage checkpoint below remains authoritative if sessionStorage is unavailable.
     }
+    const approvalWorkspaceId = currentBulkWorkspaceId();
     const approvalState = {
-      ...state,
+      ...FOUNDATION.resetMove99BatchActionState(state, {
+        workspaceId: approvalWorkspaceId,
+        batchKey: currentBatchKey
+      }),
       active: false,
       ownerTabId: tabInfo.tabId,
       phase: "awaiting-submit-approval",
@@ -6604,8 +7468,7 @@
       categoryUpdate,
       approvalTabId: tabInfo.tabId,
       approvalUrl: location.href,
-      approvalWorkspaceId: currentBulkWorkspaceId(),
-      approvalActionObservedAt: "",
+      approvalWorkspaceId,
       reviewReadyAt: new Date().toISOString()
     };
     await storageSet({
@@ -6617,9 +7480,13 @@
   }
 
   function nextMove99BatchState(state) {
+    const cleanState = FOUNDATION.resetMove99BatchActionState(state, {
+      workspaceId: "",
+      batchKey: ""
+    });
     if (state.applyStrategy === MOVE99_EXACT_APPLY_STRATEGY) {
       return {
-        ...state,
+        ...cleanState,
         active: true,
         phase: "apply-exact-workspace",
         reviewReady: false,
@@ -6634,7 +7501,7 @@
     }
     if (state.applyStrategy === MOVE99_DIRECT_APPLY_STRATEGY) {
       return {
-        ...state,
+        ...cleanState,
         active: true,
         phase: "active-prepare",
         reviewReady: false,
@@ -6653,7 +7520,7 @@
       const applyIndex = Number(state.applyIndex || 0);
       const currentRange = applyRanges[applyIndex];
       return {
-        ...state,
+        ...cleanState,
         active: true,
         phase: "apply-range",
         reviewReady: false,
@@ -6683,7 +7550,7 @@
     const nextOffset = currentOffset + selectedCount;
     if (pageTotal && nextOffset < pageTotal) {
       return {
-        ...state,
+        ...cleanState,
         active: true,
         phase: "apply-page",
         reviewReady: false,
@@ -6863,7 +7730,7 @@
 
   function pauseMove99ForReconciliation(state, reason = "") {
     return {
-      ...state,
+      ...cleanState,
       active: false,
       confirmed: false,
       ownerTabId: null,
@@ -6922,11 +7789,386 @@
     };
   }
 
+  function stopMove99AfterApprovedSubmit(state, result = null) {
+    const recorded = result ? recordMove99SubmittedBatch(state, result) : state;
+    const completedAt = new Date().toISOString();
+    const exactBatches = Array.isArray(state.exactBatches) ? state.exactBatches : [];
+    const nextIndex = Number(state.applyIndex || 0) + 1;
+    const submittedBatchIds = [...new Set((state.currentBatchIds || []).map(String).filter(Boolean))];
+    return {
+      ...recorded,
+      active: false,
+      confirmed: true,
+      phase: result
+        ? (Number(result.failed || 0) ? "submitted-with-failures" : "submitted")
+        : "submitted-propagation-pending",
+      reviewReady: false,
+      reviewRequested: false,
+      reviewRequestedAt: "",
+      propagationPending: true,
+      propagationPendingAt: completedAt,
+      terminalAfterSubmit: true,
+      submittedBatchIds,
+      applyIndex: nextIndex,
+      remainingSavedBatchCount: Math.max(0, exactBatches.length - nextIndex),
+      currentBatchIds: [],
+      currentBatchCount: 0,
+      currentBatchSourceCount: 0,
+      currentBatchKey: "",
+      submitResultUnknown: false,
+      completedAt,
+      error: result && Number(result.failed || 0)
+        ? `${Number(result.failed || 0)} listings failed during eBay submission.`
+        : "",
+      updatedAt: completedAt
+    };
+  }
+
+  function move99RecoveredReviewAllowsClearedSelection(state, expectedCount, nativeSelection, submitCount, tabId) {
+    const evidence = state?.reviewRecoveryEvidence || {};
+    return Boolean(state?.reviewRecoveredAfterReloadAt)
+      && Number(evidence.expectedCount || 0) === Number(expectedCount || 0)
+      && String(evidence.workspaceId || "") === String(state?.approvalWorkspaceId || "")
+      && Number(evidence.reboundTabId || 0) === Number(tabId || 0)
+      && Number(evidence.selectionSelected) === 0
+      && Number(evidence.selectionTotal || 0) === Number(expectedCount || 0)
+      && Number(evidence.submitCount || 0) === Number(expectedCount || 0)
+      && Number(evidence.destinationMatches || 0) > 0
+      && Number(nativeSelection?.selected) === 0
+      && Number(nativeSelection?.total || 0) === Number(expectedCount || 0)
+      && Number(submitCount || 0) === Number(expectedCount || 0);
+  }
+
+  async function recoverStaleMove99ApprovalIdentityAtReview(state, tabInfo) {
+    const expectedCount = Number(state?.currentBatchCount || 0);
+    const batchIds = [...new Set((state?.currentBatchIds || []).map(String).filter(Boolean))];
+    const currentTabId = Number(tabInfo?.tabId || 0);
+    if (state?.phase !== "awaiting-submit-approval" || state?.reviewReady !== true) return state;
+    if (!Number.isInteger(expectedCount) || expectedCount <= 0 || batchIds.length !== expectedCount) return state;
+    if (Number(state?.categoryUpdate?.attempted || 0) !== expectedCount
+        || Number(state?.categoryUpdate?.updated || 0) !== expectedCount) return state;
+    if (!Number.isInteger(currentTabId) || currentTabId <= 0) return state;
+    if (findMove99ReviewFeesDialog()) return state;
+
+    const approvalIdentityChanged = currentTabId !== Number(state.approvalTabId || 0)
+      || currentTabId !== Number(state.ownerTabId || 0)
+      || !String(state.approvalWorkspaceId || "")
+      || !String(state.approvalUrl || "");
+    if (!approvalIdentityChanged) return state;
+    const hasActionReceipt = Boolean(
+      state.trustedSubmitDispatchAt
+      || state.trustedSubmitReleasedAt
+      || state.trustedFinalReviewDispatchAt
+      || state.trustedFinalReviewReleasedAt
+      || Number(state.finalReviewActionClickCount || 0)
+      || Number(state.finalReviewRecoveryClickCount || 0)
+      || Number(state.finalReviewProgrammaticActivationCount || 0)
+      || state.finalReviewEvidence
+    );
+    if (hasActionReceipt && !FOUNDATION.move99BatchActionStateIsStale(state)) return state;
+
+    let currentUrl;
+    let returnUrl;
+    let approvedUrl = null;
+    try {
+      currentUrl = new URL(location.href);
+      returnUrl = new URL(String(currentUrl.searchParams.get("ru") || ""), currentUrl.origin);
+      if (state.approvalUrl) approvedUrl = new URL(String(state.approvalUrl));
+      currentUrl.hash = "";
+      returnUrl.hash = "";
+      if (approvedUrl) approvedUrl.hash = "";
+    } catch (_) {
+      return state;
+    }
+    const workspaceId = currentBulkWorkspaceId();
+    if (currentUrl.origin !== returnUrl.origin
+        || currentUrl.pathname !== "/bulksell"
+        || !workspaceId
+        || !/^\/sh\/lst\/active\/?$/i.test(returnUrl.pathname)) return state;
+    if (state.approvalWorkspaceId && String(state.approvalWorkspaceId) !== workspaceId) return state;
+    if (approvedUrl && approvedUrl.href !== currentUrl.href) return state;
+
+    const expectedSourceIds = asStringArray(state.sourceStoreCategoryIds).sort();
+    const returnedSourceIds = numericMove99SourceCategoryIdsFromUrl(returnUrl.href).sort();
+    if (!expectedSourceIds.length
+        || expectedSourceIds.join(",") !== returnedSourceIds.join(",")) return state;
+
+    const nativeSelection = nativeBulkSelectionSummary();
+    const submitCount = parseBulkEditorSubmitTotal();
+    if (!nativeSelection
+        || nativeSelection.total !== expectedCount
+        || ![0, expectedCount].includes(nativeSelection.selected)
+        || submitCount !== expectedCount) return state;
+    const submitButton = findMove99SubmitButton();
+    const submitLabel = String(submitButton?.getAttribute("aria-label") || submitButton?.innerText || submitButton?.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    if (!submitButton || submitLabel !== `submit (${expectedCount})`) return state;
+
+    const targetIds = new Set(batchIds);
+    const renderedRows = renderedBulkRows();
+    const renderedIds = renderedRows
+      .map(({ row }) => bulkEditorRowItemId(row, targetIds))
+      .filter(Boolean);
+    const renderedRowCount = renderedRows.length;
+    if (!renderedRowCount) return state;
+
+    const destination = U.normalizeText(state.destinationCategory || "");
+    const destinationMatches = [...document.querySelectorAll("td, [role='gridcell']")]
+      .filter((element) => U.normalizeText(element.innerText || element.textContent || "") === destination)
+      .length;
+    if (!destination || destinationMatches < renderedRowCount) return state;
+
+    const recoveredAt = new Date().toISOString();
+    const rebound = {
+      ...FOUNDATION.resetMove99BatchActionState(state, {
+        workspaceId,
+        batchKey: String(state.currentBatchKey || "")
+      }),
+      previousOwnerTabId: Number(state.ownerTabId || 0) || null,
+      previousApprovalTabId: Number(state.approvalTabId || 0) || null,
+      ownerTabId: currentTabId,
+      approvalTabId: currentTabId,
+      approvalUrl: currentUrl.href,
+      approvalWorkspaceId: workspaceId,
+      staleBatchActionStateClearedAt: recoveredAt,
+      staleBatchActionStateEvidence: {
+        expectedCount,
+        workspaceId,
+        batchKey: String(state.currentBatchKey || ""),
+        tabId: currentTabId,
+        selectionSelected: nativeSelection.selected,
+        selectionTotal: nativeSelection.total,
+        submitCount,
+        destinationMatches,
+        renderedRowCount,
+        renderedIdMatches: renderedIds.filter((itemId) => targetIds.has(itemId)).length,
+        renderedOutsideTargetCount: renderedIds.filter((itemId) => !targetIds.has(itemId)).length,
+        sourceStoreCategoryIds: returnedSourceIds,
+        clearedAt: recoveredAt
+      },
+      ...(nativeSelection.selected === 0 ? {
+        reviewRecoveredAfterReloadAt: recoveredAt,
+        reviewRecoveryEvidence: {
+          expectedCount,
+          workspaceId,
+          reboundTabId: currentTabId,
+          selectionSelected: 0,
+          selectionTotal: nativeSelection.total,
+          submitCount,
+          destinationMatches,
+          renderedRowCount,
+          renderedIdMatches: renderedIds.filter((itemId) => targetIds.has(itemId)).length,
+          renderedOutsideTargetCount: renderedIds.filter((itemId) => !targetIds.has(itemId)).length,
+          destinationCategory: destination,
+          recoveredAt
+        }
+      } : {}),
+      error: "",
+      updatedAt: recoveredAt
+    };
+    try {
+      sessionStorage.removeItem(MOVE99_APPROVAL_ACTION_SESSION_KEY);
+    } catch (_) {
+      // Chrome local storage remains authoritative.
+    }
+    await storageSet({ pendingMove99Run: rebound });
+    armMove99SubmitApprovalClick(submitButton, rebound);
+    renderStatus(
+      `Recovered the exact ${expectedCount.toLocaleString()}-listing review after the extension reload. Recheck it and approve Submit again.`,
+      "completed"
+    );
+    return rebound;
+  }
+
+  async function clearStaleMove99BatchActionStateAtReview(state, tabInfo) {
+    if (!FOUNDATION.move99BatchActionStateIsStale(state)) return state;
+    const expectedCount = Number(state?.currentBatchCount || 0);
+    const batchIds = [...new Set((state?.currentBatchIds || []).map(String).filter(Boolean))];
+    const currentTabId = Number(tabInfo?.tabId || 0);
+    if (state?.phase !== "awaiting-submit-approval" || state?.reviewReady !== true) return state;
+    if (!Number.isInteger(expectedCount) || expectedCount <= 0 || batchIds.length !== expectedCount) return state;
+    if (Number(state?.categoryUpdate?.attempted || 0) !== expectedCount
+        || Number(state?.categoryUpdate?.updated || 0) !== expectedCount) return state;
+    if (!Number.isInteger(currentTabId) || currentTabId !== Number(state.approvalTabId || 0)) return state;
+    if (findMove99ReviewFeesDialog()) return state;
+
+    let currentUrl;
+    let approvedUrl;
+    try {
+      currentUrl = new URL(location.href);
+      approvedUrl = new URL(String(state.approvalUrl || ""));
+      currentUrl.hash = "";
+      approvedUrl.hash = "";
+    } catch (_) {
+      return state;
+    }
+    if (currentUrl.href !== approvedUrl.href
+        || currentBulkWorkspaceId() !== String(state.approvalWorkspaceId || "")) return state;
+
+    const nativeSelection = nativeBulkSelectionSummary();
+    const submitCount = parseBulkEditorSubmitTotal();
+    if (!nativeSelection
+        || nativeSelection.total !== expectedCount
+        || ![0, expectedCount].includes(nativeSelection.selected)
+        || submitCount !== expectedCount) return state;
+    const submitButton = findMove99SubmitButton();
+    if (!submitButton) return state;
+    const destination = U.normalizeText(state.destinationCategory || MOVE99_DESTINATION_CATEGORY);
+    const destinationMatches = [...document.querySelectorAll("td, [role='gridcell']")]
+      .filter((element) => U.normalizeText(element.innerText || element.textContent || "") === destination)
+      .length;
+    if (!destination || destinationMatches <= 0) return state;
+
+    const clearedAt = new Date().toISOString();
+    const cleared = {
+      ...FOUNDATION.resetMove99BatchActionState(state, {
+        workspaceId: String(state.approvalWorkspaceId || ""),
+        batchKey: String(state.currentBatchKey || "")
+      }),
+      staleBatchActionStateClearedAt: clearedAt,
+      staleBatchActionStateEvidence: {
+        expectedCount,
+        workspaceId: String(state.approvalWorkspaceId || ""),
+        batchKey: String(state.currentBatchKey || ""),
+        tabId: currentTabId,
+        selectionSelected: nativeSelection.selected,
+        selectionTotal: nativeSelection.total,
+        submitCount,
+        destinationMatches,
+        clearedAt
+      },
+      ...(nativeSelection.selected === 0 ? {
+        reviewRecoveredAfterReloadAt: clearedAt,
+        reviewRecoveryEvidence: {
+          expectedCount,
+          workspaceId: String(state.approvalWorkspaceId || ""),
+          reboundTabId: currentTabId,
+          selectionSelected: 0,
+          selectionTotal: nativeSelection.total,
+          submitCount,
+          destinationMatches,
+          destinationCategory: destination,
+          recoveredAt: clearedAt
+        }
+      } : {}),
+      updatedAt: clearedAt
+    };
+    try {
+      sessionStorage.removeItem(MOVE99_APPROVAL_ACTION_SESSION_KEY);
+    } catch (_) {
+      // Chrome local storage remains authoritative.
+    }
+    await storageSet({ pendingMove99Run: cleared });
+    renderStatus(
+      `Cleared one-use Submit receipts from the prior batch. Recheck this exact ${expectedCount.toLocaleString()}-listing review before approval.`,
+      "completed"
+    );
+    return cleared;
+  }
+
+  async function recoverMove99ReviewAfterTabReload(state, tabInfo) {
+    const expectedCount = Number(state?.currentBatchCount || 0);
+    const batchIds = [...new Set((state?.currentBatchIds || []).map(String).filter(Boolean))];
+    const attempted = Number(state?.categoryUpdate?.attempted || 0);
+    const updated = Number(state?.categoryUpdate?.updated || 0);
+    const currentTabId = Number(tabInfo?.tabId || 0);
+    if (state?.phase !== "awaiting-submit-approval" || state?.reviewReady !== true) return null;
+    if (!Number.isInteger(expectedCount) || expectedCount <= 0 || batchIds.length !== expectedCount) return null;
+    if (attempted !== expectedCount || updated !== expectedCount) return null;
+    if (!Number.isInteger(currentTabId) || currentTabId <= 0) return null;
+    if (state?.trustedSubmitDispatchAt || state?.trustedSubmitReleasedAt || state?.approvalActionObservedAt) return null;
+
+    let currentUrl;
+    let approvedUrl;
+    try {
+      currentUrl = new URL(location.href);
+      approvedUrl = new URL(String(state.approvalUrl || ""));
+      currentUrl.hash = "";
+      approvedUrl.hash = "";
+    } catch (_) {
+      return null;
+    }
+    if (currentUrl.href !== approvedUrl.href
+        || currentBulkWorkspaceId() !== String(state.approvalWorkspaceId || "")) return null;
+
+    const nativeSelection = nativeBulkSelectionSummary();
+    const submitCount = parseBulkEditorSubmitTotal();
+    if (!nativeSelection
+        || nativeSelection.selected !== 0
+        || nativeSelection.total !== expectedCount
+        || submitCount !== expectedCount) return null;
+
+    const submitButton = findMove99SubmitButton();
+    const submitLabel = String(submitButton?.getAttribute("aria-label") || submitButton?.innerText || submitButton?.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    if (!submitButton || submitLabel !== `submit (${expectedCount})`) return null;
+
+    const destination = U.normalizeText(state.destinationCategory || MOVE99_DESTINATION_CATEGORY);
+    const destinationMatches = [...document.querySelectorAll("td, [role='gridcell']")]
+      .filter((element) => U.normalizeText(element.innerText || element.textContent || "") === destination)
+      .length;
+    if (!destination || destinationMatches <= 0) return null;
+
+    const recoveredAt = new Date().toISOString();
+    const rebound = {
+      ...state,
+      ownerTabId: currentTabId,
+      previousApprovalTabId: Number(state.approvalTabId || 0) || null,
+      approvalTabId: currentTabId,
+      approvalActionObservedAt: "",
+      approvalAction: "",
+      finalActionApprovedAt: "",
+      finalActionApprovalToken: "",
+      finalActionClickCount: 0,
+      reviewRecoveredAfterReloadAt: recoveredAt,
+      reviewRecoveryEvidence: {
+        expectedCount,
+        workspaceId: String(state.approvalWorkspaceId || ""),
+        reboundTabId: currentTabId,
+        selectionSelected: nativeSelection.selected,
+        selectionTotal: nativeSelection.total,
+        submitCount,
+        destinationMatches,
+        destinationCategory: destination,
+        recoveredAt
+      },
+      updatedAt: recoveredAt
+    };
+    await storageSet({ pendingMove99Run: rebound });
+    armMove99SubmitApprovalClick(submitButton, rebound);
+    renderStatus(
+      `The exact ${expectedCount.toLocaleString()}-listing review was recovered after Chrome reloaded it. Recheck it and approve Submit again.`,
+      "completed"
+    );
+    return rebound;
+  }
+
   async function resumeMove99AfterManualSubmit(state) {
     if (await stopForEbayInterruption("Move .99 submission review")) return false;
     if (state.phase !== "awaiting-submit-approval") return false;
+    MOVE99_SCAN_MODE = state?.scanMode === "non99" ? "non99" : "price99";
+    if (state?.sourceCategories?.length) MOVE99_SOURCE_CATEGORIES = asStringArray(state.sourceCategories);
+    if (state?.destinationCategory) MOVE99_DESTINATION_CATEGORY = String(state.destinationCategory).trim();
+    if (state?.sourceStoreCategoryIds) MOVE99_SOURCE_STORE_CATEGORY_IDS = asStringArray(state.sourceStoreCategoryIds);
+    MOVE99_ACTIVE_URL = buildMove99ActiveUrl(MOVE99_SOURCE_STORE_CATEGORY_IDS);
     const tabInfo = await runtimeMessage({ type: "currentTabInfo" });
-    if (!tabInfo?.ok || Number(tabInfo.tabId) !== Number(state.approvalTabId ?? state.ownerTabId)) return false;
+    if (!tabInfo?.ok) return false;
+    state = await recoverStaleMove99ApprovalIdentityAtReview(state, tabInfo);
+    state = await clearStaleMove99BatchActionStateAtReview(state, tabInfo);
+    if (Number(tabInfo.tabId) !== Number(state.approvalTabId ?? state.ownerTabId)) {
+      const recovered = await recoverMove99ReviewAfterTabReload(state, tabInfo);
+      if (recovered) return false;
+      return false;
+    }
+    const reviewFeesDialog = findMove99ReviewFeesDialog();
+    if (reviewFeesDialog) {
+      renderStatus('eBay Review fees is open. Finishing the one approved Submit through the trusted final-review guard...', 'ready');
+      return false;
+    }
     const visibleSubmit = findMove99SubmitButton();
     if (visibleSubmit) {
       armMove99SubmitApprovalClick(visibleSubmit, state);
@@ -6961,22 +8203,14 @@
         );
       }
 
-      if (!outcome?.result?.confirmed) {
-        const reason = outcome?.result
-          ? `eBay accounted for ${outcome.result.accounted} of ${expectedCount} submitted listings.`
-          : "eBay did not show an explicit success or failure count after Submit.";
-        return stopMove99AfterLostApproval(state, `${reason} The saved batch requires manual reconciliation.`);
-      }
-
-      const recorded = recordMove99SubmittedBatch(state, outcome.result);
-      const next = nextMove99BatchState(recorded);
-      await storageSet({ pendingMove99Run: next });
-      renderStatus(`eBay confirmed ${outcome.result.live.toLocaleString()} live and ${outcome.result.failed.toLocaleString()} failed. Continuing the saved workflow...`, outcome.result.failed ? "error" : "ready");
-      if (!isMove99ActiveListingsPage()) {
-        await navigateToMove99ScanPage(1, next.filteredUrl || MOVE99_ACTIVE_URL);
-        return true;
-      }
-      setTimeout(runMove99Automation, 700);
+      const stopped = stopMove99AfterApprovedSubmit(state, outcome?.result?.confirmed ? outcome.result : null);
+      await storageSet({ pendingMove99Run: stopped, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(stopped) });
+      renderStatus(
+        outcome?.result?.confirmed
+          ? `eBay accepted the approved ${expectedCount.toLocaleString()}-listing batch. The workflow is stopped.`
+          : `The approved ${expectedCount.toLocaleString()}-listing batch was submitted. The workflow is stopped while eBay propagates the category changes.`,
+        outcome?.result?.failed ? "error" : "completed"
+      );
       return true;
     } finally {
       move99SubmitMonitorRunning = false;
@@ -7808,13 +9042,25 @@
     return records;
   }
 
-  function buildMove99ExactBatches(pages, batchLimit = MOVE99_BULK_BATCH_LIMIT) {
+  function move99DeferredItemIds(state = null) {
+    return new Set([
+      ...MOVE99_BACKBURNER_ITEM_IDS,
+      ...asStringArray(state?.deferredIds),
+      ...asStringArray(state?.bulkEditorOmittedIds)
+    ]);
+  }
+
+  function buildMove99ExactBatches(pages, batchLimit = MOVE99_BULK_BATCH_LIMIT, excludedItemIds = []) {
     const limit = Number(batchLimit || 0);
     if (!Number.isInteger(limit) || limit < 1 || limit > 2000) {
       throw new Error("The exact eBay workspace batch limit must be between 1 and 2,000 listings.");
     }
 
     const records = flattenMove99Pages(pages);
+    const dynamicExclusions = excludedItemIds instanceof Set
+      ? [...excludedItemIds].map((itemId) => String(itemId || "").trim()).filter(Boolean)
+      : asStringArray(excludedItemIds);
+    const excluded = new Set([...MOVE99_BACKBURNER_ITEM_IDS, ...dynamicExclusions]);
     const itemIds = [];
     const seen = new Set();
     for (const record of records) {
@@ -7823,6 +9069,7 @@
         throw new Error("The verified Move .99 scan contains a missing, invalid, or duplicate item number.");
       }
       seen.add(itemId);
+      if (record.backburner || excluded.has(itemId)) continue;
       itemIds.push(itemId);
     }
 
@@ -7843,7 +9090,7 @@
     }
 
     const sourcePages = state.applySourcePages || state.scanPages || {};
-    const exactBatches = buildMove99ExactBatches(sourcePages);
+    const exactBatches = buildMove99ExactBatches(sourcePages, MOVE99_BULK_BATCH_LIMIT, move99DeferredItemIds(state));
     if (!exactBatches.length) return null;
 
     return {
@@ -7879,7 +9126,7 @@
     }
 
     const sourcePages = state.applySourcePages || state.scanPages || {};
-    const expectedBatches = buildMove99ExactBatches(sourcePages);
+    const expectedBatches = buildMove99ExactBatches(sourcePages, MOVE99_BULK_BATCH_LIMIT, move99DeferredItemIds(state));
     const expected = expectedBatches[Number(applyIndex || 0)] || [];
     const batch = (requestedBatch || []).map(String);
     if (!batch.length || batch.length > MOVE99_BULK_BATCH_LIMIT || new Set(batch).size !== batch.length) {
@@ -8211,7 +9458,10 @@
     if (!overlay || !modal) return false;
     U.enhanceModal?.(modal);
     forceMove99SummaryIntoViewport(overlay);
-    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
+    await Promise.race([
+      new Promise((resolve) => requestAnimationFrame(() => resolve("frame"))),
+      new Promise((resolve) => setTimeout(() => resolve("background-timeout"), 100))
+    ]);
     forceMove99SummaryIntoViewport(overlay);
     await new Promise((resolve) => setTimeout(resolve, 120));
     return forceMove99SummaryIntoViewport(overlay);
@@ -8221,13 +9471,18 @@
     const existing = document.getElementById("gldn-move99-preview");
     if (existing) return existing;
     const records = flattenMove99Pages(completed ? state.verificationPages : state.scanPages);
+    const deferredItemIds = move99DeferredItemIds(state);
+    const actionableRecords = records.filter((record) => !deferredItemIds.has(String(record?.itemId || "")));
+    const deferredCount = records.length - actionableRecords.length;
     const scanned = Object.values(completed ? state.verificationPages || {} : state.scanPages || {}).reduce((sum, page) => sum + Number(page?.inspected || 0), 0);
     const remaining = completed ? records.length : null;
     const overlay = document.createElement("div");
     overlay.id = "gldn-move99-preview";
     overlay.className = "gldn-modal-backdrop";
     const title = completed ? `${move99WorkflowLabel()} — Completed` : `${move99WorkflowLabel()} — Scan Complete`;
-    const actionLabel = completed ? (remaining ? `Retry Failed Only (${remaining.toLocaleString()})` : "Done") : `Apply ${records.length.toLocaleString()} Changes`;
+    const actionLabel = completed
+      ? (actionableRecords.length ? `Retry Actionable Only (${actionableRecords.length.toLocaleString()})` : "Done")
+      : (actionableRecords.length ? `Apply ${actionableRecords.length.toLocaleString()} Changes` : "No Actionable Changes");
     overlay.innerHTML = `
       <div class="gldn-modal gldn-move99-summary">
         <button type="button" class="gldn-close" aria-label="Close">×</button>
@@ -8236,6 +9491,8 @@
         <div class="gldn-grid">
           <div><strong>Listings scanned</strong><span>${scanned.toLocaleString()}</span></div>
           <div><strong>${completed ? "Still qualifying" : move99FoundLabel()}</strong><span>${records.length.toLocaleString()}</span></div>
+          <div><strong>Actionable now</strong><span>${actionableRecords.length.toLocaleString()}</span></div>
+          ${deferredCount ? `<div><strong>Deferred eBay failures</strong><span>${deferredCount.toLocaleString()}</span></div>` : ""}
           <div><strong>Source categories</strong><span>${MOVE99_SOURCE_CATEGORIES.map(escapeHtml).join(" + ")}</span></div>
           <div><strong>Destination</strong><span>${escapeHtml(MOVE99_DESTINATION_CATEGORY)}</span></div>
           ${completed ? `<div><strong>Batches submitted</strong><span>${Number(state.totals?.batches || 0).toLocaleString()}</span></div><div><strong>eBay-reported failures</strong><span>${Number(state.totals?.failed || 0).toLocaleString()}</span></div>` : ""}
@@ -8252,7 +9509,7 @@
     const close = async () => {
       overlay.remove();
       if (!completed) {
-        await storageSet({ pendingMove99Run: { ...state, active: false, phase: "scan-summary", lastScanSaved: true } });
+        await storageSet({ pendingMove99Run: { ...state, active: false, phase: "scan-summary", lastScanSaved: true, reviewRequested: false } });
         renderStatus(`Scan saved — ${records.length} ${move99FoundLabel()}.`, "completed");
       } else {
         await storageSet({ pendingMove99Run: null });
@@ -8279,7 +9536,7 @@
       const applyFilteredCount = uniqueMove99InspectedCount(sourcePages);
       let exactBatches;
       try {
-        exactBatches = buildMove99ExactBatches(sourcePages);
+        exactBatches = buildMove99ExactBatches(sourcePages, MOVE99_BULK_BATCH_LIMIT, move99DeferredItemIds(state));
       } catch (error) {
         overlay.remove();
         renderStatus(`The saved scan could not be divided into exact eBay workspaces: ${error.message}`, "error");
@@ -8288,7 +9545,12 @@
       const applyCount = exactBatches.reduce((sum, batch) => sum + batch.length, 0);
       if (!applyCount || !exactBatches.length) {
         overlay.remove();
-        renderStatus("The saved scan has no qualifying listings to apply.", "completed");
+        renderStatus(
+          deferredCount
+            ? `No actionable listings remain. ${deferredCount.toLocaleString()} known or eBay-deferred failures remain isolated from this run.`
+            : "The saved scan has no qualifying listings to apply.",
+          "completed"
+        );
         return;
       }
       const tabInfo = await runtimeMessage({ type: "currentTabInfo" });
@@ -8342,15 +9604,25 @@
     const completed = state.phase === "completed";
     const records = flattenMove99Pages(completed ? state.verificationPages : state.scanPages);
     if (!records.length) return null;
+    const actionableCount = records.filter((record) => !move99DeferredItemIds(state).has(String(record?.itemId || ""))).length;
     const reverse = state.scanMode === "non99";
     return {
       completed,
       count: records.length,
+      actionableCount,
       scanMode: reverse ? "non99" : "price99",
       buttonLabel: completed
         ? `Review ${records.length.toLocaleString()} Remaining ${reverse ? "Non-.99" : ".99"}`
         : `Review ${records.length.toLocaleString()} ${reverse ? "Non-.99" : ".99"} Matches`
     };
+  }
+
+  function move99ReviewRequestIsFresh(state, now = Date.now()) {
+    if (state?.reviewRequested !== true) return false;
+    const requestedAt = Date.parse(String(state.reviewRequestedAt || ""));
+    if (!Number.isFinite(requestedAt)) return false;
+    const age = Number(now || Date.now()) - requestedAt;
+    return age >= 0 && age <= 2 * 60 * 1000;
   }
 
   async function refreshMove99ReviewButton() {
@@ -8368,8 +9640,12 @@
     }
     move99ReviewButtonElement.textContent = descriptor.buttonLabel;
     move99ReviewButtonElement.title = "Open the saved verified scan without scanning the listings again.";
-    move99ApplyButtonElement.textContent = `Apply ${descriptor.count.toLocaleString()} Saved Changes`;
-    move99ApplyButtonElement.title = "Prepare the exact saved matches in eBay Bulk Edit. Final Submit still requires separate approval.";
+    move99ApplyButtonElement.textContent = descriptor.actionableCount
+      ? `Apply ${descriptor.actionableCount.toLocaleString()} Saved Changes`
+      : "No Actionable Category Changes";
+    move99ApplyButtonElement.title = descriptor.actionableCount
+      ? "Prepare the exact saved matches in eBay Bulk Edit. Final Submit still requires separate approval."
+      : "Every saved match is a known or eBay-deferred failure, so none will be reopened automatically.";
   }
 
   async function openSavedMove99Summary() {
@@ -8440,6 +9716,32 @@
     };
   }
 
+  function isMove99DeferrableBatchFailure(error) {
+    return /category editor (?:was still loading|did not open)|stalled category window|admitted 0 of [\d,]+ listings? into Bulk Edit/i
+      .test(String(error?.message || error || ""));
+  }
+
+  function deferMove99StalledBatch(state, reason = "") {
+    const deferredIds = new Set([
+      ...asStringArray(state?.deferredIds),
+      ...asStringArray(state?.bulkEditorOmittedIds),
+      ...asStringArray(state?.currentBatchIds)
+    ]);
+    const failedIds = new Set([...asStringArray(state?.failedIds), ...deferredIds]);
+    const deferredHistory = Array.isArray(state?.deferredHistory) ? [...state.deferredHistory] : [];
+    deferredHistory.push({
+      itemIds: [...deferredIds],
+      reason: reason || "eBay's Category editor did not become usable.",
+      deferredAt: new Date().toISOString()
+    });
+    return recoverMove99VerifiedScanSummary({
+      ...state,
+      deferredIds: [...deferredIds],
+      failedIds: [...failedIds],
+      deferredHistory: deferredHistory.slice(-25)
+    }, reason);
+  }
+
   function bulkEditorSelectionProgress() {
     const root = bulkEditorTableWrapper() || document;
     const controls = root.querySelectorAll(
@@ -8460,16 +9762,46 @@
     };
   }
 
-  async function waitForBulkEditorReady(expectedTotal = 0, { allowFewer = false, timeout = 300000 } = {}) {
+  async function waitForBulkEditorReady(expectedTotal = 0, {
+    allowFewer = false,
+    allowZeroOmitted = false,
+    timeout = 300000
+  } = {}) {
     const expected = Number(expectedTotal || 0);
     let nativeCandidate = 0;
     let nativeStableSince = 0;
     let processedStableSince = 0;
+    let zeroAdmissionStableSince = 0;
     return U.waitFor(() => {
       const now = Date.now();
       const progress = parseProcessedProgress();
       const rowCount = bulkEditorRawRowCount();
-      if (!rowCount) return null;
+      if (!rowCount) {
+        const explicitOmissions = bulkEditorOmittedNoticeCount();
+        const bodyText = String(document.body?.innerText || "");
+        const workspaceShellReady = allowZeroOmitted
+          && expected > 0
+          && document.readyState === "complete"
+          && isMove99BulkEditorPage()
+          && /\brevise listings\b/i.test(bodyText)
+          && !progress;
+        if (workspaceShellReady) {
+          if (!zeroAdmissionStableSince) zeroAdmissionStableSince = now;
+          const requiredStableMs = explicitOmissions === expected ? 2500 : 20000;
+          if (now - zeroAdmissionStableSince >= requiredStableMs) {
+            return {
+              processed: 0,
+              total: 0,
+              omitted: explicitOmissions,
+              source: explicitOmissions === expected ? "omission-notice" : "zero-admission"
+            };
+          }
+        } else {
+          zeroAdmissionStableSince = 0;
+        }
+        return null;
+      }
+      zeroAdmissionStableSince = 0;
 
       const selection = bulkEditorSelectionProgress();
       // Some current eBay Bulk Edit builds omit the older "listings processed"
@@ -8676,9 +10008,20 @@
   }
 
   async function ensureBulkWorkspaceMatchesBatch(expectedCount, state) {
-    const processed = await waitForBulkEditorReady(expectedCount, { allowFewer: true, timeout: 300000 });
+    const processed = await waitForBulkEditorReady(expectedCount, {
+      allowFewer: true,
+      allowZeroOmitted: true,
+      timeout: 60000
+    });
     if (!processed) throw new Error("eBay Bulk Edit did not finish loading the selected batch.");
-    if (processed.total > expectedCount || processed.total < 1) {
+    if (processed.total < 1) {
+      await recordMove99Trace(
+        "Bulk Edit admitted no rows.",
+        `requested=${expectedCount};reportedOmissions=${Number(processed.omitted || 0)};source=${processed.source || "unknown"}`
+      );
+      throw new Error(`eBay admitted 0 of ${expectedCount.toLocaleString()} listings into Bulk Edit. No category changes were attempted.`);
+    }
+    if (processed.total > expectedCount) {
       throw new Error(`Safety stop: eBay opened ${processed.total} Bulk Edit rows, but this batch selected ${expectedCount}. No category changes were attempted.`);
     }
 
@@ -8780,6 +10123,25 @@
       const stored = await storageGet(["pendingMove99Run", "computerLabel", "ebayAccountLabel"]);
       let state = stored.pendingMove99Run;
       if (!state) return;
+      if (state.scanMode === "non99") {
+        const saleEventDecision = FOUNDATION.reverseMove99SaleEventDecision(state.saleEventStatus);
+        if (!saleEventDecision.ok) {
+          const blockedState = {
+            ...state,
+            active: false,
+            confirmed: false,
+            ownerTabId: null,
+            phase: "sale-event-confirmation-required",
+            error: saleEventDecision.error
+          };
+          await storageSet({
+            pendingMove99Run: blockedState,
+            lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(blockedState)
+          });
+          renderStatus(saleEventDecision.error, "error");
+          return;
+        }
+      }
       if (state.phase === "awaiting-submit-approval") {
         await resumeMove99AfterManualSubmit(state);
         return;
@@ -8795,11 +10157,12 @@
 
       const passiveSummary = state.phase === "scan-summary" || state.phase === "completed";
       if (passiveSummary) {
-        const passiveState = { ...state, active: false, ownerTabId: null };
-        if (state.active || state.ownerTabId != null) {
+        const reviewRequested = move99ReviewRequestIsFresh(state);
+        const passiveState = { ...state, active: false, ownerTabId: null, reviewRequested: false, reviewRequestedAt: "" };
+        if (state.active || state.ownerTabId != null || state.reviewRequested === true || state.reviewRequestedAt) {
           await storageSet({ pendingMove99Run: passiveState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(passiveState) });
         }
-        if (isMove99ActiveListingsPage()) {
+        if (reviewRequested && isMove99ActiveListingsPage()) {
           showMove99ScanSummary(passiveState, state.phase === "completed");
         }
         return;
@@ -9020,6 +10383,8 @@
             ...state,
             active: false,
             ownerTabId: null,
+            reviewRequested: false,
+            reviewRequestedAt: "",
             phase: "scan-summary",
             scanStrategy: MOVE99_SCAN_STRATEGY,
             scanIntegrity: "verified",
@@ -9040,11 +10405,13 @@
         const remainingIds = new Set(remainingRecords.map((record) => String(record.itemId)));
         const originalRecords = flattenMove99Pages(state.scanPages);
         const failedIds = [...new Set([...(state.failedIds || []).map(String), ...remainingIds])];
-        const completedState = {
-          ...state,
-          active: false,
-          ownerTabId: null,
-          phase: "completed",
+          const completedState = {
+            ...state,
+            active: false,
+            ownerTabId: null,
+            reviewRequested: false,
+            reviewRequestedAt: "",
+            phase: "completed",
           verificationPages: normalizedVerificationPages,
           failedIds,
           verifiedAt: new Date().toISOString()
@@ -9365,6 +10732,17 @@
       const current = await storageGet(["pendingMove99Run"]);
       await saveMove99Result({ status: "Failed", error: error.message }, false);
       const failedState = { ...(current.pendingMove99Run || {}), active: false, error: error.message };
+      if (isMove99DeferrableBatchFailure(error) && canRecoverMove99FirstBatchFromVerifiedScan(failedState)) {
+        const recoveredState = deferMove99StalledBatch(failedState, error.message);
+        await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(recoveredState) });
+        const deferredCount = asStringArray(recoveredState.deferredIds).length;
+        renderStatus(
+          `eBay's unusable Category batch was isolated (${deferredCount.toLocaleString()} listings). The verified scan was restored; no changes were staged.`,
+          "error"
+        );
+        location.replace(move99ScanPageUrl(1, recoveredState.filteredUrl || MOVE99_ACTIVE_URL));
+        return;
+      }
       if (canRecoverMove99FirstBatchFromVerifiedScan(failedState)) {
         const recoveredState = recoverMove99VerifiedScanSummary(failedState, error.message);
         await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(recoveredState) });
@@ -9377,21 +10755,64 @@
         await storageSet({ pendingMove99Run: failedState });
       }
       renderStatus(`Move .99 Listings failed: ${error.message}`, "error");
-      alert(`Move .99 Listings stopped safely.\n\n${error.message}`);
     } finally {
       move99Running = false;
     }
   }
 
+  function requestReverseMove99SaleEventStatus() {
+    document.getElementById("gldn-reverse-sale-event-gate")?.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "gldn-reverse-sale-event-gate";
+    overlay.className = "gldn-modal-backdrop gldn-review-backdrop";
+    overlay.innerHTML = `
+      <div class="gldn-modal gldn-review-modal">
+        <button type="button" class="gldn-close" aria-label="Close">&times;</button>
+        <h2>Is a sale event active?</h2>
+        <p>Move Non-.99 Out of Sale reads eBay's displayed prices. It only works correctly when the sale event is off.</p>
+        <div class="gldn-existing"><strong>Sale active:</strong> stop here and turn the sale event off first. <strong>Sale off:</strong> continue to the full read-only scan.</div>
+        <div class="gldn-actions">
+          <button type="button" class="gldn-danger" data-sale-event-status="on">Sale Event Is ON</button>
+          <button type="button" class="gldn-primary" data-sale-event-status="off">Sale Event Is OFF</button>
+        </div>
+      </div>`;
+    document.documentElement.appendChild(overlay);
+    const modal = overlay.querySelector(".gldn-modal");
+    U.enhanceModal?.(modal);
+    U.makePanelDraggable(modal, "gldnReverseMove99SaleEventPosition");
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        overlay.remove();
+        resolve(value);
+      };
+      overlay.querySelector(".gldn-close").addEventListener("click", () => finish("unconfirmed"));
+      overlay.querySelectorAll("[data-sale-event-status]").forEach((button) => {
+        button.addEventListener("click", () => finish(String(button.dataset.saleEventStatus || "unconfirmed")));
+      });
+    });
+  }
+
   async function startMove99Listings(scanMode = "price99") {
     let reservationToken = "";
     try {
+    const reverse = scanMode === "non99";
+    const saleEventStatus = reverse ? await requestReverseMove99SaleEventStatus() : "";
+    const saleEventDecision = reverse
+      ? FOUNDATION.reverseMove99SaleEventDecision(saleEventStatus)
+      : { ok: true, status: "" };
+    if (!saleEventDecision.ok) {
+      renderStatus(saleEventDecision.error, "error");
+      return;
+    }
     reservationToken = await U.claimWorkflowStart("move99", "Move .99");
     await storageSet({ gldnStopRequested: false });
     const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel", "pendingMove99Run"]);
     const identity = normalizedIdentity(storedIdentity.computerLabel, storedIdentity.ebayAccountLabel);
     if (!identity.ebayAccountLabel) {
-      alert("This computer is Poshmark-only or is not configured. Move .99 requires an eBay computer.");
+      renderStatus("This computer is Poshmark-only or is not configured. Move .99 requires an eBay computer.", "error");
       return;
     }
     const accountConfig = await applyMove99AccountConfig(identity.ebayAccountLabel);
@@ -9415,7 +10836,11 @@
       return;
     }
     if (scanMode === "price99" && canRecoverMove99FirstBatchFromVerifiedScan(interruptedState)) {
-      const recoveredState = recoverMove99VerifiedScanSummary(interruptedState);
+      const recoveredState = {
+        ...recoverMove99VerifiedScanSummary(interruptedState),
+        reviewRequested: true,
+        reviewRequestedAt: new Date().toISOString()
+      };
       await storageSet({ pendingMove99Run: recoveredState, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(recoveredState) });
       await U.releaseWorkflowStart(reservationToken);
       reservationToken = "";
@@ -9428,7 +10853,6 @@
       else await navigateToMove99ScanPage(1, recoveryUrl);
       return;
     }
-    const reverse = scanMode === "non99";
     const sourceCategories = reverse ? [accountConfig.destinationCategory] : accountConfig.sourceCategories;
     const destinationCategory = reverse ? accountConfig.sourceCategories[0] : accountConfig.destinationCategory;
     const sourceStoreCategoryIds = reverse ? [] : accountConfig.sourceStoreCategoryIds;
@@ -9446,6 +10870,8 @@
         ownerTabId: tabInfo.tabId,
         phase: "active-prepare",
         scanMode: reverse ? "non99" : "price99",
+        saleEventStatus: saleEventDecision.status,
+        saleEventConfirmedAt: reverse ? startedAt : "",
         scanStrategy: MOVE99_SCAN_STRATEGY,
         ebayAccountLabel: accountConfig.account,
         currentPage: 1,
@@ -9494,14 +10920,20 @@
     if (result.pendingMarkShippedRun?.active) {
       if (result.pendingMarkShippedRun.phase === "awaiting-activation-approval") {
         setTimeout(() => showMarkShippedActivationApproval(result.pendingMarkShippedRun), 600);
-      } else if (result.pendingMarkShippedRun.phase === "awaiting-approval") {
+      } else if (["awaiting-approval", "awaiting-result"].includes(result.pendingMarkShippedRun.phase)) {
         setTimeout(monitorPendingMarkShippedApproval, 600);
       } else if (result.pendingMarkShippedRun.phase === "activating-approved-action") {
-        setTimeout(() => reconcileApprovedMarkShippedActivation(result.pendingMarkShippedRun), 600);
+        setTimeout(async () => {
+          const recovered = await recoverPendingMarkShippedFinalApproval(result.pendingMarkShippedRun);
+          if (recovered) monitorPendingMarkShippedApproval();
+          else await reconcileApprovedMarkShippedActivation(result.pendingMarkShippedRun);
+        }, 600);
       } else if (result.pendingMarkShippedRun.phase === "prepare" && isAwaitingShipmentPage()) {
         setTimeout(runMarkShippedAutomation, 600);
       } else if (result.pendingMarkShippedRun.phase === "manual-review-required") {
-        renderStatus("Mark as Shipped needs manual review. Review eBay, then use Reset.", "error");
+        const recovered = await recoverPendingMarkShippedFinalApproval(result.pendingMarkShippedRun);
+        if (recovered) setTimeout(monitorPendingMarkShippedApproval, 250);
+        else renderStatus("Mark as Shipped needs manual review. Review eBay, then use Reset.", "error");
       }
     }
     if (result.pendingSellerLevelScan && isSellerLevelPage()) {
@@ -9534,10 +10966,8 @@
     if (pendingMove99?.phase === "reconciliation-required") {
       renderStatus("Move .99 needs reconciliation. Run Move .99 again to start the saved read-only verification scan.", "error");
     }
-    const passiveMove99Summary = pendingMove99?.phase === "scan-summary" || pendingMove99?.phase === "completed";
-    const shouldResumeMove99 = pendingMove99?.active
-      ? (isMove99ActiveListingsPage() || isMove99BulkEditorPage() || isMove99SingleListingEditorPage())
-      : (passiveMove99Summary && isMove99ActiveListingsPage());
+    const shouldResumeMove99 = (pendingMove99?.active || move99ReviewRequestIsFresh(pendingMove99))
+      && (isMove99ActiveListingsPage() || isMove99BulkEditorPage() || isMove99SingleListingEditorPage());
     if (shouldResumeMove99) {
       if (pendingMove99?.active) {
         renderStatus(`Resuming Move .99 (${String(pendingMove99.phase || "starting").replace(/-/g, " ")})...`, "ready");
@@ -9572,7 +11002,18 @@
     panel.dataset.workflowVisible = panelWorkflowVisible ? "true" : "false";
   }
 
-  function ebayPanelWorkflowStateVisible(stored = {}) {
+  function isEbayOrderDetailsPage(href = globalThis.location?.href || "") {
+    try {
+      const url = new URL(String(href || ""), "https://www.ebay.com");
+      return /(?:^|\/)(?:mesh\/|sh\/)?ord\/details(?:\/|$)/i.test(url.pathname);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function ebayPanelWorkflowStateVisible(stored = {}, href = globalThis.location?.href || "") {
+    if (isEbayOrderDetailsPage(href)) return true;
+    if (/\/sh\/ord\/?(?:[?#]|$)/i.test(String(href || ""))) return true;
     const visibleKeys = new Set(EBAY_PANEL_WORKFLOW_KEYS);
     return FOUNDATION.activeWorkflowEntries(stored).some((entry) => (
       visibleKeys.has(String(entry.key || "").split(":")[0])
@@ -9582,7 +11023,13 @@
   async function refreshEbayPanelWorkflowVisibility() {
     const stored = await storageGet(EBAY_PANEL_WORKFLOW_KEYS);
     setEbayPanelWorkflowVisible(ebayPanelWorkflowStateVisible(stored));
+    refreshPolicyAuditLauncherVisibility();
     return panelWorkflowVisible;
+  }
+
+  function refreshPolicyAuditLauncherVisibility() {
+    const button = panel?.querySelector("[data-action='policy-listing-audit']");
+    if (button) button.hidden = !isActiveListingsPage();
   }
 
   function installEbayDailyPanelShortcut() {
@@ -9616,6 +11063,237 @@
     panelIdentityElement.innerHTML = `<span>Computer: <strong>${escapeHtml(computer)}</strong></span><span>eBay account: <strong>${escapeHtml(account)}</strong></span>`;
   }
 
+  function priorCalendarMonthKey() {
+    const now = new Date();
+    const prior = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return `${prior.getFullYear()}-${String(prior.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  async function startEbayMonthlyProfitForMonth(monthKey) {
+    const normalizedMonth = String(monthKey || "").trim();
+    if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(normalizedMonth)) {
+      throw new Error("Choose a valid calendar month before starting.");
+    }
+    const response = await runtimeMessage({ type: "startEbayMonthlyProfit", options: { monthKey: normalizedMonth } }, 120000);
+    if (!response?.ok) throw new Error(response?.error || "Could not start monthly eBay profit.");
+    return response;
+  }
+
+  async function showEbayMonthlyProfitLauncher() {
+    document.getElementById("gldn-ebay-monthly-profit-launcher")?.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "gldn-ebay-monthly-profit-launcher";
+    overlay.className = "gldn-modal-backdrop gldn-review-backdrop";
+    overlay.innerHTML = `
+      <div class="gldn-modal gldn-health-modal gldn-review-modal" data-gldn-workflow-launcher="true">
+        <button type="button" class="gldn-close" aria-label="Close">&times;</button>
+        <h2>Monthly eBay Profit</h2>
+        <p class="gldn-help-text">Reads one complete eBay order month and verifies each saved Amazon-cost note against visible Order earnings. Nothing is written to the dashboard until the exact review token is approved.</p>
+        <div class="gldn-health-grid">
+          <label class="gldn-field">Month<input id="gldn-ebay-profit-month" type="month" value="${priorCalendarMonthKey()}"></label>
+          <div class="gldn-field"><span>Phase</span><strong data-profit-phase>No saved run</strong></div>
+          <div class="gldn-field"><span>Orders indexed</span><strong data-profit-orders>0</strong></div>
+          <div class="gldn-field"><span>Details read</span><strong data-profit-details>0</strong></div>
+          <div class="gldn-field"><span>Exact rows</span><strong data-profit-exact>0</strong></div>
+          <div class="gldn-field"><span>Needs review</span><strong data-profit-unresolved>0</strong></div>
+          <div class="gldn-field"><span>eBay earnings</span><strong data-profit-earnings>$0.00</strong></div>
+          <div class="gldn-field"><span>Amazon cost</span><strong data-profit-cost>$0.00</strong></div>
+          <div class="gldn-field"><span>Profit</span><strong data-profit-total>$0.00</strong></div>
+        </div>
+        <div class="gldn-actions">
+          <button type="button" class="gldn-secondary" data-action="close-profit">Close</button>
+          <button type="button" class="gldn-secondary" data-action="pause-profit">Pause</button>
+          <button type="button" class="gldn-secondary" data-action="resume-profit">Resume</button>
+          <button type="button" class="gldn-primary" data-action="start-profit">Start Month</button>
+          <button type="button" class="gldn-primary" data-action="open-profit-review">Open Full Review</button>
+        </div>
+        <div class="gldn-modal-status">Reading the saved monthly checkpoint...</div>
+      </div>`;
+    document.documentElement.appendChild(overlay);
+    const modal = overlay.querySelector(".gldn-modal");
+    U.enhanceModal?.(modal);
+    U.makePanelDraggable(modal, "gldnEbayMonthlyProfitLauncherPosition");
+    const status = overlay.querySelector(".gldn-modal-status");
+    const monthInput = overlay.querySelector("#gldn-ebay-profit-month");
+    const startButton = overlay.querySelector("[data-action='start-profit']");
+    const resumeButton = overlay.querySelector("[data-action='resume-profit']");
+    const pauseButton = overlay.querySelector("[data-action='pause-profit']");
+    let closed = false;
+
+    const money = (value) => Number(value || 0).toLocaleString(undefined, { style: "currency", currency: "USD" });
+    const refresh = async () => {
+      if (closed) return;
+      const response = await runtimeMessage({ type: "getEbayMonthlyProfit" }, 30000);
+      if (!response?.ok) {
+        status.textContent = response?.error || "Could not read the monthly eBay profit checkpoint.";
+        return;
+      }
+      const state = response.state || null;
+      const summary = globalThis.GLDN_EBAY_PROFIT_CORE?.summary?.(state) || {};
+      const totals = summary.totals || {};
+      if (state?.monthKey) monthInput.value = state.monthKey;
+      overlay.querySelector("[data-profit-phase]").textContent = String(state?.phase || "No saved run").replace(/-/g, " ");
+      overlay.querySelector("[data-profit-orders]").textContent = Number(summary.ordersIndexed || 0).toLocaleString();
+      overlay.querySelector("[data-profit-details]").textContent = Number(summary.detailsCaptured || 0).toLocaleString();
+      overlay.querySelector("[data-profit-exact]").textContent = Number(summary.exact || 0).toLocaleString();
+      overlay.querySelector("[data-profit-unresolved]").textContent = Number(summary.unresolved || 0).toLocaleString();
+      overlay.querySelector("[data-profit-earnings]").textContent = money(totals.earnings);
+      overlay.querySelector("[data-profit-cost]").textContent = money(totals.amazonCost);
+      overlay.querySelector("[data-profit-total]").textContent = money(totals.profit);
+      const active = state?.active === true;
+      const review = state?.phase === "review";
+      monthInput.disabled = active;
+      startButton.disabled = active || review;
+      resumeButton.disabled = !state || active || ["review", "completed"].includes(state.phase);
+      pauseButton.disabled = !active;
+      status.textContent = review
+        ? `Review ready: ${Number(summary.exact || 0).toLocaleString()} exact and ${Number(summary.unresolved || 0).toLocaleString()} unresolved. Nothing has been synced.`
+        : active
+          ? `Running: ${Number(summary.detailsCaptured || 0).toLocaleString()} of ${Number(summary.ordersIndexed || 0).toLocaleString()} order details read.`
+          : state?.pausedReason || (state ? "Checkpoint ready." : "Choose a month and start the read-only run.");
+    };
+    const close = () => {
+      closed = true;
+      clearInterval(refreshTimer);
+      overlay.remove();
+    };
+    overlay.querySelector(".gldn-close").addEventListener("click", close);
+    overlay.querySelector("[data-action='close-profit']").addEventListener("click", close);
+    startButton.addEventListener("click", async () => {
+      startButton.disabled = true;
+      status.textContent = "Starting one inactive signed-in eBay worker tab...";
+      try {
+        await startEbayMonthlyProfitForMonth(monthInput.value);
+        await refresh();
+      } catch (error) {
+        status.textContent = error?.message || String(error);
+        startButton.disabled = false;
+      }
+    });
+    resumeButton.addEventListener("click", async () => {
+      const response = await runtimeMessage({ type: "resumeEbayMonthlyProfit" }, 120000);
+      if (!response?.ok) status.textContent = response?.error || "Could not resume monthly eBay profit.";
+      await refresh();
+    });
+    pauseButton.addEventListener("click", async () => {
+      const response = await runtimeMessage({ type: "stopEbayMonthlyProfit" }, 120000);
+      if (!response?.ok) status.textContent = response?.error || "Could not pause monthly eBay profit.";
+      await refresh();
+    });
+    overlay.querySelector("[data-action='open-profit-review']").addEventListener("click", async () => {
+      const response = await runtimeMessage({ type: "openExtensionPage", page: "ebay-profit.html" });
+      if (!response?.ok) status.textContent = response?.error || "Could not open the full monthly review.";
+    });
+    const refreshTimer = setInterval(refresh, 3000);
+    await refresh();
+  }
+
+  function showPolicyListingAuditLauncher(autoStart = false) {
+    document.getElementById("gldn-policy-listing-audit-launcher")?.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "gldn-policy-listing-audit-launcher";
+    overlay.className = "gldn-modal-backdrop gldn-review-backdrop";
+    overlay.innerHTML = `
+      <div class="gldn-modal gldn-review-modal" data-gldn-workflow-launcher="true">
+        <button type="button" class="gldn-close" aria-label="Close">&times;</button>
+        <h2>Existing Listings Policy Audit</h2>
+        <p>This verifies every Active Listing and applies the reviewed rule pack. Scanning does not revise or end anything.</p>
+        <div class="gldn-review-grid">
+          <div><span>Verified</span><strong data-policy-metric="total">0</strong></div>
+          <div><span>No rule match</span><strong data-policy-metric="clear">0</strong></div>
+          <div><span>Needs review</span><strong data-policy-metric="review">0</strong></div>
+          <div><span>Reviewed Block</span><strong data-policy-metric="block">0</strong></div>
+        </div>
+        <div class="gldn-modal-status" role="status" aria-live="polite">Reading the saved scan checkpoint...</div>
+        <div class="gldn-modal-actions">
+          <button type="button" class="gldn-secondary" data-action="pause-policy-scan">Pause Safely</button>
+          <button type="button" class="gldn-secondary" data-action="resume-policy-scan">Resume Scan</button>
+          <button type="button" class="gldn-primary" data-action="start-policy-scan">Start Fresh Complete Scan</button>
+        </div>
+        <div class="gldn-modal-actions">
+          <button type="button" class="gldn-secondary" data-action="open-policy-audit">Open Detailed Results</button>
+          <button type="button" class="gldn-secondary" data-action="close-policy-audit">Close</button>
+        </div>
+        <p class="gldn-helper">This window never exposes an End control. Detailed results retain the separate exact eBay review and approval gate.</p>
+      </div>`;
+    document.documentElement.appendChild(overlay);
+    makeReviewModalDraggable(overlay);
+    const modal = overlay.querySelector(".gldn-modal");
+    const status = modal.querySelector(".gldn-modal-status");
+    const startButton = modal.querySelector("[data-action='start-policy-scan']");
+    const resumeButton = modal.querySelector("[data-action='resume-policy-scan']");
+    const pauseButton = modal.querySelector("[data-action='pause-policy-scan']");
+    let busy = false;
+    let refreshTimer = null;
+
+    const close = () => {
+      if (refreshTimer) clearInterval(refreshTimer);
+      overlay.remove();
+    };
+    const renderStored = async () => {
+      const stored = await storageGet(["ebayPolicyListingScanState", "ebayPolicyListingAudit"]);
+      const state = stored.ebayPolicyListingScanState || null;
+      const audit = stored.ebayPolicyListingAudit || null;
+      const summary = audit?.summary || {};
+      modal.querySelector("[data-policy-metric='total']").textContent = Number(summary.total || state?.scannedListings || 0).toLocaleString();
+      modal.querySelector("[data-policy-metric='clear']").textContent = Number(summary.clear || 0).toLocaleString();
+      modal.querySelector("[data-policy-metric='review']").textContent = Number(summary.review || 0).toLocaleString();
+      modal.querySelector("[data-policy-metric='block']").textContent = Number(summary.block || 0).toLocaleString();
+      const scanning = state?.active === true && state?.phase === "scanning";
+      const resumable = !scanning && ["paused", "error"].includes(String(state?.phase || "")) && Boolean(state?.runId);
+      startButton.disabled = busy || scanning;
+      resumeButton.disabled = busy || !resumable;
+      pauseButton.disabled = !scanning;
+      if (state?.phase === "complete" && audit) {
+        status.textContent = `Complete: ${Number(summary.total || 0).toLocaleString()} unique listings verified; ${Number(summary.block || 0).toLocaleString()} reviewed Block, ${Number(summary.review || 0).toLocaleString()} Needs Review, ${Number(summary.clear || 0).toLocaleString()} no rule match. Nothing was ended.`;
+      } else if (scanning) {
+        status.textContent = `Scanning page ${Number(state.page || 1).toLocaleString()}${state.totalPages ? ` of ${Number(state.totalPages).toLocaleString()}` : ""}: ${Number(state.scannedListings || 0).toLocaleString()} of ${Number(state.totalListings || 0).toLocaleString()} verified.`;
+      } else if (resumable) {
+        status.textContent = `${state.error || `Paused before page ${Number(state.nextPage || 1).toLocaleString()}.`} Resume continues from the saved verified checkpoint.`;
+      } else if (!busy) {
+        status.textContent = audit ? "A complete saved audit is available." : "No complete policy audit is saved yet.";
+      }
+      return { state, audit };
+    };
+    const run = async (fresh) => {
+      if (busy) return;
+      busy = true;
+      status.textContent = fresh ? "Starting a fresh complete read-only scan..." : "Resuming from the verified checkpoint...";
+      await renderStored();
+      try {
+        const response = await runtimeMessage({ type: "scanEbayPolicyListings", fresh }, 45 * 60 * 1000);
+        if (!response?.ok) throw new Error(response?.error || "The policy scan stopped safely.");
+      } catch (error) {
+        status.textContent = error?.message || String(error);
+      } finally {
+        busy = false;
+        await renderStored();
+      }
+    };
+
+    modal.querySelector(".gldn-close").addEventListener("click", close);
+    modal.querySelector("[data-action='close-policy-audit']").addEventListener("click", close);
+    startButton.addEventListener("click", () => run(true));
+    resumeButton.addEventListener("click", () => run(false));
+    pauseButton.addEventListener("click", async () => {
+      const response = await runtimeMessage({ type: "stopEbayPolicyListingScan" }, 30000);
+      if (!response?.ok) status.textContent = response?.error || "The scan could not be paused.";
+      await renderStored();
+    });
+    modal.querySelector("[data-action='open-policy-audit']").addEventListener("click", async () => {
+      const response = await runtimeMessage({ type: "openExtensionPage", page: "policy-listing-audit.html" });
+      if (!response?.ok) status.textContent = response?.error || "Detailed results could not open.";
+    });
+    refreshTimer = setInterval(() => renderStored().catch(() => {}), 1500);
+    renderStored()
+      .then(({ state, audit }) => {
+        const active = state?.active === true && state?.phase === "scanning";
+        const complete = state?.phase === "complete" && Boolean(audit);
+        if (autoStart && !active && !complete) run(true);
+      })
+      .catch((error) => { status.textContent = error.message; });
+  }
+
   function createPanel() {
     if (document.getElementById("gldn-ebay-order-panel")) return;
     panel = document.createElement("div");
@@ -9635,12 +11313,11 @@
       <button type="button" data-action="snapshot" class="gldn-secondary">Scan Sales Snapshot</button>
       <button type="button" data-action="limits" class="gldn-danger">Confirm Listings Under Limit</button>
       <button type="button" data-action="prepare" class="gldn-primary">Prepare Order Note</button>
+      <button type="button" data-action="policy-listing-audit" class="gldn-warning" hidden>Audit Listing Policies</button>
       <button type="button" data-action="review-move99-scan" class="gldn-warning" hidden>Review Saved Category Scan</button>
       <button type="button" data-action="apply-move99-scan" class="gldn-primary" hidden>Apply Saved Category Scan</button>
       <div class="gldn-task-controls">
         <button type="button" data-action="open-dashboard" class="gldn-dashboard">Dashboard</button>
-        <button type="button" data-action="dashboard-setup" class="gldn-secondary">Setup</button>
-        <button type="button" data-action="feature-health" class="gldn-secondary">Health Check</button>
         <button type="button" data-action="stop-task" class="gldn-stop-task">Stop Task</button>
         <button type="button" data-action="reset-task" class="gldn-reset-task">Reset</button>
         <button type="button" data-action="reload-extension" class="gldn-dev-reload">Update &amp; Reload</button>
@@ -9651,6 +11328,51 @@
     U.makePanelDraggable(panel, "gldnEbayPanelPosition");
     const panelSettingsMenu = panel.querySelector(".gldn-panel-settings-menu");
     if (panelSettingsMenu) {
+      const monthlyProfitButton = document.createElement("button");
+      monthlyProfitButton.type = "button";
+      monthlyProfitButton.className = "gldn-secondary";
+      monthlyProfitButton.dataset.action = "monthly-profit";
+      monthlyProfitButton.textContent = "Monthly eBay Profit";
+      monthlyProfitButton.addEventListener("click", () => {
+        panelSettingsMenu.setAttribute("hidden", "");
+        showEbayMonthlyProfitLauncher().catch((error) => renderStatus(`Monthly eBay Profit could not open: ${error.message}`, "error"));
+      });
+      panelSettingsMenu.appendChild(monthlyProfitButton);
+
+      const dashboardSetupButton = document.createElement("button");
+      dashboardSetupButton.type = "button";
+      dashboardSetupButton.className = "gldn-secondary";
+      dashboardSetupButton.dataset.action = "dashboard-setup";
+      dashboardSetupButton.textContent = "Dashboard Setup";
+      dashboardSetupButton.addEventListener("click", () => {
+        panelSettingsMenu.setAttribute("hidden", "");
+        setupDashboardFromPanel();
+      });
+      panelSettingsMenu.appendChild(dashboardSetupButton);
+
+      const featureHealthButton = document.createElement("button");
+      featureHealthButton.type = "button";
+      featureHealthButton.className = "gldn-secondary";
+      featureHealthButton.dataset.action = "feature-health";
+      featureHealthButton.textContent = "Feature Health Check";
+      featureHealthButton.addEventListener("click", () => {
+        panelSettingsMenu.setAttribute("hidden", "");
+        runFeatureHealthFromPanel();
+      });
+      panelSettingsMenu.appendChild(featureHealthButton);
+
+      const policyListingAuditButton = document.createElement("button");
+      policyListingAuditButton.type = "button";
+      policyListingAuditButton.className = "gldn-secondary";
+      policyListingAuditButton.dataset.action = "policy-listing-audit-settings";
+      policyListingAuditButton.textContent = "Listing Policy Audit";
+      policyListingAuditButton.addEventListener("click", async () => {
+        panelSettingsMenu.setAttribute("hidden", "");
+        const response = await runtimeMessage({ type: "openExtensionPage", page: "policy-listing-audit.html" });
+        if (!response?.ok) renderStatus(response?.error || "Listing Policy Audit could not open.", "error");
+      });
+      panelSettingsMenu.appendChild(policyListingAuditButton);
+
       const storeCategoryButton = document.createElement("button");
       storeCategoryButton.type = "button";
       storeCategoryButton.className = "gldn-secondary";
@@ -9696,9 +11418,12 @@
     statusElement = panel.querySelector(".gldn-status");
     panelIdentityElement = panel.querySelector(".gldn-panel-identity");
     panel.querySelector("[data-action='mark-shipped']").addEventListener("click", startMarkShipped);
-    panel.querySelector("[data-action='prepare']").addEventListener("click", prepareNote);
+    panel.querySelector("[data-action='prepare']").addEventListener("click", () => {
+      prepareNote().catch(() => {});
+    });
     panel.querySelector("[data-action='health']").addEventListener("click", startSellerLevelScan);
     panel.querySelector("[data-action='snapshot']").addEventListener("click", startEbaySnapshotScan);
+    panel.querySelector("[data-action='policy-listing-audit']").addEventListener("click", () => showPolicyListingAuditLauncher(true));
     limitsButtonElement = panel.querySelector("[data-action='limits']");
     limitsButtonElement.addEventListener("click", startListingLimitCheck);
     move99ReviewButtonElement = panel.querySelector("[data-action='review-move99-scan']");
@@ -9710,12 +11435,11 @@
       applySavedMove99Summary().catch((error) => renderStatus(`Saved changes could not start: ${error.message}`, "error"));
     });
     panel.querySelector("[data-action='open-dashboard']").addEventListener("click", openDashboard);
-    panel.querySelector("[data-action='dashboard-setup']").addEventListener("click", setupDashboardFromPanel);
-    panel.querySelector("[data-action='feature-health']").addEventListener("click", runFeatureHealthFromPanel);
     panel.querySelector("[data-action='stop-task']").addEventListener("click", stopCurrentTask);
     panel.querySelector("[data-action='reset-task']").addEventListener("click", resetAutomation);
     panel.querySelector("[data-action='reload-extension']").addEventListener("click", reloadExtensionFromPanel);
     refreshPanelIdentity();
+    refreshPolicyAuditLauncherVisibility();
     refreshLimitsButton();
     refreshSnipingWinnerButton();
     refreshMove99ReviewButton().catch((error) => {
@@ -9724,6 +11448,325 @@
     refreshEbayPanelWorkflowVisibility().catch((error) => {
       if (!invalidContextError(error)) U.recordExtensionLog({ source: "ebay", operation: "refresh-panel-visibility", level: "error", message: error.message });
     });
+  }
+
+  function clickExactOpenEbayReview(overlayId, selector, label) {
+    const overlay = document.getElementById(overlayId);
+    if (!overlay) throw new Error(`The ${label} review is not open.`);
+    const buttons = Array.from(overlay.querySelectorAll(selector))
+      .filter((button) => String(button.textContent || "").trim() === label);
+    if (buttons.length !== 1) throw new Error(`The open review does not have one exact ${label} button.`);
+    buttons[0].click();
+  }
+
+  function saveOpenEbaySnapshotReview() {
+    clickExactOpenEbayReview("gldn-ebay-snapshot-preview", "button[data-action='save']", "Save eBay Snapshot");
+  }
+
+  function saveOpenSellerLevelReview() {
+    clickExactOpenEbayReview("gldn-health-preview", "button[data-action='save-health']", "Save Seller Level Check");
+  }
+
+  function saveOpenListingLimitsReview() {
+    clickExactOpenEbayReview("gldn-listings-preview", "button[data-action='confirm-listings']", "Confirm Listings Under Limit");
+  }
+
+  function cancelOpenMarkShippedReview() {
+    clickExactOpenEbayReview("gldn-mark-shipped-activation-approval", "button[data-action='cancel']", "Cancel safely");
+  }
+
+  async function approveOpenMarkShippedReview(confirmationToken) {
+    const stored = await storageGet(["pendingMarkShippedRun"]);
+    const pending = stored.pendingMarkShippedRun;
+    const selectedCount = Number(pending?.selectedCount || 0);
+    const beforeCount = Number(pending?.beforeCount || 0);
+    if (!pending?.active || pending.phase !== "awaiting-activation-approval") {
+      throw new Error("The Mark as Shipped approval is no longer open.");
+    }
+    if (selectedCount <= 0 || selectedCount !== beforeCount) {
+      throw new Error("Mark as Shipped approval requires every awaiting order to remain selected.");
+    }
+    const expectedToken = `APPROVE MARK SHIPPED ${selectedCount}`;
+    if (String(confirmationToken || "").trim() !== expectedToken) {
+      throw new Error(`Approval token must exactly match ${expectedToken}.`);
+    }
+    clickExactOpenEbayReview(
+      "gldn-mark-shipped-activation-approval",
+      "button[data-action='approve']",
+      "Approve Mark as Shipped"
+    );
+  }
+
+  async function approveOpenEbayMarkShippedConfirmation(confirmationToken) {
+    const stored = await storageGet(["pendingMarkShippedRun"]);
+    const pending = stored.pendingMarkShippedRun;
+    const selectedCount = Number(pending?.selectedCount || 0);
+    const beforeCount = Number(pending?.beforeCount || 0);
+    if (!pending?.active || pending.phase !== "awaiting-approval") {
+      throw new Error("The eBay Mark as Shipped confirmation is no longer awaiting approval.");
+    }
+    if (selectedCount <= 0 || selectedCount !== beforeCount) {
+      throw new Error("eBay Continue approval requires the exact selected order count.");
+    }
+    const expectedToken = `APPROVE EBAY CONTINUE ${selectedCount}`;
+    if (String(confirmationToken || "").trim() !== expectedToken) {
+      throw new Error(`Approval token must exactly match ${expectedToken}.`);
+    }
+
+    const currentCount = parseAwaitingResultsCount();
+    if (currentCount === null || currentCount !== beforeCount) {
+      throw new Error("The awaiting order count changed before eBay Continue approval.");
+    }
+    const dialog = findMarkShippedDialog();
+    if (!dialog) throw new Error("The eBay Mark as Shipped confirmation is not open.");
+    const dialogText = dialog.innerText || dialog.textContent || "";
+    const confirmationSelection = resolveMarkShippedConfirmationCount(
+      parseMarkShippedSelectedCount(dialogText),
+      selectedCount,
+      beforeCount
+    );
+    const validation = validateMarkShippedConfirmation(beforeCount, confirmationSelection?.count ?? null);
+    if (!validation.ok) throw new Error(validation.error);
+    const finalAction = findMarkShippedFinalAction(dialog);
+    if (!finalAction) throw new Error("The exact eBay Continue action is not available.");
+    const actionLabel = U.normalizeText(finalAction.innerText || finalAction.textContent || "");
+    if (pending.confirmationActionLabel && actionLabel !== pending.confirmationActionLabel) {
+      throw new Error("The eBay final action changed after review.");
+    }
+
+    const awaitingResult = {
+      ...pending,
+      phase: "awaiting-result",
+      finalActionApprovedAt: new Date().toISOString(),
+      finalActionApprovalToken: expectedToken,
+      finalActionClickCount: 1,
+      updatedAt: new Date().toISOString()
+    };
+    await storageSet({ pendingMarkShippedRun: awaitingResult });
+    const dispatched = await runtimeMessage({
+      type: "dispatchTrustedEbayMarkShippedContinue",
+      selectedCount,
+      beforeCount
+    }, 15000);
+    if (!dispatched?.ok || dispatched.dispatched !== true) {
+      const refreshed = await storageGet(["pendingMarkShippedRun"]);
+      const latest = refreshed.pendingMarkShippedRun || awaitingResult;
+      const dispatchRecorded = Boolean(latest.trustedFinalActionDispatchAt);
+      await storageSet({
+        pendingMarkShippedRun: {
+          ...latest,
+          phase: dispatchRecorded ? "manual-review-required" : "awaiting-approval",
+          finalActionClickCount: dispatchRecorded ? 1 : 0,
+          finalActionApprovalToken: dispatchRecorded ? expectedToken : "",
+          error: dispatched?.error || "The trusted eBay Continue dispatch failed.",
+          updatedAt: new Date().toISOString()
+        }
+      });
+      throw new Error(dispatched?.error || "The trusted eBay Continue dispatch failed.");
+    }
+    setTimeout(monitorPendingMarkShippedApproval, 250);
+  }
+
+  async function approveOpenMove99Submit(confirmationToken) {
+    const stored = await storageGet(["pendingMove99Run"]);
+    const pending = stored.pendingMove99Run;
+    const expectedCount = Number(pending?.currentBatchCount || 0);
+    const batchIds = [...new Set((pending?.currentBatchIds || []).map(String).filter(Boolean))];
+    const attempted = Number(pending?.categoryUpdate?.attempted || 0);
+    const updated = Number(pending?.categoryUpdate?.updated || 0);
+    if (pending?.phase !== "awaiting-submit-approval" || pending?.reviewReady !== true) {
+      throw new Error("The Move .99 review is no longer awaiting Submit approval.");
+    }
+    if (!Number.isInteger(expectedCount) || expectedCount <= 0 || batchIds.length !== expectedCount) {
+      throw new Error("The Move .99 review no longer has an exact saved listing batch.");
+    }
+    if (attempted !== expectedCount || updated !== expectedCount) {
+      throw new Error("The Store category update count no longer matches the approved listing count.");
+    }
+    const expectedToken = `APPROVE SUBMIT ${expectedCount}`;
+    if (String(confirmationToken || "").trim() !== expectedToken) {
+      throw new Error(`Approval token must exactly match ${expectedToken}.`);
+    }
+    if (isMove99SingleListingEditorPage()) {
+      throw new Error("This trusted approval is limited to the exact-count eBay bulk Submit review.");
+    }
+    const tabInfo = await runtimeMessage({ type: "currentTabInfo" });
+    if (!tabInfo?.ok || Number(tabInfo.tabId) !== Number(pending.approvalTabId)) {
+      throw new Error("The Move .99 review belongs to a different tab.");
+    }
+    let currentUrl;
+    let approvedUrl;
+    try {
+      currentUrl = new URL(location.href);
+      approvedUrl = new URL(String(pending.approvalUrl || ""));
+      currentUrl.hash = "";
+      approvedUrl.hash = "";
+    } catch (_) {
+      throw new Error("The Move .99 review URL could not be verified.");
+    }
+    if (currentUrl.href !== approvedUrl.href
+        || currentBulkWorkspaceId() !== String(pending.approvalWorkspaceId || "")) {
+      throw new Error("The Move .99 review URL or workspace changed after approval.");
+    }
+    const nativeSelection = nativeBulkSelectionSummary();
+    const submitCount = parseBulkEditorSubmitTotal();
+    const recoveredClearedSelection = move99RecoveredReviewAllowsClearedSelection(
+      pending,
+      expectedCount,
+      nativeSelection,
+      submitCount,
+      tabInfo.tabId
+    );
+    if (!nativeSelection
+        || nativeSelection.total !== expectedCount
+        || (nativeSelection.selected !== expectedCount && !recoveredClearedSelection)
+        || submitCount !== expectedCount) {
+      throw new Error(
+        `Safety stop: approval expected exactly ${expectedCount} of ${expectedCount} selected with Submit (${expectedCount}).`
+      );
+    }
+    const submitButton = findMove99SubmitButton();
+    const submitLabel = String(submitButton?.getAttribute("aria-label") || submitButton?.innerText || submitButton?.textContent || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    if (!submitButton || submitLabel !== `submit (${expectedCount})`) {
+      throw new Error(`The exact eBay Submit (${expectedCount}) button is not available.`);
+    }
+
+    const approvedAt = new Date().toISOString();
+    const approvedState = {
+      ...pending,
+      approvalActionObservedAt: approvedAt,
+      approvalAction: "submit",
+      finalActionApprovedAt: approvedAt,
+      finalActionApprovalToken: expectedToken,
+      finalActionClickCount: 1,
+      updatedAt: approvedAt
+    };
+    await storageSet({ pendingMove99Run: approvedState });
+    const dispatched = await runtimeMessage({
+      type: "dispatchTrustedEbayMove99Submit",
+      expectedCount,
+      workspaceId: String(pending.approvalWorkspaceId || ""),
+      confirmationToken: expectedToken
+    }, 15000);
+    if (!dispatched?.ok || dispatched.dispatched !== true) {
+      const refreshed = await storageGet(["pendingMove99Run"]);
+      const latest = refreshed.pendingMove99Run || approvedState;
+      const dispatchRecorded = Boolean(latest.trustedSubmitDispatchAt);
+      if (!dispatchRecorded) {
+        await storageSet({
+          pendingMove99Run: {
+            ...latest,
+            approvalActionObservedAt: "",
+            approvalAction: "",
+            finalActionApprovedAt: "",
+            finalActionApprovalToken: "",
+            finalActionClickCount: 0,
+            error: dispatched?.error || "The trusted Move .99 Submit dispatch failed.",
+            updatedAt: new Date().toISOString()
+          }
+        });
+      }
+      throw new Error(dispatched?.error || "The trusted Move .99 Submit dispatch failed.");
+    }
+    setTimeout(() => {
+      storageGet(["pendingMove99Run"])
+        .then((values) => resumeMove99AfterManualSubmit(values.pendingMove99Run || approvedState))
+        .catch((error) => {
+          if (!invalidContextError(error)) {
+            U.recordExtensionLog({ source: "move99", operation: "trusted-submit-monitor", level: "error", message: error?.message || String(error) });
+          }
+        });
+    }, 250);
+    return { dispatched: true, expectedCount };
+  }
+
+  function markShippedElementDescriptor(element) {
+    if (!(element instanceof Element)) return null;
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      tag: element.tagName.toLowerCase(),
+      id: String(element.id || ""),
+      role: String(element.getAttribute("role") || ""),
+      ariaLabel: String(element.getAttribute("aria-label") || ""),
+      ariaDisabled: String(element.getAttribute("aria-disabled") || ""),
+      tabIndex: Number(element.tabIndex),
+      className: String(element.className || "").slice(0, 240),
+      text: String(element.innerText || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 240),
+      href: String(element.getAttribute("href") || "").slice(0, 500),
+      disabled: Boolean(element.disabled),
+      pointerEvents: String(style.pointerEvents || ""),
+      display: String(style.display || ""),
+      visibility: String(style.visibility || ""),
+      rect: {
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height)
+      }
+    };
+  }
+
+  function inspectMarkShippedDom() {
+    const count = parseAwaitingResultsCount();
+    const master = findActionsMasterCheckbox();
+    const dialog = findMarkShippedDialog();
+    const finalAction = findMarkShippedFinalAction(dialog);
+    const exactLabels = [...document.querySelectorAll('button, a, [role="button"], [role="menuitem"], li, div, span')]
+      .filter((element) => U.isVisible(element))
+      .filter((element) => U.normalizeText(element.innerText || element.textContent || "") === "mark as shipped")
+      .slice(0, 12);
+    return {
+      ok: true,
+      awaitingCount: count,
+      master: markShippedElementDescriptor(master),
+      selection: master && count !== null ? currentMarkShippedSelectionEvidence(master, count) : null,
+      orderNumbers: Array.from(new Set(
+        String(document.body?.innerText || "").match(/\b\d{2}-\d{5}-\d{5}\b/g) || []
+      )).slice(0, 50),
+      alerts: [...document.querySelectorAll('[role="alert"], [aria-live], .alert, .notice, .toast')]
+        .filter((element) => U.isVisible(element))
+        .map((element) => U.normalizeText(element.innerText || element.textContent || ""))
+        .filter(Boolean)
+        .slice(0, 20),
+      dialog: markShippedElementDescriptor(dialog),
+      dialogButtons: dialog
+        ? [...dialog.querySelectorAll('button, [role="button"]')].filter(U.isVisible).map(markShippedElementDescriptor)
+        : [],
+      finalAction: markShippedElementDescriptor(finalAction),
+      finalActionHit: finalAction
+        ? markShippedElementDescriptor(document.elementFromPoint(
+          Math.max(1, Math.min(window.innerWidth - 1, finalAction.getBoundingClientRect().left + finalAction.getBoundingClientRect().width / 2)),
+          Math.max(1, Math.min(window.innerHeight - 1, finalAction.getBoundingClientRect().top + finalAction.getBoundingClientRect().height / 2))
+        ))
+        : null,
+      shippingButtons: [...document.querySelectorAll('button, [role="button"]')]
+        .filter((element) => U.isVisible(element))
+        .filter((element) => U.normalizeText(element.innerText || element.textContent || "") === "shipping")
+        .slice(0, 8)
+        .map(markShippedElementDescriptor),
+      candidates: exactLabels.map((label) => {
+        const targets = markShippedActivationTargets(label);
+        const rect = label.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          Math.max(1, Math.min(window.innerWidth - 1, rect.left + rect.width / 2)),
+          Math.max(1, Math.min(window.innerHeight - 1, rect.top + rect.height / 2))
+        );
+        const ancestry = [];
+        for (let current = label; current && ancestry.length < 6; current = current.parentElement) {
+          ancestry.push(markShippedElementDescriptor(current));
+        }
+        return {
+          label: markShippedElementDescriptor(label),
+          hit: markShippedElementDescriptor(hit),
+          targets: targets.map(markShippedElementDescriptor),
+          ancestry
+        };
+      })
+    };
   }
 
 
@@ -9754,17 +11797,133 @@
       sendResponse({ ok: true, visible: true });
       return false;
     }
+    if (message?.type === "showEbayVariationEndReview") {
+      if (sender?.id && sender.id !== chrome.runtime.id) {
+        sendResponse({ ok: false, error: "Message sender is not GLDN Ops." });
+        return false;
+      }
+      variationEndReviewState = message.state || null;
+      if (!exactVariationReviewState()) {
+        sendResponse({ ok: false, error: "The exact native eBay End review did not match the saved variation batch." });
+        return false;
+      }
+      setEbayPanelWorkflowVisible(true);
+      renderStatus(
+        `Review exactly ${Number(variationEndReviewState.requestedCount || 0).toLocaleString()} variation parent listings in this eBay workspace. Nothing has been ended.`,
+        "ready"
+      );
+      if (!message.deferApproval) {
+        showVariationEndApproval(variationEndReviewState, Number(variationEndReviewState.ebayEligibleCount || 0));
+      }
+      sendResponse({ ok: true, requestedCount: Number(variationEndReviewState.requestedCount || 0) });
+      return false;
+    }
+    if (message?.type === "showEbayVariationEndResult") {
+      if (sender?.id && sender.id !== chrome.runtime.id) {
+        sendResponse({ ok: false, error: "Message sender is not GLDN Ops." });
+        return false;
+      }
+      const result = message.result || {};
+      renderStatus(
+        `Variation End complete: ${Number(result.successfulCount || 0).toLocaleString()} ended, ${Number(result.failedCount || 0).toLocaleString()} failed.`,
+        Number(result.failedCount || 0) ? "error" : "completed"
+      );
+      sendResponse({ ok: true });
+      return false;
+    }
+    if (message?.type === "inspectEbayMove99Dom") {
+      storageGet(["pendingMove99Run"])
+        .then((stored) => {
+          const pending = stored.pendingMove99Run || {};
+          const targetIds = new Set((pending.currentBatchIds || []).map(String).filter(Boolean));
+          const renderedRows = renderedBulkRows();
+          const renderedIds = renderedRows
+            .map(({ row }) => bulkEditorRowItemId(row, targetIds))
+            .filter(Boolean);
+          const submitButton = findMove99SubmitButton();
+          const destination = U.normalizeText(pending.destinationCategory || "");
+          let returnSourceIds = [];
+          try {
+            const currentUrl = new URL(location.href);
+            const returnUrl = new URL(String(currentUrl.searchParams.get("ru") || ""), currentUrl.origin);
+            returnSourceIds = numericMove99SourceCategoryIdsFromUrl(returnUrl.href);
+          } catch (_) {}
+          sendResponse({
+            ...inspectMove99Dom(),
+            workflow: {
+              active: Boolean(pending.active),
+              phase: String(pending.phase || ""),
+              qualifyingCount: Number(pending.qualifyingCount || 0),
+              currentBatchCount: Number(pending.currentBatchCount || 0),
+              selected: Number(pending.totals?.selected || 0),
+              categoryApplied: Number(pending.totals?.categoryApplied || 0),
+              error: String(pending.error || "")
+            },
+            approvalReviewEvidence: {
+              workspaceId: currentBulkWorkspaceId(),
+              savedWorkspaceId: String(pending.approvalWorkspaceId || ""),
+              ownerTabId: Number(pending.ownerTabId || 0) || null,
+              approvalTabId: Number(pending.approvalTabId || 0) || null,
+              previousOwnerTabId: Number(pending.previousOwnerTabId || 0) || null,
+              previousApprovalTabId: Number(pending.previousApprovalTabId || 0) || null,
+              staleBatchActionStateClearedAt: String(pending.staleBatchActionStateClearedAt || ""),
+              reviewRecoveredAfterReloadAt: String(pending.reviewRecoveredAfterReloadAt || ""),
+              reviewRecoveryEvidence: pending.reviewRecoveryEvidence || null,
+              sourceStoreCategoryIds: asStringArray(pending.sourceStoreCategoryIds),
+              returnSourceIds,
+              submitLabel: String(submitButton?.getAttribute("aria-label") || submitButton?.innerText || submitButton?.textContent || "")
+                .replace(/\s+/g, " ")
+                .trim(),
+              renderedRowCount: renderedRows.length,
+              renderedIdCount: renderedIds.length,
+              renderedTargetIdCount: renderedIds.filter((itemId) => targetIds.has(itemId)).length,
+              renderedOutsideTargetCount: renderedIds.filter((itemId) => !targetIds.has(itemId)).length,
+              destinationMatches: destination
+                ? [...document.querySelectorAll("td, [role='gridcell']")]
+                  .filter((element) => U.normalizeText(element.innerText || element.textContent || "") === destination)
+                  .length
+                : 0
+            }
+          });
+        })
+        .catch((error) => sendResponse({ ok: false, error: error?.message || String(error) }));
+      return true;
+    }
+    if (message?.type === "inspectEbayMarkShippedDom") {
+      sendResponse(inspectMarkShippedDom());
+      return false;
+    }
     if (message?.type !== "runEbayPageAction") return false;
     if (sender?.id && sender.id !== chrome.runtime.id) {
       sendResponse({ ok: false, error: "Message sender is not GLDN Ops." });
       return false;
     }
+    if (String(message.action || "") === "prepare-order-note"
+      && !/\/mesh\/ord\/details|\/sh\/ord\/details|\/ord\/details/i.test(location.pathname)) {
+      sendResponse({
+        ok: false,
+        error: "Prepare Order Note requires the matching eBay Order Details page. Open that order and try again."
+      });
+      return false;
+    }
     const actions = {
+      "show-panel": () => null,
       "mark-shipped": startMarkShipped,
+      "approve-mark-shipped-review": () => approveOpenMarkShippedReview(message.confirmationToken),
+      "approve-ebay-mark-shipped-confirmation": () => approveOpenEbayMarkShippedConfirmation(message.confirmationToken),
+      "cancel-mark-shipped-review": cancelOpenMarkShippedReview,
       "seller-level": startSellerLevelScan,
+      "save-seller-level-review": saveOpenSellerLevelReview,
       "sales-snapshot": startEbaySnapshotScan,
+      "save-sales-snapshot-review": saveOpenEbaySnapshotReview,
       "listing-limits": startListingLimitCheck,
-      "prepare-order-note": prepareNote
+      "save-listing-limits-review": saveOpenListingLimitsReview,
+      "prepare-order-note": prepareNote,
+      "start-monthly-profit": () => startEbayMonthlyProfitForMonth(message.monthKey),
+      "start-move99-scan": () => startMove99Listings("price99"),
+      "start-move99-reverse-scan": () => startMove99Listings("non99"),
+      "apply-saved-move99": applySavedMove99Summary,
+      "approve-move99-submit": () => approveOpenMove99Submit(message.confirmationToken)
     };
     const action = actions[String(message.action || "")];
     if (!action) {
@@ -9772,7 +11931,20 @@
       return false;
     }
     setEbayPanelWorkflowVisible(true);
-    sendResponse({ ok: true, accepted: true });
+    if (["approve-move99-submit", "start-monthly-profit", "prepare-order-note"].includes(String(message.action || ""))) {
+      Promise.resolve(action())
+        .then((result) => sendResponse({ ok: true, accepted: true, result }))
+        .catch((error) => {
+          renderStatus(error?.message || String(error), "error");
+          sendResponse({ ok: false, error: error?.message || String(error) });
+        });
+      return true;
+    }
+    sendResponse({
+      ok: true,
+      accepted: true,
+      message: `${String(message.action || "").replace(/-/g, " ")} request accepted by the signed-in eBay page.`
+    });
     setTimeout(() => {
       Promise.resolve(action()).catch((error) => {
         renderStatus(error?.message || String(error), "error");
@@ -9782,6 +11954,7 @@
   });
 
   createPanel();
+  installVariationEndApprovalGuard();
   installEbayDailyPanelShortcut();
   installSavedBulkEditDialogWatcher();
   (async () => {
@@ -9789,6 +11962,7 @@
     await resumePendingActions();
     await resumePendingEbaySnapshotScan();
     await resumePendingSnipingExtract();
+    await runEbayMonthlyProfitWorker();
     const diagnosticProbeHandled = await runDiagnosticLogProbeFromUrl();
     if (diagnosticProbeHandled) return;
     const dashboardProbeHandled = await runDashboardQueueProbeFromUrl();
@@ -9810,18 +11984,27 @@
   // the extension content script. Resume a confirmed Move .99 run automatically.
   let lastHeartbeatError = "";
   let lastHeartbeatErrorAt = 0;
+  let lastPanelVisibilityHref = location.href;
   ebayHeartbeatTimer = setInterval(async () => {
-    if (extensionContextInvalidated || move99Running) return;
+    if (extensionContextInvalidated) return;
     try {
+      if (lastPanelVisibilityHref !== location.href) {
+        lastPanelVisibilityHref = location.href;
+        await refreshEbayPanelWorkflowVisibility();
+      }
+      if (move99Running) return;
       const result = await storageGet([
         "pendingMove99Run",
+        "pendingMarkShippedRun",
         "pendingEbaySnapshotScan",
         "pendingSnipingExtract"
       ]);
       const pending = result.pendingMove99Run;
+      const pendingMarkShipped = result.pendingMarkShippedRun;
       const hasPendingWork = Boolean(
         pending?.active
         || pending?.phase === "awaiting-submit-approval"
+        || pendingMarkShipped?.active
         || result.pendingEbaySnapshotScan?.active
         || result.pendingSnipingExtract?.active
       );
@@ -9832,6 +12015,10 @@
       }
       if (pending?.active && pending.confirmed && (isMove99ActiveListingsPage() || isMove99BulkEditorPage())) {
         await runMove99Automation();
+      }
+      if (["activating-approved-action", "manual-review-required"].includes(pendingMarkShipped?.phase)) {
+        const recovered = await recoverPendingMarkShippedFinalApproval(pendingMarkShipped);
+        if (recovered) monitorPendingMarkShippedApproval();
       }
       if (result.pendingEbaySnapshotScan?.active) await resumePendingEbaySnapshotScan();
       if (result.pendingSnipingExtract?.active) await resumePendingSnipingExtract();

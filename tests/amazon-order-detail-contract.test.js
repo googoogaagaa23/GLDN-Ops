@@ -100,6 +100,28 @@ test("order-detail snapshot rejects a card from a different order", () => {
   }), null);
 });
 
+test("historical profit capture falls back to the Amazon order-detail purchase date", () => {
+  const scoped = { innerText: "ORDER PLACED\nApril 12, 2026\nORDER TOTAL\n$9.99" };
+  const sandbox = {
+    document: {
+      querySelector(selector) {
+        return selector === "[data-component='orderDetails']" ? scoped : null;
+      },
+      body: { innerText: "Delivered April 15, 2026" }
+    }
+  };
+  vm.runInNewContext(extractFunction(amazonSource, "amazonPurchaseDateFromText"), sandbox);
+  vm.runInNewContext(extractFunction(amazonSource, "amazonPurchaseDateFromOrderDetail"), sandbox);
+  assert.equal(sandbox.amazonPurchaseDateFromOrderDetail(), "April 12, 2026");
+
+  const worker = blockBetween(
+    amazonSource,
+    "async function resumePoshmarkProfitBackfillWorker()",
+    "function extractAmazonOrderDetailItemCost("
+  );
+  assert.match(worker, /purchaseDate: amazonPurchaseDateFromOrderDetail\(\) \|\| searchMatch\.purchaseDate/);
+});
+
 test("order-detail DOM collection stays inside the verified order card", () => {
   const collection = blockBetween(
     amazonSource,
@@ -131,4 +153,14 @@ test("eBay clipboard payload carries exact Amazon supplier-order evidence", () =
 
   const copyFlow = blockBetween(amazonSource, "async function copyAmazonInfo()", "function renderStatus(");
   assert.match(copyFlow, /orderEvidence: live/);
+});
+
+test("reviewed Amazon evidence is saved before the optional clipboard handoff", () => {
+  const previewFlow = blockBetween(amazonSource, "function showAmazonPreview(", "async function copyAmazonInfo()");
+  const storageIndex = previewFlow.indexOf("await storageSet(updates)");
+  const clipboardIndex = previewFlow.indexOf("await navigator.clipboard.writeText(clipboardText)");
+  assert.ok(storageIndex >= 0, "reviewed payload storage is missing");
+  assert.ok(clipboardIndex > storageIndex, "clipboard write must happen after durable extension storage");
+  assert.match(previewFlow, /clipboardCopied = false/);
+  assert.match(previewFlow, /Reviewed Amazon order data was saved inside GLDN Ops/);
 });

@@ -6520,7 +6520,7 @@ async function stopEcomSniperHandoff() {
 async function openAmazonOrderSearch(asin) {
   const cleaned = String(asin || '').trim().toUpperCase();
   if (!/^[A-Z0-9]{10}$/.test(cleaned)) {
-    return { ok: false, error: 'Amazon ASIN was not detected from the Poshmark SKU.' };
+    return { ok: false, error: 'Amazon ASIN was not detected from the marketplace SKU.' };
   }
   const url = `https://www.amazon.com/gp/your-account/order-history?orderFilter=last30`;
   return openTab(url);

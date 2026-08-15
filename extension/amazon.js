@@ -5,8 +5,13 @@
   const U = window.OrderNoteUtils;
   const AUDIT = window.GLDN_PROFIT_AUDIT;
   const SNIPING = window.GLDN_SNIPING_AUDIT;
+  const SUBSCRIBE_SAVE = window.GLDN_SUBSCRIBE_SAVE;
   const FOUNDATION = window.GLDN_FOUNDATION;
   const EXTENSION_VERSION = chrome.runtime.getManifest().version;
+  const SUBSCRIBE_SAVE_STATE_KEY = "pendingAmazonSubscribeSaveRun";
+  const SUBSCRIBE_SAVE_RESULT_KEY = "lastAmazonSubscribeSaveResult";
+  const SUBSCRIBE_SAVE_MANAGER_URL = "https://www.amazon.com/gp/subscribe-and-save/manager/viewsubscriptions";
+  const SUBSCRIBE_SAVE_ACTION_DELAY_MS = 1600;
   const VERSIONED_WORKFLOW_KEYS = new Set([
     ...FOUNDATION.workflowStateKeys,
     "pendingPoshmarkProfitContext",
@@ -24,6 +29,7 @@
   let amazonObserver = null;
   let amazonAutoCacheInterval = 0;
   let amazonMutationTimer = 0;
+  let subscribeSaveWorkerBusy = false;
 
   function stopInvalidatedAmazonContext(error) {
     if (extensionContextInvalidated) return;
@@ -55,16 +61,23 @@
     stopInvalidatedAmazonContext(event.detail?.message || "Extension context invalidated.");
   });
 
+  function amazonStorageError(error) {
+    const normalized = error instanceof Error ? error : new Error(error?.message || String(error));
+    if (U.isExtensionContextInvalidated?.(normalized)) stopInvalidatedAmazonContext(normalized);
+    return normalized;
+  }
+
   const storageGet = (keys) => new Promise((resolve, reject) => {
     try {
       requireAmazonContext();
       chrome.storage.local.get(keys, (result) => {
-        const error = chrome.runtime.lastError;
-        if (error) reject(new Error(error.message));
+        let error = null;
+        try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+        if (error) reject(amazonStorageError(error));
         else resolve(result);
       });
     } catch (error) {
-      reject(error);
+      reject(amazonStorageError(error));
     }
   });
   const storageSet = (values) => new Promise((resolve, reject) => {
@@ -81,24 +94,26 @@
     try {
       requireAmazonContext();
       chrome.storage.local.set(payload, () => {
-        const error = chrome.runtime.lastError?.message;
-        if (error) reject(new Error(error));
+        let error = null;
+        try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+        if (error) reject(amazonStorageError(error));
         else resolve();
       });
     } catch (error) {
-      reject(error);
+      reject(amazonStorageError(error));
     }
   });
   const storageRemove = (keys) => new Promise((resolve, reject) => {
     try {
       requireAmazonContext();
       chrome.storage.local.remove(keys, () => {
-        const error = chrome.runtime.lastError?.message;
-        if (error) reject(new Error(error));
+        let error = null;
+        try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+        if (error) reject(amazonStorageError(error));
         else resolve();
       });
     } catch (error) {
-      reject(error);
+      reject(amazonStorageError(error));
     }
   });
   const MARKETPLACE_CONTEXT_TTL_MS = 2 * 60 * 60 * 1000;
@@ -663,6 +678,21 @@
     return match?.[1] || "";
   }
 
+  function amazonPurchaseDateFromOrderDetail() {
+    const candidates = [
+      document.querySelector("[data-component='orderDetails']"),
+      document.querySelector("#orderDetails"),
+      document.querySelector(".order-date-invoice-item"),
+      document.querySelector("main"),
+      document.body
+    ].filter((node, index, all) => node && all.indexOf(node) === index);
+    for (const node of candidates) {
+      const purchaseDate = amazonPurchaseDateFromText(node.innerText || node.textContent || "");
+      if (purchaseDate) return purchaseDate;
+    }
+    return "";
+  }
+
   function findAmazonOrderSearchMatches(asin) {
     const targetAsin = String(asin || "").trim().toUpperCase();
     if (!/^[A-Z0-9]{10}$/.test(targetAsin)) return [];
@@ -728,6 +758,117 @@
       || /\b\d+\s+orders?\s+matching\b|\bno orders?\b|\bno results\b/i.test(text);
   }
 
+  function backfillCurrency(value) {
+    const amount = Number(value);
+    return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : "not captured";
+  }
+
+  function outsideWindowPurchaseSummary(run, sale) {
+    const asins = [...new Set((sale?.asins || []).map((asin) => String(asin || "").trim().toUpperCase()).filter(Boolean))];
+    if (!asins.length) return "";
+    const candidates = (run?.purchases || [])
+      .filter((purchase) => asins.includes(String(purchase?.asin || "").trim().toUpperCase()))
+      .sort((left, right) => String(right?.purchaseDate || "").localeCompare(String(left?.purchaseDate || "")))
+      .slice(0, 3)
+      .map((purchase) => `${purchase.asin} bought ${purchase.purchaseDate || "date unknown"} for ${backfillCurrency(purchase.cost)}${purchase.orderId ? ` (Amazon ${purchase.orderId})` : ""}`);
+    return candidates.length ? ` Captured exact-ASIN purchase${candidates.length === 1 ? "" : "s"} outside the allowed date window: ${candidates.join("; ")}.` : "";
+  }
+
+  function showAmazonCostResolutionReview(run) {
+    document.getElementById("gldn-amazon-cost-resolution-review")?.remove();
+    const summary = window.GLDN_PROFIT_BACKFILL.summary(run);
+    const resolvingEbay = run.scope === "resolve-ebay" || run.platform === "eBay";
+    const marketplaceName = resolvingEbay ? "eBay" : "Poshmark";
+    const remaining = Number(summary.pending || 0);
+    const salesByOrder = new Map((run.sales || []).map((sale) => [String(sale.orderNumber || ""), sale]));
+    const rows = (run.results || []).slice(0, 100).map((result) => {
+      const sale = salesByOrder.get(String(result.orderNumber || "")) || {};
+      const record = result.record || {};
+      return `
+        <div class="gldn-sales-row" data-status="${escapeHtml(result.status)}">
+          <div class="gldn-sales-main">
+            <span class="gldn-sales-order">${escapeHtml(result.orderNumber || "No order")}</span>
+            <strong class="gldn-sales-title">${escapeHtml(sale.itemTitle || "Item title unavailable")}</strong>
+            <small class="gldn-sales-detail">${escapeHtml(result.status === "exact"
+              ? `${backfillCurrency(record.marketplaceEarnings)} earnings - ${backfillCurrency(record.supplierTotal)} Amazon - order ${record.supplierOrderNumber || "not captured"}`
+              : `${result.reason || result.status}${outsideWindowPurchaseSummary(run, sale)}`)}</small>
+          </div>
+          <strong class="gldn-sales-earnings">${escapeHtml(result.status === "exact" ? backfillCurrency(record.profit) : "STILL OPEN")}</strong>
+        </div>`;
+    }).join("");
+    const overlay = document.createElement("div");
+    overlay.id = "gldn-amazon-cost-resolution-review";
+    overlay.className = "gldn-modal-backdrop gldn-review-backdrop";
+    overlay.innerHTML = `
+      <div class="gldn-modal gldn-health-modal gldn-review-modal gldn-backfill-modal">
+        <button type="button" class="gldn-close" aria-label="Close">x</button>
+        <h2>Review Missing ${marketplaceName} Amazon Costs</h2>
+        <p class="gldn-help-text">This signed-in Amazon profile was searched by exact ${marketplaceName} SKU-linked ASIN. Exact order-item costs can be applied; misses remain open for another profile.</p>
+        <div class="gldn-grid gldn-backfill-summary">
+          <div><strong>Queue rows checked</strong><span>${Number(summary.salesIndexed || 0).toLocaleString()}</span></div>
+          <div><strong>Exact costs found</strong><span>${Number(summary.exact || 0).toLocaleString()}</span></div>
+          <div><strong>Still open</strong><span>${Number((summary.missingSku || 0) + (summary.amazonNotFound || 0) + (summary.needsReview || 0)).toLocaleString()}</span></div>
+        </div>
+        <div class="gldn-sales-list">${rows || "<div class='gldn-help-text'>No queue rows were checked.</div>"}</div>
+        <div class="gldn-actions">
+          <button type="button" class="gldn-secondary" data-action="close">Close</button>
+          <button type="button" class="gldn-primary" data-action="sync" ${remaining <= 0 ? "disabled" : ""}>Save Cost Resolution Results</button>
+        </div>
+        <div class="gldn-modal-status">No shared-sheet changes have been made by this review.</div>
+      </div>`;
+    document.documentElement.appendChild(overlay);
+    U.makePanelDraggable(overlay.querySelector(".gldn-modal"), "gldnAmazonCostResolutionPosition");
+    const close = () => overlay.remove();
+    overlay.querySelector(".gldn-close").addEventListener("click", close);
+    overlay.querySelector("[data-action='close']").addEventListener("click", close);
+    overlay.querySelector("[data-action='sync']")?.addEventListener("click", async () => {
+      const button = overlay.querySelector("[data-action='sync']");
+      const status = overlay.querySelector(".gldn-modal-status");
+      if (button.dataset.confirmSync !== "true") {
+        button.dataset.confirmSync = "true";
+        button.textContent = `Confirm ${remaining} Result${remaining === 1 ? "" : "s"}`;
+        status.textContent = `Approval required: apply these ${remaining} reviewed lookup results. Exact costs resolve; misses remain queued.`;
+        return;
+      }
+      button.disabled = true;
+      status.textContent = `Saving ${remaining} reviewed lookup results...`;
+      const approvalToken = resolvingEbay
+        ? `APPROVE RESOLVE EBAY COSTS ${remaining}`
+        : `APPROVE RESOLVE POSHMARK COSTS ${remaining}`;
+      const response = await runtimeMessage({ type: "syncPoshmarkProfitBackfill", confirm: approvalToken });
+      if (!response?.ok) {
+        button.disabled = false;
+        button.dataset.confirmSync = "";
+        button.textContent = "Save Cost Resolution Results";
+        status.textContent = response?.error || "The cost-resolution results were not saved.";
+        return;
+      }
+      const message = `${response.exact || 0} ${marketplaceName} Amazon costs resolved; ${response.unresolved || 0} remain open for another profile.`;
+      renderStatus(message, "completed");
+      if (response.state) showAmazonCostResolutionReview(response.state);
+      else status.textContent = message;
+    });
+    return true;
+  }
+
+  async function approveAmazonCostResolutionReview(confirmationToken) {
+    const status = await runtimeMessage({ type: "getPoshmarkProfitBackfill" });
+    const run = status?.state;
+    if (!run || run.phase !== "review" || (run.scope !== "resolve-ebay" && run.platform !== "eBay")) {
+      throw new Error("No eBay Amazon-cost review is open.");
+    }
+    const summary = window.GLDN_PROFIT_BACKFILL.summary(run);
+    const remaining = Number(summary.pending || 0);
+    const expected = `APPROVE RESOLVE EBAY COSTS ${remaining}`;
+    if (String(confirmationToken || "").trim() !== expected) {
+      throw new Error(`eBay Amazon-cost approval requires the exact token ${expected}.`);
+    }
+    const response = await runtimeMessage({ type: "syncPoshmarkProfitBackfill", confirm: expected }, 360000);
+    if (!response?.ok) throw new Error(response?.error || "The eBay Amazon-cost results were not saved.");
+    if (response.state) showAmazonCostResolutionReview(response.state);
+    return response;
+  }
+
   async function resumePoshmarkProfitBackfillWorker() {
     if (backfillWorkerBusy) return false;
     backfillWorkerBusy = true;
@@ -737,7 +878,12 @@
       runtimeMessage({ type: "currentTabInfo" })
     ]);
     const run = status?.state;
-    if (!run?.active || Number(run.workerTabId) !== Number(tab?.tabId)) return false;
+    if (!run || Number(run.workerTabId) !== Number(tab?.tabId)) return false;
+    if (["resolve-missing", "resolve-ebay"].includes(run.scope) && run.phase === "review") {
+      showAmazonCostResolutionReview(run);
+      return true;
+    }
+    if (!run.active) return false;
     await new Promise((resolve) => setTimeout(resolve, 900));
 
     if (run.phase === "amazon-search") {
@@ -781,7 +927,10 @@
       await runtimeMessage({
         type: "poshmarkBackfillAmazonDetail",
         payload: {
-          purchase: purchase ? { ...purchase, purchaseDate: searchMatch.purchaseDate || "" } : null,
+          purchase: purchase ? {
+            ...purchase,
+            purchaseDate: amazonPurchaseDateFromOrderDetail() || searchMatch.purchaseDate || ""
+          } : null,
           pageUrl: location.href
         }
       });
@@ -923,7 +1072,7 @@
     if (value === null) return;
     const cleaned = value.trim();
     if (!cleaned) {
-      alert("Profile label cannot be blank.");
+      renderStatus("Profile label cannot be blank.", "error");
       return;
     }
     await storageSet({ amazonProfileLabel: cleaned });
@@ -940,7 +1089,7 @@
     const version = chrome.runtime.getManifest().version;
     renderStatus(`Checking for a verified update after v${version}...`, "ready");
     try {
-      const response = await chrome.runtime.sendMessage({ type: "updateExtension", returnUrl: location.href, reloadWhenCurrent: true });
+      const response = await runtimeMessage({ type: "updateExtension", returnUrl: location.href, reloadWhenCurrent: true });
       if (!response?.ok) throw new Error(response?.error || "Verified update failed.");
       if (!response.updated) renderStatus(response.message || "GLDN Ops is already current.", "completed");
     } catch (error) {
@@ -1176,8 +1325,6 @@
         payload.orderUrls = [...new Set(payload.items.map((item) => item.orderUrl).filter(Boolean))];
       }
 
-      const clipboardText = U.PAYLOAD_PREFIX + JSON.stringify(payload);
-      await navigator.clipboard.writeText(clipboardText);
       const updates = { lastCopiedAmazonPayload: payload, pendingAmazonCheckout: payload };
       if (marketplaceContext?.orderNumber) {
         const saved = await storageGet(["poshmarkAmazonPayloadByOrder"]);
@@ -1187,6 +1334,20 @@
         };
       }
       await storageSet(updates);
+      const clipboardText = U.PAYLOAD_PREFIX + JSON.stringify(payload);
+      let clipboardCopied = true;
+      try {
+        await navigator.clipboard.writeText(clipboardText);
+      } catch (error) {
+        clipboardCopied = false;
+        U.recordExtensionLog?.({
+          source: "amazon-order-note",
+          operation: "clipboard-write",
+          level: "warning",
+          message: "Reviewed Amazon order data was saved inside GLDN Ops, but Chrome blocked the optional clipboard copy.",
+          detail: error?.message || String(error)
+        });
+      }
       if (marketplaceContext) {
         const pending = await storageGet(["pendingPoshmarkAmazonItemsByOrder"]);
         const byOrder = { ...(pending.pendingPoshmarkAmazonItemsByOrder || {}) };
@@ -1196,8 +1357,8 @@
       }
       renderStatus(`Copied: ${U.formatMoney(payload.total)} - ${profileLabel} - ${payload.etas.join(", ")}`, "copied");
       status.textContent = marketplaceContext
-        ? `Copied for Poshmark order ${marketplaceContext.orderNumber}. Return to that Poshmark order.`
-        : "Copied. Return to the matching eBay order.";
+        ? `${clipboardCopied ? "Copied and saved" : "Saved"} for Poshmark order ${marketplaceContext.orderNumber}. Return to that Poshmark order.`
+        : `${clipboardCopied ? "Copied and saved" : "Saved"}. Return to the matching eBay order.`;
       setTimeout(close, 900);
     });
 
@@ -1298,6 +1459,745 @@
     renderStatus(message, type);
   }
 
+  const subscribeSaveDelay = (ms = SUBSCRIBE_SAVE_ACTION_DELAY_MS) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  function subscribeSaveText(element) {
+    return SUBSCRIBE_SAVE.cleanText(element?.innerText || element?.textContent || "");
+  }
+
+  function isAmazonSubscribeSaveManagerPage() {
+    return /\/(?:gp\/subscribe-and-save\/manager\/viewsubscriptions|auto-deliveries\/subscriptionList)/i.test(location.pathname);
+  }
+
+  function isVisibleSubscribeSaveElement(element) {
+    return Boolean(element instanceof Element && U.isVisible(element));
+  }
+
+  function subscribeSaveAsin(element) {
+    const direct = String(element?.getAttribute?.("data-asin") || "").trim().toUpperCase();
+    if (/^[A-Z0-9]{10}$/.test(direct)) return direct;
+    const withAsin = element?.querySelector?.("[data-asin]");
+    const nested = String(withAsin?.getAttribute?.("data-asin") || "").trim().toUpperCase();
+    if (/^[A-Z0-9]{10}$/.test(nested)) return nested;
+    const anchor = element?.querySelector?.("a[href*='/dp/'], a[href*='/gp/product/']");
+    return String(anchor?.href || anchor?.getAttribute?.("href") || "")
+      .match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?#]|$)/i)?.[1]?.toUpperCase() || "";
+  }
+
+  function subscribeSaveTitle(element) {
+    const candidates = [
+      element?.querySelector?.("a.product-title"),
+      element?.querySelector?.("a[href*='/dp/']"),
+      element?.querySelector?.("a[href*='/gp/product/']"),
+      element?.querySelector?.("[data-testid*='title' i]"),
+      element?.querySelector?.("h2, h3, h4")
+    ];
+    for (const candidate of candidates) {
+      const text = subscribeSaveText(candidate);
+      if (text.length >= 4 && !SUBSCRIBE_SAVE.isRecommendationText(text)) return text;
+    }
+    const ignored = /^(next delivery|deliver every|delivery|quantity|edit|manage|cancel|subscription|subscribe|skip|change|\$)/i;
+    return String(element?.innerText || element?.textContent || "")
+      .split(/\n+/)
+      .map((line) => SUBSCRIBE_SAVE.cleanText(line))
+      .find((line) => line.length >= 8 && !ignored.test(line) && !SUBSCRIBE_SAVE.isRecommendationText(line)) || "";
+  }
+
+  function subscribeSaveHref(element) {
+    const detailsLink = [...(element?.querySelectorAll?.("a[href]") || [])].find((anchor) => {
+      const href = String(anchor.href || anchor.getAttribute("href") || "");
+      const text = subscribeSaveText(anchor);
+      return /subscribe|auto-deliver|subscription/i.test(href) || /^(edit|manage|view details)$/i.test(text);
+    });
+    const productLink = element?.querySelector?.("a[href*='/dp/'], a[href*='/gp/product/']");
+    return String(detailsLink?.href || detailsLink?.getAttribute?.("href") || productLink?.href || productLink?.getAttribute?.("href") || "");
+  }
+
+  function subscribeSaveAddress(element) {
+    const text = subscribeSaveText(element);
+    const line = text.split(/\n+/).map((value) => SUBSCRIBE_SAVE.cleanText(value)).find((value) => /deliver(?:y|ing)? to|ship(?:ping)? to/i.test(value));
+    return line || "";
+  }
+
+  function subscribeSaveSchedule(element) {
+    const text = String(element?.innerText || element?.textContent || "");
+    const lines = text.split(/\n+/).map((value) => SUBSCRIBE_SAVE.cleanText(value)).filter(Boolean);
+    const nextDelivery = lines.find((value) => /\bnext delivery\s*:/i.test(value)) || "";
+    const frequency = lines.find((value) => /\b\d+\s+units?\s+every\b/i.test(value))
+      || lines.find((value) => /\bdeliver(?:y|ed)?\s+every\b/i.test(value))
+      || "";
+    return [nextDelivery, frequency].filter(Boolean).join(" | ");
+  }
+
+  function subscribeSaveSubscriptionKey(element) {
+    const direct = [
+      element?.getAttribute?.("data-subscription-id"),
+      element?.dataset?.subscriptionId,
+      element?.getAttribute?.("data-subscriptionid")
+    ].map((value) => String(value || "").trim()).find(Boolean);
+    if (direct) return direct;
+    const links = [...(element?.querySelectorAll?.("a[href]") || [])];
+    for (const link of links) {
+      const href = String(link.href || link.getAttribute("href") || "");
+      if (!/subscribe|auto-deliver|subscription/i.test(href)) continue;
+      const match = href.match(/[?&](?:subscriptionId|subscription-id|id)=([^&#]+)/i);
+      if (match) return decodeURIComponent(match[1]);
+    }
+    return "";
+  }
+
+  function subscribeSaveTargetFromCard(element, layout, index) {
+    const subscriptionKey = subscribeSaveSubscriptionKey(element);
+    return SUBSCRIBE_SAVE.normalizeTarget({
+      id: subscriptionKey,
+      subscriptionKey,
+      title: subscribeSaveTitle(element),
+      asin: subscribeSaveAsin(element),
+      href: subscribeSaveHref(element),
+      address: subscribeSaveAddress(element),
+      schedule: subscribeSaveSchedule(element),
+      layout,
+      status: "pending"
+    }, index);
+  }
+
+  function nodeComesAfter(node, reference) {
+    return Boolean(node && reference && (reference.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING));
+  }
+
+  function oldSubscribeSaveEntries() {
+    const container = document.querySelector("#subscription-page-container");
+    if (!container) return [];
+    const reported = Number.parseInt(String(document.querySelector("#totalSubscriptionCount")?.textContent || ""), 10);
+    if (reported === 0) return [];
+    const raw = [...container.querySelectorAll(".subscription-card, [data-subscription-id]")];
+    const cards = [...new Set(raw.map((candidate) => candidate.closest(".subscription-card") || candidate))];
+    return cards
+      .filter((card) => !card.matches(".store-front-ingress-container") && !card.querySelector(".store-front-ingress"))
+      .filter((card) => {
+        const text = subscribeSaveText(card);
+        if (!text || SUBSCRIBE_SAVE.isRecommendationText(text)) return false;
+        return Boolean(
+          card.getAttribute("data-subscription-id")
+          || card.querySelector("[data-subscription-id]")
+          || [...card.querySelectorAll("button, a, input")].some((control) => /^(edit|manage|view details|subscription details|cancel subscription)$/i.test(SUBSCRIBE_SAVE.cleanText(control.innerText || control.value || control.getAttribute("aria-label"))))
+        );
+      })
+      .map((element, index) => ({ element, target: subscribeSaveTargetFromCard(element, "legacy", index) }))
+      .filter((entry) => entry.target.title);
+  }
+
+  function modernSubscribeSaveEntries() {
+    const headings = [...document.querySelectorAll("h1, h2, h3, h4, [role='heading']")].filter(isVisibleSubscribeSaveElement);
+    const start = headings.find((element) => /^your subscriptions(?:\s*\(\d+\))?$/i.test(subscribeSaveText(element)));
+    if (!start) return [];
+    const boundary = headings.find((element) => nodeComesAfter(element, start) && /^(buy it again|recommended for you|shop subscriptions)/i.test(subscribeSaveText(element)));
+    const raw = [...document.querySelectorAll("article, li, [data-subscription-id], [data-testid*='subscription' i], [class*='subscription-card' i], main div")]
+      .filter((element) => element.isConnected)
+      .filter((element) => nodeComesAfter(element, start) && (!boundary || nodeComesAfter(boundary, element)))
+      .filter((element) => {
+        const text = subscribeSaveText(element);
+        return text.length < 6000
+          && /\bnext delivery\s*:/i.test(text)
+          && /\b\d+\s+units?\s+every\b/i.test(text)
+          && !SUBSCRIBE_SAVE.isRecommendationText(text);
+      });
+    const cards = raw.filter((candidate) => !raw.some((other) => other !== candidate && candidate.contains(other)));
+    return cards
+      .map((element, index) => ({ element, target: subscribeSaveTargetFromCard(element, "modern", index) }))
+      .filter((entry) => entry.target.title);
+  }
+
+  function subscriptionEntriesForPage() {
+    const legacy = oldSubscribeSaveEntries();
+    if (document.querySelector("#subscription-page-container")) return { layout: "legacy", entries: legacy };
+    return { layout: "modern", entries: modernSubscribeSaveEntries() };
+  }
+
+  function subscribeSaveReportedCount(layout, entries) {
+    if (layout === "legacy") {
+      const total = Number.parseInt(String(document.querySelector("#totalSubscriptionCount")?.textContent || ""), 10);
+      return Number.isInteger(total) && total >= 0 ? total : entries.length;
+    }
+    const headings = [...document.querySelectorAll("h1, h2, h3, h4, [role='heading']")];
+    const heading = headings.find((element) => /^your subscriptions\b/i.test(subscribeSaveText(element)));
+    const headingText = subscribeSaveText(heading);
+    const headingCount = Number.parseInt(headingText.match(/your subscriptions\D+(\d+)\b/i)?.[1] || "", 10);
+    if (Number.isInteger(headingCount) && headingCount >= 0) return headingCount;
+    const nearby = SUBSCRIBE_SAVE.cleanText(heading?.parentElement?.innerText || heading?.parentElement?.textContent || "");
+    const itemTotal = Number.parseInt(nearby.match(/\b\d+\s+of\s+(\d+)\s+items?\b/i)?.[1] || "", 10);
+    return Number.isInteger(itemTotal) && itemTotal >= 0 ? itemTotal : entries.length;
+  }
+
+  function subscribeSaveScope(layout) {
+    const controls = [...document.querySelectorAll("button, [role='button'], [role='option'], select, option")].filter(isVisibleSubscribeSaveElement);
+    const allAddresses = controls.find((element) => /^all addresses(?:\s*\((\d+)\))?$/i.test(subscribeSaveText(element)));
+    const count = Number.parseInt(subscribeSaveText(allAddresses).match(/\((\d+)\)/)?.[1] || "", 10);
+    if (allAddresses) {
+      return {
+        scopeMode: "all-addresses",
+        scopeSummary: subscribeSaveText(allAddresses),
+        expectedScopeCount: 1,
+        verifiedScopeCount: 1,
+        addressCount: Number.isInteger(count) && count > 0 ? count : null
+      };
+    }
+    return {
+      scopeMode: layout === "legacy" ? "legacy-subscriptions-view" : "current-amazon-account",
+      scopeSummary: layout === "legacy" ? "Legacy subscriptions view" : "Current Amazon account",
+      expectedScopeCount: 1,
+      verifiedScopeCount: 1
+    };
+  }
+
+  function amazonSubscribeSaveBlocker() {
+    const title = SUBSCRIBE_SAVE.cleanText(document.title);
+    const body = SUBSCRIBE_SAVE.cleanText(document.body?.innerText).slice(0, 5000);
+    if (/captcha|robot check/i.test(title) || /enter the characters you see below|sorry, we just need to make sure you're not a robot/i.test(body)) {
+      return "Amazon is showing a verification challenge.";
+    }
+    if (/\/ap\/signin/i.test(location.pathname) || document.querySelector("form[name='signIn'], #authportal-main-section")) {
+      return "This Amazon Chrome profile is not signed in.";
+    }
+    return "";
+  }
+
+  async function scanAmazonSubscribeSavePage() {
+    const blocker = amazonSubscribeSaveBlocker();
+    if (blocker) throw new Error(blocker);
+    if (!isAmazonSubscribeSaveManagerPage()) throw new Error("Open Amazon Manage Your Subscriptions before scanning.");
+
+    const originalY = window.scrollY;
+    let best = subscriptionEntriesForPage();
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const reported = subscribeSaveReportedCount(best.layout, best.entries);
+      const exact = SUBSCRIBE_SAVE.uniqueTargets(best.entries.map((entry) => entry.target));
+      if (reported === 0 || exact.length >= reported) break;
+      window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "auto" });
+      await subscribeSaveDelay(650);
+      const next = subscriptionEntriesForPage();
+      const nextExact = SUBSCRIBE_SAVE.uniqueTargets(next.entries.map((entry) => entry.target));
+      if (nextExact.length >= exact.length) best = next;
+    }
+    window.scrollTo({ top: originalY, behavior: "auto" });
+
+    const targets = SUBSCRIBE_SAVE.uniqueTargets(best.entries.map((entry) => entry.target));
+    const reportedCount = subscribeSaveReportedCount(best.layout, best.entries);
+    if (reportedCount > targets.length) {
+      throw new Error(`Amazon reports ${reportedCount} active subscriptions, but only ${targets.length} exact cards from Your Subscriptions loaded. Recommendation carousels were not clicked. Reload the manager and try again; nothing was cancelled.`);
+    }
+    const scope = subscribeSaveScope(best.layout);
+    return {
+      layout: best.layout,
+      targets,
+      reportedCount,
+      recommendationCount: [...document.querySelectorAll("button, input, [role='button']")]
+        .filter((element) => /^subscribe now$/i.test(SUBSCRIBE_SAVE.cleanText(element.innerText || element.value || element.getAttribute("aria-label")))).length,
+      ...scope
+    };
+  }
+
+  function amazonSubscribeSaveAccountLabel() {
+    const text = SUBSCRIBE_SAVE.cleanText(document.querySelector("#nav-link-accountList-nav-line-1")?.textContent || document.querySelector("#nav-link-accountList")?.textContent);
+    return text.replace(/^hello,?\s*/i, "") || "Signed-in Amazon account";
+  }
+
+  async function amazonSubscribeSaveIdentity() {
+    const stored = await storageGet(["computerLabel", "ebayAccountLabel", "amazonProfileLabel"]);
+    const computerLabel = String(stored.computerLabel || "").trim();
+    const computerIdentity = FOUNDATION.identityForComputer(computerLabel);
+    return {
+      computerLabel,
+      ebayAccountLabel: computerIdentity.ebayAccountLabel || String(stored.ebayAccountLabel || "").trim().toUpperCase(),
+      amazonProfileLabel: String(stored.amazonProfileLabel || "").trim(),
+      amazonAccountLabel: amazonSubscribeSaveAccountLabel()
+    };
+  }
+
+  function subscribeSaveRunId() {
+    return globalThis.crypto?.randomUUID?.() || `subscribe-save-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+
+  async function currentAmazonOwnerTabId() {
+    const info = await runtimeMessage({ type: "currentTabInfo" });
+    if (!info?.ok || !Number.isInteger(info.tabId)) throw new Error("This Amazon tab could not be identified. Reload it and try again.");
+    return info.tabId;
+  }
+
+  function closeAmazonSubscribeSaveReview() {
+    document.getElementById("gldn-amazon-subscribe-save-review")?.remove();
+  }
+
+  function showAmazonSubscribeSaveResult(record) {
+    document.getElementById("gldn-amazon-subscribe-save-result")?.remove();
+    const overlay = document.createElement("div");
+    overlay.id = "gldn-amazon-subscribe-save-result";
+    overlay.className = "gldn-modal-backdrop";
+    overlay.innerHTML = `
+      <div class="gldn-modal gldn-amazon-subscribe-save-modal">
+        <button type="button" class="gldn-close" aria-label="Close">x</button>
+        <h2>Current Amazon Profile Complete</h2>
+        <div class="gldn-grid">
+          <div><strong>Amazon profile</strong><span>${escapeHtml(record.amazonProfileLabel || record.amazonAccountLabel || "Current profile")}</span></div>
+          <div><strong>Cancelled</strong><span>${Number(record.cancelledCount || 0).toLocaleString()}</span></div>
+          <div><strong>Active subscriptions remaining</strong><span>0</span></div>
+          <div><strong>Scope verified</strong><span>${escapeHtml(record.scopeSummary || "Current Amazon account")}</span></div>
+        </div>
+        <p class="gldn-help-text">Verified zero active subscriptions in this Amazon profile. Recommended products were not touched. Repeat this workflow in every other signed-in Amazon Chrome profile; the ALL Amazon Accounts task stays unchecked until that is complete.</p>
+        <div class="gldn-actions"><button type="button" class="gldn-primary" data-action="close">Done</button></div>
+        <div class="gldn-modal-status">${escapeHtml(record.dashboardSyncMessage || "Saved locally.")}</div>
+      </div>`;
+    document.documentElement.appendChild(overlay);
+    const modal = overlay.querySelector(".gldn-modal");
+    U.enhanceModal(modal);
+    const close = () => overlay.remove();
+    overlay.querySelector(".gldn-close").addEventListener("click", close);
+    overlay.querySelector("[data-action='close']").addEventListener("click", close);
+  }
+
+  async function completeAmazonSubscribeSaveRun(state, scan) {
+    const completedAt = new Date().toISOString();
+    const record = {
+      featureKey: "amazon-subscribe-save",
+      status: "Completed",
+      proofType: "verified-zero-active-subscriptions-current-profile",
+      currentProfileVerified: true,
+      allProfilesVerified: false,
+      verifiedZeroRemaining: true,
+      remainingCount: 0,
+      failedCount: 0,
+      cancelledCount: Array.isArray(state.cancelledIds) ? state.cancelledIds.length : 0,
+      scannedCount: Number(state.initialScannedCount ?? state.expectedCount ?? 0),
+      expectedScopeCount: Number(scan.expectedScopeCount || state.expectedScopeCount || 1),
+      verifiedScopeCount: Number(scan.verifiedScopeCount || state.verifiedScopeCount || 1),
+      scopeMode: scan.scopeMode || state.scopeMode || "current-amazon-account",
+      scopeSummary: scan.scopeSummary || state.scopeSummary || "Current Amazon account",
+      computerLabel: state.computerLabel || "",
+      ebayAccountLabel: state.ebayAccountLabel || "",
+      amazonProfileLabel: state.amazonProfileLabel || "",
+      amazonAccountLabel: state.amazonAccountLabel || "",
+      runId: state.runId,
+      pageUrl: location.href,
+      startedAt: state.startedAt,
+      completedAt
+    };
+    const proof = SUBSCRIBE_SAVE.completionProof(record);
+    if (!proof.ok) throw new Error("The final Subscribe & Save zero-subscription proof was incomplete.");
+    const finishedState = {
+      ...state,
+      active: false,
+      phase: "completed",
+      targets: [],
+      remainingCount: 0,
+      failedCount: 0,
+      verifiedZeroRemaining: true,
+      proofType: record.proofType,
+      completedAt
+    };
+    await storageSet({ [SUBSCRIBE_SAVE_STATE_KEY]: finishedState, [SUBSCRIBE_SAVE_RESULT_KEY]: record });
+    let syncMessage = "Saved locally. Shared profile-proof sync is pending.";
+    try {
+      const sync = await runtimeMessage({ type: "syncAmazonSubscribeSaveProfile", record });
+      syncMessage = sync?.ok
+        ? "Current Amazon profile proof was saved. The ALL Amazon Accounts task remains unchecked."
+        : `Saved locally. Shared profile-proof sync queued: ${sync?.error || "dashboard unavailable"}`;
+    } catch (error) {
+      syncMessage = `Saved locally. Shared profile-proof sync queued: ${error.message}`;
+    }
+    const finalRecord = { ...record, dashboardSyncMessage: syncMessage };
+    await storageSet({ [SUBSCRIBE_SAVE_RESULT_KEY]: finalRecord });
+    holdWorkflowStatus(`Current Amazon profile complete: ${record.cancelledCount} cancelled, 0 active remaining. Repeat in every other Amazon Chrome profile.`, "completed");
+    closeAmazonSubscribeSaveReview();
+    showAmazonSubscribeSaveResult(finalRecord);
+    return finalRecord;
+  }
+
+  async function stopAmazonSubscribeSaveRun(message, phase = "manual-reconciliation-required") {
+    const stored = await storageGet([SUBSCRIBE_SAVE_STATE_KEY]);
+    const state = stored[SUBSCRIBE_SAVE_STATE_KEY] || {};
+    const failure = { message: String(message || "Subscribe & Save stopped safely."), at: new Date().toISOString() };
+    await storageSet({
+      [SUBSCRIBE_SAVE_STATE_KEY]: {
+        ...state,
+        active: false,
+        phase,
+        error: failure.message,
+        failures: [...(Array.isArray(state.failures) ? state.failures : []), failure]
+      }
+    });
+    closeAmazonSubscribeSaveReview();
+    holdWorkflowStatus(`${failure.message} No unapproved cancellation was attempted.`, "error");
+    return { ok: false, error: failure.message };
+  }
+
+  function showAmazonSubscribeSaveReview(state) {
+    closeAmazonSubscribeSaveReview();
+    const count = Number(state.expectedCount || 0);
+    if (!count) return;
+    const exactToken = SUBSCRIBE_SAVE.approvalToken(count);
+    const overlay = document.createElement("div");
+    overlay.id = "gldn-amazon-subscribe-save-review";
+    overlay.className = "gldn-modal-backdrop";
+    overlay.innerHTML = `
+      <div class="gldn-modal gldn-amazon-subscribe-save-modal">
+        <button type="button" class="gldn-close" aria-label="Close review">x</button>
+        <h2>Approve Subscribe &amp; Save Cancellations</h2>
+        <p class="gldn-help-text">Amazon reports <strong>${count}</strong> active subscription${count === 1 ? "" : "s"} for ${escapeHtml(state.scopeSummary || "this Amazon account")}. Recommended products are excluded.</p>
+        <div class="gldn-sales-list gldn-subscribe-save-list">
+          ${(state.targets || []).map((target, index) => `<div class="gldn-subscribe-save-row"><strong>${index + 1}. ${escapeHtml(target.title)}</strong><span>${escapeHtml(target.asin || target.address || "Exact subscription card")}</span></div>`).join("")}
+        </div>
+        <div class="gldn-field-row">
+          <label class="gldn-label" for="gldn-subscribe-save-approval">Type ${escapeHtml(exactToken)}</label>
+          <input id="gldn-subscribe-save-approval" class="gldn-text-input" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="gldn-actions">
+          <button type="button" class="gldn-secondary" data-action="cancel">Cancel Safely</button>
+          <button type="button" class="gldn-primary" data-action="approve" disabled>Approve Cancel ${count}</button>
+        </div>
+        <div class="gldn-modal-status">No Amazon cancellation control has been clicked.</div>
+      </div>`;
+    document.documentElement.appendChild(overlay);
+    const modal = overlay.querySelector(".gldn-modal");
+    U.enhanceModal(modal);
+    const input = overlay.querySelector("#gldn-subscribe-save-approval");
+    const approve = overlay.querySelector("[data-action='approve']");
+    const status = overlay.querySelector(".gldn-modal-status");
+    input.addEventListener("input", () => {
+      approve.disabled = !SUBSCRIBE_SAVE.validateApprovalToken(input.value, count);
+    });
+    overlay.querySelector(".gldn-close").addEventListener("click", () => overlay.remove());
+    overlay.querySelector("[data-action='cancel']").addEventListener("click", async () => {
+      await stopAmazonSubscribeSaveRun("Subscribe & Save cancellation was cancelled by the operator.", "cancelled");
+      overlay.remove();
+    });
+    approve.addEventListener("click", async () => {
+      approve.disabled = true;
+      status.textContent = "Rechecking the exact subscriptions before approval is released...";
+      const result = await approveAmazonSubscribeSave(input.value);
+      if (!result?.ok) {
+        status.textContent = result?.error || "Approval could not be verified.";
+        status.dataset.type = "error";
+        approve.disabled = false;
+      }
+    });
+    input.focus();
+  }
+
+  async function startAmazonSubscribeSaveWorkflow() {
+    if (subscribeSaveWorkerBusy) return { ok: false, error: "Subscribe & Save is already scanning." };
+    subscribeSaveWorkerBusy = true;
+    try {
+      const ownerTabId = await currentAmazonOwnerTabId();
+      const identity = await amazonSubscribeSaveIdentity();
+      if (!isAmazonSubscribeSaveManagerPage()) {
+        await storageSet({
+          [SUBSCRIBE_SAVE_STATE_KEY]: {
+            active: true,
+            phase: "opening-manager",
+            runId: subscribeSaveRunId(),
+            ownerTabId,
+            ...identity,
+            targets: [],
+            cancelledIds: [],
+            failures: [],
+            startedAt: new Date().toISOString()
+          }
+        });
+        location.assign(SUBSCRIBE_SAVE_MANAGER_URL);
+        return { ok: true, navigating: true };
+      }
+
+      holdWorkflowStatus("Scanning exact Amazon subscription cards...", "ready");
+      const scan = await scanAmazonSubscribeSavePage();
+      const stored = await storageGet([SUBSCRIBE_SAVE_STATE_KEY]);
+      const previous = stored[SUBSCRIBE_SAVE_STATE_KEY] || {};
+      const state = {
+        active: scan.targets.length > 0,
+        phase: scan.targets.length ? "awaiting-approval" : "verifying-zero",
+        runId: previous.runId || subscribeSaveRunId(),
+        ownerTabId,
+        ...identity,
+        pageUrl: location.href,
+        layout: scan.layout,
+        targets: scan.targets,
+        expectedCount: scan.targets.length,
+        initialScannedCount: scan.targets.length,
+        cancelledIds: [],
+        failures: [],
+        recommendationCount: scan.recommendationCount,
+        expectedScopeCount: scan.expectedScopeCount,
+        verifiedScopeCount: scan.verifiedScopeCount,
+        scopeMode: scan.scopeMode,
+        scopeSummary: scan.scopeSummary,
+        startedAt: previous.startedAt || new Date().toISOString(),
+        scannedAt: new Date().toISOString()
+      };
+      await storageSet({ [SUBSCRIBE_SAVE_STATE_KEY]: state });
+      if (!state.expectedCount) {
+        await completeAmazonSubscribeSaveRun(state, scan);
+        return { ok: true, completed: true, count: 0 };
+      }
+      holdWorkflowStatus(`Review ready: ${state.expectedCount} exact active subscription${state.expectedCount === 1 ? "" : "s"}.`, "ready");
+      showAmazonSubscribeSaveReview(state);
+      return { ok: true, reviewReady: true, count: state.expectedCount };
+    } catch (error) {
+      return stopAmazonSubscribeSaveRun(error.message || String(error), "scan-failed");
+    } finally {
+      subscribeSaveWorkerBusy = false;
+    }
+  }
+
+  async function approveAmazonSubscribeSave(confirmationToken) {
+    if (subscribeSaveWorkerBusy) return { ok: false, error: "Subscribe & Save is already working." };
+    subscribeSaveWorkerBusy = true;
+    try {
+      const stored = await storageGet([SUBSCRIBE_SAVE_STATE_KEY]);
+      const state = stored[SUBSCRIBE_SAVE_STATE_KEY] || {};
+      const count = Number(state.expectedCount || 0);
+      if (state.phase !== "awaiting-approval" || !state.active || !count) throw new Error("There is no exact Subscribe & Save review awaiting approval.");
+      if (!SUBSCRIBE_SAVE.validateApprovalToken(confirmationToken, count)) throw new Error(`Approval must exactly match ${SUBSCRIBE_SAVE.approvalToken(count)}.`);
+      if (Number(state.ownerTabId) !== await currentAmazonOwnerTabId()) throw new Error("This is not the owner tab for the Subscribe & Save review.");
+      const scan = await scanAmazonSubscribeSavePage();
+      const reviewedSignatures = SUBSCRIBE_SAVE.reviewSignatureList(state.targets || []);
+      const currentSignatures = SUBSCRIBE_SAVE.reviewSignatureList(scan.targets);
+      if (reviewedSignatures.length !== currentSignatures.length || reviewedSignatures.some((signature, index) => signature !== currentSignatures[index])) {
+        throw new Error("Amazon's active subscriptions changed after review. Scan again for a new exact count.");
+      }
+      await storageSet({
+        [SUBSCRIBE_SAVE_STATE_KEY]: {
+          ...state,
+          phase: "cancelling",
+          approvalToken: confirmationToken,
+          approvedAt: new Date().toISOString(),
+          approvedCount: count,
+          finalClickCount: 0
+        }
+      });
+      closeAmazonSubscribeSaveReview();
+      holdWorkflowStatus(`Approved ${count}. Cancelling one verified subscription at a time...`, "ready");
+    } catch (error) {
+      subscribeSaveWorkerBusy = false;
+      return stopAmazonSubscribeSaveRun(error.message || String(error), "approval-invalidated");
+    }
+    subscribeSaveWorkerBusy = false;
+    return resumeAmazonSubscribeSaveWorkflow();
+  }
+
+  function exactSubscribeSaveControl(label, root = document) {
+    const expected = SUBSCRIBE_SAVE.cleanText(label).toLowerCase();
+    return [...root.querySelectorAll("button, a, input[type='button'], input[type='submit'], [role='button']")]
+      .filter(isVisibleSubscribeSaveElement)
+      .find((element) => SUBSCRIBE_SAVE.cleanText(element.innerText || element.value || element.getAttribute("aria-label")).toLowerCase() === expected) || null;
+  }
+
+  function subscribeSaveTargetMatches(candidate, target) {
+    const wantedKey = SUBSCRIBE_SAVE.cleanText(target?.subscriptionKey).toLowerCase();
+    const candidateKey = SUBSCRIBE_SAVE.cleanText(candidate?.subscriptionKey).toLowerCase();
+    if (wantedKey || candidateKey) return Boolean(wantedKey && candidateKey && wantedKey === candidateKey);
+    const wantedSignature = SUBSCRIBE_SAVE.reviewSignature(target);
+    const candidateSignature = SUBSCRIBE_SAVE.reviewSignature(candidate);
+    if (wantedSignature && wantedSignature === candidateSignature) return true;
+    const wantedAsin = String(target?.asin || "").toUpperCase();
+    const wantedTitle = SUBSCRIBE_SAVE.normalizeTitle(target?.title);
+    return (wantedAsin && candidate?.asin === wantedAsin)
+      || (wantedTitle && SUBSCRIBE_SAVE.normalizeTitle(candidate?.title) === wantedTitle);
+  }
+
+  function subscriptionEntryMatchingTarget(target, visibleOnly = true) {
+    const entries = subscriptionEntriesForPage().entries;
+    return entries.find((entry) => (!visibleOnly || isVisibleSubscribeSaveElement(entry.element)) && subscribeSaveTargetMatches(entry.target, target)) || null;
+  }
+
+  function subscribeSavePagingControl(target, direction = "next") {
+    const entries = subscriptionEntriesForPage().entries;
+    const matching = entries.find((entry) => subscribeSaveTargetMatches(entry.target, target));
+    let root = matching?.element?.parentElement || entries[0]?.element?.parentElement || null;
+    const pattern = direction === "previous"
+      ? /^(?:previous|previous page|previous slide|previous subscriptions?|back)$/i
+      : /^(?:next|next page|next slide|next subscriptions?|more subscriptions?)$/i;
+    for (let depth = 0; root && root !== document.body && depth < 9; depth += 1, root = root.parentElement) {
+      const control = [...root.querySelectorAll("button, a, input[type='button'], [role='button']")]
+        .filter(isVisibleSubscribeSaveElement)
+        .filter((element) => !element.disabled && element.getAttribute("aria-disabled") !== "true")
+        .find((element) => {
+          const label = SUBSCRIBE_SAVE.cleanText(element.innerText || element.value || element.getAttribute("aria-label") || element.getAttribute("title"));
+          return pattern.test(label);
+        });
+      if (control) return control;
+    }
+    return null;
+  }
+
+  function visibleSubscribeSavePageSignature() {
+    return SUBSCRIBE_SAVE.reviewSignatureList(
+      subscriptionEntriesForPage().entries
+        .filter((entry) => isVisibleSubscribeSaveElement(entry.element))
+        .map((entry) => entry.target)
+    ).join("||");
+  }
+
+  async function findVisibleSubscribeSaveEntry(target, expectedCount) {
+    const first = subscriptionEntryMatchingTarget(target, true);
+    if (first) return first;
+    const seenPages = new Set();
+    const maxAttempts = Math.min(100, Math.max(3, Number(expectedCount || 0) + 2));
+    for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+      const signature = visibleSubscribeSavePageSignature();
+      if (seenPages.has(signature)) break;
+      seenPages.add(signature);
+      const next = subscribeSavePagingControl(target, "next");
+      if (!next) break;
+      next.click();
+      await U.waitFor(() => {
+        const match = subscriptionEntryMatchingTarget(target, true);
+        return match || visibleSubscribeSavePageSignature() !== signature;
+      }, 5000, 200);
+      const match = subscriptionEntryMatchingTarget(target, true);
+      if (match) return match;
+    }
+    return null;
+  }
+
+  async function openSubscribeSaveTarget(state, target) {
+    const entry = await findVisibleSubscribeSaveEntry(target, state.expectedCount);
+    if (!entry) return { missing: true };
+    const action = [...entry.element.querySelectorAll("button, a, input[type='button'], [role='button']")]
+      .filter(isVisibleSubscribeSaveElement)
+      .find((element) => /^(edit|manage|view details|subscription details)$/i.test(SUBSCRIBE_SAVE.cleanText(element.innerText || element.value || element.getAttribute("aria-label"))));
+    await storageSet({
+      [SUBSCRIBE_SAVE_STATE_KEY]: {
+        ...state,
+        phase: "opening-subscription-details",
+        currentTargetId: target.id,
+        currentTargetTitle: target.title,
+        targetOpenedAt: new Date().toISOString()
+      }
+    });
+    (action || entry.element).click();
+    await subscribeSaveDelay();
+    return { opened: true };
+  }
+
+  function subscribeSaveTargetIsVisible(target) {
+    const wanted = SUBSCRIBE_SAVE.normalizeTitle(target?.title);
+    if (!wanted) return false;
+    const page = SUBSCRIBE_SAVE.normalizeTitle(document.body?.innerText);
+    const meaningful = wanted.split(" ").slice(0, 8).join(" ");
+    return meaningful.length >= 8 && page.includes(meaningful);
+  }
+
+  async function processAmazonSubscribeSaveDetails(state, target) {
+    if (!SUBSCRIBE_SAVE.validateApprovalToken(state.approvalToken, state.approvedCount)) {
+      throw new Error("The exact cancellation approval is no longer valid.");
+    }
+    const cancel = await U.waitFor(() => exactSubscribeSaveControl("Cancel subscription"), 15000, 250);
+    if (!cancel || !subscribeSaveTargetIsVisible(target)) {
+      throw new Error(`Could not verify the Cancel subscription control for ${target.title}.`);
+    }
+    cancel.click();
+    const confirmation = await U.waitFor(() => {
+      const dialogs = [...document.querySelectorAll("[role='dialog'], .a-modal-scroller, .a-popover-wrapper, [class*='modal' i]")].filter(isVisibleSubscribeSaveElement);
+      return dialogs.find((dialog) => /cancel your subscription\?/i.test(subscribeSaveText(dialog)) && exactSubscribeSaveControl("Cancel my subscription", dialog));
+    }, 12000, 250);
+    if (!confirmation) throw new Error(`Amazon did not open the final cancellation review for ${target.title}.`);
+    const finalButton = exactSubscribeSaveControl("Cancel my subscription", confirmation);
+    if (!finalButton || !SUBSCRIBE_SAVE.validateApprovalToken(state.approvalToken, state.approvedCount)) {
+      throw new Error("The final Amazon cancellation button or exact approval could not be verified.");
+    }
+    const refreshed = (await storageGet([SUBSCRIBE_SAVE_STATE_KEY]))[SUBSCRIBE_SAVE_STATE_KEY] || {};
+    if (Number(refreshed.finalClickCount || 0) !== 0 || refreshed.currentTargetId !== target.id) {
+      throw new Error("The final Amazon cancellation click was already dispatched or the target changed.");
+    }
+    await storageSet({
+      [SUBSCRIBE_SAVE_STATE_KEY]: {
+        ...refreshed,
+        phase: "final-confirmation-pending",
+        finalClickCount: 1,
+        finalClickDispatchedAt: new Date().toISOString()
+      }
+    });
+    finalButton.click();
+    const confirmed = await U.waitFor(() => /cancellation confirmed|subscription (?:was )?cancelled|subscription (?:was )?canceled/i.test(SUBSCRIBE_SAVE.cleanText(document.body?.innerText)), 15000, 300);
+    if (!confirmed) {
+      throw new Error(`Amazon did not show cancellation confirmation for ${target.title}. Review it manually before retrying.`);
+    }
+    const latest = (await storageGet([SUBSCRIBE_SAVE_STATE_KEY]))[SUBSCRIBE_SAVE_STATE_KEY] || refreshed;
+    const cancelledIds = [...new Set([...(latest.cancelledIds || []), target.id])];
+    await storageSet({
+      [SUBSCRIBE_SAVE_STATE_KEY]: {
+        ...latest,
+        phase: "cancelling",
+        cancelledIds,
+        currentTargetId: "",
+        currentTargetTitle: "",
+        finalClickCount: 0,
+        lastCancelledAt: new Date().toISOString()
+      }
+    });
+    holdWorkflowStatus(`Cancelled ${cancelledIds.length}/${Number(latest.expectedCount || cancelledIds.length)}. Verifying the manager...`, "ready");
+    location.assign(SUBSCRIBE_SAVE_MANAGER_URL);
+    return { ok: true, navigating: true };
+  }
+
+  async function resumeAmazonSubscribeSaveWorkflow() {
+    if (subscribeSaveWorkerBusy) return { ok: false, error: "Subscribe & Save is already working." };
+    subscribeSaveWorkerBusy = true;
+    try {
+      const stored = await storageGet([SUBSCRIBE_SAVE_STATE_KEY]);
+      const state = stored[SUBSCRIBE_SAVE_STATE_KEY];
+      if (!state) return { ok: true, active: false };
+      const ownerTabId = await currentAmazonOwnerTabId();
+      if (Number(state.ownerTabId) !== ownerTabId) return { ok: true, ownerTab: false };
+      if (state.phase === "awaiting-approval") {
+        showAmazonSubscribeSaveReview(state);
+        return { ok: true, reviewReady: true, count: state.expectedCount };
+      }
+      if (!state.active) return { ok: true, active: false, phase: state.phase };
+      if (["opening-manager", "scanning"].includes(state.phase)) {
+        subscribeSaveWorkerBusy = false;
+        return startAmazonSubscribeSaveWorkflow();
+      }
+      if (state.phase === "final-confirmation-pending") {
+        const confirmed = /cancellation confirmed|subscription (?:was )?cancelled|subscription (?:was )?canceled/i.test(SUBSCRIBE_SAVE.cleanText(document.body?.innerText));
+        if (!confirmed) throw new Error("A final Amazon cancellation click was dispatched, but confirmation is unknown. Review it manually before retrying.");
+        const cancelledIds = [...new Set([...(state.cancelledIds || []), state.currentTargetId].filter(Boolean))];
+        await storageSet({ [SUBSCRIBE_SAVE_STATE_KEY]: { ...state, phase: "cancelling", cancelledIds, currentTargetId: "", finalClickCount: 0 } });
+        location.assign(SUBSCRIBE_SAVE_MANAGER_URL);
+        return { ok: true, navigating: true };
+      }
+      if (!["cancelling", "opening-subscription-details"].includes(state.phase)) return { ok: true, phase: state.phase };
+      if (!SUBSCRIBE_SAVE.validateApprovalToken(state.approvalToken, state.approvedCount)) throw new Error("The saved exact approval is invalid.");
+      const target = (state.targets || []).find((candidate) => candidate.id === state.currentTargetId)
+        || (state.targets || []).find((candidate) => !(state.cancelledIds || []).includes(candidate.id));
+      if (!target) {
+        if (!isAmazonSubscribeSaveManagerPage()) {
+          location.assign(SUBSCRIBE_SAVE_MANAGER_URL);
+          return { ok: true, navigating: true };
+        }
+        const finalScan = await scanAmazonSubscribeSavePage();
+        if (finalScan.targets.length) throw new Error(`Amazon still shows ${finalScan.targets.length} active subscription(s). A new exact review is required.`);
+        await completeAmazonSubscribeSaveRun(state, finalScan);
+        return { ok: true, completed: true };
+      }
+      if (!isAmazonSubscribeSaveManagerPage() || state.phase === "opening-subscription-details") {
+        return processAmazonSubscribeSaveDetails(state, target);
+      }
+      const opened = await openSubscribeSaveTarget(state, target);
+      if (opened.missing) {
+        throw new Error(`Amazon no longer shows the reviewed subscription card for ${target.title}. Nothing was counted as cancelled. Run a fresh scan and review the new exact count.`);
+      }
+      const current = (await storageGet([SUBSCRIBE_SAVE_STATE_KEY]))[SUBSCRIBE_SAVE_STATE_KEY];
+      if (current?.phase === "opening-subscription-details" && isAmazonSubscribeSaveManagerPage()) {
+        return processAmazonSubscribeSaveDetails(current, target);
+      }
+      return { ok: true, opened: true };
+    } catch (error) {
+      return stopAmazonSubscribeSaveRun(error.message || String(error));
+    } finally {
+      subscribeSaveWorkerBusy = false;
+    }
+  }
+
   async function runFeatureHealthFromPanel() {
     try {
       renderStatus("Running GLDN Ops health check...", "ready");
@@ -1330,11 +2230,16 @@
       .replace(/'/g, "&#039;");
   }
 
+  function allowedAmazonWorkflowTitle(title) {
+    return FOUNDATION.allowedBulkProductTitle(title);
+  }
+
   function bestAmazonProductTitle() {
     const selected = String(window.getSelection?.() || "").trim();
-    if (selected.length > 8) return selected;
+    if (selected.length > 8 && allowedAmazonWorkflowTitle(selected)) return selected;
     const productTitle = document.querySelector("#productTitle");
-    if (productTitle?.textContent?.trim()) return productTitle.textContent.trim();
+    const exactTitle = String(productTitle?.textContent || "").trim();
+    if (exactTitle && allowedAmazonWorkflowTitle(exactTitle)) return exactTitle;
     const selectors = [
       "[data-asin] a[href*='/dp/'] span",
       ".a-carousel-card a[href*='/dp/'] span",
@@ -1343,7 +2248,7 @@
     for (const selector of selectors) {
       const found = [...document.querySelectorAll(selector)]
         .map((element) => String(element.textContent || "").trim())
-        .find((text) => text.length > 18 && !/^\$?\d+(\.\d+)?$/.test(text));
+        .find((text) => text.length > 18 && !/^\$?\d+(\.\d+)?$/.test(text) && allowedAmazonWorkflowTitle(text));
       if (found) return found;
     }
     return "";
@@ -1378,7 +2283,7 @@
     const productTitle = document.querySelector("#productTitle");
     const productPageTitle = String(productTitle?.textContent || "").replace(/\s+/g, " ").trim();
     const productPagePrice = bestAmazonProductPrice();
-    if (productPageTitle && productPagePrice) {
+    if (productPageTitle && productPagePrice && allowedAmazonWorkflowTitle(productPageTitle)) {
       const asin = amazonAsinFromUrl();
       return {
         title: productPageTitle,
@@ -1399,7 +2304,7 @@
         card.querySelector(".p13n-sc-truncate"),
         card.querySelector("[class*='title']")
       ].map((element) => String(element?.textContent || "").replace(/\s+/g, " ").trim())
-        .find((text) => text.length > 18 && !/^\$?\d+(?:\.\d+)?$/.test(text));
+        .find((text) => text.length > 18 && !/^\$?\d+(?:\.\d+)?$/.test(text) && allowedAmazonWorkflowTitle(text));
       const price = [...card.querySelectorAll(".a-price .a-offscreen, [class*='price']")]
         .map(priceFromElement)
         .find((value) => Number.isFinite(value) && value > 0);
@@ -1887,9 +2792,10 @@
       <button type="button" data-action="profile" class="gldn-secondary">Set Amazon Profile</button>
       <button type="button" data-action="dashboard-setup" class="gldn-secondary">Dashboard Setup</button>
       <button type="button" data-action="feature-health" class="gldn-secondary">Health Check</button>
+      <button type="button" data-action="subscribe-save" class="gldn-warning" ${isAmazonSubscribeSaveManagerPage() ? "" : "hidden"}>Scan Subscribe &amp; Save</button>
       <button type="button" data-action="sniping-review" class="gldn-warning" hidden>Review Sniping Match</button>
       <button type="button" data-action="reload-extension" class="gldn-dev-reload">Update &amp; Reload</button>
-      <div class="gldn-status">Scanning checkout…</div>
+      <div class="gldn-status">${isAmazonSubscribeSaveManagerPage() ? "Ready to scan active subscriptions." : "Scanning checkout…"}</div>
     `;
     document.documentElement.appendChild(panel);
     U.makePanelDraggable(panel, "gldnAmazonPanelPosition");
@@ -1911,6 +2817,7 @@
     panel.querySelector("[data-action='profile']").addEventListener("click", setProfileLabel);
     panel.querySelector("[data-action='dashboard-setup']").addEventListener("click", setupDashboardFromPanel);
     panel.querySelector("[data-action='feature-health']").addEventListener("click", runFeatureHealthFromPanel);
+    panel.querySelector("[data-action='subscribe-save']").addEventListener("click", startAmazonSubscribeSaveWorkflow);
     snipingReviewButtonElement = panel.querySelector("[data-action='sniping-review']");
     snipingReviewButtonElement.addEventListener("click", reviewPendingSnipingWinner);
     panel.querySelector("[data-action='reload-extension']").addEventListener("click", reloadExtensionFromPanel);
@@ -1930,6 +2837,9 @@
       reviewPendingSnipingSellerCandidates();
     }
     if (changes.pendingSnipingWinner) reviewPendingSnipingWinner();
+    if (changes.pendingAmazonSubscribeSaveRun?.newValue?.phase === "awaiting-approval") {
+      resumeAmazonSubscribeSaveWorkflow();
+    }
   };
   chrome.storage.onChanged.addListener(amazonStorageListener);
   U.registerExtensionCleanup?.(() => chrome.storage.onChanged.removeListener(amazonStorageListener));
@@ -1943,12 +2853,22 @@
       const actions = {
         "review-copy": copyAmazonInfo,
         "sniping-seller-review": reviewPendingSnipingSellerCandidates,
-        "sniping-winner-review": reviewPendingSnipingWinner
+        "sniping-winner-review": reviewPendingSnipingWinner,
+        "subscribe-save-scan": startAmazonSubscribeSaveWorkflow,
+        "subscribe-save-show-review": resumeAmazonSubscribeSaveWorkflow,
+        "approve-subscribe-save": () => approveAmazonSubscribeSave(message.confirmationToken),
+        "approve-historical-profit-review": () => approveAmazonCostResolutionReview(message.confirmationToken)
       };
       const action = actions[String(message.action || "")];
       if (!action) {
         sendResponse({ ok: false, error: "Unknown Amazon workflow action." });
         return false;
+      }
+      if (message.action === "approve-historical-profit-review") {
+        Promise.resolve(action()).then((result) => sendResponse(result)).catch((error) => {
+          sendResponse({ ok: false, error: error?.message || String(error) });
+        });
+        return true;
       }
       sendResponse({ ok: true, accepted: true });
       setTimeout(() => {
@@ -1957,6 +2877,10 @@
         });
       }, 0);
       return false;
+    }
+    if (message?.type === "showAmazonCostResolutionReview" && message.state) {
+      sendResponse({ ok: showAmazonCostResolutionReview(message.state) });
+      return true;
     }
     if (message?.type !== "showSnipingSellerReview") return false;
     reviewPendingSnipingSellerCandidates()
@@ -1970,15 +2894,24 @@
   storageGet(["pendingAmazonSnipingWorkflowStart"]).then(async (result) => {
     if (result.pendingAmazonSnipingWorkflowStart?.active) {
       await storageRemove(["pendingAmazonSnipingWorkflowStart"]);
-      startSnipingWorkflowFromAmazon();
+      await startSnipingWorkflowFromAmazon();
     }
+  }).catch((error) => {
+    if (U.isExtensionContextInvalidated?.(error)) stopInvalidatedAmazonContext(error);
+    else renderStatus(error?.message || "Amazon workflow startup stopped.", "error");
+  });
+
+  resumeAmazonSubscribeSaveWorkflow().catch((error) => {
+    if (U.isExtensionContextInvalidated?.(error)) stopInvalidatedAmazonContext(error);
+    else holdWorkflowStatus(error?.message || "Subscribe & Save recovery stopped safely.", "error");
   });
 
   const shouldObserveAmazonWorkflow = isCheckoutPage()
     || isConfirmationPage()
     || isAmazonOrderDetailsPage()
     || isAmazonOrdersSearchPage()
-    || isAmazonOrdersHistoryPage();
+    || isAmazonOrdersHistoryPage()
+    || isAmazonSubscribeSaveManagerPage();
   if (shouldObserveAmazonWorkflow) {
     amazonObserver = new MutationObserver(() => {
       clearTimeout(amazonMutationTimer);

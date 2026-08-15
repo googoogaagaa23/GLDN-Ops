@@ -1,4 +1,10 @@
-GLDN Ops v3.12.15
+GLDN Ops v3.12.16
+
+v3.12.16 Prepare Order Note recovery release:
+- Saves reviewed Amazon order evidence inside GLDN Ops before attempting the optional clipboard copy.
+- Lets Prepare Order Note recover the exact saved handoff when clipboard access is unavailable.
+- Opens a visible recovery window for missing, stale, wrong-order, or mismatched evidence instead of appearing to do nothing.
+- Still stops before eBay Save and never syncs a new note before eBay visibly saves it.
 
 v3.12.15 policy-audit control release:
 - Adds a Profile 2-only command that cancels an abandoned policy review and runs the complete read-only Active Listings scan.

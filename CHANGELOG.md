@@ -2,6 +2,14 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.16 - 2026-08-15
+
+- Fixed Prepare Order Note appearing inactive when browser clipboard access was unavailable or no reviewed Amazon handoff was ready.
+- Reviewed Amazon order evidence is now saved inside GLDN Ops before the optional clipboard copy.
+- Prepare Order Note selects the exact saved review by matching the decoded eBay SKU/ASIN and newest capture time.
+- Missing or invalid evidence now opens a visible recovery window and records a diagnostic error.
+- The workflow still stops before eBay Save; no note or profit row is committed without the existing approval gate.
+
 ## v3.12.15 - 2026-08-13
 
 - Added a Profile 2-only complete read-only Existing Listings Policy Scan command.

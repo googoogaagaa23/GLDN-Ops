@@ -1,7 +1,7 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-08-13  
-Current local manifest: 3.12.15  
+Current local manifest: 3.12.16  
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  
@@ -22,6 +22,8 @@ Current machine identity: eBay computer `0` / account `FAK12`, plus Poshmark com
 > v3.12.14 policy-audit recovery: eBay End responses containing "Listing item is missing" or equivalent failure evidence are never counted as successful Ends. A stale or abandoned native review can be canceled from the audit page and immediately replaced with a complete read-only Active Listings scan. No listing is changed by recovery; a future End still requires a new exact count-bound approval.
 
 > v3.12.15 read-only control: the Profile 2 controller can now cancel an abandoned policy review and run the same complete Active Listings scan directly. It returns classification totals only and has no route to prepare or submit an End action.
+
+> v3.12.16 order-note recovery: reviewed Amazon evidence is saved before the optional clipboard handoff, Prepare Order Note can recover that exact saved review, and any missing or invalid evidence opens a visible recovery window instead of appearing inactive.
 
 > v3.11.43 Move-category propagation fix: after the one approved final eBay Submit, both forward `.99` and reverse non-`.99` workflows now enter an inactive terminal propagation-pending state. They retain the submitted batch and saved remainder count but cannot reopen Active Listings, rescan, create another workspace, or retry until an operator deliberately starts a later run. The focused `64/64` and complete `332/332` automated suites pass; the stop behavior awaits observation on the next real approved batch and is not labeled as a new live proof.
 

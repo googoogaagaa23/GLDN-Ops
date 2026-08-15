@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.15. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.16. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -280,9 +280,9 @@ Profile 2 previously completed 3 of 3 orders and read back zero remaining plus e
 
 1. On Amazon order details, click Review & Copy Amazon Info.
 2. Verify order ID, ASIN, item-row cost or Grand Total, ETA, and evidence source.
-3. Copy the Amazon info.
+3. Click Copy Amazon Info; GLDN Ops saves the reviewed handoff even when browser clipboard access is blocked.
 4. Open the matching eBay order and click Prepare Order Note.
-5. Confirm the decoded ASIN exactly matches the Amazon evidence.
+5. Confirm the decoded ASIN exactly matches the saved Amazon evidence.
 6. Click Fill Add Note Box or Fill Edit Note Box.
 7. Review the real eBay textarea and approve Save only when the note is correct.
 8. After eBay visibly saves, confirm one dashboard profit row.
@@ -298,12 +298,13 @@ Saved eBay note plus one upserted profit row with supplier order, ASIN, cost, pr
 ### Failure Recovery
 
 - Checkout, product-page, stale, wrong-order, or mismatched-ASIN evidence must fail closed.
+- If no reviewed Amazon handoff is ready, use the visible recovery window to open Amazon Orders and review the exact order.
 - Do not sync profit before eBay Save.
 - An already matching saved note may refresh the same row without another Save.
 
 ### Evidence
 
-Profile 2 matched an exact Amazon order and ASIN, filled the real eBay note, and later read back one deduplicated profit row.
+Profile 2 matched an exact Amazon order and ASIN, filled the real eBay note, and later read back one deduplicated profit row. v3.12.16 adds saved-handoff fallback and visible failure recovery coverage.
 
 
 <a id="ebay-monthly-profit"></a>

@@ -1,6 +1,6 @@
 {
-  "version": "3.12.15",
-  "updated": "2026-08-13",
+  "version": "3.12.16",
+  "updated": "2026-08-15",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",
@@ -83,11 +83,11 @@
       "status": "LIVE PASS",
       "summary": "Match the exact Amazon order item to the eBay SKU, fill the note, and sync one profit row.",
       "prerequisites": ["The exact Amazon order-details card is open, not checkout or a product page.", "The matching eBay order has a visible EcomSniper Custom label SKU."],
-      "steps": ["On Amazon order details, click Review & Copy Amazon Info.", "Verify order ID, ASIN, item-row cost or Grand Total, ETA, and evidence source.", "Copy the Amazon info.", "Open the matching eBay order and click Prepare Order Note.", "Confirm the decoded ASIN exactly matches the Amazon evidence.", "Click Fill Add Note Box or Fill Edit Note Box.", "Review the real eBay textarea and approve Save only when the note is correct.", "After eBay visibly saves, confirm one dashboard profit row."],
+      "steps": ["On Amazon order details, click Review & Copy Amazon Info.", "Verify order ID, ASIN, item-row cost or Grand Total, ETA, and evidence source.", "Click Copy Amazon Info; GLDN Ops saves the reviewed handoff even when browser clipboard access is blocked.", "Open the matching eBay order and click Prepare Order Note.", "Confirm the decoded ASIN exactly matches the saved Amazon evidence.", "Click Fill Add Note Box or Fill Edit Note Box.", "Review the real eBay textarea and approve Save only when the note is correct.", "After eBay visibly saves, confirm one dashboard profit row."],
       "approvalStop": "STOP at eBay Save. Saving the note requires explicit action-time approval.",
       "output": "Saved eBay note plus one upserted profit row with supplier order, ASIN, cost, profit, and margin evidence.",
-      "recovery": ["Checkout, product-page, stale, wrong-order, or mismatched-ASIN evidence must fail closed.", "Do not sync profit before eBay Save.", "An already matching saved note may refresh the same row without another Save."],
-      "evidence": "Profile 2 matched an exact Amazon order and ASIN, filled the real eBay note, and later read back one deduplicated profit row."
+      "recovery": ["Checkout, product-page, stale, wrong-order, or mismatched-ASIN evidence must fail closed.", "If no reviewed Amazon handoff is ready, use the visible recovery window to open Amazon Orders and review the exact order.", "Do not sync profit before eBay Save.", "An already matching saved note may refresh the same row without another Save."],
+      "evidence": "Profile 2 matched an exact Amazon order and ASIN, filled the real eBay note, and later read back one deduplicated profit row. v3.12.16 adds saved-handoff fallback and visible failure recovery coverage."
     },
     {
       "id": "ebay-monthly-profit",

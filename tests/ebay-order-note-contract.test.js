@@ -145,6 +145,31 @@ test("order-note fill copies, opens Add note, fills, and never saves", () => {
   assert.doesNotMatch(fillFlow, /findVisibleByText\("Save"\)|dispatchFullClick\([^\n]*Save|\.click\(\)[^\n]*Save/);
 });
 
+test("Prepare Order Note survives blocked clipboard access and fails visibly", () => {
+  const readFlow = blockBetween(ebaySource, "async function readAmazonClipboard(order = {})", "function showOrderNoteFailure(");
+  assert.match(readFlow, /storageGet\(\["lastCopiedAmazonPayload"\]\)/);
+  assert.match(readFlow, /addCandidate\(stored\.lastCopiedAmazonPayload, "saved-review"\)/);
+  assert.match(readFlow, /exactAsinMatch/);
+  assert.match(readFlow, /No reviewed Amazon order information is ready/);
+
+  const failureFlow = blockBetween(ebaySource, "function showOrderNoteFailure(", "function showPreview(");
+  assert.match(failureFlow, /gldn-note-error/);
+  assert.match(failureFlow, /Prepare Order Note stopped/);
+  assert.match(failureFlow, /openAmazonOrderSearch/);
+
+  const prepareFlow = blockBetween(ebaySource, "async function prepareNote()", "async function detectSavedNote()");
+  assert.match(prepareFlow, /showOrderNoteFailure\(message, order \|\| \{\}\)/);
+  assert.match(prepareFlow, /U\.recordExtensionLog/);
+  assert.match(prepareFlow, /throw error/);
+});
+
+test("popup-triggered Prepare Order Note waits for the real page result", () => {
+  const messageFlow = blockBetween(ebaySource, 'if (message?.type !== "runEbayPageAction")', "createPanel();");
+  assert.match(messageFlow, /\["approve-move99-submit", "start-monthly-profit", "prepare-order-note"\]/);
+  assert.match(messageFlow, /Promise\.resolve\(action\(\)\)/);
+  assert.match(messageFlow, /sendResponse\(\{ ok: false, error:/);
+});
+
 test("order-note fill does not sync profit before eBay Save", () => {
   const previewFlow = blockBetween(ebaySource, "function showPreview({ payload, earnings, match, order, supplierAudit })", "async function openAndFillAddNote(note)");
   assert.doesNotMatch(previewFlow, /syncMarketplaceProfitRecord\(/);
@@ -167,7 +192,7 @@ test("eBay order note requires exact decoded SKU and Amazon order evidence", () 
   assert.match(prepareFlow, /if \(!audit\.ok\) throw new Error\(audit\.error\)/);
   assert.match(prepareFlow, /supplierAudit: audit\.supplierAudit/);
 
-  const recordFlow = blockBetween(ebaySource, "function buildEbayProfitRecord(", "async function readAmazonClipboard()");
+  const recordFlow = blockBetween(ebaySource, "function buildEbayProfitRecord(", "async function readAmazonClipboard(");
   assert.match(recordFlow, /sku: order\.skus\.join/);
   assert.match(recordFlow, /\.\.\.supplierAudit/);
   assert.match(recordFlow, /orderNumber: order\.orderNumber/);
