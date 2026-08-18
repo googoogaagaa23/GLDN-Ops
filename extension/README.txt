@@ -1,4 +1,11 @@
-GLDN Ops v3.12.16
+GLDN Ops v3.12.17
+
+v3.12.17 Amazon-cost resolution save release:
+- Makes Save Cost Resolution Results a single explicit action instead of a hidden two-click confirmation.
+- Keeps the review window visible while two durable 50-row dashboard batches finish.
+- Shows a persistent saved or safely queued receipt with exact and still-open counts.
+- Clarifies that the Monthly eBay Profit run remains in the eBay Chrome profile while Amazon profiles save only reconciliation receipts.
+- Leaves unresolved rows open for another signed-in Amazon profile and never guesses a missing cost.
 
 v3.12.16 Prepare Order Note recovery release:
 - Saves reviewed Amazon order evidence inside GLDN Ops before attempting the optional clipboard copy.

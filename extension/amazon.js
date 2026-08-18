@@ -774,6 +774,27 @@
     return candidates.length ? ` Captured exact-ASIN purchase${candidates.length === 1 ? "" : "s"} outside the allowed date window: ${candidates.join("; ")}.` : "";
   }
 
+  function applyAmazonCostResolutionSuccess(overlay, response, marketplaceName, resolvingEbay, reviewedCount) {
+    const count = Number(response?.count ?? reviewedCount ?? 0);
+    const delivery = response?.queued ? "secured in the dashboard retry queue" : "saved to the shared dashboard";
+    const profileNote = resolvingEbay
+      ? " The Monthly eBay Profit run remains in the Chrome profile signed into eBay; this Amazon profile stores only its cost-resolution receipt."
+      : "";
+    const message = `${count} reviewed result${count === 1 ? "" : "s"} ${delivery}. ${response?.exact || 0} ${marketplaceName} Amazon costs resolved; ${response?.unresolved || 0} remain open for another profile.${profileNote}`;
+    const button = overlay?.querySelector?.("[data-action='sync']");
+    const status = overlay?.querySelector?.(".gldn-modal-status");
+    if (button) {
+      button.disabled = true;
+      button.textContent = response?.queued ? "Results Queued Safely" : "Results Saved";
+    }
+    if (status) {
+      status.dataset.state = response?.queued ? "queued" : "success";
+      status.textContent = message;
+    }
+    renderStatus(message, "completed");
+    return message;
+  }
+
   function showAmazonCostResolutionReview(run) {
     document.getElementById("gldn-amazon-cost-resolution-review")?.remove();
     const summary = window.GLDN_PROFIT_BACKFILL.summary(run);
@@ -824,29 +845,20 @@
     overlay.querySelector("[data-action='sync']")?.addEventListener("click", async () => {
       const button = overlay.querySelector("[data-action='sync']");
       const status = overlay.querySelector(".gldn-modal-status");
-      if (button.dataset.confirmSync !== "true") {
-        button.dataset.confirmSync = "true";
-        button.textContent = `Confirm ${remaining} Result${remaining === 1 ? "" : "s"}`;
-        status.textContent = `Approval required: apply these ${remaining} reviewed lookup results. Exact costs resolve; misses remain queued.`;
-        return;
-      }
       button.disabled = true;
+      button.textContent = `Saving ${remaining} Result${remaining === 1 ? "" : "s"}...`;
       status.textContent = `Saving ${remaining} reviewed lookup results...`;
       const approvalToken = resolvingEbay
         ? `APPROVE RESOLVE EBAY COSTS ${remaining}`
         : `APPROVE RESOLVE POSHMARK COSTS ${remaining}`;
-      const response = await runtimeMessage({ type: "syncPoshmarkProfitBackfill", confirm: approvalToken });
+      const response = await runtimeMessage({ type: "syncPoshmarkProfitBackfill", confirm: approvalToken }, 360000);
       if (!response?.ok) {
         button.disabled = false;
-        button.dataset.confirmSync = "";
         button.textContent = "Save Cost Resolution Results";
         status.textContent = response?.error || "The cost-resolution results were not saved.";
         return;
       }
-      const message = `${response.exact || 0} ${marketplaceName} Amazon costs resolved; ${response.unresolved || 0} remain open for another profile.`;
-      renderStatus(message, "completed");
-      if (response.state) showAmazonCostResolutionReview(response.state);
-      else status.textContent = message;
+      applyAmazonCostResolutionSuccess(overlay, response, marketplaceName, resolvingEbay, remaining);
     });
     return true;
   }
@@ -865,7 +877,13 @@
     }
     const response = await runtimeMessage({ type: "syncPoshmarkProfitBackfill", confirm: expected }, 360000);
     if (!response?.ok) throw new Error(response?.error || "The eBay Amazon-cost results were not saved.");
-    if (response.state) showAmazonCostResolutionReview(response.state);
+    applyAmazonCostResolutionSuccess(
+      document.getElementById("gldn-amazon-cost-resolution-review"),
+      response,
+      "eBay",
+      true,
+      remaining
+    );
     return response;
   }
 

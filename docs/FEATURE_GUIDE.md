@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.16. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.17. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -333,9 +333,10 @@ Profile 2 matched an exact Amazon order and ASIN, filled the real eBay note, and
 6. Type the displayed APPROVE SYNC EBAY YYYY-MM N token only after reviewing the exact month and exact unsynced row count.
 7. Confirm dashboard delivery or a retained retry queue, then read back the computer profit sheet.
 8. In an Amazon Chrome profile, verify its permanent Amazon profile name in Setup, choose the same month, and click Resolve eBay Amazon Costs.
-9. Review the exact supplier profile, exact matches, misses, and live pending count. Type APPROVE RESOLVE EBAY COSTS N only for that unchanged review.
-10. Move to each other signed-in Amazon Chrome profile and repeat. Rows already attempted by that named profile are excluded; unresolved rows remain open without becoming zero.
-11. Compare saved-note profit and Amazon-order profit in the shared reconciliation sheet. Missing SKU and substituted-item cases remain manual review.
+9. Review the exact supplier profile, exact matches, misses, and live pending count. Click Save Cost Resolution Results once; GLDN Ops binds that explicit action to the unchanged live count.
+10. Wait for the visible Results Saved or Results Queued Safely receipt before leaving the page.
+11. Move to each other signed-in Amazon Chrome profile and repeat. Rows already attempted by that named profile are excluded; unresolved rows remain open without becoming zero.
+12. Compare saved-note profit and Amazon-order profit in the shared reconciliation sheet. Missing SKU and substituted-item cases remain manual review.
 
 ### Approval Stop
 
@@ -352,11 +353,12 @@ A resumable eBay month checkpoint, saved-note totals, independent exact Amazon c
 - An extension update pauses an in-progress run instead of mixing versions.
 - Never guess a missing Amazon cost or substitute a current product price.
 - Do not rename an Amazon profile after it has recorded attempts; use the same permanent label on that Chrome profile.
+- The Monthly eBay Profit page can correctly say No saved run in an Amazon-only Chrome profile; the month checkpoint remains local to the eBay Chrome profile and Amazon reconciliation receipts are written to the shared sheet.
 - Copy diagnostics if eBay or Amazon changes its order-row or order-detail layout.
 
 ### Evidence
 
-The signed-in July 2026 eBay month was reviewed and synced with an exact count-bound approval. A separately approved 100-row Amazon-profile review was durably delivered in two 50-row batches with its supplier profile retained. The separately approved F9132 review delivered all 29 rows, left zero F9132-eligible rows, and cleared the retry queue. Other signed-in Amazon profiles and final comparison-sheet completion remain separate live gates.
+The signed-in July 2026 eBay month was reviewed and synced with an exact count-bound approval. A separately approved 100-row Amazon-profile review was durably delivered in two 50-row batches with its supplier profile retained. The separately approved F9132 review delivered all 29 rows, left zero F9132-eligible rows, and cleared the retry queue. v3.12.17 fixes the Amazon review's save receipt and long-batch wait. Other signed-in Amazon profiles and final comparison-sheet completion remain separate live gates.
 
 
 <a id="seller-metrics"></a>

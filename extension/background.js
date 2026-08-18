@@ -6159,7 +6159,10 @@ async function performReviewedPoshmarkBackfillSync(confirmToken) {
       handledOrders.push(...reviewRecords.map((record) => String(record.orderNumber || '')).filter(Boolean));
     }
     const state = handledOrders.length
-      ? await PROFIT_BACKFILL_BACKGROUND.markSynced(handledOrders, { queued: responses.some((response) => response.queued) })
+      ? await PROFIT_BACKFILL_BACKGROUND.markSynced(handledOrders, {
+        queued: responses.some((response) => response.queued),
+        keepWorkerOpen: ['resolve-missing', 'resolve-ebay'].includes(run.scope)
+      })
       : run;
     return {
       ok: handledOrders.length === pendingReview.reviewRecords.length,

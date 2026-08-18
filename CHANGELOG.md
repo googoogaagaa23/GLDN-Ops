@@ -2,6 +2,14 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.17 - 2026-08-17
+
+- Fixed Save Cost Resolution Results appearing to do nothing after an eBay or Poshmark Amazon-cost review.
+- One explicit Save click now starts the exact count-bound dashboard write immediately.
+- Extended the visible wait to six minutes so two durable 50-row Apps Script batches do not falsely time out after 30 seconds.
+- Keeps the Amazon worker tab open and preserves a visible saved or safely queued receipt instead of replacing success with the original review message.
+- Clarifies why Monthly eBay Profit can show no local run in an Amazon-only Chrome profile: the month checkpoint remains with the eBay profile while reconciliation receipts go to the shared sheet.
+
 ## v3.12.16 - 2026-08-15
 
 - Fixed Prepare Order Note appearing inactive when browser clipboard access was unavailable or no reviewed Amazon handoff was ready.
