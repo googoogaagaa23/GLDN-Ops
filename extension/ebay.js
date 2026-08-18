@@ -1361,21 +1361,31 @@
       heading,
       selectedStatus,
       detailLinkCount,
-      bodyText: String(document.body?.innerText || document.body?.textContent || "")
+      bodyText: String(document.body?.innerText || document.body?.textContent || ""),
+      url: location.href
     });
   }
 
   function ebayProfitExactControl(text) {
     const target = U.normalizeText(text);
-    return [...document.querySelectorAll('a[href], button, [role="button"], [role="menuitem"], [role="option"]')]
+    const clickableSelector = 'a[href], button, [role="button"], [role="menuitem"], [role="option"]';
+    const direct = [...document.querySelectorAll(clickableSelector)]
       .filter((element) => U.isVisible(element))
       .filter((element) => !element.disabled && element.getAttribute("aria-disabled") !== "true")
       .filter((element) => !element.closest?.("[id^='gldn-'], .gldn-modal-backdrop"))
-      .find((element) => U.normalizeText(element.innerText || element.textContent || "") === target) || null;
+      .find((element) => U.normalizeText(element.innerText || element.textContent || "") === target);
+    if (direct) return direct;
+    const nested = [...document.querySelectorAll("span, div, li")]
+      .filter((element) => U.isVisible(element))
+      .filter((element) => !element.closest?.("[id^='gldn-'], .gldn-modal-backdrop"))
+      .find((element) => U.normalizeText(element.innerText || element.textContent || "") === target);
+    const control = nested?.closest?.(clickableSelector) || null;
+    return control && !control.disabled && control.getAttribute("aria-disabled") !== "true" ? control : null;
   }
 
   function ebayProfitPeriodControl() {
-    return [...document.querySelectorAll('button, [role="button"], select')]
+    const controlSelector = 'button, [role="button"], [role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"], select';
+    const direct = [...document.querySelectorAll(controlSelector)]
       .filter((element) => U.isVisible(element))
       .filter((element) => !element.disabled && element.getAttribute("aria-disabled") !== "true")
       .filter((element) => !element.closest?.("[id^='gldn-'], .gldn-modal-backdrop"))
@@ -1385,7 +1395,16 @@
           : `${element.getAttribute("aria-label") || ""} ${element.innerText || element.textContent || ""}`;
         const normalized = U.normalizeText(value);
         return normalized === "period" || normalized.startsWith("period ");
-      }) || null;
+      });
+    if (direct) return direct;
+    const label = [...document.querySelectorAll("span, div, label")]
+      .filter((element) => U.isVisible(element))
+      .filter((element) => !element.closest?.("[id^='gldn-'], .gldn-modal-backdrop"))
+      .find((element) => {
+        const normalized = U.normalizeText(element.innerText || element.textContent || "");
+        return normalized === "period" || normalized.startsWith("period ");
+      });
+    return label?.closest?.(controlSelector) || null;
   }
 
   function rerunEbayMonthlyProfitWorkerSoon() {
@@ -1508,10 +1527,12 @@
   async function runEbayMonthlyProfitWorker() {
     if (ebayMonthlyProfitWorkerRunning || !EBAY_PROFIT) return;
     ebayMonthlyProfitWorkerRunning = true;
+    let workerPhase = "unknown";
     try {
       const status = await runtimeMessage({ type: "getEbayMonthlyProfit" });
       const state = status?.state;
       if (!status?.ok || !state?.active) return;
+      workerPhase = String(state.phase || "unknown");
       if (state.phase === "index-orders" && /\/sh\/ord\/?(?:[?#]|$)/i.test(location.href)) {
         const pageState = await prepareEbayMonthlyProfitOrdersPage();
         if (!pageState) return;
@@ -1536,7 +1557,11 @@
         U.recordExtensionLog({ source: "ebay-profit", operation: "monthly-worker", level: "error", message: error?.message || String(error) });
         await runtimeMessage({
           type: "ebayMonthlyProfitWorkerError",
-          error: { message: error?.message || String(error), url: location.href, phase: "index-orders" }
+          error: {
+            message: error?.message || String(error),
+            url: location.href,
+            phase: workerPhase
+          }
         }, 45000).catch(() => {});
       }
     } finally {

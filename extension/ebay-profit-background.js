@@ -118,18 +118,25 @@
     return publicResult(review);
   }
 
-  async function pauseAtCheckpoint(run, reason = "Paused at a safe checkpoint.") {
+  async function pauseAtCheckpoint(run, reason = "Paused at a safe checkpoint.", options = {}) {
     const workerTabId = Number(run.workerTabId);
+    const closeWorker = options.closeWorker !== false;
+    const preservedWorker = !closeWorker
+      && Number.isInteger(workerTabId)
+      && workerTabId > 0
+      && Boolean(await tabGet(workerTabId));
     const paused = await writeRun({
       ...run,
       active: false,
       stopRequested: false,
       phase: "paused",
       resumePhase: run.phase === "paused" ? (run.resumePhase || "index-orders") : run.phase,
-      workerTabId: null,
-      pausedReason: reason
+      workerTabId: preservedWorker ? workerTabId : null,
+      pausedReason: reason,
+      workerPreserved: preservedWorker,
+      workerFailure: options.failure || null
     });
-    if (Number.isInteger(workerTabId) && workerTabId > 0) void tabRemove(workerTabId);
+    if (closeWorker && Number.isInteger(workerTabId) && workerTabId > 0) void tabRemove(workerTabId);
     void sendToTab(paused.ownerTabId, { type: "ebayMonthlyProfitProgress", state: paused, summary: CORE.summary(paused) });
     return publicResult(paused);
   }
@@ -199,8 +206,18 @@
     if (run.phase === "review" || run.phase === "completed") return publicResult(run);
     if (run.active && await tabGet(Number(run.workerTabId))) return publicResult(run);
     const phase = run.phase === "paused" ? String(run.resumePhase || "index-orders") : String(run.phase || "index-orders");
-    run = await writeRun({ ...run, active: true, stopRequested: false, phase, pausedReason: "", extensionVersion: runtimeVersion() });
-    run = await createWorker(run, sender);
+    const preservedWorker = await tabGet(Number(run.workerTabId));
+    run = await writeRun({
+      ...run,
+      active: true,
+      stopRequested: false,
+      phase,
+      pausedReason: "",
+      workerPreserved: false,
+      workerFailure: null,
+      extensionVersion: runtimeVersion()
+    });
+    if (!preservedWorker) run = await createWorker(run, sender);
     if (phase === "capture-details") {
       const order = (run.orders || [])[Number(run.detailIndex || 0)];
       if (!order?.pageUrl) return finishReview(run);
@@ -217,12 +234,24 @@
     if (run.stopRequested) return pauseAtCheckpoint(run);
     const records = Array.isArray(payload?.records) ? payload.records : [];
     if (payload?.scope?.allOrders !== true || payload?.scope?.ready !== true) {
-      return pauseAtCheckpoint(run, payload?.scope?.reason || "Monthly eBay profit stopped because the worker could not verify a ready All orders page.");
+      const reason = payload?.scope?.reason || "Monthly eBay profit stopped because the worker could not verify a ready All orders page.";
+      return pauseAtCheckpoint(run, `${reason} The failed eBay tab was left open for inspection.`, {
+        closeWorker: false,
+        failure: { phase: run.phase, message: reason, url: String(sender?.tab?.url || "") }
+      });
     }
     if (!records.length && payload?.readyEvidence !== "explicit-empty") {
-      return pauseAtCheckpoint(run, "Monthly eBay profit stopped because eBay displayed order links but none could be indexed. No zero-order report was created.");
+      const reason = "Monthly eBay profit stopped because eBay displayed order links but none could be indexed. No zero-order report was created.";
+      return pauseAtCheckpoint(run, `${reason} The failed eBay tab was left open for inspection.`, {
+        closeWorker: false,
+        failure: { phase: run.phase, message: reason, url: String(sender?.tab?.url || "") }
+      });
     }
-    run = await writeRun(CORE.mergeOrdersPage(run, records, { hasNext: payload.hasNext }));
+    run = await writeRun({
+      ...CORE.mergeOrdersPage(run, records, { hasNext: payload.hasNext }),
+      workerFailureCount: 0,
+      workerFailure: null
+    });
     if (run.phase === "index-orders") {
       if (payload.nextUrl) {
         await navigateWorker(run, payload.nextUrl);
@@ -240,14 +269,27 @@
     const run = await readRun();
     if (!isWorker(run, sender)) return { ok: false, ignored: true };
     const message = String(payload?.message || "The eBay monthly profit worker stopped before producing verified page evidence.").trim();
-    return pauseAtCheckpoint(run, message);
+    const failure = {
+      phase: String(payload?.phase || run.phase || "unknown"),
+      message,
+      url: String(payload?.url || sender?.tab?.url || ""),
+      at: new Date().toISOString()
+    };
+    return pauseAtCheckpoint(run, `${message} The failed eBay tab was left open for inspection; Resume will reuse it.`, {
+      closeWorker: false,
+      failure
+    });
   }
 
   async function handleOrderDetail(detail, sender) {
     let run = await readRun();
     if (!isWorker(run, sender) || run.phase !== "capture-details") return { ok: false, ignored: true };
     if (run.stopRequested) return pauseAtCheckpoint(run);
-    run = await writeRun(CORE.mergeDetail(run, detail || {}));
+    run = await writeRun({
+      ...CORE.mergeDetail(run, detail || {}),
+      workerFailureCount: 0,
+      workerFailure: null
+    });
     if (run.phase === "review") return finishReview(run);
     const next = (run.orders || [])[Number(run.detailIndex || 0)];
     if (!next?.pageUrl) return finishReview(run);

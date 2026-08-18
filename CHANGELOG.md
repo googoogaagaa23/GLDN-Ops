@@ -2,6 +2,15 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.20 - 2026-08-17
+
+- Fixed Monthly eBay Profit deleting its own worker tab after an eBay page-verification error.
+- Failed worker tabs now remain open with the exact eBay page and error available for inspection.
+- Resume reuses the preserved signed-in worker tab instead of creating another tab.
+- Added All Orders verification from eBay's encoded status URL for layouts without selected-navigation metadata.
+- Added nested-control discovery for alternate All Orders and Period menu markup.
+- Deliberate Pause, Reset, review, and completion still close only the intended worker tab.
+
 ## v3.12.19 - 2026-08-17
 
 - Fixed Monthly eBay Profit remaining on Running after its inactive worker tab closed unexpectedly.

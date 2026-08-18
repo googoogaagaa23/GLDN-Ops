@@ -102,6 +102,26 @@ test("monthly order indexing requires All orders plus rendered evidence", () => 
   assert.equal(rendered.ready, true);
   assert.equal(rendered.explicitEmpty, false);
 
+  const urlVerified = core.classifyOrdersIndexPage({
+    heading: "Orders",
+    selectedStatus: "",
+    detailLinkCount: 20,
+    bodyText: "Results: 1-20 of 317",
+    url: "https://www.ebay.com/sh/ord/?filter=status%3AALL_ORDERS"
+  });
+  assert.equal(urlVerified.allOrdersFromUrl, true);
+  assert.equal(urlVerified.ready, true);
+
+  const awaitingUrl = core.classifyOrdersIndexPage({
+    heading: "Orders",
+    selectedStatus: "",
+    detailLinkCount: 4,
+    bodyText: "Results: 1-4 of 4",
+    url: "https://www.ebay.com/sh/ord/?filter=status%3AAWAITING_SHIPMENT"
+  });
+  assert.equal(awaitingUrl.awaitingShipment, true);
+  assert.equal(awaitingUrl.ready, false);
+
   const empty = core.classifyOrdersIndexPage({
     heading: "Manage orders",
     selectedStatus: "All orders",
@@ -237,6 +257,8 @@ test("runtime uses one inactive signed-in eBay worker and survives checkpoints",
   assert.match(ebay, /prepareEbayMonthlyProfitOrdersPage/);
   assert.match(ebay, /ebayProfitExactControl\("All orders"\)/);
   assert.match(ebay, /ebayProfitExactControl\("Last 90 days"\)/);
+  assert.match(ebay, /url: location\.href/);
+  assert.match(ebay, /nested\?\.closest\?\.\(clickableSelector\)/);
   assert.doesNotMatch(ebay, /document\.querySelector\("a\[href\*='\/ord\/details'\]"\) \|\| document\.readyState === "complete"/);
   assert.match(ebay, /ebayMonthlyProfitOrdersPage/);
   assert.match(ebay, /ebayMonthlyProfitOrderDetail/);
@@ -254,6 +276,39 @@ test("unexpected monthly-profit worker closure is wired to a resumable pause", (
   assert.match(background, /chrome\.tabs\.onRemoved\.addListener/);
   assert.match(background, /EBAY_PROFIT_BACKGROUND\.handleWorkerTabClosed\(tabId\)/);
   assert.match(background, /operation: 'worker-tab-closed'/);
+});
+
+test("monthly-profit page failures preserve the worker while deliberate pause still closes it", () => {
+  const worker = fs.readFileSync(path.resolve(__dirname, "..", "extension", "ebay-profit-background.js"), "utf8");
+  const ebay = fs.readFileSync(path.resolve(__dirname, "..", "extension", "ebay.js"), "utf8");
+  const pauseBlock = worker.slice(
+    worker.indexOf("async function pauseAtCheckpoint"),
+    worker.indexOf("async function pauseMissingWorker")
+  );
+  const errorBlock = worker.slice(
+    worker.indexOf("async function handleWorkerError"),
+    worker.indexOf("async function handleOrderDetail")
+  );
+  const resumeBlock = worker.slice(
+    worker.indexOf("async function resume"),
+    worker.indexOf("async function handleOrdersPage")
+  );
+  const stopBlock = worker.slice(
+    worker.indexOf("async function stop"),
+    worker.indexOf("async function reset")
+  );
+
+  assert.match(pauseBlock, /closeWorker = options\.closeWorker !== false/);
+  assert.match(pauseBlock, /workerTabId: preservedWorker \? workerTabId : null/);
+  assert.match(pauseBlock, /if \(closeWorker &&[\s\S]*tabRemove\(workerTabId\)/);
+  assert.match(errorBlock, /closeWorker: false/);
+  assert.match(errorBlock, /The failed eBay tab was left open for inspection; Resume will reuse it\./);
+  assert.doesNotMatch(errorBlock, /tabRemove\(/);
+  assert.match(resumeBlock, /const preservedWorker = await tabGet\(Number\(run\.workerTabId\)\)/);
+  assert.match(resumeBlock, /if \(!preservedWorker\) run = await createWorker\(run, sender\)/);
+  assert.match(stopBlock, /return pauseAtCheckpoint\(run, "Paused by the operator\./);
+  assert.match(ebay, /let workerPhase = "unknown"/);
+  assert.match(ebay, /phase: workerPhase/);
 });
 
 test("dashboard sync is count-bound and sends exact notes plus every reconciliation row", () => {

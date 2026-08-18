@@ -180,11 +180,21 @@
     const heading = text(input.heading).toLowerCase();
     const selectedStatus = text(input.selectedStatus).toLowerCase();
     const bodyText = text(input.bodyText).toLowerCase();
+    let urlSignal = text(input.url).toLowerCase();
+    try {
+      urlSignal = decodeURIComponent(urlSignal);
+    } catch (_) {
+      // Keep the raw URL when eBay leaves an incomplete escape sequence in it.
+    }
+    urlSignal = urlSignal.replace(/[+_:%-]+/g, " ");
     const detailLinkCount = Math.max(0, Number(input.detailLinkCount || 0));
     const awaitingShipment = heading.includes("awaiting shipment")
-      || selectedStatus.includes("awaiting shipment");
+      || selectedStatus.includes("awaiting shipment")
+      || /\bstatus\s+awaiting shipment\b/.test(urlSignal);
+    const allOrdersFromUrl = /\bstatus\s+all orders\b/.test(urlSignal);
     const allOrders = !awaitingShipment && (
-      selectedStatus === "all orders"
+      allOrdersFromUrl
+      || selectedStatus === "all orders"
       || heading === "all orders"
       || heading === "manage orders"
       || heading === "manage all orders"
@@ -204,6 +214,7 @@
       selectedStatus,
       detailLinkCount,
       awaitingShipment,
+      allOrdersFromUrl,
       allOrders,
       explicitEmpty,
       interrupted,

@@ -1,4 +1,12 @@
-GLDN Ops v3.12.19
+GLDN Ops v3.12.20
+
+v3.12.20 monthly-profit launch repair:
+- Stops Monthly eBay Profit from deleting its own worker tab when eBay page verification fails.
+- Leaves the exact failed eBay tab open and shows the real failure reason.
+- Reuses that preserved signed-in tab when Resume is clicked.
+- Recognizes eBay's encoded All Orders URL on layouts that do not expose selected navigation metadata.
+- Finds nested All Orders and Period controls used by alternate eBay Orders layouts.
+- Keeps deliberate Pause, Reset, review, and completion cleanup unchanged.
 
 v3.12.19 monthly-profit worker recovery release:
 - Detects when Chrome or eBay closes the monthly-profit worker before completion.
