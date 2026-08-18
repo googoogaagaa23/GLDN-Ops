@@ -13,16 +13,8 @@ if (-not (Test-Path $DashboardScript)) {
   throw "Dashboard script not found: $DashboardScript"
 }
 
-$nodeCommand = Get-Command "node.exe" -ErrorAction SilentlyContinue
-if (-not $nodeCommand) { $nodeCommand = Get-Command "node" -ErrorAction SilentlyContinue }
-$bundledNode = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
-if ($nodeCommand) {
-  $node = $nodeCommand.Source
-} elseif (Test-Path $bundledNode) {
-  $node = $bundledNode
-} else {
-  throw "Node.js is required for the dashboard contract check."
-}
+$node = "C:\Users\afarr\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
+if (-not (Test-Path $node)) { $node = "node" }
 
 $runner = @'
 const fs = require('fs');

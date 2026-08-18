@@ -1033,6 +1033,61 @@
     }
     if (message?.type === 'inspectGldnPageState') {
       const visible = (element) => isVisible(element) && !element.hidden;
+      const appearance = (element) => {
+        if (!(element instanceof Element)) return null;
+        const style = getComputedStyle(element);
+        return {
+          backgroundColor: String(style.backgroundColor || ''),
+          color: String(style.color || ''),
+          colorScheme: String(style.colorScheme || ''),
+          opacity: String(style.opacity || '')
+        };
+      };
+      const readControlValue = (backdrop, selector) => {
+        const control = backdrop.querySelector(selector);
+        return control && 'value' in control ? String(control.value || '').trim().slice(0, 240) : '';
+      };
+      const readReviewRows = (backdrop) => Object.fromEntries(
+        [...backdrop.querySelectorAll('.gldn-existing .gldn-row')]
+          .slice(0, 30)
+          .map((row) => [
+            String(row.querySelector('span')?.textContent || '').trim().slice(0, 120),
+            String(row.querySelector('strong')?.textContent || '').trim().slice(0, 240)
+          ])
+          .filter(([label]) => label)
+      );
+      const readAllowlistedReviewData = (backdrop) => {
+        const id = String(backdrop.id || '');
+        if (id === 'gldn-health-preview') {
+          return {
+            computer: readControlValue(backdrop, '#gldn-health-computer'),
+            ebayAccount: readControlValue(backdrop, '#gldn-health-ebay-account'),
+            currentSellerLevel: readControlValue(backdrop, '#gldn-health-current-level'),
+            evaluatedToday: readControlValue(backdrop, '#gldn-health-evaluated-today'),
+            transactionDefectRate: readControlValue(backdrop, '#gldn-health-defect'),
+            lateShipmentRate: readControlValue(backdrop, '#gldn-health-late'),
+            trackingOnTime: readControlValue(backdrop, '#gldn-health-tracking'),
+            casesClosed: readControlValue(backdrop, '#gldn-health-cases'),
+            nextEvaluation: readControlValue(backdrop, '#gldn-health-next-evaluation')
+          };
+        }
+        if (id === 'gldn-listings-preview') {
+          return {
+            computer: readControlValue(backdrop, '#gldn-listings-computer'),
+            ebayAccount: readControlValue(backdrop, '#gldn-listings-account'),
+            storePlan: readControlValue(backdrop, '#gldn-listings-plan'),
+            activeListings: readControlValue(backdrop, '#gldn-listings-active'),
+            availableQuantity: readControlValue(backdrop, '#gldn-listings-in-stock'),
+            customInsertionAllowance: readControlValue(backdrop, '#gldn-listings-limit'),
+            dollarUsed: readControlValue(backdrop, '#gldn-listings-dollar-used'),
+            customDollarLimit: readControlValue(backdrop, '#gldn-listings-dollar-limit')
+          };
+        }
+        if (id === 'gldn-ebay-snapshot-preview' || id === 'gldn-posh-stats-preview') {
+          return readReviewRows(backdrop);
+        }
+        return null;
+      };
       const panels = [...document.querySelectorAll('.gldn-order-panel')]
         .filter(visible)
         .map((panel) => ({
@@ -1040,6 +1095,7 @@
           title: String(panel.querySelector('.gldn-panel-title')?.textContent || '').trim().slice(0, 160),
           status: String(panel.querySelector('.gldn-status')?.textContent || '').trim().slice(0, 500),
           statusType: String(panel.querySelector('.gldn-status')?.dataset?.type || ''),
+          appearance: appearance(panel),
           actions: [...panel.querySelectorAll('button')]
             .filter(visible)
             .map((button) => String(button.textContent || '').trim())
@@ -1052,6 +1108,8 @@
           id: String(backdrop.id || ''),
           title: String(backdrop.querySelector('h1, h2, h3')?.textContent || '').trim().slice(0, 160),
           status: String(backdrop.querySelector('.gldn-modal-status')?.textContent || '').trim().slice(0, 500),
+          appearance: appearance(backdrop.querySelector('.gldn-modal') || backdrop),
+          reviewData: readAllowlistedReviewData(backdrop),
           actions: [...backdrop.querySelectorAll('button')]
             .filter(visible)
             .map((button) => String(button.textContent || '').trim())
@@ -1059,13 +1117,90 @@
             .slice(0, 30)
         }));
       const bodySignal = normalizeText(document.body?.innerText || '').slice(0, 250000);
+      const rootStyle = document.documentElement.style;
+      const gldnTheme = String(document.documentElement.dataset.gldnTheme || '');
+      const gldnColorScheme = String(rootStyle.getPropertyValue('--gldn-color-scheme') || '').trim();
+      const genericTheme = String(document.documentElement.dataset.theme || '');
+      const inlineColorScheme = String(rootStyle.colorScheme || '').trim();
+      const leakedAliases = ['--bg', '--panel', '--panel2', '--line', '--ink', '--muted', '--gold', '--blue']
+        .filter((variable) => String(rootStyle.getPropertyValue(variable) || '').trim());
+      const poshmarkSalesDiagnostics = location.hostname === 'poshmark.com' && /^\/order\/sales\/?$/i.test(location.pathname)
+        ? (() => {
+            const saleAnchors = [...document.querySelectorAll("a[href*='/order/sales/']")];
+            const saleRows = saleAnchors.slice(0, 10).map((anchor) => {
+              const row = anchor.closest('tr, li, article, [class*=\'order\'], [class*=\'Order\']') || anchor.parentElement;
+              return {
+                href: String(anchor.href || anchor.getAttribute('href') || '').slice(0, 300),
+                orderDate: String(row?.querySelector('.my-sales-desktop-table__date-col')?.textContent || '').trim().slice(0, 80)
+              };
+            });
+            const paginationControls = [...document.querySelectorAll('button, a, [role=\'button\']')]
+              .filter(visible)
+              .map((element) => ({
+                tag: String(element.tagName || '').toLowerCase(),
+                text: normalizeText(element.textContent || '').slice(0, 80),
+                ariaLabel: String(element.getAttribute('aria-label') || '').trim().slice(0, 80),
+                title: String(element.getAttribute('title') || '').trim().slice(0, 80),
+                className: String(element.className || '').slice(0, 160),
+                disabled: Boolean(element.disabled || element.getAttribute('aria-disabled') === 'true'),
+                pageY: Math.round(element.getBoundingClientRect().top + scrollY)
+              }))
+              .filter((control) => /next|previous|prev|show\s*\d+|pagination|chevron|arrow/i.test([
+                control.text,
+                control.ariaLabel,
+                control.title,
+                control.className
+              ].join(' ')))
+              .slice(0, 30);
+            const pageSizeCandidates = [...document.querySelectorAll('button, [role=\'button\'], div, span, label')]
+              .filter(visible)
+              .filter((element) => /^show\s+\d+$/i.test(normalizeText(element.textContent || '')))
+              .slice(0, 12)
+              .map((element) => ({
+                tag: String(element.tagName || '').toLowerCase(),
+                text: normalizeText(element.textContent || '').slice(0, 80),
+                className: String(element.className || '').slice(0, 160),
+                parentTag: String(element.parentElement?.tagName || '').toLowerCase(),
+                parentClassName: String(element.parentElement?.className || '').slice(0, 160)
+              }));
+            const showingMatch = normalizeText(document.body?.innerText || '').match(/showing\s+(\d+)\s*-\s*(\d+)\s+of\s+([\d,]+\+?)/i);
+            return {
+              saleLinkCount: saleAnchors.length,
+              sampleRows: saleRows,
+              selects: [...document.querySelectorAll('select')].slice(0, 12).map((select) => ({
+                value: String(select.value || ''),
+                options: [...select.options].map((option) => String(option.textContent || option.value || '').trim()).slice(0, 20)
+              })),
+              paginationControls,
+              pageSizeCandidates,
+              showingRange: showingMatch ? showingMatch.slice(1, 4) : [],
+              documentHeight: document.documentElement.scrollHeight,
+              viewportHeight: innerHeight
+            };
+          })()
+        : null;
       sendResponse?.({
         ok: true,
         url: location.href,
         title: document.title,
         readyState: document.readyState,
+        hostAppearance: {
+          html: appearance(document.documentElement),
+          body: appearance(document.body),
+          gldnThemeLeak: Boolean(
+            (gldnTheme && genericTheme === gldnTheme)
+            || (gldnColorScheme && inlineColorScheme === gldnColorScheme)
+            || leakedAliases.length
+          ),
+          legacyThemeSettings: {
+            genericTheme,
+            inlineColorScheme,
+            leakedAliases
+          }
+        },
         panels,
         modals,
+        poshmarkSalesDiagnostics,
         interruption: bodySignal.includes('pardon our interruption')
           || bodySignal.includes('made us think you were a bot')
           || bodySignal.includes('verify you are human'),

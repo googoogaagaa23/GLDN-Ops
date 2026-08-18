@@ -5,6 +5,10 @@ html[data-gldn-theme-ready="true"] body {
   background-size: 34px 34px;
 }
 
+html[data-gldn-theme-ready="true"] body :where(h1, h2, h4, p, span, label, strong, small, li, th, td, legend, summary) {
+  color: inherit;
+}
+
 html[data-gldn-theme-ready="true"] .section,
 html[data-gldn-theme-ready="true"] .popup-nav {
   border-color: var(--gldn-theme-border);
@@ -89,6 +93,49 @@ html[data-gldn-theme-ready="true"] h3 {
 html[data-gldn-theme-ready="true"] .good { color: var(--gldn-theme-success); }
 html[data-gldn-theme-ready="true"] .warning { color: var(--gldn-theme-warning); }
 html[data-gldn-theme-ready="true"] .critical { color: var(--gldn-theme-danger); }
+
+html[data-gldn-theme-ready="true"] .section-card.due,
+html[data-gldn-theme-ready="true"] .section-card.confirmed,
+html[data-gldn-theme-ready="true"] .helper-card,
+html[data-gldn-theme-ready="true"] .helper-card.ready,
+html[data-gldn-theme-ready="true"] .limits-status,
+html[data-gldn-theme-ready="true"] .preset-box,
+html[data-gldn-theme-ready="true"] .sale-event-dialog,
+html[data-gldn-theme-ready="true"] #updaterStatus,
+html[data-gldn-theme-ready="true"] #status:not(:empty) {
+  color: var(--gldn-theme-text);
+  border-color: var(--gldn-theme-border);
+  background: var(--gldn-theme-surface);
+}
+
+html[data-gldn-theme-ready="true"] .section-card.due,
+html[data-gldn-theme-ready="true"] .limits-status.due,
+html[data-gldn-theme-ready="true"] #updaterStatus.error {
+  color: var(--gldn-theme-danger);
+  border-color: var(--gldn-theme-danger);
+}
+
+html[data-gldn-theme-ready="true"] .section-card.confirmed,
+html[data-gldn-theme-ready="true"] .helper-card.ready,
+html[data-gldn-theme-ready="true"] .limits-status.confirmed,
+html[data-gldn-theme-ready="true"] #updaterStatus.ready,
+html[data-gldn-theme-ready="true"] #status:not(:empty) {
+  color: var(--gldn-theme-success);
+  border-color: var(--gldn-theme-success);
+}
+
+html[data-gldn-theme-ready="true"] .helper-card,
+html[data-gldn-theme-ready="true"] #updaterStatus.warning {
+  color: var(--gldn-theme-warning);
+  border-color: var(--gldn-theme-warning);
+}
+
+html[data-gldn-theme-ready="true"] button:disabled {
+  color: var(--gldn-theme-muted);
+  border-color: var(--gldn-theme-border);
+  background: var(--gldn-theme-raised);
+  opacity: 0.78;
+}
 
 html[data-gldn-theme-ready="true"] header,
 html[data-gldn-theme-ready="true"] footer {

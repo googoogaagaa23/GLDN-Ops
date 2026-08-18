@@ -1,4 +1,12 @@
-GLDN Ops v3.12.17
+GLDN Ops v3.12.18
+
+v3.12.18 dual-source eBay profit release:
+- Makes Read 1 a true saved-note-only calculation: note earnings minus note Amazon cost.
+- Keeps Read 2 independent: visible eBay order earnings minus an exact matched Amazon order-item cost.
+- Shows both results side by side without allowing one source to overwrite the other.
+- Automatically normalizes deterministic money formatting mistakes in saved notes.
+- Requires an editable operator confirmation when a note amount is ambiguous, inconsistent, or likely missing a decimal.
+- Never changes an eBay order or note when confirming internal profit amounts.
 
 v3.12.17 Amazon-cost resolution save release:
 - Makes Save Cost Resolution Results a single explicit action instead of a hidden two-click confirmation.

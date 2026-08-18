@@ -7,7 +7,7 @@ From the extracted GLDN Ops folder, double-click `Install-GLDN-Ops.cmd`. The
 installer validates the exact local extension files and prints the folder to
 select in Chrome.
 
-For each intended signed-in Chrome profile:
+For each fresh signed-in Chrome profile that does not already run GLDN Ops:
 
 1. Open `chrome://extensions` in that profile.
 2. Turn on Developer mode.
@@ -25,7 +25,13 @@ only the published stable release, verifies its SHA-256 checksum and manifest
 version, preserves `extension\config.js` and Chrome storage, creates a rollback
 snapshot, replaces the runtime transactionally, and reloads the extension.
 
-Every Chrome profile on the same computer should point to the same stable
-`%LOCALAPPDATA%\GLDN Ops\extension` folder. Each profile requires **Load
+Fresh Chrome profiles on the same computer should point to the stable
+`%LOCALAPPDATA%\GLDN Ops\extension` folder. Each fresh profile requires **Load
 unpacked** once; later releases do not require another ZIP download or folder
 selection.
+
+An existing operational profile already loaded from another folder should keep
+that folder in place. The updater follows the requesting profile's exact loaded
+folder and updates it in place. Moving an unpacked extension to another path can
+change its Chrome identity and make profile-local settings appear missing. Use a
+settings backup and verified restore before any deliberate folder migration.

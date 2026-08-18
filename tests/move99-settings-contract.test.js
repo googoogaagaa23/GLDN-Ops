@@ -69,7 +69,8 @@ test("popup, backup restore, and both Move .99 runtimes use the shared validator
   assert.match(popup, /function normalizeMove99BackupAccounts/);
   assert.match(popup, /Saved and verified \.99 categories/);
   assert.ok((popup.match(/FOUNDATION\.validateMove99Settings/g) || []).length >= 2);
-  assert.match(starter, /sendMessage\(\{ type: 'startMove99Workflow', scanMode \}\)/);
+  assert.match(starter, /type:\s*'startMove99Workflow'[\s\S]*?scanMode[\s\S]*?saleEventStatus/);
+  assert.match(popup, /type:\s*'startMove99Workflow'[\s\S]*?scanMode[\s\S]*?saleEventStatus/);
   assert.match(background, /FOUNDATION\.validateMove99Settings\(settings\)/);
   assert.match(ebay, /FOUNDATION\.validateMove99Settings\(merged\)/);
 });

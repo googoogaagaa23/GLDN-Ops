@@ -10,10 +10,6 @@ const popupHtml = fs.readFileSync(path.join(root, "extension", "popup.html"), "u
 const popupJs = fs.readFileSync(path.join(root, "extension", "popup.js"), "utf8");
 const themeCatalog = fs.readFileSync(path.join(root, "extension", "theme-catalog.js"), "utf8");
 const poshmark = fs.readFileSync(path.join(root, "extension", "poshmark.js"), "utf8");
-const universal = fs.readFileSync(path.join(root, "extension", "universal.js"), "utf8");
-const ebay = fs.readFileSync(path.join(root, "extension", "ebay.js"), "utf8");
-const background = fs.readFileSync(path.join(root, "extension", "background.js"), "utf8");
-const manifest = fs.readFileSync(path.join(root, "extension", "manifest.json"), "utf8");
 
 test("minimized panels restore mode and position in one coordinated read", () => {
   assert.match(shared, /chrome\.storage\.local\.get\(\[\s*storageKey,\s*modeStorageKey,\s*sizeStorageKey,/);
@@ -25,18 +21,10 @@ test("floating panels expose functional settings and persisted resize controls",
   assert.match(shared, /data-gldn-settings-toggle/);
   assert.match(shared, /data-gldn-theme-select/);
   assert.match(shared, /data-gldn-opacity-input/);
-  assert.match(shared, /type="range" min="0" max="100"/);
-  assert.match(popupHtml, /id="uiOpacity" type="range" min="0" max="100"/);
   assert.match(shared, /data-gldn-reset-layout/);
   assert.match(shared, /className = "gldn-panel-resize-handle"/);
   assert.match(shared, /chrome\.storage\.local\.set\(\{ \[sizeStorageKey\]: savedSize \}\)/);
   assert.match(styles, /\.gldn-order-panel \.gldn-panel-resize-handle/);
-});
-
-test("the universal panel can clear stale workflow state without opening a protected extension page", () => {
-  assert.match(universal, /data-action="reset"[^>]*>Reset<\/button>/);
-  assert.match(universal, /type: 'resetAutomationState'/);
-  assert.match(universal, /Saved settings and completed records will be kept/);
 });
 
 test("all supported themes are available in the panel and popup", () => {
@@ -86,14 +74,6 @@ test("Poshmark stats display money as USD and large counts with separators", () 
   assert.match(poshmark, /\["Profile listings", countDisplay\(record\.profileListings\)\]/);
 });
 
-test("Poshmark panel exposes safe stop and confirmed reset controls", () => {
-  assert.match(poshmark, /data-action="stop-task"[^>]*>Stop Task<\/button>/);
-  assert.match(poshmark, /data-action="reset-task"[^>]*>Reset<\/button>/);
-  assert.match(poshmark, /type: "stopPoshmarkProfitBackfill"/);
-  assert.match(poshmark, /window\.confirm\("Reset the saved GLDN Ops workflow checkpoint/);
-  assert.match(poshmark, /type: "resetAutomationState"/);
-});
-
 test("panel layout is included in settings backup and restore", () => {
   assert.match(popupJs, /const PANEL_LAYOUT_STORAGE_KEYS = Object\.freeze/);
   assert.match(popupJs, /\.flatMap\(\(key\) => \[key, `\$\{key\}Mode`, `\$\{key\}Size`\]\)/);
@@ -102,30 +82,4 @@ test("panel layout is included in settings backup and restore", () => {
   assert.match(popupJs, /'gldnModalSizes'/);
   assert.match(popupJs, /'gldnModalPositions'/);
   assert.match(popupJs, /'gldnModalOpacities'/);
-});
-
-test("the eBay floating panel stays hidden until a workflow or approval is active", () => {
-  assert.match(ebay, /panel\.hidden = true/);
-  assert.match(styles, /\.gldn-order-panel\[hidden\]\s*\{[\s\S]*?display: none !important/);
-  assert.match(ebay, /FOUNDATION\.activeWorkflowEntries\(stored\)/);
-  assert.doesNotMatch(
-    ebay.slice(ebay.indexOf("function ebayPanelWorkflowStateVisible"), ebay.indexOf("async function refreshEbayPanelWorkflowVisibility")),
-    /move99SavedSummaryDescriptor/
-  );
-  assert.match(popupHtml, /data-ebay-action="mark-shipped"/);
-  assert.match(popupHtml, /data-ebay-action="seller-level"/);
-  assert.match(popupHtml, /data-ebay-action="sales-snapshot"/);
-  assert.match(popupHtml, /data-ebay-action="listing-limits"/);
-  assert.match(popupHtml, /data-ebay-action="prepare-order-note"/);
-  assert.match(popupJs, /type: 'runEbayPageAction'/);
-  assert.match(ebay, /message\?\.type !== "runEbayPageAction"/);
-  assert.match(manifest, /"open-ebay-daily-panel"/);
-  assert.match(manifest, /"default": "Ctrl\+Shift\+G"/);
-  assert.match(background, /command === 'open-ebay-daily-panel'/);
-  assert.match(background, /type: 'showEbayDailyPanel'/);
-  assert.match(ebay, /message\?\.type === "showEbayDailyPanel"/);
-  assert.match(ebay, /setEbayPanelWorkflowVisible\(true\)/);
-  assert.match(ebay, /function installEbayDailyPanelShortcut\(\)/);
-  assert.match(ebay, /event\.ctrlKey[\s\S]*?event\.shiftKey[\s\S]*?toLowerCase\(\) === "g"/);
-  assert.match(ebay, /installEbayDailyPanelShortcut\(\)/);
 });

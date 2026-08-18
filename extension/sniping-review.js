@@ -12,14 +12,21 @@
 
   const storageGet = (keys) => new Promise((resolve) => chrome.storage.local.get(keys, resolve));
   const storageSet = (values) => new Promise((resolve) => chrome.storage.local.set(values, resolve));
-  const runtimeMessage = (message) => new Promise((resolve) => {
-    chrome.runtime.sendMessage(message, (response) => {
-      if (chrome.runtime.lastError) {
-        resolve({ ok: false, error: chrome.runtime.lastError.message });
-        return;
-      }
-      resolve(response || { ok: false, error: "No response from the extension background service." });
-    });
+  const runtimeMessage = (message, timeoutMs = 30000) => new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve({ ok: false, error: "Extension request timed out." }), timeoutMs);
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        clearTimeout(timeout);
+        if (chrome.runtime.lastError) {
+          resolve({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        resolve(response || { ok: false, error: "No response from the extension background service." });
+      });
+    } catch (error) {
+      clearTimeout(timeout);
+      resolve({ ok: false, error: error?.message || String(error) });
+    }
   });
 
   function normalizeSellerName(value) {

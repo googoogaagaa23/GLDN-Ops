@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 $extensionRoot = Join-Path $repoRoot "extension"
-$nodeRoot = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\node"
+$nodeRoot = "C:\Users\afarr\.cache\codex-runtimes\codex-primary-runtime\dependencies\node"
 $node = Join-Path $nodeRoot "bin\node.exe"
 $nodeModules = Join-Path $nodeRoot "node_modules"
 $pnpmModules = Join-Path $nodeModules ".pnpm\node_modules"

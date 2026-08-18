@@ -234,7 +234,7 @@
       swatches.appendChild(swatch);
     }
     const label = document.createElement('span');
-    label.textContent = `${selected.label} · ${selected.group}`;
+    label.textContent = `${selected.label} - ${selected.group}`;
     container.append(swatches, label);
   };
 

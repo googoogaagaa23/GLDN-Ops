@@ -43,6 +43,14 @@ test("visible-sales preview uses its own readable table instead of the warning b
   assert.match(styles, /\.gldn-sales-earnings \{ color: #86efac !important; \}/);
 });
 
+test("visible-sales local approval is exact-count bound", () => {
+  const source = fs.readFileSync(path.resolve(__dirname, "..", "extension", "poshmark.js"), "utf8");
+  const background = fs.readFileSync(path.resolve(__dirname, "..", "extension", "background.js"), "utf8");
+  assert.match(source, /APPROVE SAVE VISIBLE SALES \$\{records\.length\}/);
+  assert.match(source, /"save-visible-sales-review": \(\) => approveVisibleSalesReview\(message\.confirmationToken\)/);
+  assert.match(background, /APPROVE SAVE VISIBLE SALES \[1-9\]\\d\*/);
+});
+
 test("background and dashboard expose one idempotent marketplace-profit batch action", () => {
   const background = fs.readFileSync(path.resolve(__dirname, "..", "extension", "background.js"), "utf8");
   const dashboardSource = fs.readFileSync(path.resolve(__dirname, "..", "dashboard", "GLDN_Ops_Dashboard_Code.gs"), "utf8");
@@ -161,7 +169,8 @@ test("profit-sheet upserts retain exact Amazon evidence while refreshing visible
 test("all packaged dashboard copies stay identical", () => {
   const files = [
     path.resolve(__dirname, "..", "dashboard", "GLDN_Ops_Dashboard_Code.gs"),
-    path.resolve(__dirname, "..", "extension", "dashboard_apps_script", "Code.gs")
+    path.resolve(__dirname, "..", "extension", "dashboard_apps_script", "Code.gs"),
+    path.resolve(__dirname, "..", "apps-script-live", "Code.js")
   ];
   const sources = files.map((file) => fs.readFileSync(file, "utf8"));
   assert.equal(new Set(sources).size, 1);

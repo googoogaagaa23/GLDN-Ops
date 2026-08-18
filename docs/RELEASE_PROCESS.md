@@ -37,6 +37,17 @@ Publish the versioned extension ZIP, `latest.json`, full local bundle, installer
 bootstrap scripts, and release notes together. Never update `latest.json` before
 all files it references are publicly reachable with the exact published hash.
 
+Assemble and verify those files in one directory before publishing:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\stage-public-release.ps1 -Force
+```
+
+The staged `downloads\release-manifest-vX.Y.Z.json` records every exact hash.
+`downloads\latest.json` is written only after its versioned ZIP and all recovery
+artifacts are present and verified. Publishing is still forbidden until the
+signed-in Profile 2 live gates and user green light below are complete.
+
 6. Deploy changed Apps Script projects first and record their versions.
 7. Use only the existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) for live proof.
 8. For the stable deployment gate, use **Update & Reload** from the installed extension. **Reload Current Files** is only for a stale panel and is not update proof.

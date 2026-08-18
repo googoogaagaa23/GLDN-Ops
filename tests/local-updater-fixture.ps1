@@ -8,11 +8,8 @@ $sourceRoot = Join-Path $testRoot "source-v2"
 $zipPath = Join-Path $testRoot "v2.zip"
 $metadataPath = Join-Path $testRoot "latest.json"
 $badMetadataPath = Join-Path $testRoot "bad.json"
-$loadedRoot = Join-Path $testRoot "loaded-copy"
-$chromeUserData = Join-Path $testRoot "Chrome User Data"
-$extensionId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 $agentProcess = $null
-$priorChromeUserData = $env:GLDN_CHROME_USER_DATA
+$previousChromeUserData = $env:GLDN_CHROME_USER_DATA
 
 function New-FixtureExtension([string]$Root, [string]$Version, [string]$Marker) {
   New-Item -ItemType Directory -Force -Path $Root | Out-Null
@@ -41,10 +38,11 @@ try {
   }
   if (@(Get-GldnSnapshots $installRoot).Count -ne 1) { throw "Fixture update did not create one rollback snapshot." }
 
+  Set-Content -LiteralPath (Join-Path $installRoot "extension\config.js") -Value "newer-private-dashboard-setting" -Encoding UTF8
   $rollback = Invoke-GldnExtensionRollback -InstallRoot $installRoot
   if (-not $rollback.ok -or $rollback.currentVersion -ne "1.0.0") { throw "Fixture rollback did not restore v1.0.0." }
-  if ((Get-Content -Raw -LiteralPath (Join-Path $installRoot "extension\config.js")).Trim() -ne "private-dashboard-setting") {
-    throw "Fixture rollback did not preserve the saved config."
+  if ((Get-Content -Raw -LiteralPath (Join-Path $installRoot "extension\config.js")).Trim() -ne "newer-private-dashboard-setting") {
+    throw "Fixture rollback did not preserve the latest saved config."
   }
 
   @{ version = "1.1.0"; url = "https://invalid.example/fixture.zip"; sha256 = ("0" * 64) } |
@@ -58,124 +56,80 @@ try {
   if (-not $checksumRejected) { throw "Fixture did not reject a bad checksum." }
   if ((Get-GldnManifestVersion (Join-Path $installRoot "extension")) -ne "1.0.0") { throw "Bad checksum changed the installed runtime." }
 
-  New-FixtureExtension (Join-Path $loadedRoot "extension") "0.9.0" "loaded-old"
-  $profileRoot = Join-Path $chromeUserData "Profile 2"
-  New-Item -ItemType Directory -Force -Path $profileRoot | Out-Null
-  $settings = @{}
-  $settings[$extensionId] = @{ path = (Join-Path $loadedRoot "extension"); location = 4; disable_reasons = 0 }
-  @{ extensions = @{ settings = $settings } } | ConvertTo-Json -Depth 8 |
-    Set-Content -LiteralPath (Join-Path $profileRoot "Secure Preferences") -Encoding UTF8
-  $env:GLDN_CHROME_USER_DATA = $chromeUserData
-
-  $resolvedTarget = Resolve-GldnExtensionRequestTarget -ExtensionId $extensionId -FallbackInstallRoot $installRoot
-  if ($resolvedTarget.installRoot -ne $loadedRoot -or $resolvedTarget.profileDirectories -notcontains "Profile 2") {
-    throw "Loaded-folder resolver did not select the Chrome profile extension path."
-  }
-  $unknownRejected = $false
-  try { Resolve-GldnExtensionRequestTarget -ExtensionId ("b" * 32) -FallbackInstallRoot $installRoot | Out-Null } catch { $unknownRejected = $true }
-  if (-not $unknownRejected) { throw "Loaded-folder resolver accepted an unknown extension ID." }
-
-  $secondRoot = Join-Path $testRoot "second-loaded-copy"
-  New-FixtureExtension (Join-Path $secondRoot "extension") "0.8.0" "ambiguous"
-  $secondProfile = Join-Path $chromeUserData "Profile 3"
-  New-Item -ItemType Directory -Force -Path $secondProfile | Out-Null
-  $secondSettings = @{}
-  $secondSettings[$extensionId] = @{ path = (Join-Path $secondRoot "extension"); location = 4; disable_reasons = 0 }
-  @{ extensions = @{ settings = $secondSettings } } | ConvertTo-Json -Depth 8 |
-    Set-Content -LiteralPath (Join-Path $secondProfile "Secure Preferences") -Encoding UTF8
-  $ambiguityRejected = $false
-  try { Resolve-GldnExtensionRequestTarget -ExtensionId $extensionId -FallbackInstallRoot $installRoot | Out-Null } catch { $ambiguityRejected = $_.Exception.Message -match "more than one" }
-  if (-not $ambiguityRejected) { throw "Loaded-folder resolver did not reject ambiguous extension paths." }
-  Remove-Item -LiteralPath $secondProfile -Recurse -Force
-
   $port = Get-Random -Minimum 41000 -Maximum 49000
+  $fixtureExtensionId = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  $chromeUserDataRoot = Join-Path $testRoot "Chrome User Data"
+  $profileRoot = Join-Path $chromeUserDataRoot "Profile 2"
+  New-Item -ItemType Directory -Force -Path $profileRoot | Out-Null
+  @{
+    extensions = @{
+      settings = @{
+        $fixtureExtensionId = @{
+          location = 4
+          path = (Join-Path $installRoot "extension")
+        }
+      }
+    }
+  } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath (Join-Path $profileRoot "Secure Preferences") -Encoding UTF8
+  $securePreferencesPath = Join-Path $profileRoot "Secure Preferences"
+  $securePreferencesHash = (Get-FileHash -LiteralPath $securePreferencesPath -Algorithm SHA256).Hash
+  $env:GLDN_CHROME_USER_DATA = $chromeUserDataRoot
   $agentPath = Join-Path $repoRoot "tools\gldn-update-agent.ps1"
-  $agentArguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Action Serve -InstallRoot "{1}" -MetadataPath "{2}" -SourceZipPath "{3}" -Port {4}' -f $agentPath, $installRoot, $metadataPath, $zipPath, $port
+  $agentArguments = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Action Serve -InstallRoot "{1}" -Port {2}' -f $agentPath, $installRoot, $port
   $agentProcess = Start-Process -FilePath (Join-Path $PSHOME "powershell.exe") -ArgumentList $agentArguments -WindowStyle Hidden -PassThru
   $agentReady = $false
   for ($i = 0; $i -lt 30; $i++) {
     Start-Sleep -Milliseconds 150
     try {
-      $status = Invoke-RestMethod -Uri "http://127.0.0.1:$port/v1/status" -Headers @{ "X-GLDN-Updater" = "1"; "X-GLDN-Extension-Id" = $extensionId; Origin = "chrome-extension://$extensionId" } -TimeoutSec 2
-      if ($status.ok -and $status.currentVersion -eq "0.9.0" -and $status.targetSource -eq "chrome-profile") { $agentReady = $true; break }
+      $status = Invoke-RestMethod -Uri "http://127.0.0.1:$port/v1/status" -Headers @{
+        "X-GLDN-Updater" = "1"
+        "X-GLDN-Extension-Id" = $fixtureExtensionId
+        Origin = "chrome-extension://$fixtureExtensionId"
+      } -TimeoutSec 2
+      if ($status.ok -and $status.currentVersion -eq "1.0.0") { $agentReady = $true; break }
     } catch {}
   }
   if (-not $agentReady) { throw "Loopback updater agent fixture did not answer." }
-  $serviceWorkerStatus = Invoke-RestMethod -Uri "http://127.0.0.1:$port/v1/status" -Headers @{
-    "X-GLDN-Updater" = "1"
-    "X-GLDN-Extension-Id" = $extensionId
-    "Sec-Fetch-Site" = "none"
-    "Sec-Fetch-Mode" = "cors"
-  } -TimeoutSec 2
-  if (-not $serviceWorkerStatus.ok -or $serviceWorkerStatus.extensionId -ne $extensionId) {
-    throw "Loopback updater did not accept the no-Origin Chrome extension service-worker request."
+  if ($status.targetMatchesConfiguredInstallRoot -ne $true) {
+    throw "Updater did not identify the shared stable extension folder."
   }
-  $webOriginRejected = $false
-  try {
-    Invoke-RestMethod -Uri "http://127.0.0.1:$port/v1/status" -Headers @{
-      "X-GLDN-Updater" = "1"
-      "X-GLDN-Extension-Id" = $extensionId
-      Origin = "https://example.com"
-    } -TimeoutSec 2 | Out-Null
-  } catch {
-    $webOriginRejected = $true
+  if ([System.IO.Path]::GetFullPath([string]$status.configuredExtensionRoot) -ne [System.IO.Path]::GetFullPath((Join-Path $installRoot "extension"))) {
+    throw "Updater reported the wrong shared stable extension folder."
   }
-  if (-not $webOriginRejected) { throw "Loopback updater accepted an ordinary website origin." }
+  if ((Get-FileHash -LiteralPath $securePreferencesPath -Algorithm SHA256).Hash -ne $securePreferencesHash) {
+    throw "Updater modified Chrome Secure Preferences."
+  }
 
-  $agentConfig = Get-Content -Raw -LiteralPath (Join-Path $installRoot "updater.json") | ConvertFrom-Json
-  $controlToken = [string]$agentConfig.controlToken
-  if ($controlToken.Length -lt 40) { throw "Loopback updater did not create a local-control token." }
-  $operatorHeaders = @{ "X-GLDN-Control" = $controlToken }
-  $queuedControl = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/v1/control/commands" `
-    -Headers $operatorHeaders -ContentType "application/json" `
-    -Body (@{ extensionId = $extensionId; action = "inspect-session"; payload = @{} } | ConvertTo-Json -Compress) -TimeoutSec 2
-  $nextControl = Invoke-RestMethod -Uri "http://127.0.0.1:$port/v1/control/next" -Headers @{
+  $separateInstallRoot = Join-Path $testRoot "Separate Loaded Copy"
+  $separateExtensionRoot = Join-Path $separateInstallRoot "extension"
+  New-FixtureExtension $separateExtensionRoot "2.0.0" "separate"
+  @{
+    extensions = @{
+      settings = @{
+        $fixtureExtensionId = @{
+          location = 4
+          path = $separateExtensionRoot
+        }
+      }
+    }
+  } | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $securePreferencesPath -Encoding UTF8
+  $separatePreferencesHash = (Get-FileHash -LiteralPath $securePreferencesPath -Algorithm SHA256).Hash
+  $separateStatus = Invoke-RestMethod -Uri "http://127.0.0.1:$port/v1/status" -Headers @{
     "X-GLDN-Updater" = "1"
-    "X-GLDN-Extension-Id" = $extensionId
-    Origin = "chrome-extension://$extensionId"
+    "X-GLDN-Extension-Id" = $fixtureExtensionId
+    Origin = "chrome-extension://$fixtureExtensionId"
   } -TimeoutSec 2
-  if ($nextControl.command.id -ne $queuedControl.commandId -or $nextControl.command.action -ne "inspect-session") {
-    throw "Profile 2 did not receive the queued safe-control command. Queued=$($queuedControl | ConvertTo-Json -Depth 6 -Compress) Next=$($nextControl | ConvertTo-Json -Depth 6 -Compress)"
+  if (-not $separateStatus.ok -or $separateStatus.currentVersion -ne "2.0.0") {
+    throw "Updater did not follow the exact separately loaded extension folder."
   }
-  $controlCompletion = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/v1/control/results" -Headers @{
-    "X-GLDN-Updater" = "1"
-    "X-GLDN-Extension-Id" = $extensionId
-    Origin = "chrome-extension://$extensionId"
-  } -ContentType "application/json" -Body (@{
-    commandId = $queuedControl.commandId
-    ok = $true
-    result = @{ profileLock = "Profile 2"; runtimeVersion = "fixture" }
-  } | ConvertTo-Json -Depth 5 -Compress) -TimeoutSec 2
-  $controlResult = Invoke-RestMethod -Uri "http://127.0.0.1:$port/v1/control/results?commandId=$($queuedControl.commandId)" `
-    -Headers $operatorHeaders -TimeoutSec 2
-  if (-not $controlCompletion.ok -or -not $controlResult.commandOk -or $controlResult.result.profileLock -ne "Profile 2") {
-    throw "Loopback control result did not complete its round trip."
+  if ($separateStatus.targetMatchesConfiguredInstallRoot -ne $false) {
+    throw "Updater falsely identified a separate loaded folder as the shared stable folder."
   }
-  $unsafeControlRejected = $false
-  try {
-    Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/v1/control/commands" `
-      -Headers $operatorHeaders -ContentType "application/json" `
-      -Body (@{ extensionId = $extensionId; action = "submit"; payload = @{} } | ConvertTo-Json -Compress) -TimeoutSec 2 | Out-Null
-  } catch {
-    $unsafeControlRejected = $true
+  if ([System.IO.Path]::GetFullPath([string]$separateStatus.extensionRoot) -ne [System.IO.Path]::GetFullPath($separateExtensionRoot)) {
+    throw "Updater reported the wrong separately loaded extension folder."
   }
-  if (-not $unsafeControlRejected) { throw "Loopback control accepted an unsafe arbitrary action." }
-  $missingTokenRejected = $false
-  try {
-    Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/v1/control/commands" `
-      -ContentType "application/json" `
-      -Body (@{ extensionId = $extensionId; action = "inspect-session"; payload = @{} } | ConvertTo-Json -Compress) -TimeoutSec 2 | Out-Null
-  } catch {
-    $missingTokenRejected = $true
-  }
-  if (-not $missingTokenRejected) { throw "Loopback control accepted an operator request without its token." }
-
-  $agentUpdate = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$port/v1/update" -Headers @{ "X-GLDN-Updater" = "1"; "X-GLDN-Extension-Id" = $extensionId; Origin = "chrome-extension://$extensionId" } -ContentType "application/json" -Body "{}" -TimeoutSec 20
-  if (-not $agentUpdate.updated -or (Get-GldnManifestVersion (Join-Path $loadedRoot "extension")) -ne "1.1.0") {
-    throw "Loopback updater did not update the folder loaded by Chrome."
-  }
-  if ((Get-GldnManifestVersion (Join-Path $installRoot "extension")) -ne "1.0.0") {
-    throw "Loopback updater changed the configured fallback instead of the loaded Chrome folder."
+  if ((Get-FileHash -LiteralPath $securePreferencesPath -Algorithm SHA256).Hash -ne $separatePreferencesHash) {
+    throw "Updater modified Chrome Secure Preferences during separate-folder discovery."
   }
 
   [pscustomobject]@{
@@ -183,21 +137,16 @@ try {
     configPreserved = $true
     rollbackRestored = "1.0.0"
     checksumRejectedWithoutMutation = $true
+    chromeProfileMetadataReadOnly = $true
     loopbackAgent = $true
-    chromeLoadedFolderResolved = $true
-    unknownExtensionRejected = $true
-    ambiguousExtensionRejected = $true
-    serviceWorkerRequestAccepted = $true
-    websiteOriginRejected = $true
-    profile2ControlRoundTrip = $true
-    unsafeControlRejected = $true
-    missingControlTokenRejected = $true
+    stableTargetReported = $true
+    separateTargetWarningReported = $true
     noAdminRequired = $true
     pass = $true
   } | ConvertTo-Json -Compress
 } finally {
-  $env:GLDN_CHROME_USER_DATA = $priorChromeUserData
   if ($agentProcess -and -not $agentProcess.HasExited) { Stop-Process -Id $agentProcess.Id -Force }
+  $env:GLDN_CHROME_USER_DATA = $previousChromeUserData
   if (Test-Path -LiteralPath $testRoot) {
     $resolved = [System.IO.Path]::GetFullPath($testRoot)
     $tempPrefix = [System.IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'

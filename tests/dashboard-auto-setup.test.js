@@ -21,7 +21,7 @@ test('saved dashboard setup is checked across every extension lifecycle', () => 
   assert.match(background, /onInstalled\.addListener\(\(details\) => \{\s*seedAutomaticDashboardSetup\(`/);
   assert.match(background, /onStartup\.addListener\(\(\) => \{\s*seedAutomaticDashboardSetup\('chrome-startup'\)/);
   assert.match(background, /seedAutomaticDashboardSetup\('worker-start'\);/);
-  assert.match(popupJs, /async function initializePopup\(\) \{\s*await ensureAutomaticDashboardSetup\(\);/);
+  assert.match(popupJs, /async function initializePopup\(\) \{[\s\S]*?await ensureAutomaticDashboardSetup\(\);/);
 });
 
 test('popup has saved-profile status and a secure one-time connection prompt', () => {

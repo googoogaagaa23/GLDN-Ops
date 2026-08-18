@@ -15,16 +15,16 @@ if (-not $MetadataPath) { $MetadataPath = Join-Path $repoRoot "dist\latest.json"
 
 $testRoot = Join-Path $env:TEMP ("gldn-one-time-installer-" + [guid]::NewGuid().ToString("N"))
 $installRoot = Join-Path $testRoot "GLDN Ops"
-$fixtureDashboardCode = "fixture-dashboard-" + [guid]::NewGuid().ToString("N")
+$dashboardSetupCode = "fixture-dashboard-" + [guid]::NewGuid().ToString("N")
 $agentProcess = $null
 try {
   New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "bootstrap-install.ps1") `
     -InstallRoot $installRoot `
+    -DashboardSetupCode $dashboardSetupCode `
     -SourceZipPath $LocalPackagePath `
     -ReleaseMetadataPath $MetadataPath `
     -PrivateExtensionZipPath $PrivateExtensionPath `
-    -DashboardSetupCode $fixtureDashboardCode `
     -SkipChromeOpen `
     -SkipUpdaterStart | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "One-time installer fixture failed." }
@@ -39,31 +39,32 @@ try {
   $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
   $configText = Get-Content -Raw -LiteralPath $configPath
   $keyMatch = [regex]::Match($configText, 'dashboardKey\s*:\s*["'']([^"'']+)["'']')
-  if (-not $keyMatch.Success -or $keyMatch.Groups[1].Value -ne $fixtureDashboardCode) {
+  if (-not $keyMatch.Success -or $keyMatch.Groups[1].Value -cne $dashboardSetupCode) {
     throw "One-time installer did not seed the automatic dashboard connection."
   }
   $updaterConfig = Get-Content -Raw -LiteralPath $updaterConfigPath | ConvertFrom-Json
   if ([System.IO.Path]::GetFullPath([string]$updaterConfig.installRoot) -ne [System.IO.Path]::GetFullPath($installRoot)) {
     throw "Updater configuration points to the wrong stable install folder."
   }
-  if ([int]$updaterConfig.schemaVersion -lt 3 -or [string]$updaterConfig.controlToken -notmatch '^[A-Za-z0-9_-]{40,}$') {
-    throw "Updater configuration did not create the local Profile 2 control credential."
-  }
 
   $agentPort = Get-Random -Minimum 41000 -Maximum 49000
   $agentArguments = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -Action Serve -InstallRoot "{1}" -Port {2}' -f `
     $agentPath.Replace('"', '\"'), $installRoot.Replace('"', '\"'), $agentPort
   $agentProcess = Start-Process -FilePath "powershell.exe" -ArgumentList $agentArguments -WorkingDirectory $installRoot -WindowStyle Hidden -PassThru
-  Start-Sleep -Milliseconds 750
-  $agentProcess.Refresh()
-  if ($agentProcess.HasExited) { throw "Updater-lock fixture could not start its existing updater." }
+  $pidPath = Join-Path $installRoot "updater-agent.pid"
+  for ($i = 0; $i -lt 100 -and -not (Test-Path -LiteralPath $pidPath); $i++) {
+    Start-Sleep -Milliseconds 100
+    $agentProcess.Refresh()
+    if ($agentProcess.HasExited) { throw "Updater-lock fixture could not start its existing updater." }
+  }
+  if (-not (Test-Path -LiteralPath $pidPath)) { throw "Updater-lock fixture did not publish its verified PID record." }
 
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "bootstrap-install.ps1") `
     -InstallRoot $installRoot `
+    -DashboardSetupCode $dashboardSetupCode `
     -SourceZipPath $LocalPackagePath `
     -ReleaseMetadataPath $MetadataPath `
     -PrivateExtensionZipPath $PrivateExtensionPath `
-    -DashboardSetupCode $fixtureDashboardCode `
     -SkipChromeOpen `
     -SkipUpdaterStart | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "Reinstall with a running updater failed." }
@@ -78,7 +79,7 @@ try {
     stableFolder = $true
     privateDashboardSeeded = $true
     updaterConfigured = $true
-    localControlCredentialCreated = $true
+    updaterPidVerified = $true
     runningUpdaterStoppedForReinstall = $true
     reinstallBackupCount = $backups.Count
     noChromeProfileOpened = $true

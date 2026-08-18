@@ -164,9 +164,15 @@ $runtimeTextFiles = @(
   "extension\profit-backfill.js",
   "extension\profit-backfill-background.js",
   "extension\sniping-audit.js",
+  "extension\subscribe-save.js",
   "extension\sniping-review.html",
   "extension\sniping-review.css",
   "extension\sniping-review.js",
+  "extension\listing-preflight.html",
+  "extension\listing-preflight.css",
+  "extension\listing-preflight-core.js",
+  "extension\listing-preflight.js",
+  "extension\listing-preflight-rules.json",
   "extension\background.js",
   "extension\amazon.js",
   "extension\walmart.js",
@@ -233,6 +239,7 @@ $jsFilesToParse = @(
   "profit-backfill.js",
   "profit-backfill-background.js",
   "sniping-audit.js",
+  "subscribe-save.js",
   "sniping-review.js",
   "background.js",
   "popup.js",
@@ -243,7 +250,11 @@ $jsFilesToParse = @(
   "poshmark.js",
   "reload.js",
   "start-move99.js",
-  "theme-page.js"
+  "theme-page.js",
+  "variation-core.js",
+  "variation-audit.js",
+  "listing-preflight-core.js",
+  "listing-preflight.js"
 )
 
 $node = "C:\Users\afarr\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
@@ -292,10 +303,15 @@ if ($BuildPackage) {
       foreach ($entry in $entries) {
         Assert-True (-not ($entry -match '(^|/)(evidence|pet-runs|node_modules|extension_versions|dist|\.git|\.codex|\.agents|\.local-build|\.webstore-build)/')) "ZIP contains excluded local path: $entry"
         Assert-True (-not ($entry -match 'config\.js$')) "ZIP contains private local config.js."
+        Assert-True (-not ($entry -match '(^|/)(secrets?)/|bot-token\.dpapi$')) "ZIP contains a protected local secret path: $entry"
         Assert-True (-not ($entry -match '\.pem$|\.crx$')) "ZIP contains private key or CRX artifact: $entry"
       }
-      foreach ($requiredEntry in @('extension/manifest.json', 'tools/update.ps1', 'tools/local-extension-manager.ps1', 'INSTALL.md')) {
+      foreach ($requiredEntry in @('extension/manifest.json', 'extension/listing-preflight.html', 'extension/listing-preflight-core.js', 'extension/listing-preflight-rules.json', 'tools/listing-preflight/publish-reviewed-rules.ps1', 'tools/update.ps1', 'tools/local-extension-manager.ps1', 'docs/DISCORD_RESEARCH.md', 'INSTALL.md')) {
         Assert-True (@($entries | Where-Object { $_.Replace('\', '/').EndsWith($requiredEntry) }).Count -eq 1) "ZIP is missing required local release entry: $requiredEntry"
+      }
+      foreach ($runtimeFile in $referenced.Keys) {
+        $runtimeEntry = ('extension/' + $runtimeFile.Replace('\', '/')).TrimStart('/')
+        Assert-True (@($entries | Where-Object { $_.Replace('\', '/').EndsWith($runtimeEntry) }).Count -eq 1) "ZIP is missing manifest-referenced runtime file: $runtimeEntry"
       }
       $zipText = ""
       foreach ($entry in $zip.Entries) {

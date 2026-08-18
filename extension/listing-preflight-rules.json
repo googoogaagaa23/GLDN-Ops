@@ -1,0 +1,2641 @@
+{
+    "schemaVersion":  1,
+    "generatedAt":  "2026-08-09T05:22:35.5505186Z",
+    "sourceGeneratedAt":  "2026-08-09T00:00:00Z",
+    "ruleCount":  175,
+    "rules":  [
+                  {
+                      "id":  "f160e82957b3511035fc",
+                      "type":  "keyword",
+                      "value":  "ackee fruit",
+                      "action":  "block",
+                      "reason":  "eBay prohibits ackee fruit.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/food-policy?id=4295"
+                                       ]
+                  },
+                  {
+                      "id":  "259db408a8276d3768ff",
+                      "type":  "keyword",
+                      "value":  "ackee seeds",
+                      "action":  "block",
+                      "reason":  "eBay prohibits ackee seeds.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/food-policy?id=4295"
+                                       ]
+                  },
+                  {
+                      "id":  "d5bf68439fa4aa65b26c",
+                      "type":  "keyword",
+                      "value":  "active credit card",
+                      "action":  "block",
+                      "reason":  "eBay prohibits active credit cards.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/credit-debit-cards-policy?id=4317"
+                                       ]
+                  },
+                  {
+                      "id":  "1424e316932db95ecf98",
+                      "type":  "keyword",
+                      "value":  "active debit card",
+                      "action":  "block",
+                      "reason":  "eBay prohibits active debit cards.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/credit-debit-cards-policy?id=4317"
+                                       ]
+                  },
+                  {
+                      "id":  "363ace3f7c26d282909c",
+                      "type":  "keyword",
+                      "value":  "airbag cover",
+                      "action":  "block",
+                      "reason":  "eBay prohibits airbag covers under its vehicle-parts policy.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/vehicle-parts-accessories-policy?id=4293"
+                                       ]
+                  },
+                  {
+                      "id":  "a2215bb915f538fd90c3",
+                      "type":  "keyword",
+                      "value":  "alcoholic beverage",
+                      "action":  "block",
+                      "reason":  "eBay prohibits alcohol other than wine sold by an approved seller.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/alcohol-policy?id=4274\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "0751b4b17713e4202d71",
+                      "type":  "keyword",
+                      "value":  "baby nest",
+                      "action":  "review",
+                      "reason":  "Baby nests can fall within eBay\u0027s restricted infant sleep-product rules and need manual review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "8f71e44f49373f9669e2",
+                      "type":  "keyword",
+                      "value":  "baby self feeding device",
+                      "action":  "block",
+                      "reason":  "eBay identifies self-feeding baby devices as prohibited unsafe products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "275a1aa4612921f7e830",
+                      "type":  "keyword",
+                      "value":  "baby sleep positioner",
+                      "action":  "block",
+                      "reason":  "eBay prohibits infant sleep positioners and similar anti-roll sleep products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "7420b671921a3e462ee1",
+                      "type":  "keyword",
+                      "value":  "baby weighted blanket",
+                      "action":  "block",
+                      "reason":  "eBay identifies weighted infant and baby sleep products as prohibited.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "e3b2b76a61a3f89c8e6c",
+                      "type":  "keyword",
+                      "value":  "bear trap",
+                      "action":  "block",
+                      "reason":  "eBay prohibits bear traps.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-traps-policy?id=5040"
+                                       ]
+                  },
+                  {
+                      "id":  "933665b87e83179afd5e",
+                      "type":  "keyword",
+                      "value":  "birth certificate",
+                      "action":  "review",
+                      "reason":  "Birth-certificate products need review to distinguish prohibited official documents from permitted supplies or novelty items.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/government-items-policy?id=4318"
+                                       ]
+                  },
+                  {
+                      "id":  "48c9845856636e95b143",
+                      "type":  "keyword",
+                      "value":  "blank rain check",
+                      "action":  "block",
+                      "reason":  "eBay prohibits blank rain checks that could enable illegal activity.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/encouraging-illegal-activity-policy?id=4339"
+                                       ]
+                  },
+                  {
+                      "id":  "103ab60f1d9c2eeb2388",
+                      "type":  "keyword",
+                      "value":  "body armor",
+                      "action":  "review",
+                      "reason":  "Commercial body armor is permitted only when it meets eBay\u0027s level, location, image, and disclaimer requirements.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/military-items-policy?id=4342\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "849c60eb98672a58bcba",
+                      "type":  "keyword",
+                      "value":  "bottle of wine",
+                      "action":  "review",
+                      "reason":  "Wine may be listed only by approved sellers following eBay\u0027s alcohol requirements.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/alcohol-policy?id=4274\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "bff583137e84a733beeb",
+                      "type":  "keyword",
+                      "value":  "bump key",
+                      "action":  "block",
+                      "reason":  "eBay prohibits bump keys and other lockpicking devices.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/lockpicking-devices-policy?id=4329\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "68f9e754444d16a3d6da",
+                      "type":  "keyword",
+                      "value":  "cat fur",
+                      "action":  "block",
+                      "reason":  "eBay prohibits products made from cats or dogs.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-products-policy?id=5046"
+                                       ]
+                  },
+                  {
+                      "id":  "0ae0f6c5cc0e92ba4ce0",
+                      "type":  "keyword",
+                      "value":  "CE certification",
+                      "action":  "review",
+                      "reason":  "Verify that the CE claim and required conformity documentation are genuine and applicable before listing.",
+                      "reviewedBy":  "GLDN Ops official-policy review",
+                      "reviewedAt":  "2026-08-09",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/sellercenter/resources/general-product-safety-regulation",
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276"
+                                       ]
+                  },
+                  {
+                      "id":  "23d9160125c2d0dd7fb4",
+                      "type":  "keyword",
+                      "value":  "CE certified",
+                      "action":  "review",
+                      "reason":  "Verify that the CE claim and required conformity documentation are genuine and applicable before listing.",
+                      "reviewedBy":  "GLDN Ops official-policy review",
+                      "reviewedAt":  "2026-08-09",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/sellercenter/resources/general-product-safety-regulation",
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276"
+                                       ]
+                  },
+                  {
+                      "id":  "13f243b74b8e1704c5ea",
+                      "type":  "keyword",
+                      "value":  "CE compliant",
+                      "action":  "review",
+                      "reason":  "Verify that the CE compliance claim and required conformity documentation are genuine and applicable before listing.",
+                      "reviewedBy":  "GLDN Ops official-policy review",
+                      "reviewedAt":  "2026-08-09",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/sellercenter/resources/general-product-safety-regulation",
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276"
+                                       ]
+                  },
+                  {
+                      "id":  "11e77b85aedb20107d7e",
+                      "type":  "keyword",
+                      "value":  "CE marked",
+                      "action":  "review",
+                      "reason":  "Verify that the CE mark and required conformity documentation are genuine and applicable before listing.",
+                      "reviewedBy":  "GLDN Ops official-policy review",
+                      "reviewedAt":  "2026-08-09",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/sellercenter/resources/general-product-safety-regulation",
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276"
+                                       ]
+                  },
+                  {
+                      "id":  "82035a5d4e1e69e029c3",
+                      "type":  "keyword",
+                      "value":  "CE marking",
+                      "action":  "review",
+                      "reason":  "Verify that the CE mark and required conformity documentation are genuine and applicable before listing.",
+                      "reviewedBy":  "GLDN Ops official-policy review",
+                      "reviewedAt":  "2026-08-09",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/sellercenter/resources/general-product-safety-regulation",
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276"
+                                       ]
+                  },
+                  {
+                      "id":  "a041b97591f3e45b5088",
+                      "type":  "keyword",
+                      "value":  "cell phone jammer",
+                      "action":  "block",
+                      "reason":  "eBay prohibits cell-phone signal jamming devices.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "dfd8f543a0f76ce83ad6",
+                      "type":  "keyword",
+                      "value":  "code grabbing device",
+                      "action":  "block",
+                      "reason":  "eBay prohibits code-grabbing devices used to defeat locks.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/lockpicking-devices-policy?id=4329\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "baf88fe4b408522bc6b8",
+                      "type":  "keyword",
+                      "value":  "compatible with",
+                      "action":  "review",
+                      "reason":  "Compatibility claims using another brand need title accuracy and intellectual-property review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/listing-policies/intellectual-property-policy?id=4349",
+                                           "https://www.ebay.com/help/policies/listing-policies/search-browse-manipulation-policy?id=4243"
+                                       ]
+                  },
+                  {
+                      "id":  "26acc0fc47902505afea",
+                      "type":  "keyword",
+                      "value":  "contact lenses",
+                      "action":  "block",
+                      "reason":  "eBay lists prescription contact lenses as medical products that are not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "f3b0efb1422e5c2094da",
+                      "type":  "keyword",
+                      "value":  "cosmetic contact lenses",
+                      "action":  "block",
+                      "reason":  "eBay lists cosmetic contact lenses as medical products that are not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "639004c02bb15a5b9cf8",
+                      "type":  "keyword",
+                      "value":  "counterfeit",
+                      "action":  "review",
+                      "reason":  "Counterfeit goods are prohibited, but this word can also describe legitimate detection products and needs context review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276"
+                                       ]
+                  },
+                  {
+                      "id":  "24ed9d24880d69dde5c8",
+                      "type":  "keyword",
+                      "value":  "COVID-19 test",
+                      "action":  "block",
+                      "reason":  "eBay lists COVID-19 tests among medical products that are not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "d839dd0f26f30a0e82c5",
+                      "type":  "keyword",
+                      "value":  "CPAP hose",
+                      "action":  "block",
+                      "reason":  "eBay lists prescription CPAP supplies and accessories as not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "c67e50081d6068c2c4f9",
+                      "type":  "keyword",
+                      "value":  "CPAP machine",
+                      "action":  "block",
+                      "reason":  "eBay lists prescription CPAP machines as medical devices that are not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "b55c2baa6bf34816f119",
+                      "type":  "keyword",
+                      "value":  "CPAP mask",
+                      "action":  "block",
+                      "reason":  "eBay lists prescription CPAP accessories as medical devices that are not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "50d776743ac28ecd4eda",
+                      "type":  "keyword",
+                      "value":  "CPAP tubing",
+                      "action":  "block",
+                      "reason":  "eBay lists prescription CPAP supplies and accessories as not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "9704f605f0176b792fc5",
+                      "type":  "keyword",
+                      "value":  "crib bumper",
+                      "action":  "block",
+                      "reason":  "eBay identifies crib bumpers as prohibited unsafe baby products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "584857ec6243a5ad4090",
+                      "type":  "keyword",
+                      "value":  "current money order",
+                      "action":  "block",
+                      "reason":  "eBay prohibits current and active money orders.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/credit-debit-cards-policy?id=4317"
+                                       ]
+                  },
+                  {
+                      "id":  "c4319f698947e1909a70",
+                      "type":  "keyword",
+                      "value":  "decanted perfume",
+                      "action":  "block",
+                      "reason":  "eBay prohibits transferred or repackaged cosmetics and fragrances.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/cosmetics-policy?id=4290"
+                                       ]
+                  },
+                  {
+                      "id":  "d5e0e9c7a25bac233408",
+                      "type":  "keyword",
+                      "value":  "deployed airbag",
+                      "action":  "block",
+                      "reason":  "eBay prohibits deployed airbags.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/vehicle-parts-accessories-policy?id=4293"
+                                       ]
+                  },
+                  {
+                      "id":  "50eb4b6d0873c46866f6",
+                      "type":  "keyword",
+                      "value":  "dietary supplement",
+                      "action":  "review",
+                      "reason":  "Supplements require packaging, expiration, ingredients, and health-claim review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/prescription-overthecounter-drugs-policy/prohibited-restricted-items/prescription-overthecounter-drugs-policy?id=5048"
+                                       ]
+                  },
+                  {
+                      "id":  "f1adfefd802295789c92",
+                      "type":  "keyword",
+                      "value":  "disguised camera",
+                      "action":  "block",
+                      "reason":  "eBay prohibits cameras embedded in or disguised as another object.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "93139fa16e7037780c62",
+                      "type":  "keyword",
+                      "value":  "dog fur",
+                      "action":  "block",
+                      "reason":  "eBay prohibits products made from cats or dogs.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-products-policy?id=5046"
+                                       ]
+                  },
+                  {
+                      "id":  "9eb932eb85c52708f2dd",
+                      "type":  "keyword",
+                      "value":  "drug paraphernalia",
+                      "action":  "block",
+                      "reason":  "eBay prohibits drug paraphernalia and products intended for illegal drug use.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/illegal-drugs-drug-paraphernalia-policy?id=4333"
+                                       ]
+                  },
+                  {
+                      "id":  "be03328978422d8125c4",
+                      "type":  "keyword",
+                      "value":  "drug test fake urine",
+                      "action":  "block",
+                      "reason":  "eBay prohibits products designed to fake drug-test results.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/encouraging-illegal-activity-policy?id=4339"
+                                       ]
+                  },
+                  {
+                      "id":  "61e2cd8cb99082f4c5ee",
+                      "type":  "keyword",
+                      "value":  "dupe",
+                      "action":  "review",
+                      "reason":  "Review the item for counterfeit, trademark, logo, and protected-design implications before listing.",
+                      "reviewedBy":  "GLDN Ops official-policy review",
+                      "reviewedAt":  "2026-08-09",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276",
+                                           "https://www.ebay.com/help/policies/safety-security/counterfeit-items-policy?id=4349"
+                                       ]
+                  },
+                  {
+                      "id":  "cd5b598f40a32bec7dff",
+                      "type":  "keyword",
+                      "value":  "EBT card",
+                      "action":  "block",
+                      "reason":  "eBay prohibits government assistance benefits used for food.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/food-policy?id=4295"
+                                       ]
+                  },
+                  {
+                      "id":  "a286ac3150223f351993",
+                      "type":  "keyword",
+                      "value":  "e-cigarette",
+                      "action":  "block",
+                      "reason":  "eBay prohibits electronic cigarettes and their components.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/tobacco-smoking-accessories-policy?id=4273"
+                                       ]
+                  },
+                  {
+                      "id":  "30ca0a15701c5ce360d8",
+                      "type":  "keyword",
+                      "value":  "elephant ivory",
+                      "action":  "block",
+                      "reason":  "eBay prohibits elephant ivory products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-products-policy?id=5046"
+                                       ]
+                  },
+                  {
+                      "id":  "11bb2b2f971447edc312",
+                      "type":  "keyword",
+                      "value":  "e-liquid",
+                      "action":  "block",
+                      "reason":  "eBay prohibits e-liquids whether or not they contain nicotine.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/tobacco-smoking-accessories-policy?id=4273"
+                                       ]
+                  },
+                  {
+                      "id":  "92ae7cbe4d93d0b3ea6e",
+                      "type":  "keyword",
+                      "value":  "emissions defeat device",
+                      "action":  "block",
+                      "reason":  "eBay prohibits vehicle emissions-control defeat devices.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/vehicle-parts-accessories-policy?id=4293"
+                                       ]
+                  },
+                  {
+                      "id":  "5157b249f3b10d9528e3",
+                      "type":  "keyword",
+                      "value":  "emissions delete kit",
+                      "action":  "review",
+                      "reason":  "Delete-kit language needs review for prohibited emissions-control bypass use.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/vehicle-parts-accessories-policy?id=4293"
+                                       ]
+                  },
+                  {
+                      "id":  "6eeefb3732f5c20699df",
+                      "type":  "keyword",
+                      "value":  "EMS unit",
+                      "action":  "block",
+                      "reason":  "eBay identifies certain electrical stimulation devices as prescription medical products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "1b0824e3b9751be90da8",
+                      "type":  "keyword",
+                      "value":  "endangered plant",
+                      "action":  "block",
+                      "reason":  "eBay prohibits endangered plants.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/plants-seeds-policy?id=4287\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "36ad1a985b32157ecc13",
+                      "type":  "keyword",
+                      "value":  "exhaust cutout",
+                      "action":  "block",
+                      "reason":  "eBay prohibits parts designed to bypass an exhaust system.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/vehicle-parts-accessories-policy?id=4293"
+                                       ]
+                  },
+                  {
+                      "id":  "0f0a3e308d5d2d43bb1d",
+                      "type":  "keyword",
+                      "value":  "expired food",
+                      "action":  "block",
+                      "reason":  "eBay prohibits expired food.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/food-policy?id=4295"
+                                       ]
+                  },
+                  {
+                      "id":  "3e895d97a8ce29dac50a",
+                      "type":  "keyword",
+                      "value":  "explosive precursor",
+                      "action":  "block",
+                      "reason":  "eBay prohibits explosive precursors under its hazardous-materials policy.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/hazardous-materials-policy?id=4335\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "72b362b6d0b134905d6a",
+                      "type":  "keyword",
+                      "value":  "fake designer",
+                      "action":  "block",
+                      "reason":  "eBay prohibits counterfeit and fake branded goods.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276"
+                                       ]
+                  },
+                  {
+                      "id":  "ac8bee652a4ecf81ed12",
+                      "type":  "keyword",
+                      "value":  "fake drug test",
+                      "action":  "block",
+                      "reason":  "eBay prohibits products designed to fake drug-test results.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/encouraging-illegal-activity-policy?id=4339"
+                                       ]
+                  },
+                  {
+                      "id":  "ede2269900cb58d1d1de",
+                      "type":  "keyword",
+                      "value":  "firearm conversion kit",
+                      "action":  "block",
+                      "reason":  "eBay prohibits firearm conversion kits and devices that create prohibited weapons.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://ocsnext.ebay.com/help/policies/prohibited-restricted-items/firearms-weapons-knives-policy?id=4277"
+                                       ]
+                  },
+                  {
+                      "id":  "44a6ab91c8ecdc8ffc38",
+                      "type":  "keyword",
+                      "value":  "firearm receiver",
+                      "action":  "block",
+                      "reason":  "eBay prohibits firearms and firearm receivers.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://ocsnext.ebay.com/help/policies/prohibited-restricted-items/firearms-weapons-knives-policy?id=4277"
+                                       ]
+                  },
+                  {
+                      "id":  "af479655dfdf338ba002",
+                      "type":  "keyword",
+                      "value":  "firearm silencer",
+                      "action":  "block",
+                      "reason":  "eBay prohibits firearm silencers and suppressors.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://ocsnext.ebay.com/help/policies/prohibited-restricted-items/firearms-weapons-knives-policy?id=4277"
+                                       ]
+                  },
+                  {
+                      "id":  "2d205b7924a077bd16bd",
+                      "type":  "keyword",
+                      "value":  "firearm suppressor",
+                      "action":  "block",
+                      "reason":  "eBay prohibits firearm silencers and suppressors.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://ocsnext.ebay.com/help/policies/prohibited-restricted-items/firearms-weapons-knives-policy?id=4277"
+                                       ]
+                  },
+                  {
+                      "id":  "5218884c3723a76cd2b9",
+                      "type":  "keyword",
+                      "value":  "flea and tick medication",
+                      "action":  "review",
+                      "reason":  "Flea and tick products can be regulated pesticides and require label review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/fertilizer-pesticides-policy?id=4630"
+                                       ]
+                  },
+                  {
+                      "id":  "543c7eacb4f0d4e7c14a",
+                      "type":  "keyword",
+                      "value":  "food stamp",
+                      "action":  "block",
+                      "reason":  "eBay prohibits government assistance benefits used for food.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/food-policy?id=4295"
+                                       ]
+                  },
+                  {
+                      "id":  "f7c40e218ea1a79ec1e7",
+                      "type":  "keyword",
+                      "value":  "full liquor bottle",
+                      "action":  "block",
+                      "reason":  "eBay permits collectible alcohol containers only when empty.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/alcohol-policy?id=4274\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "45519e32fde2fcd716a4",
+                      "type":  "keyword",
+                      "value":  "fungicide",
+                      "action":  "review",
+                      "reason":  "Fungicides require pesticide registration and labeling review before listing.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/fertilizer-pesticides-policy?id=4630"
+                                       ]
+                  },
+                  {
+                      "id":  "2cdc2e75652ae2ce825a",
+                      "type":  "keyword",
+                      "value":  "government issued ID",
+                      "action":  "block",
+                      "reason":  "eBay prohibits government-issued identification cards.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/government-items-policy?id=4318"
+                                       ]
+                  },
+                  {
+                      "id":  "efc4b2a974611dcf8975",
+                      "type":  "keyword",
+                      "value":  "GPS jammer",
+                      "action":  "block",
+                      "reason":  "eBay prohibits GPS signal jamming devices.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "c3909231cf50e195f6a9",
+                      "type":  "keyword",
+                      "value":  "gun part",
+                      "action":  "review",
+                      "reason":  "Firearm parts have product-specific restrictions and need manual review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://ocsnext.ebay.com/help/policies/prohibited-restricted-items/firearms-weapons-knives-policy?id=4277"
+                                       ]
+                  },
+                  {
+                      "id":  "4abb9d42644d8076f9d5",
+                      "type":  "keyword",
+                      "value":  "gun receiver",
+                      "action":  "block",
+                      "reason":  "eBay prohibits firearms and firearm receivers.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://ocsnext.ebay.com/help/policies/prohibited-restricted-items/firearms-weapons-knives-policy?id=4277"
+                                       ]
+                  },
+                  {
+                      "id":  "7c31c180e1ae633f8e68",
+                      "type":  "keyword",
+                      "value":  "halogen light bulb",
+                      "action":  "review",
+                      "reason":  "Home-use halogen bulbs require energy-efficiency and permitted-use review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "197d321ea7f6b8ff025d",
+                      "type":  "keyword",
+                      "value":  "herbal supplement",
+                      "action":  "review",
+                      "reason":  "Supplements require packaging, expiration, ingredients, and health-claim review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/prescription-overthecounter-drugs-policy/prohibited-restricted-items/prescription-overthecounter-drugs-policy?id=5048"
+                                       ]
+                  },
+                  {
+                      "id":  "64c12fcdadfe78ce1216",
+                      "type":  "keyword",
+                      "value":  "herbicide",
+                      "action":  "review",
+                      "reason":  "Herbicides require pesticide registration and labeling review before listing.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/fertilizer-pesticides-policy?id=4630"
+                                       ]
+                  },
+                  {
+                      "id":  "9307128170c1b87292b3",
+                      "type":  "keyword",
+                      "value":  "hidden camera",
+                      "action":  "block",
+                      "reason":  "eBay prohibits cameras advertised for recording people without their knowledge.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "6c28778e234c6789d2a2",
+                      "type":  "keyword",
+                      "value":  "high capacity magazine",
+                      "action":  "block",
+                      "reason":  "eBay prohibits high-capacity firearm magazines.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://ocsnext.ebay.com/help/policies/prohibited-restricted-items/firearms-weapons-knives-policy?id=4277"
+                                       ]
+                  },
+                  {
+                      "id":  "a8690315a07426df4ab6",
+                      "type":  "keyword",
+                      "value":  "high powered laser",
+                      "action":  "block",
+                      "reason":  "eBay\u0027s product-safety policy prohibits high-powered lasers.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "a85b3c235f3c765adca2",
+                      "type":  "keyword",
+                      "value":  "hippopotamus ivory",
+                      "action":  "block",
+                      "reason":  "eBay prohibits hippopotamus ivory products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-products-policy?id=5046"
+                                       ]
+                  },
+                  {
+                      "id":  "8a554f59d1d4e035437d",
+                      "type":  "keyword",
+                      "value":  "implantable defibrillator",
+                      "action":  "block",
+                      "reason":  "eBay lists implantable medical devices such as defibrillators as not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "73ee70ec098d077baa64",
+                      "type":  "keyword",
+                      "value":  "imported live plant",
+                      "action":  "review",
+                      "reason":  "Plants located outside the United States are prohibited and live plants need location review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/plants-seeds-policy?id=4287\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "def3752f2aef6e753c3a",
+                      "type":  "keyword",
+                      "value":  "incandescent light bulb",
+                      "action":  "review",
+                      "reason":  "Home-use incandescent bulbs require energy-efficiency and collectible-use review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "3291483c1c3c49156c67",
+                      "type":  "keyword",
+                      "value":  "infant inclined sleeper",
+                      "action":  "block",
+                      "reason":  "eBay identifies infant inclined sleepers as prohibited unsafe baby products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "491079bcd6140a3def0b",
+                      "type":  "keyword",
+                      "value":  "infant lounger",
+                      "action":  "review",
+                      "reason":  "Infant loungers require manual product-safety review before listing.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "508cbbefee7bf25b3342",
+                      "type":  "keyword",
+                      "value":  "infant sleep positioner",
+                      "action":  "block",
+                      "reason":  "eBay prohibits infant sleep positioners and similar anti-roll sleep products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "e87ac115ba2c8a44bf9a",
+                      "type":  "keyword",
+                      "value":  "injectable supplement",
+                      "action":  "block",
+                      "reason":  "eBay prohibits injectable supplements and similar injectable health products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/prescription-overthecounter-drugs-policy/prohibited-restricted-items/prescription-overthecounter-drugs-policy?id=5048"
+                                       ]
+                  },
+                  {
+                      "id":  "6773cc243cc3e497bd5b",
+                      "type":  "keyword",
+                      "value":  "injectable vitamin",
+                      "action":  "block",
+                      "reason":  "eBay prohibits injectable vitamins and similar injectable health products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/prescription-overthecounter-drugs-policy/prohibited-restricted-items/prescription-overthecounter-drugs-policy?id=5048"
+                                       ]
+                  },
+                  {
+                      "id":  "25c03c3bb0d5c400a59c",
+                      "type":  "keyword",
+                      "value":  "insecticide",
+                      "action":  "review",
+                      "reason":  "Insecticides require pesticide registration and labeling review before listing.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/fertilizer-pesticides-policy?id=4630"
+                                       ]
+                  },
+                  {
+                      "id":  "8f817dc9c863b2c1b9f6",
+                      "type":  "keyword",
+                      "value":  "inspired by",
+                      "action":  "review",
+                      "reason":  "Review the item for counterfeit, trademark, logo, and protected-design implications before listing.",
+                      "reviewedBy":  "GLDN Ops official-policy review",
+                      "reviewedAt":  "2026-08-09",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276",
+                                           "https://www.ebay.com/help/policies/safety-security/counterfeit-items-policy?id=4349"
+                                       ]
+                  },
+                  {
+                      "id":  "a69fdcab0f344f26203d",
+                      "type":  "keyword",
+                      "value":  "interceptor body armor",
+                      "action":  "block",
+                      "reason":  "eBay prohibits Interceptor Body Armor.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/military-items-policy?id=4342\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "7f258f6d9fbb2561fa72",
+                      "type":  "keyword",
+                      "value":  "key cutting machine",
+                      "action":  "block",
+                      "reason":  "eBay prohibits devices used to make or duplicate keys.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/lockpicking-devices-policy?id=4329\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "4f849277137f7575db26",
+                      "type":  "keyword",
+                      "value":  "key duplicating machine",
+                      "action":  "block",
+                      "reason":  "eBay prohibits devices used to make or duplicate keys.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/lockpicking-devices-policy?id=4329\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "927812fcdd53f0cc6413",
+                      "type":  "keyword",
+                      "value":  "kill switch smartphone",
+                      "action":  "block",
+                      "reason":  "eBay prohibits kill-switch-activated smartphones and tablets.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/encouraging-illegal-activity-policy?id=4339"
+                                       ]
+                  },
+                  {
+                      "id":  "7fb53ef5227515172e60",
+                      "type":  "keyword",
+                      "value":  "level 4 body armor",
+                      "action":  "block",
+                      "reason":  "eBay prohibits level 4 body armor.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/military-items-policy?id=4342\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "757f364160f13afc383b",
+                      "type":  "keyword",
+                      "value":  "live ammunition",
+                      "action":  "block",
+                      "reason":  "eBay prohibits live ammunition.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://ocsnext.ebay.com/help/policies/prohibited-restricted-items/firearms-weapons-knives-policy?id=4277"
+                                       ]
+                  },
+                  {
+                      "id":  "aa8e7b2e8ea7dfdb8c51",
+                      "type":  "keyword",
+                      "value":  "lock pick set",
+                      "action":  "block",
+                      "reason":  "eBay prohibits devices designed to pick locks.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/lockpicking-devices-policy?id=4329\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "51d90b59765c0baa9ae6",
+                      "type":  "keyword",
+                      "value":  "lockpicking tutorial",
+                      "action":  "block",
+                      "reason":  "eBay prohibits lockpicking tutorials.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/encouraging-illegal-activity-policy?id=4339"
+                                       ]
+                  },
+                  {
+                      "id":  "4ffae5d7afe5d8ed3fd1",
+                      "type":  "keyword",
+                      "value":  "loose 18650 battery",
+                      "action":  "block",
+                      "reason":  "eBay\u0027s product-safety policy prohibits loose 18650 batteries.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "b101685aa689418a3b48",
+                      "type":  "keyword",
+                      "value":  "merchandise credit receipt",
+                      "action":  "block",
+                      "reason":  "eBay prohibits store or merchandise credit sold as a receipt.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/gift-cards-policy?id=4294"
+                                       ]
+                  },
+                  {
+                      "id":  "75291b04f2dcecdb5657",
+                      "type":  "keyword",
+                      "value":  "migratory bird feather",
+                      "action":  "block",
+                      "reason":  "eBay prohibits products made from protected migratory birds or their feathers.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-products-policy?id=5046"
+                                       ]
+                  },
+                  {
+                      "id":  "0cd2edeac0378c815d69",
+                      "type":  "keyword",
+                      "value":  "military issued body armor",
+                      "action":  "block",
+                      "reason":  "eBay prohibits military-issued body armor.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/military-items-policy?id=4342\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "53b0bd387cd57e5b28b2",
+                      "type":  "keyword",
+                      "value":  "military laser",
+                      "action":  "block",
+                      "reason":  "eBay\u0027s product-safety policy prohibits tactical and military lasers.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "393c30c8c99af5acdea5",
+                      "type":  "keyword",
+                      "value":  "military ordnance",
+                      "action":  "block",
+                      "reason":  "eBay prohibits military ordnance regardless of serviceability.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/military-items-policy?id=4342\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "2714c17ec6d4dd8ae6fa",
+                      "type":  "keyword",
+                      "value":  "narwhal ivory",
+                      "action":  "block",
+                      "reason":  "eBay prohibits narwhal ivory products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-products-policy?id=5046"
+                                       ]
+                  },
+                  {
+                      "id":  "d883e44375e0f26a5aff",
+                      "type":  "keyword",
+                      "value":  "nebulizer",
+                      "action":  "block",
+                      "reason":  "eBay lists prescription nebulizers as medical devices that are not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "08f5de6505140c7ae2ae",
+                      "type":  "keyword",
+                      "value":  "needle and syringe",
+                      "action":  "block",
+                      "reason":  "eBay identifies hypodermic needles and syringes as restricted medical products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "4f79455f8af4d8522f78",
+                      "type":  "keyword",
+                      "value":  "nicotine pouch",
+                      "action":  "block",
+                      "reason":  "eBay prohibits nicotine pouches and similar nicotine products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/tobacco-smoking-accessories-policy?id=4273"
+                                       ]
+                  },
+                  {
+                      "id":  "7b26021efe601af6c572",
+                      "type":  "keyword",
+                      "value":  "night vision goggles",
+                      "action":  "review",
+                      "reason":  "Night-vision equipment has location, citizenship, domestic-shipping, and export restrictions.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/military-items-policy?id=4342\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "22b24ce4359fc719dfb7",
+                      "type":  "keyword",
+                      "value":  "nitrous oxide",
+                      "action":  "block",
+                      "reason":  "eBay prohibits nitrous oxide and products intended to provide it for consumption.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/illegal-drugs-drug-paraphernalia-policy?id=4333"
+                                       ]
+                  },
+                  {
+                      "id":  "90afdc0fa497c6c3db5d",
+                      "type":  "keyword",
+                      "value":  "noxious weed seeds",
+                      "action":  "review",
+                      "reason":  "Noxious-weed seeds need species and destination review before listing.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/plants-seeds-policy?id=4287\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "c104533eb305d0acda02",
+                      "type":  "keyword",
+                      "value":  "outer tactical vest",
+                      "action":  "block",
+                      "reason":  "eBay prohibits military Outer Tactical Vests.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/military-items-policy?id=4342\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "e31749ebe169daf22545",
+                      "type":  "keyword",
+                      "value":  "over the counter medication",
+                      "action":  "review",
+                      "reason":  "Over-the-counter drugs require new packaging, expiration, labeling, and claim review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/prescription-overthecounter-drugs-policy/prohibited-restricted-items/prescription-overthecounter-drugs-policy?id=5048"
+                                       ]
+                  },
+                  {
+                      "id":  "4a56fe2362863bbe431f",
+                      "type":  "keyword",
+                      "value":  "oxygen concentrator",
+                      "action":  "block",
+                      "reason":  "eBay lists prescription oxygen concentrators as medical devices that are not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "9df532c161710fd18e09",
+                      "type":  "keyword",
+                      "value":  "pacemaker",
+                      "action":  "block",
+                      "reason":  "eBay lists implantable medical devices such as pacemakers as not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "e7b7a36bbd69da7309fd",
+                      "type":  "keyword",
+                      "value":  "pepper spray",
+                      "action":  "review",
+                      "reason":  "Pepper spray has location and shipping restrictions that require manual review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://ocsnext.ebay.com/help/policies/prohibited-restricted-items/firearms-weapons-knives-policy?id=4277"
+                                       ]
+                  },
+                  {
+                      "id":  "b0558ef7b49e1afa5e1e",
+                      "type":  "keyword",
+                      "value":  "pesticide",
+                      "action":  "review",
+                      "reason":  "Pesticides require registration, labeling, location, and item-specific compliance checks.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/fertilizer-pesticides-policy?id=4630"
+                                       ]
+                  },
+                  {
+                      "id":  "3b4b7ed67baaea8d808c",
+                      "type":  "keyword",
+                      "value":  "plug in energy saver",
+                      "action":  "block",
+                      "reason":  "eBay prohibits plug-in devices that claim to reduce electricity consumption.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "88b8133c48dfe983c12a",
+                      "type":  "keyword",
+                      "value":  "police badge",
+                      "action":  "block",
+                      "reason":  "eBay prohibits current-looking police badges that could support impersonation.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/policerelated-items-policy?id=4319\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "fd9827e2af8e78c7079e",
+                      "type":  "keyword",
+                      "value":  "police emergency light",
+                      "action":  "block",
+                      "reason":  "eBay prohibits official emergency lighting systems and their components.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/policerelated-items-policy?id=4319\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "1f67e47df232041dd1ab",
+                      "type":  "keyword",
+                      "value":  "police siren",
+                      "action":  "block",
+                      "reason":  "eBay prohibits official emergency sirens and their components.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/policerelated-items-policy?id=4319\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "286aaec1ece761eb2701",
+                      "type":  "keyword",
+                      "value":  "police uniform",
+                      "action":  "review",
+                      "reason":  "Police-uniform products need review for current issue, replica, and collectible exceptions.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/policerelated-items-policy?id=4319\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "086dd54388618c9953b1",
+                      "type":  "keyword",
+                      "value":  "postage meter",
+                      "action":  "block",
+                      "reason":  "eBay prohibits postage meters.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/government-items-policy?id=4318"
+                                       ]
+                  },
+                  {
+                      "id":  "1193d6622ec1352b218b",
+                      "type":  "keyword",
+                      "value":  "prepaid American Express gift card",
+                      "action":  "block",
+                      "reason":  "eBay prohibits prepaid American Express gift or money cards.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/gift-cards-policy?id=4294"
+                                       ]
+                  },
+                  {
+                      "id":  "4ab8da1356a2db180412",
+                      "type":  "keyword",
+                      "value":  "prepaid credit card",
+                      "action":  "block",
+                      "reason":  "eBay prohibits prepaid credit cards.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/credit-debit-cards-policy?id=4317"
+                                       ]
+                  },
+                  {
+                      "id":  "7ab0b56a895880cdb753",
+                      "type":  "keyword",
+                      "value":  "prepaid Discover gift card",
+                      "action":  "block",
+                      "reason":  "eBay prohibits prepaid Discover gift or money cards.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/gift-cards-policy?id=4294"
+                                       ]
+                  },
+                  {
+                      "id":  "eea15d783b9013985238",
+                      "type":  "keyword",
+                      "value":  "prepaid Mastercard gift card",
+                      "action":  "block",
+                      "reason":  "eBay prohibits prepaid Mastercard gift or money cards.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/gift-cards-policy?id=4294"
+                                       ]
+                  },
+                  {
+                      "id":  "24f6130b2165641fc6be",
+                      "type":  "keyword",
+                      "value":  "prepaid Visa gift card",
+                      "action":  "block",
+                      "reason":  "eBay prohibits prepaid Visa gift or money cards.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/gift-cards-policy?id=4294"
+                                       ]
+                  },
+                  {
+                      "id":  "0efa962a4efa441f7890",
+                      "type":  "keyword",
+                      "value":  "prescription drug",
+                      "action":  "block",
+                      "reason":  "eBay prohibits prescription-strength drugs outside its narrow approved pharmacy program.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/prescription-overthecounter-drugs-policy/prohibited-restricted-items/prescription-overthecounter-drugs-policy?id=5048"
+                                       ]
+                  },
+                  {
+                      "id":  "cfa68f4180271dce94e3",
+                      "type":  "keyword",
+                      "value":  "prescription medication",
+                      "action":  "block",
+                      "reason":  "eBay prohibits prescription-strength drugs outside its narrow approved pharmacy program.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/prescription-overthecounter-drugs-policy/prohibited-restricted-items/prescription-overthecounter-drugs-policy?id=5048"
+                                       ]
+                  },
+                  {
+                      "id":  "55638e75a5e1385fc9a3",
+                      "type":  "keyword",
+                      "value":  "radar jammer",
+                      "action":  "block",
+                      "reason":  "eBay prohibits radar signal jamming devices.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "3e242631b86f48c5869a",
+                      "type":  "keyword",
+                      "value":  "radioactive material",
+                      "action":  "block",
+                      "reason":  "eBay prohibits radioactive materials under its hazardous-materials policy.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/hazardous-materials-policy?id=4335\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "c1b9c7ae37ce5bad4d66",
+                      "type":  "keyword",
+                      "value":  "rat poison",
+                      "action":  "review",
+                      "reason":  "Rodent poisons require pesticide registration and labeling review before listing.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/fertilizer-pesticides-policy?id=4630"
+                                       ]
+                  },
+                  {
+                      "id":  "e22d38dcb6b29caf51c0",
+                      "type":  "keyword",
+                      "value":  "rebuilt airbag",
+                      "action":  "block",
+                      "reason":  "eBay prohibits rebuilt airbags.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/vehicle-parts-accessories-policy?id=4293"
+                                       ]
+                  },
+                  {
+                      "id":  "0a52e1ed2df3f61b7505",
+                      "type":  "keyword",
+                      "value":  "recalled airbag",
+                      "action":  "block",
+                      "reason":  "eBay prohibits recalled airbags.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/vehicle-parts-accessories-policy?id=4293"
+                                       ]
+                  },
+                  {
+                      "id":  "ad287e9cc9cbd9693034",
+                      "type":  "keyword",
+                      "value":  "replica",
+                      "action":  "review",
+                      "reason":  "Replica language requires intellectual-property and authenticity review before listing.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/listing-policies/intellectual-property-policy?id=4349"
+                                       ]
+                  },
+                  {
+                      "id":  "f5acb557b4668d001ed7",
+                      "type":  "keyword",
+                      "value":  "rideshare driver sign",
+                      "action":  "block",
+                      "reason":  "eBay prohibits signs indicating use by a rideshare or delivery driver.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/government-items-policy?id=4318"
+                                       ]
+                  },
+                  {
+                      "id":  "e7e440adad34f5dbfd24",
+                      "type":  "keyword",
+                      "value":  "rodenticide",
+                      "action":  "review",
+                      "reason":  "Rodenticides require pesticide registration and labeling review before listing.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/fertilizer-pesticides-policy?id=4630"
+                                       ]
+                  },
+                  {
+                      "id":  "7d7afc8d640aaff5fd13",
+                      "type":  "keyword",
+                      "value":  "self heating MRE",
+                      "action":  "review",
+                      "reason":  "Self-heating MREs have age, expiration, and ground-shipping requirements.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/food-policy?id=4295"
+                                       ]
+                  },
+                  {
+                      "id":  "5f5c7d0bdb09cf6c284b",
+                      "type":  "keyword",
+                      "value":  "SIDS prevention device",
+                      "action":  "block",
+                      "reason":  "eBay prohibits baby products that claim to prevent or reduce SIDS.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "5a2d11bbc606057001c9",
+                      "type":  "keyword",
+                      "value":  "signal jammer",
+                      "action":  "block",
+                      "reason":  "eBay prohibits electronic signal jamming devices.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "96383434994b03fa2f91",
+                      "type":  "keyword",
+                      "value":  "skin bleaching cream",
+                      "action":  "block",
+                      "reason":  "eBay prohibits skin-bleaching products under its cosmetics policy.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/cosmetics-policy?id=4290"
+                                       ]
+                  },
+                  {
+                      "id":  "4d2476bc592a9f32fb94",
+                      "type":  "keyword",
+                      "value":  "slim jim lockout tool",
+                      "action":  "block",
+                      "reason":  "eBay prohibits slim-jim lockout tools.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/lockpicking-devices-policy?id=4329\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "35fda5da2c0743182100",
+                      "type":  "keyword",
+                      "value":  "spy camera",
+                      "action":  "review",
+                      "reason":  "Spy-camera language needs manual review for concealment or non-consensual recording claims.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "cd6874857322716f603e",
+                      "type":  "keyword",
+                      "value":  "steel jaw leghold trap",
+                      "action":  "review",
+                      "reason":  "Steel-jaw leghold traps need jaw-size and offset-jaw review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-traps-policy?id=5040"
+                                       ]
+                  },
+                  {
+                      "id":  "d85cc21b5b0d72958386",
+                      "type":  "keyword",
+                      "value":  "stun gun",
+                      "action":  "review",
+                      "reason":  "Stun guns and similar weapons require jurisdiction and policy review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://ocsnext.ebay.com/help/policies/prohibited-restricted-items/firearms-weapons-knives-policy?id=4277"
+                                       ]
+                  },
+                  {
+                      "id":  "fe4fc52bd94d5f68073a",
+                      "type":  "keyword",
+                      "value":  "tactical laser",
+                      "action":  "block",
+                      "reason":  "eBay\u0027s product-safety policy prohibits tactical and military lasers.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "0f1c9dbf14cc60bf1159",
+                      "type":  "keyword",
+                      "value":  "TENS unit",
+                      "action":  "block",
+                      "reason":  "eBay identifies certain electrical stimulation devices as prescription medical products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  },
+                  {
+                      "id":  "54b0feb973a8a7d9bdbf",
+                      "type":  "keyword",
+                      "value":  "THC edible",
+                      "action":  "block",
+                      "reason":  "eBay prohibits consumable products containing THC.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/illegal-drugs-drug-paraphernalia-policy?id=4333"
+                                       ]
+                  },
+                  {
+                      "id":  "ec6459746b9424e0bf74",
+                      "type":  "keyword",
+                      "value":  "THC gummies",
+                      "action":  "block",
+                      "reason":  "eBay prohibits consumable products containing THC.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/illegal-drugs-drug-paraphernalia-policy?id=4333"
+                                       ]
+                  },
+                  {
+                      "id":  "4ee4b7e4dfa4258f66ef",
+                      "type":  "keyword",
+                      "value":  "toothed leghold trap",
+                      "action":  "block",
+                      "reason":  "eBay prohibits leghold traps with teeth.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-traps-policy?id=5040"
+                                       ]
+                  },
+                  {
+                      "id":  "88d26ce32624c5ea24f9",
+                      "type":  "keyword",
+                      "value":  "tortoise shell",
+                      "action":  "block",
+                      "reason":  "eBay prohibits products from protected turtles and tortoises.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-products-policy?id=5046"
+                                       ]
+                  },
+                  {
+                      "id":  "3c047f3f7a61443e94b2",
+                      "type":  "keyword",
+                      "value":  "traffic light control device",
+                      "action":  "block",
+                      "reason":  "eBay prohibits traffic-light control devices.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/electronic-surveillance-devices-policy?id=4302"
+                                       ]
+                  },
+                  {
+                      "id":  "318bc0b33721d0a3b63e",
+                      "type":  "keyword",
+                      "value":  "UKCA certified",
+                      "action":  "review",
+                      "reason":  "Verify that the UKCA conformity claim and supporting documentation are genuine before listing.",
+                      "reviewedBy":  "GLDN Ops official-policy review",
+                      "reviewedAt":  "2026-08-09",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276"
+                                       ]
+                  },
+                  {
+                      "id":  "c69804ffdf9be29fcf59",
+                      "type":  "keyword",
+                      "value":  "UL certified",
+                      "action":  "review",
+                      "reason":  "Verify that the UL conformity claim and supporting documentation are genuine before listing.",
+                      "reviewedBy":  "GLDN Ops official-policy review",
+                      "reviewedAt":  "2026-08-09",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/counterfeit-policy/counterfeit-item-policy?id=4276"
+                                       ]
+                  },
+                  {
+                      "id":  "02738d8799403d2face2",
+                      "type":  "keyword",
+                      "value":  "unauthorized replica",
+                      "action":  "block",
+                      "reason":  "eBay prohibits unauthorized replicas and counterfeit products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/listing-policies/intellectual-property-policy?id=4349"
+                                       ]
+                  },
+                  {
+                      "id":  "c29b297db84644170ca3",
+                      "type":  "keyword",
+                      "value":  "universal e-bike charger",
+                      "action":  "review",
+                      "reason":  "Universal micromobility chargers require product-safety and device-compatibility review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "45d60f3080f5b9998b2b",
+                      "type":  "keyword",
+                      "value":  "universal hoverboard charger",
+                      "action":  "review",
+                      "reason":  "Universal micromobility chargers require product-safety and device-compatibility review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "df90ace929360afcd473",
+                      "type":  "keyword",
+                      "value":  "unpasteurized dairy",
+                      "action":  "block",
+                      "reason":  "eBay prohibits unpasteurized dairy products except qualifying cheese.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/food-policy?id=4295"
+                                       ]
+                  },
+                  {
+                      "id":  "d1cd5957149cca394070",
+                      "type":  "keyword",
+                      "value":  "unpasteurized juice",
+                      "action":  "block",
+                      "reason":  "eBay prohibits unpasteurized fruit and vegetable juice.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/food-policy?id=4295"
+                                       ]
+                  },
+                  {
+                      "id":  "73d70fbca8b773c2252c",
+                      "type":  "keyword",
+                      "value":  "unpasteurized milk",
+                      "action":  "block",
+                      "reason":  "eBay prohibits unpasteurized milk and similar dairy products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/food-policy?id=4295"
+                                       ]
+                  },
+                  {
+                      "id":  "43303cc5470f37752e6b",
+                      "type":  "keyword",
+                      "value":  "used bicycle helmet",
+                      "action":  "block",
+                      "reason":  "eBay\u0027s product-safety policy prohibits used bicycle helmets.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "8d59cbb835d289d1e1c1",
+                      "type":  "keyword",
+                      "value":  "used car seat",
+                      "action":  "block",
+                      "reason":  "eBay\u0027s product-safety policy prohibits used car seats.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300\u0026ra=true"
+                                       ]
+                  },
+                  {
+                      "id":  "c908207a024524ea97cc",
+                      "type":  "keyword",
+                      "value":  "used lipstick",
+                      "action":  "block",
+                      "reason":  "eBay prohibits used cosmetics and applicators that are not safe or sanitary.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/cosmetics-policy?id=4290"
+                                       ]
+                  },
+                  {
+                      "id":  "79c09bd01093219d5ce1",
+                      "type":  "keyword",
+                      "value":  "used mascara",
+                      "action":  "block",
+                      "reason":  "eBay prohibits used cosmetics and applicators that are not safe or sanitary.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/cosmetics-policy?id=4290"
+                                       ]
+                  },
+                  {
+                      "id":  "72b13b3612849d08d7b3",
+                      "type":  "keyword",
+                      "value":  "USPS Flat Rate box",
+                      "action":  "block",
+                      "reason":  "eBay prohibits USPS shipping materials.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/encouraging-illegal-activity-policy?id=4339"
+                                       ]
+                  },
+                  {
+                      "id":  "240cec85408a632f6b45",
+                      "type":  "keyword",
+                      "value":  "USPS mail bag",
+                      "action":  "block",
+                      "reason":  "eBay prohibits government or shipping-company mail bags.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/government-items-policy?id=4318"
+                                       ]
+                  },
+                  {
+                      "id":  "01685982f825bd1377d6",
+                      "type":  "keyword",
+                      "value":  "USPS Priority Mail box",
+                      "action":  "block",
+                      "reason":  "eBay prohibits USPS shipping materials.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/encouraging-illegal-activity-policy?id=4339"
+                                       ]
+                  },
+                  {
+                      "id":  "ace48691219c9ac62fca",
+                      "type":  "keyword",
+                      "value":  "vape cartridge",
+                      "action":  "block",
+                      "reason":  "eBay prohibits electronic-cigarette and vaping components.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/tobacco-smoking-accessories-policy?id=4273"
+                                       ]
+                  },
+                  {
+                      "id":  "b6875304df6391446847",
+                      "type":  "keyword",
+                      "value":  "vape pen",
+                      "action":  "block",
+                      "reason":  "eBay prohibits electronic cigarettes and vaping devices.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/tobacco-smoking-accessories-policy?id=4273"
+                                       ]
+                  },
+                  {
+                      "id":  "82fdb38fdc419c9b3315",
+                      "type":  "keyword",
+                      "value":  "VECI label",
+                      "action":  "block",
+                      "reason":  "eBay prohibits Vehicle Emission Control Information labels.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/vehicle-parts-accessories-policy?id=4293"
+                                       ]
+                  },
+                  {
+                      "id":  "5a0a1e922c4e1039fbc7",
+                      "type":  "keyword",
+                      "value":  "VIN plate",
+                      "action":  "block",
+                      "reason":  "eBay prohibits Vehicle Identification Number plates.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/government-items-policy?id=4318"
+                                       ]
+                  },
+                  {
+                      "id":  "d499194ee79e379c2d75",
+                      "type":  "keyword",
+                      "value":  "VIN rivet",
+                      "action":  "block",
+                      "reason":  "eBay prohibits rivets used for Vehicle Identification Number plates.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/government-items-policy?id=4318"
+                                       ]
+                  },
+                  {
+                      "id":  "921674372fd763d376aa",
+                      "type":  "keyword",
+                      "value":  "voting machine",
+                      "action":  "block",
+                      "reason":  "eBay prohibits voting machines.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/government-items-policy?id=4318"
+                                       ]
+                  },
+                  {
+                      "id":  "0739928776b954e052e1",
+                      "type":  "keyword",
+                      "value":  "walrus ivory",
+                      "action":  "block",
+                      "reason":  "eBay prohibits walrus ivory products.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/animal-products-policy?id=5046"
+                                       ]
+                  },
+                  {
+                      "id":  "7c5ba1d214589261c822",
+                      "type":  "keyword",
+                      "value":  "weed killer",
+                      "action":  "review",
+                      "reason":  "Weed killers require pesticide registration and labeling review before listing.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/fertilizer-pesticides-policy?id=4630"
+                                       ]
+                  },
+                  {
+                      "id":  "82b465b9651cbb9dc652",
+                      "type":  "keyword",
+                      "value":  "weight loss supplement",
+                      "action":  "review",
+                      "reason":  "Weight-loss supplements need ingredient and prohibited health-claim review.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/prescription-overthecounter-drugs-policy/prohibited-restricted-items/prescription-overthecounter-drugs-policy?id=5048"
+                                       ]
+                  },
+                  {
+                      "id":  "733c00c63fb8dcb4ed69",
+                      "type":  "keyword",
+                      "value":  "whipped cream charger",
+                      "action":  "block",
+                      "reason":  "eBay prohibits whipped-cream chargers because they contain nitrous oxide.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/illegal-drugs-drug-paraphernalia-policy?id=4333"
+                                       ]
+                  },
+                  {
+                      "id":  "aa1f226d5833321f5650",
+                      "type":  "keyword",
+                      "value":  "wild mushroom",
+                      "action":  "review",
+                      "reason":  "Wild mushrooms need species review because eBay allows only stated exceptions.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/food-policy?id=4295"
+                                       ]
+                  },
+                  {
+                      "id":  "6e9062521ebc50ea37f3",
+                      "type":  "keyword",
+                      "value":  "x-ray machine",
+                      "action":  "block",
+                      "reason":  "eBay lists X-ray systems among medical devices that are not allowed.",
+                      "reviewedBy":  "GLDN official policy review",
+                      "reviewedAt":  "2026-08-08",
+                      "source":  "official-ebay-policy-reviewed",
+                      "sourceType":  "official-ebay",
+                      "authority":  "eBay",
+                      "evidenceUrls":  [
+                                           "https://www.ebay.com/help/policies/prohibited-restricted-items/medicine-medical-devices-healthcare-products-policy?id=4322"
+                                       ]
+                  }
+              ]
+}

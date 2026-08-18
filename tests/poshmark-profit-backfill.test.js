@@ -233,9 +233,10 @@ test("eBay resolution retains note evidence while adding an independent Amazon c
     computerLabel: "0",
     accountLabel: "FAK12",
     noteStatus: "verified",
+    noteMarketplaceEarnings: 19.46,
     noteSupplierTotal: 9.99,
     noteSupplierProfile: "F9132",
-    noteProfit: 10.47,
+    noteProfit: 9.47,
     marketplaceEarnings: 20.46
   }];
   run = backfill.addPurchase(run, purchase("113-2518790-9385867", "Jul 20, 2026", "B012345678", 10.49));
@@ -245,11 +246,17 @@ test("eBay resolution retains note evidence while adding an independent Amazon c
   assert.equal(review.computerLabel, "0");
   assert.equal(review.accountLabel, "FAK12");
   assert.equal(review.status, "resolved");
+  assert.equal(review.noteMarketplaceEarnings, 19.46);
   assert.equal(review.noteSupplierTotal, 9.99);
-  assert.equal(review.noteProfit, 10.47);
+  assert.equal(review.noteProfit, 9.47);
   assert.equal(review.supplierTotal, 10.49);
   assert.equal(review.profit, 9.97);
   assert.equal(review.source, "ebay-amazon-cost-resolution");
+
+  const amazon = fs.readFileSync(path.resolve(__dirname, "..", "extension", "amazon.js"), "utf8");
+  assert.match(amazon, /READ 1 - SAVED EBAY NOTE ONLY/);
+  assert.match(amazon, /READ 2 - EBAY \+ AMAZON ORDER/);
+  assert.match(amazon, /DISCREPANCY/);
 });
 
 test("runtime workflow uses one worker tab and an explicit spreadsheet approval token", () => {

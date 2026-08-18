@@ -345,9 +345,19 @@ function Invoke-GldnExtensionRollback {
   [void](Assert-GldnPathWithin $selected.path (Join-Path $InstallRoot "versions"))
   $sourceExtensionRoot = Join-Path $selected.path "extension"
   [void](Test-GldnStagedExtension $sourceExtensionRoot ([string]$selected.version))
-  $currentVersion = Get-GldnManifestVersion (Join-Path $InstallRoot "extension")
+  $extensionRoot = Join-Path $InstallRoot "extension"
+  $currentVersion = Get-GldnManifestVersion $extensionRoot
+  $preservedConfig = $null
+  $configPath = Join-Path $extensionRoot "config.js"
+  if (Test-Path -LiteralPath $configPath) {
+    $preservedConfig = [System.IO.File]::ReadAllBytes($configPath)
+  }
   [void](New-GldnSnapshot -InstallRoot $InstallRoot -Reason "before-rollback-to-$($selected.version)")
-  Restore-GldnExtensionTree -SourceExtensionRoot $sourceExtensionRoot -DestinationExtensionRoot (Join-Path $InstallRoot "extension") -InstallRoot $InstallRoot
+  Restore-GldnExtensionTree -SourceExtensionRoot $sourceExtensionRoot -DestinationExtensionRoot $extensionRoot -InstallRoot $InstallRoot
+  if ($preservedConfig) {
+    [System.IO.File]::WriteAllBytes((Join-Path $extensionRoot "config.js"), $preservedConfig)
+  }
+  [void](Test-GldnStagedExtension $extensionRoot ([string]$selected.version))
   return [pscustomobject]@{
     ok = $true
     rolledBack = $true
@@ -378,6 +388,7 @@ function Get-GldnUpdaterStatus {
     diskVersion = $currentVersion
     latestVersion = $latestVersion
     updateAvailable = [bool]($latestVersion -and $currentVersion -and (ConvertTo-GldnVersion $latestVersion) -gt (ConvertTo-GldnVersion $currentVersion))
+    releaseFeedBehind = [bool]($latestVersion -and $currentVersion -and (ConvertTo-GldnVersion $latestVersion) -lt (ConvertTo-GldnVersion $currentVersion))
     rollbackCount = @(Get-GldnSnapshots $InstallRoot).Count
     installRoot = $InstallRoot
     error = $errorMessage

@@ -2,6 +2,16 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.18 - 2026-08-17
+
+- Split Monthly eBay Profit into two independent calculations instead of treating eBay's visible earnings as the note-only input.
+- Read 1 now uses only the saved note's earnings and Amazon cost.
+- Read 2 uses visible eBay order earnings and an independently matched Amazon order-item cost.
+- Added deterministic cleanup for harmless money-format mistakes such as dollar signs, comma decimals, leading decimals, duplicate decimal points, and trailing decimals.
+- Added an editable confirmation review for ambiguous characters, likely missing decimals, and note earnings that disagree with visible eBay earnings.
+- Added side-by-side Read 1 and Read 2 values, differences, and discrepancy status to the Amazon reconciliation review and shared reconciliation records.
+- Confirming corrected note amounts changes only GLDN Ops profit evidence; it never edits the eBay note or order.
+
 ## v3.12.17 - 2026-08-17
 
 - Fixed Save Cost Resolution Results appearing to do nothing after an eBay or Poshmark Amazon-cost review.

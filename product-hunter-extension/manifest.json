@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "GLDN Product Hunter",
+  "version": "0.2.0",
+  "description": "Finds Amazon products, applies reviewed eBay listing-policy rules, and prepares clean EcomSniper links.",
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "tabs",
+    "alarms",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "https://*.amazon.com/*",
+    "https://*.ebay.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "GLDN Product Hunter",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.amazon.com/*"
+      ],
+      "js": [
+        "hunter-core.js",
+        "amazon-content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://*.ebay.com/*"
+      ],
+      "js": [
+        "hunter-core.js",
+        "ebay-content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

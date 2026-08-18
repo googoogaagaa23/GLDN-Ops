@@ -10,6 +10,10 @@
   let extensionContextInvalidated = false;
   let backfillObserver = null;
   let backfillMutationTimer = 0;
+  let visibleSalesReviewState = null;
+  let restoredBackfillReviewRunId = "";
+
+  const BACKFILL_REVIEW_PAGE_SIZE = 25;
 
   const CLOSET_STATS_URL = "https://poshmark.com/users/self/closet_stats";
   const SALES_URL = "https://poshmark.com/order/sales";
@@ -473,21 +477,20 @@
       const status = overlay.querySelector(".gldn-modal-status");
       status.textContent = "Saving Poshmark stats...";
       await storageSet({ latestPoshmarkStats: record });
-      chrome.runtime.sendMessage({ type: "syncPoshmarkStats", record }, (response) => {
-        if (response?.ok) {
-          status.textContent = "Poshmark stats synced.";
-          renderStatus("Poshmark stats synced.", "completed");
-          setTimeout(close, 900);
-        } else if (response?.queued) {
-          status.textContent = "Saved locally. Dashboard sync is continuing in the background.";
-          renderStatus("Saved locally - dashboard sync continuing in background.", "ready");
-          setTimeout(close, 1400);
-        } else {
-          const error = response?.error || "Dashboard sync failed.";
-          status.textContent = error;
-          renderStatus(`Saved locally - sync failed: ${error}`, "error");
-        }
-      });
+      const response = await runtimeMessage({ type: "syncPoshmarkStats", record });
+      if (response?.ok) {
+        status.textContent = "Poshmark stats synced.";
+        renderStatus("Poshmark stats synced.", "completed");
+        setTimeout(close, 900);
+      } else if (response?.queued) {
+        status.textContent = "Saved locally. Dashboard sync is continuing in the background.";
+        renderStatus("Saved locally - dashboard sync continuing in background.", "ready");
+        setTimeout(close, 1400);
+      } else {
+        const error = response?.error || "Dashboard sync failed.";
+        status.textContent = error;
+        renderStatus(`Saved locally - sync failed: ${error}`, "error");
+      }
     });
   }
 
@@ -495,7 +498,6 @@
     const poshComputer = await savedPoshmarkComputerLabel();
     if (!poshComputer.ok) {
       renderStatus(poshComputer.error, "error");
-      alert(poshComputer.error);
       await storageRemove(["pendingPoshmarkStatsScan"]);
       return;
     }
@@ -510,8 +512,7 @@
     record.computerLabel = poshComputer.computerLabel;
     if (!record.detectedAny) {
       await storageRemove(["pendingPoshmarkStatsScan"]);
-      renderStatus("Could not read Poshmark stats from this page.", "error");
-      alert("I could not read the Poshmark stats. Refresh the stats page and try again.");
+      renderStatus("Could not read Poshmark stats from this page. Refresh My Posh Stats and try again.", "error");
       return;
     }
     await storageRemove(["pendingPoshmarkStatsScan"]);
@@ -784,6 +785,60 @@
     });
   }
 
+  async function saveVisibleSalesReview(overlay, records) {
+    if (!overlay?.isConnected) throw new Error("The visible-sales review is no longer open.");
+    const status = overlay.querySelector(".gldn-modal-status");
+    const saveButton = overlay.querySelector("[data-action='save']");
+    const cancelButton = overlay.querySelector("[data-action='cancel']");
+    if (!status || !saveButton || !cancelButton) throw new Error("The visible-sales review controls are incomplete.");
+    if (visibleSalesReviewState?.saving) throw new Error("This visible-sales review is already saving.");
+    visibleSalesReviewState.saving = true;
+    saveButton.disabled = true;
+    cancelButton.disabled = true;
+    overlay.querySelector(".gldn-modal")?.setAttribute("aria-busy", "true");
+    saveButton.textContent = `Saving ${records.length}...`;
+    status.textContent = `Saving ${records.length} visible sale rows in one dashboard batch...`;
+    const response = await runtimeMessage({ type: "syncMarketplaceProfits", records });
+    const syncedCount = response?.ok ? Number(response?.data?.count || records.length) : 0;
+    const queuedCount = response?.queued ? records.length : 0;
+    const handledCount = syncedCount + queuedCount;
+    const lastError = response?.error || "";
+    const result = { records, savedAt: new Date().toISOString(), syncedCount, queuedCount, handledCount, lastError };
+    await storageSet({ latestPoshmarkVisibleSales: result });
+    if (handledCount === records.length) {
+      status.textContent = queuedCount
+        ? `Saved ${syncedCount}; ${queuedCount} queued for dashboard sync.`
+        : `Saved ${syncedCount} visible sale rows.`;
+      renderStatus(queuedCount
+        ? `Saved ${handledCount} visible Poshmark rows; ${queuedCount} dashboard syncs queued.`
+        : `Saved ${syncedCount} visible Poshmark sale rows.`, "completed");
+      visibleSalesReviewState = null;
+      setTimeout(() => overlay.remove(), 1000);
+      return { ok: true, ...result };
+    }
+    status.textContent = `Saved or queued ${handledCount}/${records.length}. ${lastError}`;
+    renderStatus(`Visible sales partial sync: ${handledCount}/${records.length}.`, "error");
+    visibleSalesReviewState.saving = false;
+    saveButton.disabled = false;
+    cancelButton.disabled = false;
+    saveButton.textContent = "Retry Save";
+    overlay.querySelector(".gldn-modal")?.removeAttribute("aria-busy");
+    return { ok: false, ...result, error: lastError || `Only ${handledCount}/${records.length} rows were handled.` };
+  }
+
+  async function approveVisibleSalesReview(confirmationToken) {
+    const overlay = document.getElementById("gldn-posh-sales-preview");
+    const records = visibleSalesReviewState?.records;
+    if (!overlay || !Array.isArray(records) || !records.length) {
+      throw new Error("No visible-sales review is open.");
+    }
+    const expectedToken = `APPROVE SAVE VISIBLE SALES ${records.length}`;
+    if (String(confirmationToken || "").trim() !== expectedToken) {
+      throw new Error(`Visible-sales save requires the exact token ${expectedToken}.`);
+    }
+    return saveVisibleSalesReview(overlay, records);
+  }
+
   function showVisibleSalesPreview(records) {
     document.getElementById("gldn-posh-sales-preview")?.remove();
     const overlay = document.createElement("div");
@@ -819,41 +874,19 @@
         <div class="gldn-modal-status"></div>
       </div>`;
     document.documentElement.appendChild(overlay);
+    visibleSalesReviewState = { records, saving: false, openedAt: new Date().toISOString() };
     U.makePanelDraggable(overlay.querySelector(".gldn-modal"), "gldnPoshSalesModalPosition");
-    const close = () => overlay.remove();
+    const close = () => {
+      if (document.getElementById("gldn-posh-sales-preview") === overlay) visibleSalesReviewState = null;
+      overlay.remove();
+    };
     overlay.querySelector(".gldn-close").addEventListener("click", close);
     overlay.querySelector("[data-action='cancel']").addEventListener("click", close);
-    overlay.querySelector("[data-action='save']").addEventListener("click", async () => {
-      const status = overlay.querySelector(".gldn-modal-status");
-      const saveButton = overlay.querySelector("[data-action='save']");
-      const cancelButton = overlay.querySelector("[data-action='cancel']");
-      saveButton.disabled = true;
-      cancelButton.disabled = true;
-      overlay.querySelector(".gldn-modal").setAttribute("aria-busy", "true");
-      saveButton.textContent = `Saving ${records.length}...`;
-      status.textContent = `Saving ${records.length} visible sale rows in one dashboard batch...`;
-      const response = await runtimeMessage({ type: "syncMarketplaceProfits", records });
-      const syncedCount = response?.ok ? Number(response?.data?.count || records.length) : 0;
-      const queuedCount = response?.queued ? records.length : 0;
-      const handledCount = syncedCount + queuedCount;
-      const lastError = response?.error || "";
-      await storageSet({ latestPoshmarkVisibleSales: { records, savedAt: new Date().toISOString(), syncedCount, queuedCount, handledCount, lastError } });
-      if (handledCount === records.length) {
-        status.textContent = queuedCount
-          ? `Saved ${syncedCount}; ${queuedCount} queued for dashboard sync.`
-          : `Saved ${syncedCount} visible sale rows.`;
-        renderStatus(queuedCount
-          ? `Saved ${handledCount} visible Poshmark rows; ${queuedCount} dashboard syncs queued.`
-          : `Saved ${syncedCount} visible Poshmark sale rows.`, "completed");
-        setTimeout(close, 1000);
-      } else {
-        status.textContent = `Saved or queued ${handledCount}/${records.length}. ${lastError}`;
-        renderStatus(`Visible sales partial sync: ${handledCount}/${records.length}.`, "error");
-        saveButton.disabled = false;
-        cancelButton.disabled = false;
-        saveButton.textContent = "Retry Save";
-        overlay.querySelector(".gldn-modal").removeAttribute("aria-busy");
-      }
+    overlay.querySelector("[data-action='save']").addEventListener("click", () => {
+      saveVisibleSalesReview(overlay, records).catch((error) => {
+        visibleSalesReviewState.saving = false;
+        renderStatus(error?.message || String(error), "error");
+      });
     });
   }
 
@@ -861,7 +894,6 @@
     const poshComputer = await savedPoshmarkComputerLabel();
     if (!poshComputer.ok) {
       renderStatus(poshComputer.error, "error");
-      alert(poshComputer.error);
       return;
     }
     if (!/\/order\/sales/i.test(location.href)) {
@@ -895,8 +927,7 @@
       pageUrl: record.pageUrl
     }));
     if (!records.length) {
-      renderStatus("No visible Poshmark sale rows found.", "error");
-      alert("I could not find visible Poshmark sale orders on this page.");
+      renderStatus("No visible Poshmark sale orders were found on this page.", "error");
       return;
     }
     showVisibleSalesPreview(records);
@@ -907,12 +938,10 @@
     const poshComputer = await savedPoshmarkComputerLabel();
     if (!poshComputer.ok) {
       renderStatus(poshComputer.error, "error");
-      alert(poshComputer.error);
       return;
     }
     if (!/\/order\/sales\//i.test(location.href)) {
-      renderStatus("Open a Poshmark sale order first.", "error");
-      alert("Open a Poshmark sale order page first, then run Capture Order Profit.");
+      renderStatus("Open a Poshmark sale order page first, then run Capture Order Profit.", "error");
       return;
     }
     const record = parseOrderProfit();
@@ -938,6 +967,19 @@
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  function historicalSalesPageSizeControl() {
+    const candidates = [...document.querySelectorAll("[data-test='dropdown'], .dropdown, .dropdown__selector, button, [role='button']")]
+      .filter((element) => U.isVisible(element))
+      .filter((element) => /^show\s+\d+$/i.test(String(element.innerText || element.textContent || "").trim()));
+    return candidates.find((element) => element.matches("[data-test='dropdown'], .dropdown")) || candidates[0] || null;
+  }
+
+  function historicalSalesPageSize() {
+    const text = String(historicalSalesPageSizeControl()?.innerText || historicalSalesPageSizeControl()?.textContent || "");
+    const match = text.match(/show\s+(\d+)/i);
+    return match ? Number(match[1]) : 0;
+  }
+
   async function ensureHistoricalSalesPageSize() {
     const nativeSelect = [...document.querySelectorAll("select")].find((select) =>
       [...select.options].some((option) => /^(?:show\s*)?100$/i.test(String(option.textContent || option.value || "").trim())));
@@ -953,22 +995,38 @@
       return false;
     }
 
-    const showButton = [...document.querySelectorAll("button, [role='button']")]
-      .filter((element) => U.isVisible(element))
-      .find((element) => /^show\s+\d+$/i.test(String(element.innerText || element.textContent || "").trim()));
+    const showButton = historicalSalesPageSizeControl();
     if (!showButton || /show\s+100/i.test(showButton.innerText || showButton.textContent || "")) return false;
+    showButton.scrollIntoView({ block: "center", inline: "nearest" });
     showButton.click();
-    await delay(250);
-    const hundred = [...document.querySelectorAll("button, [role='option'], [role='menuitem'], li")]
-      .filter((element) => U.isVisible(element))
-      .find((element) => /^(?:show\s*)?100$/i.test(String(element.innerText || element.textContent || "").trim()));
-    if (!hundred) throw new Error("Poshmark's Show 100 option did not open.");
+    const optionDeadline = Date.now() + 3000;
+    let hundred = null;
+    do {
+      const exactTextCandidates = [...showButton.querySelectorAll("[data-test='dropdown_menu_list'] .dropdown__link, .dropdown__menu .dropdown__link, [role='option'], [role='menuitem']")]
+        .filter((element) => /^(?:show\s*)?100$/i.test(String(element.innerText || element.textContent || "").trim()));
+      hundred = exactTextCandidates.find((element) =>
+        U.isVisible(element) && element.matches("button, a, li, [role='option'], [role='menuitem'], .dropdown__link, .dropdown__item, .dropdown__option"))
+        || exactTextCandidates.find((element) =>
+          element.matches("button, a, li, [role='option'], [role='menuitem'], .dropdown__link, .dropdown__item, .dropdown__option"))
+        || exactTextCandidates.find((element) => ![...element.children].some((child) =>
+          /^(?:show\s*)?100$/i.test(String(child.innerText || child.textContent || "").trim())))
+        || exactTextCandidates[0]
+        || null;
+      if (hundred) break;
+      await delay(100);
+    } while (Date.now() < optionDeadline);
+    if (!hundred) return false;
     hundred.click();
-    await delay(1800);
+    const selectionDeadline = Date.now() + 5000;
+    while (historicalSalesPageSize() !== 100 && Date.now() < selectionDeadline) await delay(100);
+    if (historicalSalesPageSize() !== 100) return false;
     return true;
   }
 
   function poshmarkNextSalesControl() {
+    const tablePagination = [...document.querySelectorAll(".my-sales-desktop-table__pagination-btn")]
+      .filter((element) => U.isVisible(element));
+    if (tablePagination.length >= 2) return tablePagination[tablePagination.length - 1];
     const explicit = [...document.querySelectorAll("button, a, [role='button']")]
       .filter((element) => U.isVisible(element))
       .find((element) => /next/i.test([
@@ -992,9 +1050,31 @@
     return !control || control.disabled || control.getAttribute("aria-disabled") === "true" || /disabled/i.test(control.className || "");
   }
 
+  async function waitForHistoricalSalesRecords(timeoutMs = 30000, options = {}) {
+    const deadline = Date.now() + Math.max(1000, Number(timeoutMs || 0));
+    let lastFingerprint = "";
+    let stablePolls = 0;
+    do {
+      const records = visibleSaleSummaries();
+      const fingerprint = records.map((record) => record.orderNumber).sort().join("|");
+      stablePolls = fingerprint && fingerprint === lastFingerprint ? stablePolls + 1 : 0;
+      lastFingerprint = fingerprint;
+      const next = poshmarkNextSalesControl();
+      const requestedMinimum = Math.max(0, Number(options.minimumCount || 0));
+      const expectedCount = requestedMinimum || historicalSalesPageSize() || 20;
+      if (records.length >= expectedCount) return records;
+      if (records.length && controlIsDisabled(next) && stablePolls >= 3) return records;
+      await delay(500);
+    } while (Date.now() < deadline);
+    throw new Error(`Poshmark sales rows did not finish loading (found ${visibleSaleSummaries().length}, expected ${historicalSalesPageSize() || 20}). The saved checkpoint was not advanced.`);
+  }
+
   async function reportHistoricalSalesPage() {
-    await ensureHistoricalSalesPageSize();
-    const records = visibleSaleSummaries();
+    await waitForHistoricalSalesRecords();
+    const pageSizeChanged = await ensureHistoricalSalesPageSize();
+    const records = await waitForHistoricalSalesRecords(pageSizeChanged ? 45000 : 30000, {
+      minimumCount: pageSizeChanged ? 100 : 0
+    });
     lastBackfillSalesFingerprint = records.map((record) => record.orderNumber).sort().join("|");
     const next = poshmarkNextSalesControl();
     const response = await runtimeMessage({
@@ -1010,6 +1090,19 @@
       return;
     }
     renderStatus(`Historical profit: ${response.summary.salesIndexed} sales indexed across ${response.summary.pagesScanned} page(s).`, "ready");
+    if (response.instruction === "retry-current-page") {
+      renderStatus("Waiting for Poshmark sales rows before advancing the saved checkpoint...", "ready");
+      await delay(Math.max(1000, Number(response.retryAfterMs || 1500)));
+      return reportHistoricalSalesPage();
+    }
+    if (response.instruction === "paused-empty-page") {
+      renderStatus(response.state?.pausedReason || "Historical profit paused because Poshmark sales rows did not load.", "error");
+      return;
+    }
+    if (response.instruction === "paused-empty-month") {
+      renderStatus(response.state?.pausedReason || "Historical profit paused because no target-month sales were verified.", "error");
+      return;
+    }
     if (response.instruction === "next-page") {
       if (!next || controlIsDisabled(next)) {
         renderStatus("Poshmark did not expose an enabled Next control. The checkpoint was preserved.", "error");
@@ -1019,9 +1112,15 @@
     }
   }
 
-  function backfillResultRows(run) {
-    return (run.results || []).slice(0, 100).map((result) => {
-      const sale = (run.sales || []).find((item) => item.orderNumber === result.orderNumber) || {};
+  function backfillResultRows(run, requestedPage = 0) {
+    const results = Array.isArray(run.results) ? run.results : [];
+    const salesByOrder = new Map((run.sales || []).map((sale) => [sale.orderNumber, sale]));
+    const totalPages = Math.max(1, Math.ceil(results.length / BACKFILL_REVIEW_PAGE_SIZE));
+    const page = Math.max(0, Math.min(Number(requestedPage) || 0, totalPages - 1));
+    const start = page * BACKFILL_REVIEW_PAGE_SIZE;
+    const end = Math.min(results.length, start + BACKFILL_REVIEW_PAGE_SIZE);
+    const html = results.slice(start, end).map((result) => {
+      const sale = salesByOrder.get(result.orderNumber) || {};
       const record = result.record || {};
       return `
         <div class="gldn-sales-row" data-status="${escapeHtml(result.status)}">
@@ -1035,20 +1134,36 @@
           <strong class="gldn-sales-earnings">${escapeHtml(result.status === "exact" ? currencyDisplay(record.profit) : "REVIEW")}</strong>
         </div>`;
     }).join("");
+    return { html, page, totalPages, start, end, total: results.length };
   }
 
   function showHistoricalProfitBackfillReview(run) {
     document.getElementById("gldn-posh-backfill-launcher")?.remove();
     document.getElementById("gldn-posh-backfill-preview")?.remove();
     const summary = window.GLDN_PROFIT_BACKFILL.summary(run);
+    const remaining = Number(summary.pending || 0);
+    const monthly = run.scope === "month";
+    const resolvingCosts = run.scope === "resolve-missing";
+    const primaryLabel = monthly
+      ? `Save ${summary.monthLabel || run.monthKey} Rows`
+      : resolvingCosts
+      ? "Save Cost Resolution Results"
+      : "Sync Exact Profits";
+    const reviewStatus = run.phase === "completed"
+      ? run.syncDelivery === "queued"
+        ? "Every reviewed row is secured in the dashboard retry queue."
+        : "Every reviewed row was saved to the shared dashboard."
+      : "No spreadsheet changes have been made by this review.";
+    restoredBackfillReviewRunId = String(run.runId || `${run.scope || "historical"}:${run.monthKey || "all"}`);
+    let resultPage = backfillResultRows(run, 0);
     const overlay = document.createElement("div");
     overlay.id = "gldn-posh-backfill-preview";
     overlay.className = "gldn-modal-backdrop gldn-review-backdrop";
     overlay.innerHTML = `
       <div class="gldn-modal gldn-health-modal gldn-review-modal gldn-backfill-modal">
         <button type="button" class="gldn-close" aria-label="Close">x</button>
-        <h2>Review Historical Poshmark Profits</h2>
-        <p class="gldn-help-text">Read-only collection is complete. Only exact one-use Amazon allocations can be synced; ambiguous rows remain in Needs Review.</p>
+        <h2>Review ${monthly ? `${escapeHtml(summary.monthLabel || run.monthKey)} Poshmark Profits` : "Historical Poshmark Profits"}</h2>
+        <p class="gldn-help-text">Read-only collection is complete. Exact one-use Amazon allocations include cost and profit. Missing or ambiguous Amazon costs stay visibly queued for another signed-in Amazon profile; no zeroes are invented.</p>
         <div class="gldn-grid gldn-backfill-summary">
           <div><strong>Sales indexed</strong><span>${countDisplay(summary.salesIndexed)}</span></div>
           <div><strong>Details captured</strong><span>${countDisplay(summary.detailsCaptured)}</span></div>
@@ -1058,41 +1173,73 @@
           <div><strong>Amazon not found</strong><span>${countDisplay(summary.amazonNotFound)}</span></div>
           <div><strong>Exact profit total</strong><span>${currencyDisplay(summary.exactProfit)}</span></div>
           <div><strong>Already synced</strong><span>${countDisplay(summary.synced)}</span></div>
+          ${monthly ? `<div><strong>Month</strong><span>${escapeHtml(summary.monthLabel || run.monthKey)}</span></div>` : ""}
         </div>
-        <div class="gldn-sales-list">${backfillResultRows(run) || "<div class='gldn-help-text'>No result rows were produced.</div>"}</div>
+        <div class="gldn-sales-list">${resultPage.html || "<div class='gldn-help-text'>No result rows were produced.</div>"}</div>
+        <div class="gldn-review-pagination" ${resultPage.total <= BACKFILL_REVIEW_PAGE_SIZE ? "hidden" : ""}>
+          <button type="button" class="gldn-secondary" data-action="previous-results" disabled>Previous</button>
+          <span data-role="result-page">Rows ${countDisplay(resultPage.start + 1)}-${countDisplay(resultPage.end)} of ${countDisplay(resultPage.total)} - page ${countDisplay(resultPage.page + 1)} of ${countDisplay(resultPage.totalPages)}</span>
+          <button type="button" class="gldn-secondary" data-action="next-results" ${resultPage.totalPages <= 1 ? "disabled" : ""}>Next</button>
+        </div>
         <div class="gldn-actions">
           <button type="button" class="gldn-secondary" data-action="close">Close</button>
-          <button type="button" class="gldn-primary" data-action="sync" ${summary.exact <= summary.synced ? "disabled" : ""}>Sync Exact Profits</button>
+          <button type="button" class="gldn-primary" data-action="sync" ${remaining <= 0 ? "disabled" : ""}>${escapeHtml(primaryLabel)}</button>
         </div>
-        <div class="gldn-modal-status">No spreadsheet changes have been made by this review.</div>
+        <div class="gldn-modal-status">${escapeHtml(reviewStatus)}</div>
       </div>`;
     document.documentElement.appendChild(overlay);
     U.makePanelDraggable(overlay.querySelector(".gldn-modal"), "gldnPoshBackfillModalPosition");
+    const renderResultPage = (requestedPage) => {
+      resultPage = backfillResultRows(run, requestedPage);
+      const list = overlay.querySelector(".gldn-sales-list");
+      const label = overlay.querySelector("[data-role='result-page']");
+      const previous = overlay.querySelector("[data-action='previous-results']");
+      const next = overlay.querySelector("[data-action='next-results']");
+      list.innerHTML = resultPage.html || "<div class='gldn-help-text'>No result rows were produced.</div>";
+      label.textContent = `Rows ${countDisplay(resultPage.start + 1)}-${countDisplay(resultPage.end)} of ${countDisplay(resultPage.total)} - page ${countDisplay(resultPage.page + 1)} of ${countDisplay(resultPage.totalPages)}`;
+      previous.disabled = resultPage.page <= 0;
+      next.disabled = resultPage.page >= resultPage.totalPages - 1;
+      list.scrollTop = 0;
+    };
+    overlay.querySelector("[data-action='previous-results']")?.addEventListener("click", () => renderResultPage(resultPage.page - 1));
+    overlay.querySelector("[data-action='next-results']")?.addEventListener("click", () => renderResultPage(resultPage.page + 1));
     const close = () => overlay.remove();
     overlay.querySelector(".gldn-close").addEventListener("click", close);
     overlay.querySelector("[data-action='close']").addEventListener("click", close);
     overlay.querySelector("[data-action='sync']")?.addEventListener("click", async () => {
-      const remaining = Math.max(0, summary.exact - summary.synced);
       const syncButton = overlay.querySelector("[data-action='sync']");
       const status = overlay.querySelector(".gldn-modal-status");
       if (syncButton.dataset.confirmSync !== "true") {
         syncButton.dataset.confirmSync = "true";
-        syncButton.textContent = `Confirm Sync ${remaining} Row${remaining === 1 ? "" : "s"}`;
-        status.textContent = `Approval required: sync only these ${remaining} exact row${remaining === 1 ? "" : "s"} to Profit - 7 and Marketplace Profit History.`;
+        syncButton.textContent = `Confirm ${remaining} Row${remaining === 1 ? "" : "s"}`;
+        status.textContent = monthly
+          ? `Approval required: save these ${remaining} reviewed ${summary.monthLabel || run.monthKey} rows. Missing Amazon costs remain open in the shared queue.`
+          : resolvingCosts
+          ? `Approval required: apply these ${remaining} Amazon-cost lookup results to the shared queue and resolved profit rows.`
+          : `Approval required: sync only these ${remaining} exact row${remaining === 1 ? "" : "s"} to Profit - 7 and Marketplace Profit History.`;
         return;
       }
       syncButton.disabled = true;
-      status.textContent = `Syncing ${remaining} exact row(s) in batches of 100...`;
-      const response = await runtimeMessage({ type: "syncPoshmarkProfitBackfill", confirm: "SYNC_EXACT_POSHMARK_PROFITS" });
+      status.textContent = `Saving ${remaining} reviewed row(s) in durable batches...`;
+      const confirm = monthly
+        ? `APPROVE SYNC POSHMARK ${run.monthKey} ${remaining}`
+        : resolvingCosts
+        ? `APPROVE RESOLVE POSHMARK COSTS ${remaining}`
+        : "SYNC_EXACT_POSHMARK_PROFITS";
+      const response = await runtimeMessage({ type: "syncPoshmarkProfitBackfill", confirm }, 360000);
       if (!response?.ok) {
         syncButton.disabled = false;
         syncButton.dataset.confirmSync = "";
-        syncButton.textContent = "Sync Exact Profits";
+        syncButton.textContent = primaryLabel;
         status.textContent = response?.error || `Only ${response?.count || 0}/${response?.requested || remaining} rows were handled.`;
         return;
       }
       const completionMessage = response.queued
-        ? `${response.count} exact rows saved to the retry queue.`
+        ? `${response.count} reviewed rows saved to the retry queue.`
+        : monthly
+        ? `${response.count} ${summary.monthLabel || run.monthKey} rows saved: ${response.exact || 0} exact and ${response.unresolved || 0} awaiting another Amazon profile.`
+        : resolvingCosts
+        ? `${response.exact || 0} Amazon costs resolved; ${response.unresolved || 0} rows remain open for another profile.`
         : `${response.count} exact rows synced to Profit - 7 and Marketplace Profit History.`;
       if (response.state) {
         showHistoricalProfitBackfillReview(response.state);
@@ -1105,7 +1252,27 @@
     });
   }
 
-  async function startHistoricalProfitBackfill(scope = "pilot") {
+  async function approveHistoricalProfitBackfill(confirmationToken) {
+    const status = await runtimeMessage({ type: "getPoshmarkProfitBackfill" });
+    const run = status?.state;
+    if (!run || run.phase !== "review") throw new Error("No historical-profit review is open.");
+    const summary = window.GLDN_PROFIT_BACKFILL.summary(run);
+    const remaining = Number(summary.pending || 0);
+    const expected = run.scope === "month"
+      ? `APPROVE SYNC POSHMARK ${run.monthKey} ${remaining}`
+      : run.scope === "resolve-missing"
+      ? `APPROVE RESOLVE POSHMARK COSTS ${remaining}`
+      : "SYNC_EXACT_POSHMARK_PROFITS";
+    if (String(confirmationToken || "").trim() !== expected) {
+      throw new Error(`Historical-profit approval requires the exact token ${expected}.`);
+    }
+    const response = await runtimeMessage({ type: "syncPoshmarkProfitBackfill", confirm: expected }, 360000);
+    if (response?.state) showHistoricalProfitBackfillReview(response.state);
+    return response;
+  }
+
+  async function startHistoricalProfitBackfill(scope = "pilot", monthKey = "") {
+    restoredBackfillReviewRunId = "";
     const poshComputer = await savedPoshmarkComputerLabel();
     if (!poshComputer.ok) {
       renderStatus(poshComputer.error, "error");
@@ -1116,6 +1283,7 @@
       type: "startPoshmarkProfitBackfill",
       options: {
         scope,
+        ...(scope === "month" ? { monthKey } : {}),
         ...(scope === "single" ? { seedSale: { orderNumber: currentOrderNumber, pageUrl: location.href, itemTitle: parseOrderProfit().itemTitle || "" } } : {})
       }
     });
@@ -1127,7 +1295,7 @@
 
   async function resumeHistoricalProfitBackfill() {
     const response = await runtimeMessage({ type: "resumePoshmarkProfitBackfill" });
-    if (response?.state?.phase === "review") showHistoricalProfitBackfillReview(response.state);
+    if (["review", "completed"].includes(response?.state?.phase)) showHistoricalProfitBackfillReview(response.state);
     renderStatus(response?.ok ? `Historical profit checkpoint: ${response.summary.phase}.` : response?.error || "No checkpoint found.", response?.ok ? "ready" : "error");
     return response;
   }
@@ -1150,11 +1318,16 @@
           <span>Run scope</span>
           <select data-action="scope">
             ${currentOrderNumber ? `<option value="single">Current sale only - ${escapeHtml(currentOrderNumber)}</option>` : ""}
+            <option value="month">One month</option>
             <option value="pilot">Pilot - 10 newest sales</option>
             <option value="incremental">New since last sync</option>
             <option value="last90">Last 90 days</option>
             <option value="all">All sales</option>
           </select>
+        </label>
+        <label class="gldn-field">
+          <span>Month</span>
+          <input type="month" data-action="month" value="${escapeHtml(run?.monthKey || "2026-04")}">
         </label>
         <div class="gldn-grid gldn-backfill-summary">
           <div><strong>Checkpoint</strong><span>${escapeHtml(summary.phase || "None")}</span></div>
@@ -1176,8 +1349,9 @@
     overlay.querySelector(".gldn-close").addEventListener("click", close);
     overlay.querySelector("[data-action='start']").addEventListener("click", async () => {
       const scope = overlay.querySelector("[data-action='scope']").value;
+      const monthKey = overlay.querySelector("[data-action='month']").value;
       status.textContent = `Starting ${scope} run...`;
-      const result = await startHistoricalProfitBackfill(scope);
+      const result = await startHistoricalProfitBackfill(scope, monthKey);
       status.textContent = result?.ok ? "Worker started. This launcher can be closed." : result?.error || "The worker did not start.";
     });
     overlay.querySelector("[data-action='resume']").addEventListener("click", async () => {
@@ -1203,7 +1377,10 @@
     const run = status?.state;
     if (!run || Number(run.workerTabId) !== Number(tab?.tabId)) return false;
     if (run.phase === "review") {
-      showHistoricalProfitBackfillReview(run);
+      const runId = String(run.runId || `${run.scope || "historical"}:${run.monthKey || "all"}`);
+      if (!document.getElementById("gldn-posh-backfill-preview") && restoredBackfillReviewRunId !== runId) {
+        showHistoricalProfitBackfillReview(run);
+      }
       return true;
     }
     if (!run.active) return false;
@@ -1237,12 +1414,25 @@
         "posh-stats": startPoshmarkStatsScan,
         "posh-profit": scanOrderProfit,
         "visible-sales": captureVisibleSales,
-        "historical-profit": showHistoricalProfitBackfillLauncher
+        "save-visible-sales-review": () => approveVisibleSalesReview(message.confirmationToken),
+        "historical-profit": showHistoricalProfitBackfillLauncher,
+        "start-historical-profit-month": () => startHistoricalProfitBackfill("month", message.monthKey),
+        "resume-historical-profit": resumeHistoricalProfitBackfill,
+        "approve-historical-profit-review": () => approveHistoricalProfitBackfill(message.confirmationToken)
       };
       const action = actions[String(message.action || "")];
       if (!action) {
         sendResponse({ ok: false, error: "Unknown Poshmark workflow action." });
         return false;
+      }
+      if (message.action === "save-visible-sales-review"
+          || message.action === "start-historical-profit-month"
+          || message.action === "resume-historical-profit"
+          || message.action === "approve-historical-profit-review") {
+        Promise.resolve(action()).then((result) => sendResponse(result)).catch((error) => {
+          sendResponse({ ok: false, error: error?.message || String(error) });
+        });
+        return true;
       }
       sendResponse({ ok: true, accepted: true });
       setTimeout(() => {
@@ -1327,7 +1517,7 @@
       const version = chrome.runtime.getManifest().version;
       renderStatus(`Checking for a verified update after v${version}...`, "ready");
       try {
-        const response = await chrome.runtime.sendMessage({ type: "updateExtension", returnUrl: location.href, reloadWhenCurrent: true });
+        const response = await runtimeMessage({ type: "updateExtension", returnUrl: location.href, reloadWhenCurrent: true });
         if (!response?.ok) throw new Error(response?.error || "Verified update failed.");
         if (!response.updated) renderStatus(response.message || "GLDN Ops is already current.", "completed");
       } catch (error) {
@@ -1339,12 +1529,16 @@
   }
 
   createPanel();
-  resumePendingPoshmarkStatsScan();
+  resumePendingPoshmarkStatsScan().catch((error) => {
+    if (invalidContextError(error)) stopInvalidatedPoshmarkContext(error);
+    else renderStatus(error?.message || "Poshmark stats resume stopped.", "error");
+  });
   resumePoshmarkProfitBackfillWorker().catch((error) => renderStatus(error.message || "Historical-profit worker stopped.", "error"));
   backfillObserver = new MutationObserver(() => {
     clearTimeout(backfillMutationTimer);
     backfillMutationTimer = setTimeout(() => {
       if (!/^\/order\/sales\/?$/i.test(location.pathname)) return;
+      if (restoredBackfillReviewRunId) return;
       const fingerprint = visibleSaleSummaries().map((record) => record.orderNumber).sort().join("|");
       if (!fingerprint || fingerprint === lastBackfillSalesFingerprint) return;
       resumePoshmarkProfitBackfillWorker().catch((error) => renderStatus(error.message || "Historical-profit worker stopped.", "error"));

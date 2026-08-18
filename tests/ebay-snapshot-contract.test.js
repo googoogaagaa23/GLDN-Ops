@@ -7,6 +7,7 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..");
 const ebaySource = fs.readFileSync(path.join(root, "extension/ebay.js"), "utf8");
 const dashboardFiles = [
+  "apps-script-live/Code.js",
   "dashboard/GLDN_Ops_Dashboard_Code.gs",
   "extension/dashboard_apps_script/Code.gs"
 ];
@@ -122,6 +123,7 @@ test("Seller Hub Traffic and Advertising stay scoped to their cards", () => {
 
 test("snapshot sync keeps all Apps Script copies aligned and persists visible ad metrics", () => {
   assert.equal(dashboardSources[1], dashboardSources[0]);
+  assert.equal(dashboardSources[2], dashboardSources[0]);
   const source = dashboardSources[0];
   assert.match(source, /'Last Checked', 'Source', 'Advertising Clicks', 'Advertising ROAS'/);
   assert.match(source, /advertisingClicks: optionalNumber_\(input\.advertisingClicks\)/);

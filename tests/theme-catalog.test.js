@@ -6,6 +6,8 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const catalogSource = fs.readFileSync(path.join(root, 'extension', 'theme-catalog.js'), 'utf8');
+const contentStyles = fs.readFileSync(path.join(root, 'extension', 'styles.css'), 'utf8');
+const extensionThemes = fs.readFileSync(path.join(root, 'extension', 'themes.css'), 'utf8');
 const context = vm.createContext({});
 vm.runInContext(catalogSource, context);
 const catalog = context.GLDN_THEME_CATALOG;
@@ -74,6 +76,16 @@ test('every theme provides complete tokens and readable text contrast', () => {
 test('themes are CSS-only originals with no copied artwork payloads', () => {
   assert.equal(catalog.source, 'https://dbrand.com/shop/limited-edition');
   assert.doesNotMatch(catalogSource, /cdn\.db|data:image|\.png|\.jpe?g|\.webp/i);
+});
+
+test('theme labels and every GLDN-owned text surface remain readable', () => {
+  assert.doesNotMatch(catalogSource, /Â|·/);
+  assert.match(catalogSource, /\$\{selected\.label\} - \$\{selected\.group\}/);
+  assert.match(contentStyles, /Keep marketplace CSS from recoloring any text inside a GLDN-owned window/);
+  assert.match(contentStyles, /:is\(\.gldn-order-panel, \.gldn-modal, \.gldn-panel-settings-menu\)[\s\S]*:where\(h1, h2, h3, h4, p, span, label, strong, small/);
+  assert.match(contentStyles, /\.gldn-status\[data-type="error"\][\s\S]*var\(--gldn-theme-danger\)/);
+  assert.match(extensionThemes, /\.section-card\.due[\s\S]*var\(--gldn-theme-danger\)/);
+  assert.match(extensionThemes, /button:disabled[\s\S]*var\(--gldn-theme-muted\)/);
 });
 
 test('theme application publishes RGB tokens for translucent modal surfaces', () => {
@@ -178,4 +190,7 @@ test('every extension surface loads and uses the shared theme catalog', () => {
   assert.match(shared, /GLDN_THEME_CATALOG\?\.renderPreview/);
   assert.match(guide, /theme-page\.js/);
   assert.match(onboarding, /theme-catalog\.js/);
+  for (const html of [popup, guide, onboarding]) {
+    assert.ok(html.indexOf('</style>') < html.indexOf('href="themes.css"'), 'theme overrides must load after page-local styles');
+  }
 });

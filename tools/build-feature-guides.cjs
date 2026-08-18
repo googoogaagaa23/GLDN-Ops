@@ -122,7 +122,6 @@ function renderHtml(catalog) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>GLDN Ops Feature Guide</title>
-  <link rel="stylesheet" href="themes.css">
   <style>
     * { box-sizing:border-box; }
     :root { color-scheme:dark; --bg:#101113; --panel:#1b1d21; --panel2:#24272d; --line:#3f434c; --ink:#f7f7f5; --muted:#b9bec8; --gold:#d7b354; --blue:#2f6feb; --green:#15803d; --amber:#b45309; --red:#b91c1c; }
@@ -160,6 +159,7 @@ function renderHtml(catalog) {
     li { margin:5px 0; color:#e1e4e8; }
     @media (max-width:700px) { .index,.guide-grid { grid-template-columns:1fr; } .guide-grid .steps { grid-column:auto; } .legend-row { grid-template-columns:1fr; } .feature summary { align-items:flex-start; flex-direction:column; } }
   </style>
+  <link rel="stylesheet" href="themes.css">
 </head>
 <body class="gldn-guide-page">
 <main>
@@ -172,10 +172,12 @@ function renderHtml(catalog) {
   <h2>Step-by-step guides</h2>
 ${features}
 </main>
+<script src="control-heartbeat.js"></script>
 <script src="theme-catalog.js"></script>
 <script src="theme-page.js"></script>
 </body>
-</html>`;
+</html>
+`;
 }
 
 function renderOnboardingHtml(catalog) {
@@ -189,7 +191,6 @@ function renderOnboardingHtml(catalog) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Welcome to GLDN Ops</title>
-  <link rel="stylesheet" href="themes.css">
   <style>
     * { box-sizing:border-box; }
     :root { color-scheme:dark; --bg:#090b0f; --panel:#14171d; --panel2:#1e232c; --line:#343b47; --ink:#f8fafc; --muted:#a8b0bd; --gold:#d7b354; --blue:#2563eb; --red:#dc2626; }
@@ -234,6 +235,7 @@ function renderOnboardingHtml(catalog) {
       button.primary { margin-left:0; }
     }
   </style>
+  <link rel="stylesheet" href="themes.css">
 </head>
 <body class="gldn-onboarding-page">
   <div class="shell">
@@ -269,10 +271,12 @@ function renderOnboardingHtml(catalog) {
     </footer>
   </div>
   <script id="gldn-onboarding-data" type="application/json">${data}</script>
+  <script src="control-heartbeat.js"></script>
   <script src="theme-catalog.js"></script>
   <script src="onboarding.js"></script>
 </body>
-</html>`;
+</html>
+`;
 }
 
 function validateCatalog(catalog) {

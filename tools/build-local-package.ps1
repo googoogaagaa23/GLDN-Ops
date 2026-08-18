@@ -15,14 +15,18 @@ $zipPath = Join-Path $distRoot "GLDN-Ops-local-v$Version.zip"
 $latestPath = Join-Path $distRoot "GLDN-Ops-latest.zip"
 
 $extensionFiles = @(
-  "manifest.json", "config.example.js", "theme-catalog.js", "foundation.js", "shared.js", "profit-audit.js", "profit-backfill.js", "profit-backfill-background.js", "sniping-audit.js",
+  "manifest.json", "config.example.js", "theme-catalog.js", "foundation.js", "shared.js", "control-heartbeat.js", "profit-audit.js", "profit-backfill.js", "profit-backfill-background.js", "sniping-audit.js", "subscribe-save.js",
   "sniping-review.html", "sniping-review.css", "sniping-review.js", "background.js",
+  "listing-preflight.html", "listing-preflight.css", "listing-preflight-core.js", "listing-preflight.js", "listing-preflight-rules.json",
+  "policy-listing-audit.html", "policy-listing-audit.css", "policy-listing-audit-core.js", "policy-listing-audit.js",
   "popup.html", "popup.js", "styles.css", "themes.css", "theme-page.js", "guide.html", "onboarding.html", "onboarding.js", "universal.js",
+  "variation-core.js", "variation-audit.html", "variation-audit.css", "variation-audit.js",
+  "ebay-profit-core.js", "ebay-profit-background.js", "ebay-profit.html", "ebay-profit.css", "ebay-profit.js",
   "amazon.js", "walmart.js",
   "ebay.js", "ecomsniper.js", "poshmark.js", "reload.html", "reload.js",
   "start-move99.html", "start-move99.js", "README.txt"
 )
-$projectDirectories = @("tools", "docs", "dashboard", "releases", "tests", "installer")
+$projectDirectories = @("tools", "docs", "dashboard", "apps-script-live", "apps-script-live-2", "apps-script-live-3", "releases", "tests", "installer")
 $projectFiles = @(
   "CHANGELOG.md", "INSTALL.md", "package.json", "pnpm-lock.yaml",
   "bootstrap-install.ps1", "install-latest.ps1",

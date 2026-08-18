@@ -10,12 +10,27 @@
     h1 { font-size:22px; margin:0 0 10px; }
     p { color:#cbd5e1; line-height:1.5; }
     .status { margin-top:16px; padding:12px; border:1px solid #334155; background:#111827; border-radius:8px; white-space:pre-wrap; }
+    .sale-event-gate { margin-top:16px; padding:16px; border:1px solid #475569; border-radius:8px; background:#111827; }
+    .sale-event-gate[hidden] { display:none; }
+    .sale-event-gate h2 { margin:0 0 8px; font-size:18px; }
+    .sale-event-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    button { min-height:40px; border:0; border-radius:8px; padding:8px 10px; color:#fff; font-weight:700; cursor:pointer; }
+    [data-sale-event-status="on"] { background:#dc2626; }
+    [data-sale-event-status="off"] { background:#15803d; }
   </style>
 </head>
 <body>
   <main>
     <h1>Starting Move .99</h1>
     <p>This internal page starts the saved Move .99 or Non-.99 cleanup workflow and opens eBay Active Listings.</p>
+    <section id="saleEventGate" class="sale-event-gate" hidden>
+      <h2>Is a sale event active?</h2>
+      <p>Move Non-.99 Out of Sale reads eBay's displayed prices. It only works correctly when the sale event is off.</p>
+      <div class="sale-event-actions">
+        <button type="button" data-sale-event-status="on">Sale Event Is ON</button>
+        <button type="button" data-sale-event-status="off">Sale Event Is OFF</button>
+      </div>
+    </section>
     <div id="status" class="status">Preparing...</div>
   </main>
   <script src="config.example.js"></script>

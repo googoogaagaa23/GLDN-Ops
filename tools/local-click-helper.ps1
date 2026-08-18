@@ -2,6 +2,8 @@ param(
   [int]$Port = 18765
 )
 
+$Host.UI.RawUI.WindowTitle = "GLDN local-click-helper"
+
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;

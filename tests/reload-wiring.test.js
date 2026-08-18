@@ -11,12 +11,14 @@ test("in-extension reload survives the old content-script context", () => {
   const ebay = fs.readFileSync(path.join(root, "extension", "ebay.js"), "utf8");
   const popupHtml = fs.readFileSync(path.join(root, "extension", "popup.html"), "utf8");
   const popupJs = fs.readFileSync(path.join(root, "extension", "popup.js"), "utf8");
+  const reloadJs = fs.readFileSync(path.join(root, "extension", "reload.js"), "utf8");
+  const startMove99Js = fs.readFileSync(path.join(root, "extension", "start-move99.js"), "utf8");
+  const snipingReviewJs = fs.readFileSync(path.join(root, "extension", "sniping-review.js"), "utf8");
 
   assert.match(background, /pending:\s*true/);
   assert.match(background, /resumeExtensionReloadRequest/);
+  assert.match(background, /chrome\.tabs\.query/);
   assert.match(background, /chrome\.tabs\.reload/);
-  assert.match(background, /reloadScope:\s*'requesting-tab-only'/);
-  assert.doesNotMatch(background, /MARKETPLACE_TAB_PATTERNS/);
   assert.doesNotMatch(poshmark, /setTimeout\(\(\) => location\.reload\(\), 2500\)/);
   assert.doesNotMatch(amazon, /setTimeout\(\(\) => location\.reload\(\), 2500\)/);
   assert.doesNotMatch(ebay, /setTimeout\(\(\) => location\.reload\(\), 2500\)/);
@@ -26,5 +28,37 @@ test("in-extension reload survives the old content-script context", () => {
   assert.match(popupJs, /getElementById\('updateExtension'\)\.addEventListener\('click'/);
   assert.match(popupJs, /type:\s*'reloadExtension'/);
   assert.match(popupJs, /type:\s*'updateExtension'/);
-  assert.match(popupJs, /sourceTabId:\s*activeTab\?\.id/);
+  assert.match(popupJs, /installReliableRuntimeReloadBridge/);
+  assert.match(popupJs, /changes\.lastExtensionReloadRequest\.newValue/);
+  assert.match(popupJs, /bridgeAcceptedAt/);
+  assert.match(popupJs, /chrome\.runtime\.reload\(\)/);
+  assert.match(background, /assertRuntimeReloadSafe/);
+  assert.match(background, /\['ebayMonthlyProfit', 'poshmarkProfitBackfill'\]\.includes\(entry\.key\)/);
+  assert.match(popupJs, /review-checkpoint-reload/);
+  assert.match(popupJs, /checkpointPreserved:\s*true/);
+  assert.match(popupJs, /function reviewCheckpointReloadIsSafe/);
+  assert.match(popupJs, /String\(entry\.key \|\| ''\)\.startsWith\('gldnOpenReviews:'\)/);
+  assert.match(popupJs, /Number\(review\?\.ownerTabId \|\| 0\) !== workerTabId/);
+  assert.match(popupJs, /checkpoint\.scope === 'resolve-ebay' \? 'amazon\.com' : 'poshmark\.com'/);
+  assert.match(popupJs, /async function autoRecoverBlockedReviewCheckpointReload/);
+  assert.match(popupJs, /gldnReviewCheckpointReloadRecovery/);
+  assert.match(popupJs, /review-checkpoint-auto-recovery/);
+  assert.match(popupJs, /if \(await autoRecoverBlockedReviewCheckpointReload\(\)\) return/);
+  assert.match(popupJs, /async function autoResumeDiscardedPoshmarkWorker/);
+  assert.match(popupJs, /worker\.discarded === true \|\| worker\.status === 'unloaded'/);
+  assert.match(popupJs, /type: 'resumePoshmarkProfitBackfill'/);
+  assert.match(reloadJs, /trustedMove99Recovery/);
+  assert.match(reloadJs, /pending\?\.phase === 'awaiting-submit-approval'/);
+  assert.match(reloadJs, /pending\?\.trustedSubmitDispatchAt/);
+  assert.match(reloadJs, /pending\?\.trustedSubmitReleasedAt/);
+  assert.match(reloadJs, /trustedSubmitRecoveryActivationCount/);
+  assert.match(reloadJs, /exactTabs\.length !== 1/);
+  assert.match(reloadJs, /trustedPoshmarkResume/);
+  assert.match(reloadJs, /String\(checkpoint\.runId \|\| ''\) !== runId/);
+  assert.match(reloadJs, /type: 'resumePoshmarkProfitBackfill'/);
+  assert.match(reloadJs, /chrome\.runtime\.reload\(\)/);
+  for (const source of [reloadJs, startMove99Js, snipingReviewJs]) {
+    assert.match(source, /Extension request timed out/);
+    assert.match(source, /chrome\.runtime\.lastError/);
+  }
 });

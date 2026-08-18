@@ -7,6 +7,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const dashboardPath = path.join(root, 'dashboard', 'GLDN_Ops_Dashboard_Code.gs');
 const extensionPath = path.join(root, 'extension', 'dashboard_apps_script', 'Code.gs');
+const livePath = path.join(root, 'apps-script-live', 'Code.js');
 const source = fs.readFileSync(dashboardPath, 'utf8');
 
 function loadDiscovery() {
@@ -53,6 +54,7 @@ function validFixture() {
 
 test('all deployed Apps Script copies stay identical', () => {
   assert.equal(fs.readFileSync(extensionPath, 'utf8'), source);
+  assert.equal(fs.readFileSync(livePath, 'utf8'), source);
 });
 
 test('read-only Tasks schema discovery survives task row reordering', () => {

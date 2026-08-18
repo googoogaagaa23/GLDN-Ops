@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GLDN Product Hunter</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand-lockup">
+      <img src="icons/icon48.png" width="40" height="40" alt="">
+      <div>
+        <h1>GLDN Product Hunter</h1>
+        <p id="version-line">Amazon discovery and listing-policy preflight</p>
+      </div>
+    </div>
+    <div class="policy-health" aria-label="Policy rule status">
+      <span class="health-dot" aria-hidden="true"></span>
+      <span id="policy-count">Loading rules</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="guard-band" aria-labelledby="ebay-guard-heading">
+      <div class="section-heading">
+        <div>
+          <h2 id="ebay-guard-heading">eBay Listing Guard</h2>
+          <p>Build a verified read-only index of this account's complete Active Listings before hunting. Exact SKU/ASIN matches are excluded; exact title matches require review.</p>
+        </div>
+        <span class="run-state" id="ebay-guard-state">Not loaded</span>
+      </div>
+      <div class="guard-summary">
+        <div><span>Indexed listings</span><strong id="ebay-indexed-listings">0</strong></div>
+        <div><span>Decoded ASINs</span><strong id="ebay-indexed-asins">0</strong></div>
+        <div><span>Exact titles</span><strong id="ebay-indexed-titles">0</strong></div>
+        <div><span>Account</span><strong id="ebay-index-account">Not scanned</strong></div>
+        <div><span>Last verified</span><strong id="ebay-index-time">Never</strong></div>
+      </div>
+      <div class="guard-progress" aria-live="polite">
+        <div><span id="ebay-scan-progress">Scan Active Listings before the first hunt.</span><span id="ebay-scan-count"></span></div>
+        <progress id="ebay-scan-progress-bar" max="1" value="0"></progress>
+      </div>
+      <div class="run-controls">
+        <button class="primary" id="ebay-scan-button" type="button">Scan Active Listings</button>
+        <button id="ebay-resume-button" type="button">Resume Scan</button>
+        <button class="danger-outline" id="ebay-stop-button" type="button">Stop Scan</button>
+        <button id="ebay-worker-button" type="button">Open eBay Worker</button>
+        <button id="ebay-import-button" type="button">Import Active Listings CSV</button>
+        <button id="ebay-clear-button" type="button">Clear Index</button>
+        <input id="ebay-import-file" type="file" accept=".csv,text/csv" hidden>
+      </div>
+    </section>
+
+    <section class="config-band" aria-labelledby="hunt-heading">
+      <div class="section-heading">
+        <div>
+          <h2 id="hunt-heading">New Hunt</h2>
+          <p>One keyword per line. The worker checks each product page before anything is marked Ready.</p>
+        </div>
+        <span class="run-state" id="run-state">Idle</span>
+      </div>
+
+      <div class="config-layout">
+        <label class="keywords-field">
+          <span>Keywords</span>
+          <textarea id="keywords" rows="8" placeholder="cordless tire inflator&#10;silicone kitchen organizer&#10;outdoor solar light"></textarea>
+        </label>
+
+        <div class="settings-grid">
+          <label>
+            <span>Computer</span>
+            <select id="computer-label">
+              <option value="M0">M0</option>
+              <option value="2">2</option>
+              <option value="6">6</option>
+              <option value="0">0</option>
+              <option value="M1">M1</option>
+            </select>
+          </label>
+          <label>
+            <span>Ready target</span>
+            <input id="desired-ready" type="number" min="1" max="2000" step="1" value="100">
+          </label>
+          <label>
+            <span>Pages per keyword</span>
+            <input id="max-pages" type="number" min="1" max="20" step="1" value="5">
+          </label>
+          <label>
+            <span>Candidate cap</span>
+            <input id="max-candidates" type="number" min="100" max="20000" step="100" value="5000">
+          </label>
+          <label>
+            <span>Minimum price</span>
+            <input id="min-price" type="number" min="0" max="100000" step="0.01" value="0">
+          </label>
+          <label>
+            <span>Maximum price</span>
+            <input id="max-price" type="number" min="0" max="100000" step="0.01" value="500">
+          </label>
+          <label>
+            <span>Minimum rating</span>
+            <input id="min-rating" type="number" min="0" max="5" step="0.1" value="0">
+          </label>
+          <label>
+            <span>Minimum reviews</span>
+            <input id="min-reviews" type="number" min="0" max="10000000" step="1" value="0">
+          </label>
+          <label>
+            <span>Do not reuse for</span>
+            <div class="input-suffix"><input id="reuse-days" type="number" min="0" max="365" step="1" value="60"><span>days</span></div>
+          </label>
+          <label>
+            <span>Page delay</span>
+            <div class="input-suffix"><input id="delay-ms" type="number" min="1000" max="15000" step="100" value="2200"><span>ms</span></div>
+          </label>
+          <label class="toggle-row"><input id="exclude-fashion" type="checkbox" checked><span>Exclude clothing, shoes, and fashion</span></label>
+          <label class="toggle-row"><input id="exclude-listed" type="checkbox" checked><span>Exclude products already active on eBay</span></label>
+          <label class="toggle-row"><input id="exclude-sponsored" type="checkbox" checked><span>Exclude sponsored Amazon results</span></label>
+          <label class="toggle-row"><input id="require-stock" type="checkbox" checked><span>Require visible in-stock evidence</span></label>
+        </div>
+      </div>
+
+      <div class="run-controls">
+        <button class="primary" id="start-button" type="button">Start Hunt</button>
+        <button id="pause-button" type="button">Pause</button>
+        <button id="resume-button" type="button">Resume</button>
+        <button class="danger-outline" id="stop-button" type="button">Stop</button>
+        <button id="reset-button" type="button">Reset</button>
+        <button id="worker-button" type="button">Open Amazon Worker</button>
+      </div>
+      <div id="notice" class="notice" role="status" aria-live="polite">Ready.</div>
+    </section>
+
+    <section class="metrics-band" aria-label="Hunt totals">
+      <div><span>Discovered</span><strong id="metric-discovered">0</strong></div>
+      <div><span>Queued</span><strong id="metric-queued">0</strong></div>
+      <div class="ready"><span>Ready</span><strong id="metric-ready">0</strong></div>
+      <div class="review"><span>Review</span><strong id="metric-review">0</strong></div>
+      <div class="blocked"><span>Blocked</span><strong id="metric-blocked">0</strong></div>
+      <div><span>Excluded</span><strong id="metric-excluded">0</strong></div>
+      <div><span>Incomplete</span><strong id="metric-incomplete">0</strong></div>
+    </section>
+
+    <section class="results-band" aria-labelledby="results-heading">
+      <div class="results-toolbar">
+        <div>
+          <h2 id="results-heading">Products</h2>
+          <p id="results-summary">No hunt loaded.</p>
+        </div>
+        <div class="filter-controls">
+          <input id="result-search" type="search" placeholder="Search title, ASIN, keyword">
+          <select id="status-filter" aria-label="Filter products by status">
+            <option value="all">All statuses</option>
+            <option value="ready">Ready</option>
+            <option value="review">Review</option>
+            <option value="blocked">Blocked</option>
+            <option value="excluded">Excluded</option>
+            <option value="incomplete">Incomplete</option>
+            <option value="queued">Queued</option>
+          </select>
+          <button class="ready-button" id="copy-ready-button" type="button">Copy Ready Links</button>
+          <button id="audit-button" type="button">Download Audit CSV</button>
+          <button id="bulk-poster-button" type="button">Open EcomSniper Bulk Poster</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Product</th>
+              <th>ASIN</th>
+              <th>Amazon</th>
+              <th>Keyword</th>
+              <th>Decision</th>
+            </tr>
+          </thead>
+          <tbody id="results-body">
+            <tr><td colspan="6" class="empty-state">Start a hunt to collect products.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <span id="page-summary">0 products</span>
+        <div>
+          <button id="previous-page" type="button">Previous</button>
+          <span id="page-number">Page 1 of 1</span>
+          <button id="next-page" type="button">Next</button>
+        </div>
+      </div>
+    </section>
+
+    <details class="log-band">
+      <summary>Run Log</summary>
+      <ol id="log-list"><li>No run events yet.</li></ol>
+    </details>
+  </main>
+
+  <script src="hunter-core.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

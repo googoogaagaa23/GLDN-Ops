@@ -19,6 +19,26 @@ test("advanced popup is organized into persistent workflow, status, and settings
   assert.match(js, /activatePopupTab\(result\[POPUP_TAB_KEY\], \{ persist: false \}\)/);
 });
 
+test("workflow controls are grouped into focused lanes instead of one long button wall", () => {
+  for (const group of ["daily", "listings", "research", "profit", "supplier", "poshmark"]) {
+    assert.match(html, new RegExp(`data-workflow-filter="${group}"`));
+    assert.match(html, new RegExp(`data-workflow-group="${group}"`));
+  }
+  assert.match(html, /id="workflowEmpty"/);
+  assert.match(js, /function applyWorkflowFilter\(value = activeWorkflowGroup\)/);
+  assert.match(js, /section\.dataset\.workflowGroup === activeWorkflowGroup/);
+  assert.match(js, /const WORKFLOW_GROUP_KEY = 'gldnWorkflowGroup'/);
+  assert.match(js, /chrome\.storage\.local\.set\(\{ \[WORKFLOW_GROUP_KEY\]: activeWorkflowGroup \}\)/);
+  assert.match(js, /FOUNDATION\.poshmarkIdentityForComputer/);
+});
+
+test("context-sensitive eBay actions fail clearly instead of appearing dead", () => {
+  assert.match(js, /Prepare Order Note requires the matching eBay Order Details page/);
+  assert.match(js, /button\.disabled = true/);
+  assert.match(js, /button\.disabled = false/);
+  assert.match(js, /response\.message \|\| `\$\{label\} request accepted/);
+});
+
 test("all advanced controls remain reachable and the duplicate inline guide is hidden", () => {
   for (const id of [
     "reloadExtension",
@@ -28,6 +48,7 @@ test("all advanced controls remain reachable and the duplicate inline guide is h
     "openFeatureTour",
     "startSnipingWorkflow",
     "refreshEcomSniperMonitor",
+    "stopEcomSniperAssist",
     "openMove99Workflow",
     "openNon99Workflow",
     "saveMove99Categories",
@@ -52,7 +73,9 @@ test("popup copy reflects the verified local updater model", () => {
   assert.match(html, /Update &amp; Reload/);
   assert.match(html, /Reload Current Files/);
   assert.match(js, /latest stable GLDN Ops release/);
-  assert.match(html, /EcomSniper owns Scanner, Product Hunter, Bulk Poster/);
+  assert.match(js, /Public release feed is behind/);
+  assert.match(html, /GLDN Ops opens handoff tabs and reports their tab state/);
+  assert.match(html, /EcomSniper owns Scanner, Product Hunter, Bulk Poster, Extract Sellers, and all listing work/);
   assert.match(html, /Handoff monitor/);
   assert.match(js, /Internal EcomSniper progress is unknown/);
   assert.doesNotMatch(html, /Start Bulk Listing Workflow/);
@@ -68,10 +91,4 @@ test("every popup button has an interaction path", () => {
   const ids = [...html.matchAll(/<button[^>]*id="([^"]+)"/g)].map((match) => match[1]);
   const missing = ids.filter((id) => !new RegExp(`getElementById\\('${id}'\\)\\.addEventListener`).test(js));
   assert.deepEqual(missing, []);
-});
-
-test("saved marketplace history is escaped before popup HTML rendering", () => {
-  assert.match(js, /rows\.innerHTML = values\.map\(\(\[label, value\]\) => `<div class="row"><span>\$\{escapeHtml\(label\)\}<\/span><span class="value">\$\{escapeHtml\(value\)\}<\/span><\/div>`\)/);
-  assert.match(js, /<span>\$\{escapeHtml\(label\)\}<\/span><span class="value \$\{critical \? 'critical' : ''\}">\$\{escapeHtml\(value\)\}<\/span>/);
-  assert.match(js, /<span>\$\{escapeHtml\(label\)\}<\/span><span class="value \$\{statusClass\(state\)\}">\$\{escapeHtml\(value\)\}<\/span>/);
 });

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Variation Listings | GLDN Ops</title>
+  <link rel="stylesheet" href="variation-audit.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">GLDN OPS / EBAY</p>
+      <h1>Variation Listings</h1>
+      <p class="subtitle">Find every active parent listing with variations, review the exact item numbers, and stop before ending anything.</p>
+    </div>
+    <div class="topbar-actions">
+      <button id="scanVariations" class="button primary" type="button">Scan &amp; Prepare Review</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="import-band" aria-label="Automated eBay variation scan">
+      <div>
+        <strong>One automated signed-in scan</strong>
+        <span>GLDN Ops reads every Active Listing, identifies true variation parents through eBay's review data, and opens the exact first batch.</span>
+      </div>
+      <span id="reportIdentity">Not scanned yet</span>
+    </section>
+
+    <section class="metrics" aria-label="Variation report summary">
+      <div><span>Report rows</span><strong id="reportRows">0</strong></div>
+      <div><span>Unique listings</span><strong id="uniqueListings">0</strong></div>
+      <div><span>Variation parents</span><strong id="variationListings">0</strong></div>
+      <div><span>Completed</span><strong id="completedListings">0</strong></div>
+      <div><span>Remaining</span><strong id="remainingListings">0</strong></div>
+      <div><span>Selected next</span><strong id="selectedListings">0</strong></div>
+    </section>
+
+    <section class="toolbar" aria-label="Variation listing controls">
+      <label class="search-field" for="listingSearch">
+        <span>Search</span>
+        <input id="listingSearch" type="search" placeholder="Title, item number, SKU, category">
+      </label>
+      <button id="selectAll" class="button secondary" type="button">Select All Variation Parents</button>
+      <button id="clearSelection" class="button ghost" type="button">Clear Selection</button>
+      <button id="downloadAudit" class="button secondary" type="button" disabled>Download Audit CSV</button>
+      <button id="prepareEndReview" class="button danger" type="button" disabled>Prepare Next Batch</button>
+    </section>
+
+    <div id="status" class="status" role="status" aria-live="polite">Click Scan &amp; Prepare Review. No report download or import is required.</div>
+
+    <section id="currentReview" class="review-band" aria-label="Current eBay variation review" hidden>
+      <div class="review-summary">
+        <span>Current eBay review</span>
+        <strong id="currentReviewCount">0 exact listings</strong>
+        <small id="currentReviewReport">No report</small>
+      </div>
+      <button id="focusReview" class="button secondary" type="button">Open eBay Review</button>
+      <label class="approval-field" for="approvalToken">
+        <span>Exact approval token</span>
+        <input id="approvalToken" type="text" autocomplete="off" spellcheck="false">
+        <small id="approvalInstruction">Inspect the eBay rows before approving this exact batch.</small>
+      </label>
+      <button id="approveEnd" class="button danger" type="button" disabled>End Exact Batch</button>
+    </section>
+
+    <section class="table-wrap" aria-label="Variation listings">
+      <table>
+        <thead>
+          <tr>
+            <th class="check-cell"><input id="pageSelection" type="checkbox" aria-label="Select visible rows"></th>
+            <th>Item number</th>
+            <th>Listing</th>
+            <th>Variation evidence</th>
+            <th>Price range</th>
+            <th>Qty</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="listingRows">
+          <tr><td colspan="7" class="empty">Run the automated scan to begin.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer class="pagination">
+      <span id="rangeLabel">0 listings</span>
+      <div>
+        <button id="previousPage" class="button ghost" type="button" disabled>Previous</button>
+        <span id="pageLabel">Page 0 of 0</span>
+        <button id="nextPage" class="button ghost" type="button" disabled>Next</button>
+      </div>
+    </footer>
+
+    <section class="safety-band">
+      <strong>Ending is approval-gated</strong>
+      <span>Scanning and review preparation are automatic. GLDN Ops prepares at most 200 exact parent item numbers in one native eBay End review. Ending remains blocked until the exact token <code>APPROVE END VARIATIONS N</code> is entered.</span>
+    </section>
+  </main>
+
+  <script src="variation-core.js"></script>
+  <script src="variation-audit.js"></script>
+</body>
+</html>

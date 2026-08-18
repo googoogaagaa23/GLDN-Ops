@@ -1,6 +1,6 @@
 # Install GLDN Ops Locally
 
-GLDN Ops uses one unpacked extension folder per Windows computer. Chrome Web Store approval, Chrome policy, Git, Node.js and the old click helper are not required.
+GLDN Ops gives fresh Chrome profiles one stable unpacked folder per Windows computer. Existing operational profiles keep their current loaded folder so Chrome identity and saved settings remain intact. Chrome Web Store approval, Chrome policy, Git, Node.js and the old click helper are not required.
 
 ## First computer/profile setup
 
@@ -13,8 +13,6 @@ GLDN Ops uses one unpacked extension folder per Windows computer. Chrome Web Sto
 7. Open GLDN Ops and choose the computer once.
 8. Confirm **Automatic connection ready** in Status.
 9. Run **Test Connection** and **Run Feature Health Check**.
-
-If GLDN Ops was previously loaded from a project or Downloads folder, run the v3.11.0 Setup once to upgrade the updater agent. You do not need to remove or reload the extension from a different folder: the updated agent detects the exact copy Chrome already uses and preserves its profile settings. After that, use **Update & Reload** for later releases.
 
 Use the private GLDN Ops package for installation. It contains the local-only dashboard configuration and seeds every Chrome profile automatically; no dashboard code entry is required. The public source package intentionally excludes that private configuration.
 
@@ -31,7 +29,20 @@ The computer choice derives the marketplace identity automatically:
 
 ## More Chrome profiles on the same computer
 
-Repeat only the Chrome steps above in each intended profile and select the same `%LOCALAPPDATA%\GLDN Ops\extension` folder. The dashboard connection seeds automatically. Each Chrome profile keeps its own computer, Amazon profile, category settings and history. The files update once for the whole Windows computer.
+For each fresh profile that does not already run GLDN Ops, repeat only the Chrome steps above and select the same `%LOCALAPPDATA%\GLDN Ops\extension` folder. The dashboard connection seeds automatically. Each Chrome profile keeps its own computer, Amazon profile, category settings and history. The shared stable files update once for the whole Windows computer.
+
+## Existing profile already using GLDN Ops
+
+Run Setup once to install or repair the updater, but keep the extension's current
+loaded folder in place. **Update & Reload** discovers that exact folder and
+updates it in place, preserving the profile's existing Chrome extension identity
+and saved settings.
+
+Do not remove the working extension and load a different folder just to change
+its location. If you intentionally want to move an existing profile to the
+stable folder, first use **Copy Settings Backup**, load the stable folder, restore
+the backup, and verify the computer identity, dashboard connection, Store
+categories, and history before removing the old installation.
 
 ## Update
 
@@ -44,8 +55,8 @@ The updater:
 3. verifies the published SHA-256 and manifest version before changing the install;
 4. saves a rollback snapshot;
 5. preserves `extension\config.js` and Chrome storage;
-6. resolves the requesting Chrome profile's exact loaded GLDN Ops folder, then replaces and validates those runtime files transactionally;
-7. reloads the current profile immediately and other shared-folder profiles within five minutes;
+6. replaces and validates the runtime files transactionally;
+7. reloads the current profile immediately and other profiles using that same folder within five minutes;
 8. restores the prior runtime automatically if any replacement step fails.
 
 **Reload Current Files** restarts the version already installed without downloading anything.

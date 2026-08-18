@@ -28,26 +28,32 @@ $requiredFiles = @(
   "docs\LOCAL_DEPLOYMENT.md",
   "docs\LIVE_TEST_VIDEO_STANDARD.md",
   "docs\MASTER_FEATURE_MATRIX.md",
-  "dashboard\GLDN_Ops_Dashboard_Code.gs",
+  "docs\DISCORD_RESEARCH.md",
+  "docs\GUIDE_CATALOG.json",
+  "docs\FEATURE_GUIDE.md",
   "extension\manifest.json",
   "extension\README.txt",
-  "extension\dashboard_apps_script\Code.gs",
+  "extension\guide.html",
+  "extension\onboarding.html",
   "extension\sniping-review.html",
   "extension\sniping-review.css",
   "extension\sniping-review.js",
+  "extension\listing-preflight.html",
+  "extension\listing-preflight.css",
+  "extension\listing-preflight-core.js",
+  "extension\listing-preflight.js",
+  "extension\listing-preflight-rules.json",
+  "extension\policy-listing-audit.html",
+  "extension\policy-listing-audit.css",
+  "extension\policy-listing-audit-core.js",
+  "extension\policy-listing-audit.js",
+  "tools\listing-preflight\publish-reviewed-rules.ps1",
   "tools\build-local-package.ps1",
-  "tools\build-feature-guides.cjs",
-  "tools\build-webstore-zip.ps1",
   "tools\local-extension-manager.ps1",
   "tools\update.ps1",
   "tools\gldn-update-core.ps1",
   "tools\gldn-update-agent.ps1",
-  "tools\gldn-control.ps1",
   "tools\install-update-agent.ps1",
-  "tools\test-dashboard-contract.ps1",
-  "tools\test-dashboard-live-contract.ps1",
-  "tools\test-extension-health.ps1",
-  "tools\test-poshmark-computer-guard.ps1",
   "tests\local-install-fixture.ps1",
   "tests\one-time-installer-fixture.ps1",
   "tests\local-updater-fixture.ps1",
@@ -55,7 +61,9 @@ $requiredFiles = @(
   "tests\poshmark-profit-audit.test.js",
   "tests\ebay-profit-audit.test.js",
   "tests\dashboard-profit-upsert.test.js",
-  "tests\reload-wiring.test.js"
+  "tests\reload-wiring.test.js",
+  "tests\listing-preflight.test.js",
+  "tests\policy-listing-audit.test.js"
 )
 
 $missing = @()
@@ -77,6 +85,7 @@ $releaseNotePath = Join-Path $repoRoot "releases\$tagVersion.md"
 $releaseNoteText = Get-Content -Raw -LiteralPath $releaseNotePath
 $changelogText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "CHANGELOG.md")
 $matrixText = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "docs\MASTER_FEATURE_MATRIX.md")
+$guideCatalog = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "docs\GUIDE_CATALOG.json") | ConvertFrom-Json
 
 $versionMisses = @()
 foreach ($file in $versionFiles) {
@@ -98,6 +107,9 @@ if ($changelogText -notmatch "(?m)^##\s+$([regex]::Escape($tagVersion))\s+-") {
 }
 if ($matrixText -notmatch "Current local manifest:\s*$([regex]::Escape($plainVersion))\b") {
   throw "MASTER_FEATURE_MATRIX.md does not identify current manifest $plainVersion."
+}
+if ([string]$guideCatalog.version -ne $plainVersion) {
+  throw "GUIDE_CATALOG.json identifies $($guideCatalog.version), not current manifest $plainVersion."
 }
 if ($matrixText -notmatch '(?m)^\| F-14 \|') {
   throw "MASTER_FEATURE_MATRIX.md is missing the F-14 release-discipline gate."
@@ -157,20 +169,12 @@ foreach ($file in $dynamicVersionFiles) {
   }
 }
 
-$nodeCommand = Get-Command "node.exe" -ErrorAction SilentlyContinue
-if (-not $nodeCommand) { $nodeCommand = Get-Command "node" -ErrorAction SilentlyContinue }
-$bundledNode = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
-if ($nodeCommand) {
-  $node = $nodeCommand.Source
-} elseif (Test-Path $bundledNode) {
-  $node = $bundledNode
-} else {
-  throw "Node.js is required for the release gate. Install Node.js or run this check from Codex."
-}
+$node = "C:\Users\afarr\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
+if (-not (Test-Path $node)) { $node = "node" }
 
 & $node -e @"
 const fs = require('fs');
-for (const f of ['extension/config.example.js','extension/foundation.js','extension/shared.js','extension/profit-audit.js','extension/sniping-audit.js','extension/sniping-review.js','extension/ebay.js','extension/amazon.js','extension/walmart.js','extension/ecomsniper.js','extension/poshmark.js','extension/background.js','extension/popup.js','extension/start-move99.js']) {
+for (const f of ['extension/config.example.js','extension/foundation.js','extension/shared.js','extension/profit-audit.js','extension/sniping-audit.js','extension/subscribe-save.js','extension/sniping-review.js','extension/listing-preflight-core.js','extension/listing-preflight.js','extension/policy-listing-audit-core.js','extension/policy-listing-audit.js','extension/ebay.js','extension/amazon.js','extension/walmart.js','extension/ecomsniper.js','extension/poshmark.js','extension/background.js','extension/popup.js','extension/start-move99.js']) {
   new Function(fs.readFileSync(f, 'utf8'));
   console.log('parse ok', f);
 }
@@ -191,6 +195,14 @@ if ($LASTEXITCODE -ne 0) {
   throw "Stable updater metadata build failed."
 }
 
+& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "tools\stage-public-release.ps1") `
+  -Version $plainVersion `
+  -OutputRoot (Join-Path $repoRoot "dist\public-release-v$plainVersion") `
+  -Force
+if ($LASTEXITCODE -ne 0) {
+  throw "Public release artifact staging failed."
+}
+
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "tests\local-install-fixture.ps1") -PackagePath (Join-Path $repoRoot "dist\GLDN-Ops-latest.zip")
 if ($LASTEXITCODE -ne 0) {
   throw "Local clean-install/update fixture failed."
@@ -203,7 +215,7 @@ if ($LASTEXITCODE -ne 0) {
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repoRoot "tests\local-updater-fixture.ps1")
 if ($LASTEXITCODE -ne 0) {
-  throw "Local updater fixture failed."
+  throw "Updater update/rollback/checksum/loopback fixture failed."
 }
 
 if (-not $SkipDashboardContract) {
@@ -230,11 +242,12 @@ if ($LASTEXITCODE -ne 0) {
 
 $dashboardHash = (Get-FileHash -Algorithm SHA256 (Join-Path $repoRoot "dashboard\GLDN_Ops_Dashboard_Code.gs")).Hash
 $embeddedHash = (Get-FileHash -Algorithm SHA256 (Join-Path $repoRoot "extension\dashboard_apps_script\Code.gs")).Hash
-if ($dashboardHash -ne $embeddedHash) {
-  throw "Canonical and packaged dashboard Apps Script copies are not identical."
+$liveHash = (Get-FileHash -Algorithm SHA256 (Join-Path $repoRoot "apps-script-live\Code.js")).Hash
+if ($dashboardHash -ne $embeddedHash -or $dashboardHash -ne $liveHash) {
+  throw "Dashboard Apps Script mirrors are not identical."
 }
 
-$tasksScript = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "dashboard\GLDN_Ops_Dashboard_Code.gs")
+$tasksScript = Get-Content -Raw -LiteralPath (Join-Path $repoRoot "apps-script-live-3\Timestamps.js")
 if ($tasksScript -match 'percent\s*<\s*90') { throw "Tasks tracking alert still contains the retired 90% threshold." }
 if ($tasksScript -notmatch 'percent\s*<\s*85') { throw "Tasks tracking alert is missing the 85% threshold." }
 

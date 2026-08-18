@@ -26,7 +26,7 @@ $body = @{
   action = "contractTest"
 } | ConvertTo-Json -Compress
 
-$response = Invoke-RestMethod -Uri $urlMatch.Groups[1].Value -Method Post -ContentType "application/json" -Body $body -TimeoutSec 30
+$response = Invoke-RestMethod -Uri $urlMatch.Groups[1].Value -Method Post -ContentType "text/plain;charset=utf-8" -Body $body -TimeoutSec 30
 if (-not $response.ok) {
   throw "Live dashboard contract failed: $($response.error)"
 }

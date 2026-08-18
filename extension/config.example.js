@@ -41,7 +41,13 @@ globalThis.GLDN_CONFIG = Object.freeze({
       sourceStoreCategoryIds: ["44678633011", "1"],
       sourceCategories: ["Not .99", "Other"],
       destinationCategory: "Abra Cadabra .99",
-      backburnerItemIds: ["318521296686"]
+      backburnerItemIds: [
+        "318521296686",
+        "318572900833",
+        "318576390693",
+        "318576892301",
+        "318601468678"
+      ]
     },
     CLICKNCARRY: {
       sourceCategories: ["BEST SELLERS"],
@@ -56,11 +62,12 @@ globalThis.GLDN_CONFIG = Object.freeze({
     FANCYFI: {
       sourceCategories: ["SNI", "SNIPO v2"],
       destinationCategory: "DAILY",
+      sourceStoreCategoryIds: ["23845190015", "24051049015"],
       backburnerItemIds: []
     },
     HEARTSTONE: {
-      sourceCategories: ["Not .99", "Other"],
-      destinationCategory: "Abra Cadabra .99",
+      sourceCategories: ["SNIP'D"],
+      destinationCategory: ".99",
       backburnerItemIds: []
     }
   },

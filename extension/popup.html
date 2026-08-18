@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>GLDN Ops</title>
-  <link rel="stylesheet" href="themes.css">
   <style>
     * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
     body { margin: 0; width: 430px; max-height: 600px; overflow-y: auto; padding: 12px; color: #111827; background: #f8fafc; scrollbar-width:thin; scrollbar-color:#64748b transparent; }
@@ -69,16 +68,27 @@
     #updateExtension, #openFeatureTour, #updaterStatus { grid-column:1 / -1; }
     #updaterStatus { margin:0; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; color:#475569; background:#f8fafc; font-size:11px; line-height:1.35; }
     #updaterStatus.ready { color:#166534; border-color:#86efac; background:#f0fdf4; }
+    #updaterStatus.warning { color:#854d0e; border-color:#facc15; background:#fefce8; }
     #updaterStatus.error { color:#991b1b; border-color:#fca5a5; background:#fff1f2; }
     .popup-nav { position:sticky; top:0; z-index:20; display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; background:rgba(248,250,252,.96); backdrop-filter:blur(10px); }
     .popup-tab { min-height:36px; margin:0; padding:7px 5px; border:1px solid transparent; background:transparent; color:#475569; }
     .popup-tab[aria-selected="true"] { border-color:#1d4ed8; background:#2563eb; color:#fff; }
+    .workflow-filter { display:grid; grid-template-columns:repeat(3, 1fr); gap:5px; margin-top:10px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; background:#f1f5f9; }
+    .workflow-filter button { min-height:34px; margin:0; padding:6px 5px; border:1px solid transparent; background:transparent; color:#475569; font-size:11px; }
+    .workflow-filter button[aria-pressed="true"] { border-color:#2563eb; background:#dbeafe; color:#1e3a8a; }
+    .workflow-empty { padding:18px 10px; text-align:center; color:#64748b; font-size:12px; }
     [data-popup-section][hidden] { display:none !important; }
     #status { position:sticky; top:50px; z-index:19; min-height:0; margin:8px 0 0; padding:0; border-radius:8px; font-size:12px; color:#166534; background:transparent; }
     #status:not(:empty) { min-height:34px; padding:9px 10px; border:1px solid #86efac; background:#f0fdf4; }
     .section-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; }
     .section-heading h2 { margin-bottom:4px; }
     .section-kicker { font-size:10px; font-weight:700; text-transform:uppercase; color:#64748b; }
+    .sale-event-dialog { width:min(390px, calc(100vw - 24px)); padding:0; border:1px solid #94a3b8; border-radius:8px; color:#111827; background:#fff; box-shadow:0 18px 48px rgba(15,23,42,.32); }
+    .sale-event-dialog::backdrop { background:rgba(15,23,42,.58); }
+    .sale-event-dialog-content { padding:16px; }
+    .sale-event-dialog h2 { margin:0 0 8px; font-size:17px; }
+    .sale-event-dialog p { margin:0 0 9px; color:#475569; font-size:12px; line-height:1.45; }
+    .sale-event-dialog .button-row button { margin-top:5px; }
 
     html[data-theme="dark"] body { color:#e5e7eb; background:#0f172a; }
     html[data-theme="dark"] .subtitle,
@@ -109,7 +119,12 @@
     html[data-theme="dark"] body { background:#0b1120; }
     html[data-theme="dark"] .popup-nav { border-color:#334155; background:rgba(15,23,42,.96); }
     html[data-theme="dark"] .popup-tab { color:#cbd5e1; }
+    html[data-theme="dark"] .workflow-filter { border-color:#334155; background:#111827; }
+    html[data-theme="dark"] .workflow-filter button { color:#cbd5e1; }
+    html[data-theme="dark"] .workflow-filter button[aria-pressed="true"] { border-color:#3b82f6; background:#1e3a5f; color:#dbeafe; }
     html[data-theme="dark"] #status:not(:empty) { border-color:#166534; background:#0d2418; color:#bbf7d0; }
+    html[data-theme="dark"] .sale-event-dialog { border-color:#64748b; color:#f8fafc; background:#111827; }
+    html[data-theme="dark"] .sale-event-dialog p { color:#cbd5e1; }
     html[data-theme="graphite"] body { color:#f8fafc; background:#18181b; }
     html[data-theme="graphite"] .section-card { border-color:#3f3f46; background:#27272a; }
     html[data-theme="graphite"] .section,
@@ -195,6 +210,7 @@
       .header, .quick-actions, .popup-nav, #status, [data-popup-section] { max-width:760px; margin-left:auto; margin-right:auto; }
     }
   </style>
+  <link rel="stylesheet" href="themes.css">
 </head>
 <body>
   <div class="header">
@@ -221,18 +237,28 @@
   </nav>
   <div id="status" role="status" aria-live="polite"></div>
 
+  <nav class="workflow-filter" data-popup-section="workflows" aria-label="Workflow category">
+    <button type="button" aria-pressed="true" data-workflow-filter="daily">Daily</button>
+    <button type="button" aria-pressed="false" data-workflow-filter="listings">Listings</button>
+    <button type="button" aria-pressed="false" data-workflow-filter="research">Research</button>
+    <button type="button" aria-pressed="false" data-workflow-filter="profit">Profit</button>
+    <button type="button" aria-pressed="false" data-workflow-filter="supplier">Supplier</button>
+    <button type="button" aria-pressed="false" data-workflow-filter="poshmark">Poshmark</button>
+  </nav>
+  <div id="workflowEmpty" class="workflow-empty" data-popup-section="workflows" hidden>No workflows are available for this computer in this category.</div>
+
   <section class="section-card" data-popup-section="settings" hidden>
     <h2>Computer profile</h2>
     <p class="hint">Choose the computer once per Chrome profile. The marketplace account is derived automatically.</p>
     <label for="computer">Computer</label>
     <select id="computer">
       <option value="">Select computer</option>
-      <option value="0">0</option>
-      <option value="2">2</option>
       <option value="M0">M0</option>
+      <option value="2">2</option>
       <option value="6">6</option>
+      <option value="0">0</option>
       <option value="M1">M1</option>
-      <option value="7">7</option>
+      <option value="7">7 - Posh</option>
     </select>
     <label for="ebayAccount">Marketplace account</label>
     <input id="ebayAccount" type="text" readonly>
@@ -243,13 +269,14 @@
     </div>
   </section>
 
-  <section id="ecomSniperSection" class="section-card" data-platform="ebay" data-popup-section="workflows">
+  <section id="ecomSniperSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="research">
     <h2>EcomSniper Handoffs</h2>
     <p class="hint">GLDN Ops opens handoff tabs and reports their tab state. EcomSniper owns Scanner, Product Hunter, Bulk Poster, Extract Sellers, and all listing work.</p>
     <button id="startSnipingWorkflow" class="secondary" type="button">Start Sniping Workflow</button>
     <button id="openEcomSniperCompetitorScanner" class="secondary" type="button">Open EcomSniper Competitor Scanner</button>
     <button id="prepareProductHunterClipboard" class="primary" type="button">Prepare Product Hunter Handoff</button>
     <button id="openEcomSniperProductHunter" class="secondary" type="button">Open EcomSniper Product Hunter</button>
+    <button id="preflightBulkPosterClipboard" class="primary" type="button">Preflight Bulk Poster Links</button>
     <div id="ecomSniperMonitorCard" class="helper-card">
       <div class="helper-title">
         <span>Handoff monitor</span>
@@ -258,6 +285,7 @@
       <div id="ecomSniperMonitorText">No GLDN-observable EcomSniper handoff is active.</div>
       <div class="button-row">
         <button id="refreshEcomSniperMonitor" class="secondary" type="button">Refresh Status</button>
+        <button id="stopEcomSniperAssist" class="warning" type="button">Stop Handoff</button>
       </div>
     </div>
     <div class="preset-box" id="productHunterClipboardReport">Product Hunter titles: Not prepared</div>
@@ -266,7 +294,14 @@
     </div>
   </section>
 
-  <section id="ebayDailySection" class="section-card" data-platform="ebay" data-popup-section="workflows">
+  <section id="listingPreflightSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="research">
+    <h2>Listing Preflight</h2>
+    <p class="hint">Check Amazon links, ASINs, and titles against reviewed official eBay policies and sourced community restriction reports before sending products to EcomSniper.</p>
+    <button id="openListingPreflight" class="primary" type="button">Open Listing Preflight</button>
+    <div class="preset-box">Paste links manually or use Preflight Bulk Poster Links after Product Hunter. Ready links stay separate from Review and Block results. No eBay API is used, and a clear result is not an eBay approval.</div>
+  </section>
+
+  <section id="ebayDailySection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="daily">
     <h2>eBay daily actions</h2>
     <p class="hint">Start the workflow here. The floating page panel appears only while work or review is active.</p>
     <button type="button" class="primary" data-ebay-action="mark-shipped">Mark as Shipped</button>
@@ -276,7 +311,7 @@
     <button type="button" class="primary" data-ebay-action="prepare-order-note">Prepare Order Note</button>
   </section>
 
-  <section id="move99Section" class="section-card" data-platform="ebay" data-popup-section="workflows">
+  <section id="move99Section" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="listings">
     <h2>Move .99 categories</h2>
     <p class="hint">Set these for the selected eBay account. Use the exact Store category names shown inside that account.</p>
     <label for="move99SourceCategories">Source Store categories</label>
@@ -293,19 +328,53 @@
     <div class="current">Current .99 destination: <strong id="currentMove99Destination">Not set</strong></div>
   </section>
 
-  <section id="poshmarkSection" class="section-card" data-platform="poshmark" data-popup-section="workflows" style="display:none">
+  <section id="variationListingsSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="listings">
+    <h2>Variation listings</h2>
+    <p class="hint">Scan every active listing automatically, review the exact variation parents, and approve each exact End batch inside GLDN Ops.</p>
+    <button id="openVariationAudit" class="warning" type="button">Find / End Variation Listings</button>
+  </section>
+
+  <section id="policyListingAuditSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="listings">
+    <h2>Existing listings policy audit</h2>
+    <p class="hint">Scan every active listing against reviewed policy rules. Review and Needs Review are never ended; exact Block batches require a visible eBay review and typed approval.</p>
+    <button id="openPolicyListingAudit" class="warning" type="button">Scan Existing Listings</button>
+  </section>
+
+  <section id="ebayMonthlyProfitSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="profit">
+    <h2>Monthly eBay profit</h2>
+    <p class="hint">Reads a complete month of signed-in eBay orders, keeps the saved-note profit, and queues every order for an independent exact Amazon order-cost match.</p>
+    <button id="openEbayMonthlyProfit" class="primary" type="button">Open Monthly eBay Profit</button>
+    <label for="ebayCostResolutionMonth">Amazon-cost month</label>
+    <input id="ebayCostResolutionMonth" type="month">
+    <button id="resolveEbayCosts" class="secondary" type="button">Resolve eBay Amazon Costs</button>
+    <div id="ebayCostResolutionStatus" class="preset-box">Independent Amazon-cost matching: no checkpoint</div>
+    <div class="preset-box">Name this Amazon profile once in Setup, then run the resolver here. Review the exact profile and live count before approving. Exact SKU-linked order costs fill the same shared reconciliation rows; every miss records this profile and stays open for a different signed-in Amazon profile.</div>
+  </section>
+
+  <section id="amazonSubscribeSaveSection" class="section-card" data-popup-section="workflows" data-workflow-group="supplier">
+    <h2>Amazon Subscribe &amp; Save</h2>
+    <p class="hint">Scans the signed-in Amazon account in this Chrome profile. It excludes recommendations and stops at an exact-count review before cancelling anything.</p>
+    <button id="openAmazonSubscribeSave" class="warning" type="button">Scan Active Subscriptions</button>
+    <div id="amazonSubscribeSaveStatus" class="preset-box">No Subscribe &amp; Save run saved in this Chrome profile.</div>
+  </section>
+
+  <section id="poshmarkSection" class="section-card" data-platform="poshmark" data-popup-section="workflows" data-workflow-group="poshmark" style="display:none">
     <h2>Poshmark tools</h2>
     <p class="hint">Use these from any Poshmark Chrome profile. Computer 7 is Poshmark-only, while M0 can also have Poshmark work.</p>
     <button id="openPoshmarkStats" class="primary" type="button">Open Poshmark Stats</button>
     <button id="openPoshmarkOrders" class="secondary" type="button">Open Poshmark Orders</button>
     <label for="poshmarkBackfillScope">Historical profit range</label>
     <select id="poshmarkBackfillScope">
+      <option value="month">One month</option>
       <option value="pilot">Pilot - 10 sales</option>
       <option value="incremental">New since last sync</option>
       <option value="last90">Last 90 days</option>
       <option value="all">All sales</option>
     </select>
+    <label for="poshmarkBackfillMonth">Month</label>
+    <input id="poshmarkBackfillMonth" type="month" value="2026-04">
     <button id="startPoshmarkBackfill" class="primary" type="button">Start Historical Profit Backfill</button>
+    <button id="resolvePoshmarkCosts" class="secondary" type="button">Resolve Missing Amazon Costs</button>
     <button id="resumePoshmarkBackfill" class="secondary" type="button">Resume / Open Review</button>
     <button id="stopPoshmarkBackfill" class="warning" type="button">Pause at Safe Checkpoint</button>
     <div id="poshmarkBackfillStatus" class="preset-box">Historical profit: no checkpoint</div>
@@ -437,7 +506,7 @@
     <input id="uiOpacity" type="range" min="0" max="100" step="1" value="75">
   </section>
 
-  <section class="section-card" data-popup-section="workflows">
+  <section class="section-card" data-popup-section="status" hidden>
     <h2>Automation controls</h2>
     <p class="hint">Stop requests finish at the next safe checkpoint. Reset clears any saved unfinished workflow.</p>
     <div class="button-row">
@@ -549,9 +618,21 @@
     <div id="healthRows"><div class="hint">No Seller Level check saved in this Chrome profile.</div></div>
     <div id="healthTime" class="time"></div>
   </section>
+  <dialog id="reverseMove99SaleEventDialog" class="sale-event-dialog" aria-labelledby="reverseMove99SaleEventTitle">
+    <div class="sale-event-dialog-content">
+      <h2 id="reverseMove99SaleEventTitle">Is a sale event active?</h2>
+      <p>Move Non-.99 Out of Sale reads eBay's displayed prices. It only works correctly when the sale event is off.</p>
+      <div class="button-row">
+        <button type="button" class="danger" data-sale-event-status="on">Sale Event Is ON</button>
+        <button type="button" class="success" data-sale-event-status="off">Sale Event Is OFF</button>
+      </div>
+    </div>
+  </dialog>
   <script src="config.example.js"></script>
   <script src="theme-catalog.js"></script>
   <script src="foundation.js"></script>
+  <script src="listing-preflight-core.js"></script>
+  <script src="control-heartbeat.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -7,6 +7,7 @@ const vm = require("node:vm");
 const root = path.resolve(__dirname, "..");
 const ebaySource = fs.readFileSync(path.join(root, "extension/ebay.js"), "utf8");
 const dashboardFiles = [
+  "apps-script-live/Code.js",
   "dashboard/GLDN_Ops_Dashboard_Code.gs",
   "extension/dashboard_apps_script/Code.gs"
 ];
@@ -102,27 +103,9 @@ test("missing Store allowance data cannot produce a false GOOD result", () => {
   assert.equal(result.overallStatus, "NOT DETECTED");
 });
 
-test("unavailable seller quantity is non-blocking when Store allowance and dollar limit are GOOD", () => {
-  const sandbox = { PRUNE_THRESHOLD: 0.9 };
-  vm.runInNewContext([
-    extractFunction(ebaySource, "usageEvaluation"),
-    extractFunction(ebaySource, "evaluateListingLimits")
-  ].join("\n"), sandbox);
-  const result = sandbox.evaluateListingLimits({
-    subscriptionUsedThisMonth: 5000,
-    subscriptionListingLimit: 25000,
-    currentQuantityUsed: null,
-    monthlySellerQuantityLimit: null,
-    currentDollarUsed: 100000,
-    monthlySellerDollarLimit: 1000000,
-    limitChanged: false
-  });
-  assert.equal(result.sellerQuantity.label, "NOT DETECTED");
-  assert.equal(result.overallStatus, "GOOD");
-});
-
 test("listing sync updates the dashboard and label-based Tasks rows in every Apps Script copy", () => {
   assert.equal(dashboardSources[1], dashboardSources[0]);
+  assert.equal(dashboardSources[2], dashboardSources[0]);
   const source = dashboardSources[0];
   assert.match(source, /syncTasksListingStatus_\(record\)/);
   assert.match(source, /findTaskRowByStartsWith_\(sheet, 'Confirm Listings are under Subscription Listing Limit'\)/);
@@ -131,9 +114,10 @@ test("listing sync updates the dashboard and label-based Tasks rows in every App
   assert.match(source, /setNumberFormat\(numberFormat\)\.setNote\(note\)/);
   assert.match(source, /'Store Allowance Used', 'Store Allowance Left'/);
   assert.match(source, /'Seller Quantity Usage', 'Seller Quantity Status'/);
-  assert.match(source, /sellerQuantityStatus === 'GOOD'/);
-  assert.match(source, /sellerQuantityStatus === 'UNKNOWN'/);
-  assert.match(source, /sellerQuantityStatus === 'NOT DETECTED'/);
+  assert.match(source, /function hardLimitState_\(used, limit\)/);
+  assert.match(source, /storeAllowanceUnderLimit === true/);
+  assert.match(source, /sellerDollarUnderLimit === true/);
+  assert.match(source, /sellerQuantityUnderLimit !== false/);
   assert.match(source, /sheet\.getRange\(rows\.confirmed, computerCol\)[\s\S]*?\.setValue\(underLimit\)/);
   assert.match(source, /Under limit: ' \+ \(underLimit \? 'YES' : 'NO'\)/);
   assert.match(ebaySource, /subscriptionUsagePercent:\s*evaluations\.storeAllowance\.percent/);
@@ -143,7 +127,7 @@ test("listing sync updates the dashboard and label-based Tasks rows in every App
   assert.doesNotMatch(source, /formatListingDashboard_\(dashboard\);\s*formatListingHistory_\(history\);/);
 });
 
-test("GOOD listing limits check and verify the exact Tasks checkbox", () => {
+test("hard-limit listing checks verify the exact Tasks checkbox without suppressing near-limit warnings", () => {
   const source = dashboardSources[0];
   const target = {
     value: false,
@@ -151,11 +135,11 @@ test("GOOD listing limits check and verify the exact Tasks checkbox", () => {
     setValue(value) { this.value = value; return this; },
     setNote(value) { this.note = value; return this; },
     getValue() { return this.value; },
-    getA1Notation() { return "H19"; }
+    getA1Notation() { return "H20"; }
   };
   const sheet = {
     getRange(row, column) {
-      if (row === 19 && column === 8) return target;
+      if (row === 20 && column === 8) return target;
       return { row, column };
     }
   };
@@ -173,14 +157,18 @@ test("GOOD listing limits check and verify the exact Tasks checkbox", () => {
     validDate_: (value) => value,
     requireTasksSchema_: () => ({ computerColumn: 8 }),
     isEbayMetricColumn_: () => true,
-    findTaskRowByStartsWith_: (_sheet, label) => label.startsWith("Confirm") ? 19 : label.startsWith("Items") ? 20 : 21,
+    findTaskRowByStartsWith_: (_sheet, label) => label.startsWith("Confirm") ? 20 : label.startsWith("Items") ? 21 : 22,
     applyCheckboxRange_: () => {},
     setMergedTaskValue_: () => {},
     clearPoshmarkOnlyMetricCells_: () => {},
     clearComputerHeaderNotes_: () => {},
     clearVisibleLastUpdated_: () => {}
   };
-  vm.runInNewContext(`${extractFunction(source, "syncTasksListingStatus_")}\nthis.syncTasksListingStatus = syncTasksListingStatus_;`, sandbox);
+  vm.runInNewContext([
+    extractFunction(source, "hardLimitState_"),
+    extractFunction(source, "syncTasksListingStatus_"),
+    "this.syncTasksListingStatus = syncTasksListingStatus_;"
+  ].join("\n"), sandbox);
 
   const good = sandbox.syncTasksListingStatus({
     computerLabel: "0",
@@ -189,11 +177,15 @@ test("GOOD listing limits check and verify the exact Tasks checkbox", () => {
     subscriptionStatus: "GOOD",
     sellerQuantityStatus: "GOOD",
     dollarStatus: "GOOD",
+    subscriptionUsedThisMonth: 5000,
     subscriptionListingLimit: 10000,
+    currentQuantityUsed: 5000,
+    monthlySellerQuantityLimit: 88000,
+    currentDollarUsed: 200000,
     monthlySellerDollarLimit: 1000000
   });
   assert.equal(good.checked, true);
-  assert.equal(good.cell, "H19");
+  assert.equal(good.cell, "H20");
   assert.equal(target.value, true);
   assert.match(target.note, /Under limit: YES/);
 
@@ -204,7 +196,9 @@ test("GOOD listing limits check and verify the exact Tasks checkbox", () => {
     subscriptionStatus: "GOOD",
     sellerQuantityStatus: "Unknown",
     dollarStatus: "GOOD",
+    subscriptionUsedThisMonth: 6000,
     subscriptionListingLimit: 10000,
+    currentDollarUsed: 300000,
     monthlySellerDollarLimit: 1000000
   });
   assert.equal(goodWithUnavailableSellerQuantity.checked, true);
@@ -212,27 +206,57 @@ test("GOOD listing limits check and verify the exact Tasks checkbox", () => {
   assert.match(target.note, /Seller quantity: Unknown/);
   assert.match(target.note, /Under limit: YES/);
 
-  const explicitSellerQuantityWarning = sandbox.syncTasksListingStatus({
+  const nearLimitWarnings = sandbox.syncTasksListingStatus({
     computerLabel: "0",
     confirmedAt: "2026-07-23T20:43:01.000Z",
-    overallStatus: "GOOD",
-    subscriptionStatus: "GOOD",
+    overallStatus: "CHECK LIMITS",
+    subscriptionStatus: "CHECK INSERTION ALLOWANCE",
     sellerQuantityStatus: "CHECK SELLING LIMIT",
-    dollarStatus: "GOOD"
+    dollarStatus: "GOOD",
+    subscriptionUsedThisMonth: 9879,
+    subscriptionListingLimit: 10000,
+    currentQuantityUsed: 87000,
+    monthlySellerQuantityLimit: 88000,
+    currentDollarUsed: 445276.41,
+    monthlySellerDollarLimit: 1000000
   });
-  assert.equal(explicitSellerQuantityWarning.checked, false);
-  assert.equal(target.value, false);
-  assert.match(target.note, /Under limit: NO/);
+  assert.equal(nearLimitWarnings.checked, true);
+  assert.equal(target.value, true);
+  assert.match(target.note, /Store allowance: CHECK INSERTION ALLOWANCE/);
+  assert.match(target.note, /Under limit: YES/);
 
-  const notGood = sandbox.syncTasksListingStatus({
+  const atHardLimit = sandbox.syncTasksListingStatus({
     computerLabel: "0",
     confirmedAt: "2026-07-22T15:00:00.000Z",
     overallStatus: "CHECK LIMITS",
-    subscriptionStatus: "GOOD",
+    subscriptionStatus: "CHECK INSERTION ALLOWANCE",
     sellerQuantityStatus: "GOOD",
-    dollarStatus: "CHECK DOLLAR LIMIT"
+    dollarStatus: "GOOD",
+    subscriptionUsedThisMonth: 10000,
+    subscriptionListingLimit: 10000,
+    currentQuantityUsed: 5000,
+    monthlySellerQuantityLimit: 88000,
+    currentDollarUsed: 445276.41,
+    monthlySellerDollarLimit: 1000000
   });
-  assert.equal(notGood.checked, false);
+  assert.equal(atHardLimit.checked, false);
+  assert.equal(target.value, false);
+  assert.match(target.note, /Under limit: NO/);
+
+  const missingRequiredValue = sandbox.syncTasksListingStatus({
+    computerLabel: "0",
+    confirmedAt: "2026-07-22T15:00:00.000Z",
+    overallStatus: "NOT DETECTED",
+    subscriptionStatus: "NOT DETECTED",
+    sellerQuantityStatus: "GOOD",
+    dollarStatus: "GOOD",
+    subscriptionListingLimit: 10000,
+    currentQuantityUsed: 5000,
+    monthlySellerQuantityLimit: 88000,
+    currentDollarUsed: 445276.41,
+    monthlySellerDollarLimit: 1000000
+  });
+  assert.equal(missingRequiredValue.checked, false);
   assert.equal(target.value, false);
   assert.match(target.note, /Under limit: NO/);
 });

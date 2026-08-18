@@ -24,13 +24,27 @@ const EBAY_SNAPSHOT_DASHBOARD_SHEET = 'eBay Snapshot Dashboard';
 const EBAY_SNAPSHOT_HISTORY_SHEET = 'eBay Snapshot History';
 const MARKETPLACE_PROFIT_HISTORY_SHEET = 'Marketplace Profit History';
 const MARKETPLACE_PROFIT_PREFIX = 'Profit - ';
+const POSHMARK_COST_QUEUE_SHEET = 'Poshmark Amazon Cost Queue';
+const EBAY_COST_QUEUE_SHEET = 'eBay Profit Reconciliation';
+const POSHMARK_ORDER_SHEET_ID = '1PV4Fpnjjd5tNwdwmqLDbi-RLBbIqMq94Gxj0YU4AOl4';
+const AMAZON_SUBSCRIBE_SAVE_HISTORY_SHEET = 'Amazon Subscribe Save History';
 const SYNC_RECEIPT_SHEET = 'Sync Receipts';
 const SYNC_RECEIPT_HEADERS = ['Sync ID', 'Action', 'Received At', 'Computer', 'Account', 'Result'];
 const PROFIT_COMPUTER_LABELS = ['M0', '2', '6', '0', 'M1', '7'];
+const AMAZON_SUBSCRIBE_SAVE_HEADERS = [
+  'Timestamp', 'Computer', 'eBay Account', 'Amazon Profile', 'Amazon Account',
+  'Status', 'Cancelled', 'Remaining', 'Failed', 'Scope', 'Run ID', 'Source'
+];
 const TASK_COMPLETION_RULES = Object.freeze({
   move99: Object.freeze({
     taskStartsWith: 'Move $0.99 Listings from Sniped (Non-Sale) Category to Sale Category',
-    platform: 'ebay'
+    platform: 'ebay',
+    schemaKey: 'move99'
+  }),
+  'amazon-subscribe-save': Object.freeze({
+    taskContains: 'Cancel All Subscribe & Save Items on ALL Amazon Accounts',
+    platform: 'amazon',
+    schemaKey: 'cancelSubscribe'
   })
 });
 const TASKS_COMPUTER_HEADERS = Object.freeze(['M0', '2', '6', '0', 'M1', '7']);
@@ -133,6 +147,29 @@ const MARKETPLACE_PROFIT_HEADERS = [
   'Earnings Status'
 ];
 
+const POSHMARK_COST_QUEUE_HEADERS = [
+  'Last Updated', 'Month', 'Poshmark Order', 'Poshmark Account', 'Item Title', 'Poshmark Earnings',
+  'Sold Price', 'Order Date', 'SKU', 'ASINs', 'Status', 'Reason', 'Amazon Cost',
+  'Amazon Profile', 'Amazon Order', 'Amazon Match Source', 'Amazon Evidence',
+  'Poshmark URL', 'Amazon URL', 'Attempted Amazon Profiles', 'Resolved At'
+];
+
+const EBAY_COST_QUEUE_HEADERS = [
+  'Last Updated', 'Month', 'Computer', 'eBay Account', 'eBay Order', 'Item Title',
+  'eBay Earnings', 'Order Date', 'SKU', 'ASINs', 'Note Status', 'Note Amazon Cost',
+  'Note Amazon Profile', 'Profit From Note', 'Amazon Order Status', 'Amazon Order Cost',
+  'Amazon Profile', 'Amazon Order', 'Amazon Match Source', 'Amazon Evidence', 'Amazon URL',
+  'Cost Difference', 'Profit From Amazon Orders', 'Profit Difference', 'Reason',
+  'Attempted Amazon Profiles', 'eBay URL', 'Resolved At', 'Note eBay Earnings',
+  'Earnings Difference'
+];
+
+const POSHMARK_MONTH_HEADERS = [
+  'Item Name', 'Cost of Goods', 'Earnings', 'Profit', 'Status', 'Notes',
+  'Order Date', 'Poshmark Order', 'ASIN', 'Amazon Order', 'Amazon Profile',
+  'Poshmark URL', 'Amazon URL'
+];
+
 function setupSellerLevelDashboard() {
   validateConfiguredKey_();
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -150,6 +187,9 @@ function setupSellerLevelDashboard() {
   const ebaySnapshot = ensureSheet_(ss, EBAY_SNAPSHOT_DASHBOARD_SHEET, EBAY_SNAPSHOT_HEADERS);
   const ebaySnapshotHistory = ensureSheet_(ss, EBAY_SNAPSHOT_HISTORY_SHEET, EBAY_SNAPSHOT_HISTORY_HEADERS);
   const marketplaceProfit = ensureSheet_(ss, MARKETPLACE_PROFIT_HISTORY_SHEET, MARKETPLACE_PROFIT_HEADERS);
+  const poshmarkCostQueue = ensureSheet_(ss, POSHMARK_COST_QUEUE_SHEET, POSHMARK_COST_QUEUE_HEADERS);
+  const ebayCostQueue = ensureSheet_(ss, EBAY_COST_QUEUE_SHEET, EBAY_COST_QUEUE_HEADERS);
+  const amazonSubscribeSave = ensureSheet_(ss, AMAZON_SUBSCRIBE_SAVE_HISTORY_SHEET, AMAZON_SUBSCRIBE_SAVE_HEADERS);
   const syncReceipts = ensureSheet_(ss, SYNC_RECEIPT_SHEET, SYNC_RECEIPT_HEADERS);
   const computerProfitSheets = PROFIT_COMPUTER_LABELS.map((computer) => ensureSheet_(ss, `${MARKETPLACE_PROFIT_PREFIX}${computer}`, MARKETPLACE_PROFIT_HEADERS));
 
@@ -167,6 +207,9 @@ function setupSellerLevelDashboard() {
   formatGenericDashboard_(ebaySnapshot, EBAY_SNAPSHOT_HEADERS.length);
   formatGenericDashboard_(ebaySnapshotHistory, EBAY_SNAPSHOT_HISTORY_HEADERS.length);
   formatProfitSheet_(marketplaceProfit);
+  formatPoshmarkCostQueue_(poshmarkCostQueue);
+  formatEbayCostQueue_(ebayCostQueue);
+  formatGenericDashboard_(amazonSubscribeSave, AMAZON_SUBSCRIBE_SAVE_HEADERS.length);
   formatGenericDashboard_(syncReceipts, SYNC_RECEIPT_HEADERS.length);
   computerProfitSheets.forEach(formatProfitSheet_);
 
@@ -176,6 +219,9 @@ function setupSellerLevelDashboard() {
   protectSheet_(poshmarkStatsHistory, 'GLDN protected Poshmark Stats history');
   protectSheet_(ebaySnapshotHistory, 'GLDN protected eBay Snapshot history');
   protectSheet_(marketplaceProfit, 'GLDN protected Marketplace Profit history');
+  protectSheet_(poshmarkCostQueue, 'GLDN protected Poshmark Amazon cost queue');
+  protectSheet_(ebayCostQueue, 'GLDN protected eBay profit reconciliation');
+  protectSheet_(amazonSubscribeSave, 'GLDN protected Amazon Subscribe Save history');
   protectSheet_(syncReceipts, 'GLDN protected sync receipts');
 
   ss.setActiveSheet(seller);
@@ -189,7 +235,7 @@ function doPost(e) {
     validateKey_(payload.key);
     const action = cleanText_(payload.action);
     const syncId = cleanText_(payload.syncId || (payload.record && payload.record.syncId)).slice(0, 180);
-    const writeActions = ['sellerLevel', 'accountLimits', 'markShipped', 'taskCompletion', 'poshmarkStats', 'ebaySnapshot', 'marketplaceProfit', 'marketplaceProfitBatch', 'receiptTest'];
+    const writeActions = ['sellerLevel', 'accountLimits', 'markShipped', 'taskCompletion', 'amazonSubscribeSaveProfile', 'poshmarkStats', 'ebaySnapshot', 'marketplaceProfit', 'marketplaceProfitBatch', 'ebayMonthlyProfitBatch', 'ebayCostResolutionBatch', 'poshmarkMonthlyProfitBatch', 'poshmarkCostResolutionBatch', 'receiptTest'];
 
     if (writeActions.includes(action) && syncId) {
       const response = withLock_(() => {
@@ -252,6 +298,10 @@ function processDashboardAction_(action, input) {
     const record = normalizeTaskCompletionRecord_(input);
     return { ok: true, message: `Task completion saved for ${record.computerLabel}.`, ...saveTaskCompletion_(record) };
   }
+  if (action === 'amazonSubscribeSaveProfile') {
+    const record = normalizeAmazonSubscribeSaveProfileRecord_(input);
+    return { ok: true, message: `Amazon Subscribe & Save profile proof saved for ${record.computerLabel}.`, ...saveAmazonSubscribeSaveProfile_(record) };
+  }
   if (action === 'poshmarkStats') {
     const record = normalizePoshmarkStatsRecord_(input);
     return { ok: true, message: `Poshmark stats updated for ${record.computerLabel}.`, ...savePoshmarkStats_(record) };
@@ -271,6 +321,30 @@ function processDashboardAction_(action, input) {
     const records = inputs.map(normalizeMarketplaceProfitRecord_);
     const saved = saveMarketplaceProfitBatch_(records);
     return { ok: true, message: `${saved.count} marketplace profit rows saved.`, ...saved };
+  }
+  if (action === 'ebayMonthlyProfitBatch') {
+    const saved = saveEbayMonthlyProfitBatch_(input);
+    return { ok: true, message: `${saved.count} monthly eBay reconciliation rows saved.`, ...saved };
+  }
+  if (action === 'ebayCostResolutionBatch') {
+    const saved = saveEbayCostResolutionBatch_(input);
+    return { ok: true, message: `${saved.count} eBay Amazon-cost results saved.`, ...saved };
+  }
+  if (action === 'ebayCostQueueRead') {
+    const records = readOpenEbayCostQueue_(input);
+    return { ok: true, message: `${records.length} open eBay Amazon-cost rows loaded.`, count: records.length, records };
+  }
+  if (action === 'poshmarkMonthlyProfitBatch') {
+    const saved = savePoshmarkMonthlyProfitBatch_(input);
+    return { ok: true, message: `${saved.count} monthly Poshmark rows saved.`, ...saved };
+  }
+  if (action === 'poshmarkCostResolutionBatch') {
+    const saved = savePoshmarkCostResolutionBatch_(input);
+    return { ok: true, message: `${saved.count} Poshmark Amazon-cost results saved.`, ...saved };
+  }
+  if (action === 'poshmarkCostQueueRead') {
+    const records = readOpenPoshmarkCostQueue_(input);
+    return { ok: true, message: `${records.length} open Poshmark Amazon-cost rows loaded.`, count: records.length, records };
   }
   throw new Error('Unsupported action.');
 }
@@ -766,6 +840,36 @@ function saveTaskCompletion_(record) {
   });
 }
 
+function saveAmazonSubscribeSaveProfile_(record) {
+  return withLock_(() => {
+    const proof = amazonSubscribeSaveProfileProof_(record);
+    if (!proof.ok) throw new Error(proof.error);
+    const ss = getSpreadsheet_();
+    const history = ensureSheet_(ss, AMAZON_SUBSCRIBE_SAVE_HISTORY_SHEET, AMAZON_SUBSCRIBE_SAVE_HEADERS);
+    const timestamp = validDate_(record.completedAt || new Date());
+    history.appendRow([
+      timestamp,
+      record.computerLabel,
+      record.ebayAccountLabel,
+      record.amazonProfileLabel,
+      record.amazonAccountLabel,
+      record.status,
+      numberOrBlank_(record.cancelledCount),
+      numberOrBlank_(record.remainingCount),
+      numberOrBlank_(record.failedCount),
+      record.scopeSummary,
+      record.runId,
+      record.pageUrl
+    ]);
+    const row = history.getLastRow();
+    history.getRange(row, 1, 1, AMAZON_SUBSCRIBE_SAVE_HEADERS.length)
+      .setBorder(true, true, true, true, true, true, '#e5e7eb', SpreadsheetApp.BorderStyle.SOLID);
+    formatGenericDashboard_(history, AMAZON_SUBSCRIBE_SAVE_HEADERS.length);
+    SpreadsheetApp.flush();
+    return { row, currentProfileVerified: true, taskChecked: false };
+  });
+}
+
 function savePoshmarkStats_(record) {
   return withLock_(() => {
     const ss = getSpreadsheet_();
@@ -1130,6 +1234,464 @@ function saveMarketplaceProfitBatch_(records) {
   });
 }
 
+function normalizePoshmarkMonthKey_(value, orderDate) {
+  const direct = cleanText_(value);
+  if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(direct)) return direct;
+  const parsed = orderDate ? new Date(orderDate) : null;
+  if (!parsed || Number.isNaN(parsed.getTime())) return '';
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function monthKeyFromSheetCell_(value) {
+  const direct = cleanText_(value);
+  if (/^\d{4}-(?:0[1-9]|1[0-2])$/.test(direct)) return direct;
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function normalizePoshmarkReviewRecord_(input) {
+  const orderNumber = cleanText_(input.orderNumber);
+  if (!orderNumber) throw new Error('A Poshmark order number is required.');
+  const status = cleanText_(input.status || 'needs-review').toLowerCase();
+  const attempted = Array.isArray(input.attemptedSupplierProfiles)
+    ? input.attemptedSupplierProfiles
+    : cleanText_(input.attemptedSupplierProfiles).split(/[,|]/);
+  return {
+    computerLabel: cleanText_(input.computerLabel || '7') || '7',
+    accountLabel: cleanText_(input.accountLabel || input.poshmarkAccountLabel),
+    monthKey: normalizePoshmarkMonthKey_(input.monthKey, input.orderDate),
+    orderNumber,
+    itemTitle: cleanText_(input.itemTitle),
+    marketplaceEarnings: optionalNumber_(input.marketplaceEarnings),
+    marketplaceSoldPrice: optionalNumber_(input.marketplaceSoldPrice),
+    orderDate: cleanText_(input.orderDate),
+    orderStatus: cleanText_(input.orderStatus),
+    earningsStatus: cleanText_(input.earningsStatus),
+    sku: cleanText_(input.sku),
+    supplierItemIds: cleanText_(input.supplierItemIds || input.asins),
+    supplierTotal: optionalNumber_(input.supplierTotal),
+    supplierProfile: cleanText_(input.supplierProfile),
+    supplierOrderNumber: cleanText_(input.supplierOrderNumber),
+    supplierMatchSource: cleanText_(input.supplierMatchSource),
+    supplierPageUrl: cleanText_(input.supplierPageUrl),
+    supplierItemEvidence: cleanText_(input.supplierItemEvidence),
+    profit: optionalNumber_(input.profit),
+    margin: optionalNumber_(input.margin),
+    status,
+    reason: cleanText_(input.reason),
+    pageUrl: cleanText_(input.pageUrl),
+    attemptedSupplierProfiles: [...new Set(attempted.map(cleanText_).filter(Boolean))],
+    capturedAt: cleanText_(input.capturedAt) || new Date().toISOString()
+  };
+}
+
+function normalizeEbayReviewRecord_(input) {
+  const orderNumber = cleanText_(input.orderNumber);
+  if (!orderNumber) throw new Error('An eBay order number is required.');
+  const status = cleanText_(input.status || 'amazon-pending').toLowerCase();
+  const attempted = Array.isArray(input.attemptedSupplierProfiles)
+    ? input.attemptedSupplierProfiles
+    : cleanText_(input.attemptedSupplierProfiles).split(/[,|]/);
+  return {
+    platform: 'eBay',
+    computerLabel: cleanText_(input.computerLabel),
+    accountLabel: cleanText_(input.accountLabel || input.ebayAccountLabel),
+    monthKey: normalizePoshmarkMonthKey_(input.monthKey, input.orderDate),
+    orderNumber,
+    itemTitle: cleanText_(input.itemTitle),
+    marketplaceEarnings: optionalNumber_(input.marketplaceEarnings),
+    orderDate: cleanText_(input.orderDate),
+    orderStatus: cleanText_(input.orderStatus),
+    earningsStatus: cleanText_(input.earningsStatus),
+    sku: cleanText_(input.sku),
+    supplierItemIds: cleanText_(input.supplierItemIds || input.asins),
+    noteStatus: cleanText_(input.noteStatus),
+    noteMarketplaceEarnings: optionalNumber_(input.noteMarketplaceEarnings),
+    noteSupplierTotal: optionalNumber_(input.noteSupplierTotal),
+    noteSupplierProfile: cleanText_(input.noteSupplierProfile),
+    noteProfit: optionalNumber_(input.noteProfit),
+    noteText: cleanText_(input.noteText),
+    supplierTotal: optionalNumber_(input.supplierTotal),
+    supplierProfile: cleanText_(input.supplierProfile),
+    supplierOrderNumber: cleanText_(input.supplierOrderNumber),
+    supplierMatchSource: cleanText_(input.supplierMatchSource),
+    supplierPageUrl: cleanText_(input.supplierPageUrl),
+    supplierItemEvidence: cleanText_(input.supplierItemEvidence),
+    profit: optionalNumber_(input.profit),
+    status,
+    reason: cleanText_(input.reason),
+    pageUrl: cleanText_(input.pageUrl),
+    attemptedSupplierProfiles: [...new Set(attempted.map(cleanText_).filter(Boolean))],
+    capturedAt: cleanText_(input.capturedAt) || new Date().toISOString()
+  };
+}
+
+function ebayQueueStatus_(record) {
+  if (record.status === 'resolved') {
+    if (record.noteSupplierTotal == null || record.noteMarketplaceEarnings == null) return 'RESOLVED - AMAZON ONLY';
+    const costMatches = Math.abs(Number(record.supplierTotal) - Number(record.noteSupplierTotal)) <= 0.01;
+    const earningsMatches = record.marketplaceEarnings != null
+      && Math.abs(Number(record.marketplaceEarnings) - Number(record.noteMarketplaceEarnings)) <= 0.01;
+    return costMatches && earningsMatches
+      ? 'RESOLVED - MATCH'
+      : 'RESOLVED - DISCREPANCY';
+  }
+  if (record.status === 'amazon-not-found') return 'OPEN - AMAZON NOT FOUND';
+  if (record.status === 'missing-sku') return 'OPEN - MISSING SKU';
+  if (/ambiguous|same-cost/.test(record.status)) return 'REVIEW - AMBIGUOUS';
+  return 'OPEN - AMAZON PENDING';
+}
+
+function ebayQueueKey_(computerLabel, orderNumber) {
+  return [cleanText_(computerLabel), cleanText_(orderNumber)].join('\u001f');
+}
+
+function saveEbayCostQueueBatch_(records) {
+  if (!records.length) return { count: 0, open: 0, resolved: 0, discrepancies: 0 };
+  const ss = getSpreadsheet_();
+  const sheet = ensureSheet_(ss, EBAY_COST_QUEUE_SHEET, EBAY_COST_QUEUE_HEADERS);
+  const existingCount = Math.max(0, sheet.getLastRow() - 1);
+  const rows = existingCount
+    ? sheet.getRange(2, 1, existingCount, EBAY_COST_QUEUE_HEADERS.length).getValues()
+    : [];
+  const indexByOrder = {};
+  rows.forEach((row, index) => {
+    const key = ebayQueueKey_(row[2], row[4]);
+    if (cleanText_(row[4])) indexByOrder[key] = index;
+  });
+
+  records.forEach((record) => {
+    const status = ebayQueueStatus_(record);
+    const resolved = status.indexOf('RESOLVED') === 0;
+    const noteCost = record.noteSupplierTotal;
+    const amazonCost = record.supplierTotal;
+    const earnings = record.marketplaceEarnings;
+    const noteEarnings = record.noteMarketplaceEarnings;
+    const noteProfit = record.noteProfit == null && (noteEarnings != null || earnings != null) && noteCost != null
+      ? Number(((noteEarnings == null ? earnings : noteEarnings) - noteCost).toFixed(2))
+      : record.noteProfit;
+    const amazonProfit = resolved && earnings != null && amazonCost != null
+      ? Number((earnings - amazonCost).toFixed(2))
+      : null;
+    const costDifference = noteCost != null && amazonCost != null
+      ? Number((amazonCost - noteCost).toFixed(2))
+      : null;
+    const profitDifference = noteProfit != null && amazonProfit != null
+      ? Number((amazonProfit - noteProfit).toFixed(2))
+      : null;
+    const earningsDifference = noteEarnings != null && earnings != null
+      ? Number((earnings - noteEarnings).toFixed(2))
+      : null;
+    const incoming = [
+      validDate_(record.capturedAt), record.monthKey, record.computerLabel, record.accountLabel,
+      record.orderNumber, record.itemTitle, numberOrBlank_(earnings), record.orderDate,
+      record.sku, record.supplierItemIds, record.noteStatus, numberOrBlank_(noteCost),
+      record.noteSupplierProfile, numberOrBlank_(noteProfit), status, numberOrBlank_(amazonCost),
+      record.supplierProfile, record.supplierOrderNumber, record.supplierMatchSource,
+      record.supplierItemEvidence, record.supplierPageUrl, numberOrBlank_(costDifference),
+      numberOrBlank_(amazonProfit), numberOrBlank_(profitDifference), record.reason,
+      record.attemptedSupplierProfiles.join(', '), record.pageUrl, resolved ? new Date() : '',
+      numberOrBlank_(noteEarnings), numberOrBlank_(earningsDifference)
+    ];
+    const key = ebayQueueKey_(record.computerLabel, record.orderNumber);
+    const existingIndex = indexByOrder[key];
+    if (existingIndex === undefined) {
+      indexByOrder[key] = rows.length;
+      rows.push(incoming);
+      return;
+    }
+
+    const existing = rows[existingIndex];
+    incoming[25] = mergeListText_(existing[25], incoming[25]);
+    const existingResolved = cleanText_(existing[14]).indexOf('RESOLVED') === 0;
+    if (existingResolved && !resolved) {
+      for (let column = 14; column <= 24; column += 1) incoming[column] = existing[column];
+      incoming[27] = existing[27];
+    }
+    rows[existingIndex] = incoming.map((value, index) => (
+      value === '' || value === null || value === undefined ? existing[index] || '' : value
+    ));
+  });
+
+  if (existingCount) sheet.getRange(2, 1, existingCount, EBAY_COST_QUEUE_HEADERS.length).clearContent();
+  if (rows.length) sheet.getRange(2, 1, rows.length, EBAY_COST_QUEUE_HEADERS.length).setValues(rows);
+  formatEbayCostQueue_(sheet);
+  const resolvedCount = rows.filter((row) => cleanText_(row[14]).indexOf('RESOLVED') === 0).length;
+  const discrepancyCount = rows.filter((row) => cleanText_(row[14]) === 'RESOLVED - DISCREPANCY').length;
+  SpreadsheetApp.flush();
+  return { count: records.length, open: rows.length - resolvedCount, resolved: resolvedCount, discrepancies: discrepancyCount };
+}
+
+function readOpenEbayCostQueue_(input) {
+  const ss = getSpreadsheet_();
+  const sheet = ensureSheet_(ss, EBAY_COST_QUEUE_SHEET, EBAY_COST_QUEUE_HEADERS);
+  const count = Math.max(0, sheet.getLastRow() - 1);
+  if (!count) return [];
+  const monthKey = normalizePoshmarkMonthKey_(input.monthKey, '');
+  const limit = Math.max(1, Math.min(100, Number(input.limit || 100)));
+  const supplierProfile = cleanText_(input.supplierProfile);
+  return sheet.getRange(2, 1, count, EBAY_COST_QUEUE_HEADERS.length).getValues()
+    .filter((row) => cleanText_(row[14]).indexOf('RESOLVED') !== 0)
+    .filter((row) => !monthKey || monthKeyFromSheetCell_(row[1]) === monthKey)
+    .filter((row) => !supplierProfileWasAttempted_(row[25], supplierProfile))
+    .slice(0, limit)
+    .map((row) => ({
+      platform: 'eBay',
+      computerLabel: cleanText_(row[2]),
+      accountLabel: cleanText_(row[3]),
+      ebayAccountLabel: cleanText_(row[3]),
+      monthKey: monthKeyFromSheetCell_(row[1]),
+      orderNumber: cleanText_(row[4]),
+      itemTitle: cleanText_(row[5]),
+      marketplaceEarnings: optionalNumber_(row[6]),
+      orderDate: cleanText_(row[7]),
+      sku: cleanText_(row[8]),
+      skus: cleanText_(row[8]).split(/[,|]/).map(cleanText_).filter(Boolean),
+      supplierItemIds: cleanText_(row[9]),
+      asins: cleanText_(row[9]).split(/[,|]/).map(cleanText_).filter(Boolean),
+      noteStatus: cleanText_(row[10]),
+      noteMarketplaceEarnings: optionalNumber_(row[28]),
+      noteSupplierTotal: optionalNumber_(row[11]),
+      noteSupplierProfile: cleanText_(row[12]),
+      noteProfit: optionalNumber_(row[13]),
+      pageUrl: cleanText_(row[26]),
+      attemptedSupplierProfiles: cleanText_(row[25]).split(/[,|]/).map(cleanText_).filter(Boolean),
+      detailCapturedAt: new Date().toISOString()
+    }));
+}
+
+function saveEbayMonthlyProfitBatch_(input) {
+  const reviewInputs = Array.isArray(input.reviewRecords) ? input.reviewRecords : [];
+  if (!reviewInputs.length) throw new Error('The monthly eBay reconciliation batch is empty.');
+  if (reviewInputs.length > 100) throw new Error('The monthly eBay reconciliation batch cannot exceed 100 rows.');
+  const reviewRecords = reviewInputs.map(normalizeEbayReviewRecord_);
+  const profitInputs = Array.isArray(input.records) ? input.records : [];
+  const profits = profitInputs.map(normalizeMarketplaceProfitRecord_);
+  const profitResult = profits.length ? saveMarketplaceProfitBatch_(profits) : { count: 0, results: [] };
+  const queueResult = saveEbayCostQueueBatch_(reviewRecords);
+  return {
+    count: reviewRecords.length,
+    exact: profits.length,
+    unresolved: reviewRecords.length - profits.length,
+    profitResult,
+    queueResult
+  };
+}
+
+function saveEbayCostResolutionBatch_(input) {
+  const reviewInputs = Array.isArray(input.reviewRecords) ? input.reviewRecords : [];
+  if (!reviewInputs.length) throw new Error('The eBay Amazon-cost resolution batch is empty.');
+  if (reviewInputs.length > 100) throw new Error('The eBay Amazon-cost resolution batch cannot exceed 100 rows.');
+  const reviewRecords = reviewInputs.map(normalizeEbayReviewRecord_);
+  const queueResult = saveEbayCostQueueBatch_(reviewRecords);
+  const exact = reviewRecords.filter((record) => record.status === 'resolved').length;
+  return {
+    count: reviewRecords.length,
+    exact,
+    unresolved: reviewRecords.length - exact,
+    queueResult
+  };
+}
+
+function poshmarkQueueStatus_(record) {
+  if (record.status === 'resolved') return 'RESOLVED';
+  if (record.status === 'amazon-not-found') return 'OPEN - AMAZON NOT FOUND';
+  if (record.status === 'missing-sku') return 'OPEN - MISSING SKU';
+  if (/ambiguous|same-cost/.test(record.status)) return 'REVIEW - AMBIGUOUS';
+  return 'OPEN - NEEDS REVIEW';
+}
+
+function mergeListText_(left, right) {
+  return [...new Set([left, right].flatMap((value) => cleanText_(value).split(/[,|]/)).map(cleanText_).filter(Boolean))].join(', ');
+}
+
+function supplierProfileWasAttempted_(cellValue, supplierProfile) {
+  const target = cleanText_(supplierProfile).toLowerCase();
+  if (!target) return false;
+  return cleanText_(cellValue).split(/[,|]/)
+    .map((value) => cleanText_(value).toLowerCase())
+    .filter(Boolean)
+    .some((value) => value === target);
+}
+
+function savePoshmarkCostQueueBatch_(records) {
+  if (!records.length) return { count: 0, open: 0, resolved: 0 };
+  const ss = getSpreadsheet_();
+  const sheet = ensureSheet_(ss, POSHMARK_COST_QUEUE_SHEET, POSHMARK_COST_QUEUE_HEADERS);
+  const existingCount = Math.max(0, sheet.getLastRow() - 1);
+  const rows = existingCount
+    ? sheet.getRange(2, 1, existingCount, POSHMARK_COST_QUEUE_HEADERS.length).getValues()
+    : [];
+  const indexByOrder = {};
+  rows.forEach((row, index) => {
+    const orderNumber = cleanText_(row[2]);
+    if (orderNumber) indexByOrder[orderNumber] = index;
+  });
+
+  records.forEach((record) => {
+    const status = poshmarkQueueStatus_(record);
+    const resolved = status === 'RESOLVED';
+    const incoming = [
+      validDate_(record.capturedAt), record.monthKey, record.orderNumber, record.accountLabel,
+      record.itemTitle, numberOrBlank_(record.marketplaceEarnings), numberOrBlank_(record.marketplaceSoldPrice),
+      record.orderDate, record.sku, record.supplierItemIds, status, record.reason,
+      numberOrBlank_(record.supplierTotal), record.supplierProfile, record.supplierOrderNumber,
+      record.supplierMatchSource, record.supplierItemEvidence, record.pageUrl, record.supplierPageUrl,
+      record.attemptedSupplierProfiles.join(', '), resolved ? new Date() : ''
+    ];
+    const existingIndex = indexByOrder[record.orderNumber];
+    if (existingIndex === undefined) {
+      indexByOrder[record.orderNumber] = rows.length;
+      rows.push(incoming);
+      return;
+    }
+    const existing = rows[existingIndex];
+    incoming[19] = mergeListText_(existing[19], incoming[19]);
+    if (cleanText_(existing[10]) === 'RESOLVED' && !resolved) return;
+    rows[existingIndex] = incoming.map((value, index) => (
+      value === '' || value === null || value === undefined ? existing[index] || '' : value
+    ));
+  });
+
+  if (existingCount) sheet.getRange(2, 1, existingCount, POSHMARK_COST_QUEUE_HEADERS.length).clearContent();
+  if (rows.length) sheet.getRange(2, 1, rows.length, POSHMARK_COST_QUEUE_HEADERS.length).setValues(rows);
+  formatPoshmarkCostQueue_(sheet);
+  const resolvedCount = rows.filter((row) => cleanText_(row[10]) === 'RESOLVED').length;
+  SpreadsheetApp.flush();
+  return { count: records.length, open: rows.length - resolvedCount, resolved: resolvedCount };
+}
+
+function readOpenPoshmarkCostQueue_(input) {
+  const ss = getSpreadsheet_();
+  const sheet = ensureSheet_(ss, POSHMARK_COST_QUEUE_SHEET, POSHMARK_COST_QUEUE_HEADERS);
+  const count = Math.max(0, sheet.getLastRow() - 1);
+  if (!count) return [];
+  const monthKey = normalizePoshmarkMonthKey_(input.monthKey, '');
+  const limit = Math.max(1, Math.min(100, Number(input.limit || 100)));
+  const supplierProfile = cleanText_(input.supplierProfile);
+  return sheet.getRange(2, 1, count, POSHMARK_COST_QUEUE_HEADERS.length).getValues()
+    .filter((row) => cleanText_(row[10]) !== 'RESOLVED')
+    .filter((row) => !monthKey || monthKeyFromSheetCell_(row[1]) === monthKey)
+    .filter((row) => !supplierProfileWasAttempted_(row[19], supplierProfile))
+    .slice(0, limit)
+    .map((row) => ({
+      computerLabel: '7',
+      accountLabel: cleanText_(row[3]),
+      monthKey: monthKeyFromSheetCell_(row[1]),
+      orderNumber: cleanText_(row[2]),
+      itemTitle: cleanText_(row[4]),
+      marketplaceEarnings: optionalNumber_(row[5]),
+      marketplaceSoldPrice: optionalNumber_(row[6]),
+      orderDate: cleanText_(row[7]),
+      sku: cleanText_(row[8]),
+      skus: [cleanText_(row[8])].filter(Boolean),
+      supplierItemIds: cleanText_(row[9]),
+      asins: cleanText_(row[9]).split(/[,|]/).map(cleanText_).filter(Boolean),
+      pageUrl: cleanText_(row[17]),
+      attemptedSupplierProfiles: cleanText_(row[19]).split(/[,|]/).map(cleanText_).filter(Boolean),
+      detailCapturedAt: new Date().toISOString()
+    }));
+}
+
+function poshmarkMonthSheetName_(monthKey) {
+  const normalized = normalizePoshmarkMonthKey_(monthKey, '');
+  if (!normalized) throw new Error('A valid Poshmark month is required.');
+  const parts = normalized.split('-').map(Number);
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return `${months[parts[1] - 1]} ${parts[0]} - 7`;
+}
+
+function savePoshmarkMonthRows_(records) {
+  const groups = {};
+  records.forEach((record) => {
+    if (!record.monthKey) throw new Error(`The month is missing for Poshmark order ${record.orderNumber}.`);
+    if (!groups[record.monthKey]) groups[record.monthKey] = [];
+    groups[record.monthKey].push(record);
+  });
+  const workbook = SpreadsheetApp.openById(POSHMARK_ORDER_SHEET_ID);
+  const saved = [];
+  Object.keys(groups).sort().forEach((monthKey) => {
+    const name = poshmarkMonthSheetName_(monthKey);
+    const sheet = ensureSheet_(workbook, name, POSHMARK_MONTH_HEADERS);
+    const existingCount = Math.max(0, sheet.getLastRow() - 1);
+    const rows = existingCount ? sheet.getRange(2, 1, existingCount, POSHMARK_MONTH_HEADERS.length).getValues() : [];
+    const indexByOrder = {};
+    rows.forEach((row, index) => {
+      const orderNumber = cleanText_(row[7]);
+      if (orderNumber) indexByOrder[orderNumber] = index;
+    });
+    groups[monthKey].forEach((record) => {
+      const resolved = record.status === 'resolved';
+      const status = resolved ? 'Resolved' : /ambiguous|same-cost/.test(record.status) ? 'Needs Review' : 'Missing Amazon Cost';
+      const incoming = [
+        record.itemTitle, numberOrBlank_(record.supplierTotal), numberOrBlank_(record.marketplaceEarnings),
+        numberOrBlank_(record.profit), status, resolved ? '' : record.reason, record.orderDate,
+        record.orderNumber, record.supplierItemIds, record.supplierOrderNumber, record.supplierProfile,
+        record.pageUrl, record.supplierPageUrl
+      ];
+      const existingIndex = indexByOrder[record.orderNumber];
+      if (existingIndex === undefined) {
+        indexByOrder[record.orderNumber] = rows.length;
+        rows.push(incoming);
+        return;
+      }
+      const existing = rows[existingIndex];
+      const merged = incoming.map((value, index) => (
+        value === '' || value === null || value === undefined ? existing[index] || '' : value
+      ));
+      if (existing[5]) merged[5] = existing[5];
+      rows[existingIndex] = merged;
+    });
+    if (existingCount) sheet.getRange(2, 1, existingCount, POSHMARK_MONTH_HEADERS.length).clearContent();
+    if (rows.length) sheet.getRange(2, 1, rows.length, POSHMARK_MONTH_HEADERS.length).setValues(rows);
+    formatPoshmarkMonthSheet_(sheet);
+    saved.push({ monthKey, sheet: name, count: groups[monthKey].length });
+  });
+  SpreadsheetApp.flush();
+  return saved;
+}
+
+function savePoshmarkMonthlyProfitBatch_(input) {
+  const reviewInputs = Array.isArray(input.reviewRecords) ? input.reviewRecords : [];
+  if (!reviewInputs.length) throw new Error('The monthly Poshmark review batch is empty.');
+  if (reviewInputs.length > 100) throw new Error('The monthly Poshmark review batch cannot exceed 100 rows.');
+  const reviewRecords = reviewInputs.map(normalizePoshmarkReviewRecord_);
+  const profitInputs = Array.isArray(input.records) ? input.records : [];
+  const profits = profitInputs.map(normalizeMarketplaceProfitRecord_);
+  const profitResult = profits.length ? saveMarketplaceProfitBatch_(profits) : { count: 0, results: [] };
+  const queueResult = savePoshmarkCostQueueBatch_(reviewRecords);
+  const monthlySheets = savePoshmarkMonthRows_(reviewRecords);
+  return {
+    count: reviewRecords.length,
+    exact: profits.length,
+    unresolved: reviewRecords.length - profits.length,
+    profitResult,
+    queueResult,
+    monthlySheets
+  };
+}
+
+function savePoshmarkCostResolutionBatch_(input) {
+  const reviewInputs = Array.isArray(input.reviewRecords) ? input.reviewRecords : [];
+  if (!reviewInputs.length) throw new Error('The Poshmark Amazon-cost resolution batch is empty.');
+  if (reviewInputs.length > 100) throw new Error('The Poshmark Amazon-cost resolution batch cannot exceed 100 rows.');
+  const reviewRecords = reviewInputs.map(normalizePoshmarkReviewRecord_);
+  const profits = (Array.isArray(input.records) ? input.records : []).map(normalizeMarketplaceProfitRecord_);
+  const profitResult = profits.length ? saveMarketplaceProfitBatch_(profits) : { count: 0, results: [] };
+  const queueResult = savePoshmarkCostQueueBatch_(reviewRecords);
+  const resolvedRows = reviewRecords.filter((record) => record.status === 'resolved');
+  const monthlySheets = resolvedRows.length ? savePoshmarkMonthRows_(resolvedRows) : [];
+  return {
+    count: reviewRecords.length,
+    exact: profits.length,
+    unresolved: reviewRecords.length - profits.length,
+    profitResult,
+    queueResult,
+    monthlySheets
+  };
+}
+
 function upsertProfitRowsBatch_(sheet, records, incomingRows) {
   const existingCount = Math.max(0, sheet.getLastRow() - 1);
   const existingRows = existingCount
@@ -1282,6 +1844,38 @@ function normalizeTaskCompletionRecord_(input) {
     remainingCount: optionalNumber_(input.remainingCount),
     failedCount: optionalNumber_(input.failedCount),
     scannedCount: optionalNumber_(input.scannedCount),
+    cancelledCount: optionalNumber_(input.cancelledCount),
+    expectedScopeCount: optionalNumber_(input.expectedScopeCount),
+    verifiedScopeCount: optionalNumber_(input.verifiedScopeCount),
+    scopeSummary: cleanText_(input.scopeSummary),
+    amazonProfileLabel: cleanText_(input.amazonProfileLabel),
+    amazonAccountLabel: cleanText_(input.amazonAccountLabel),
+    allProfilesVerified: input.allProfilesVerified === true || cleanText_(input.allProfilesVerified).toLowerCase() === 'true',
+    expectedProfileCount: optionalNumber_(input.expectedProfileCount),
+    verifiedProfileCount: optionalNumber_(input.verifiedProfileCount),
+    operatorApprovalToken: cleanText_(input.operatorApprovalToken),
+    completedAt: cleanText_(input.completedAt),
+    pageUrl: cleanText_(input.pageUrl)
+  };
+}
+
+function normalizeAmazonSubscribeSaveProfileRecord_(input) {
+  const identity = identity_(input);
+  return {
+    ...identity,
+    amazonProfileLabel: cleanText_(input.amazonProfileLabel),
+    amazonAccountLabel: cleanText_(input.amazonAccountLabel),
+    status: cleanText_(input.status),
+    proofType: cleanText_(input.proofType).toLowerCase(),
+    currentProfileVerified: input.currentProfileVerified === true || cleanText_(input.currentProfileVerified).toLowerCase() === 'true',
+    verifiedZeroRemaining: input.verifiedZeroRemaining === true || cleanText_(input.verifiedZeroRemaining).toLowerCase() === 'true',
+    cancelledCount: optionalNumber_(input.cancelledCount),
+    remainingCount: optionalNumber_(input.remainingCount),
+    failedCount: optionalNumber_(input.failedCount),
+    expectedScopeCount: optionalNumber_(input.expectedScopeCount),
+    verifiedScopeCount: optionalNumber_(input.verifiedScopeCount),
+    scopeSummary: cleanText_(input.scopeSummary),
+    runId: cleanText_(input.runId),
     completedAt: cleanText_(input.completedAt),
     pageUrl: cleanText_(input.pageUrl)
   };
@@ -1704,11 +2298,31 @@ function syncTasksMarkShipped_(record) {
   return { row, checked: true };
 }
 
+function amazonSubscribeSaveProfileProof_(record) {
+  if (record.status !== 'Completed') return { ok: false, error: 'The current Amazon profile did not finish with exact Completed status.' };
+  if (record.proofType !== 'verified-zero-active-subscriptions-current-profile' || record.currentProfileVerified !== true || record.verifiedZeroRemaining !== true) {
+    return { ok: false, error: 'The current Amazon profile needs a final zero-active-subscriptions verification scan.' };
+  }
+  if (Number(record.remainingCount) !== 0 || Number(record.failedCount) !== 0) {
+    return { ok: false, error: 'The current Amazon profile still has remaining or failed subscriptions.' };
+  }
+  const expectedScopes = Number(record.expectedScopeCount);
+  const verifiedScopes = Number(record.verifiedScopeCount);
+  if (!(expectedScopes > 0) || verifiedScopes !== expectedScopes) {
+    return { ok: false, error: 'The current Amazon profile did not verify its complete address scope.' };
+  }
+  if (!cleanText_(record.amazonProfileLabel || record.amazonAccountLabel)) {
+    return { ok: false, error: 'The Amazon profile/account identity is missing.' };
+  }
+  return { ok: true };
+}
+
 function taskCompletionProof_(record) {
-  const rule = TASK_COMPLETION_RULES[cleanText_(record && record.featureKey).toLowerCase()];
+  const featureKey = cleanText_(record && record.featureKey).toLowerCase();
+  const rule = TASK_COMPLETION_RULES[featureKey];
   if (!rule) return { ok: false, error: 'This workflow is not approved for automatic task completion.' };
 
-  if (record.featureKey === 'move99') {
+  if (featureKey === 'move99') {
     if (record.scanMode !== 'price99') return { ok: false, error: 'Only the Move .99 sale-category workflow can complete this task.' };
     if (record.status !== 'Completed') return { ok: false, error: 'Move .99 did not finish with exact Completed status.' };
     if (record.proofType !== 'final-zero-scan' || record.verifiedZeroRemaining !== true) {
@@ -1716,6 +2330,23 @@ function taskCompletionProof_(record) {
     }
     if (Number(record.remainingCount) !== 0 || Number(record.failedCount) !== 0) {
       return { ok: false, error: 'Move .99 still has remaining or failed listings.' };
+    }
+  }
+  if (featureKey === 'amazon-subscribe-save') {
+    if (record.status !== 'Completed') return { ok: false, error: 'Subscribe & Save did not finish with exact Completed status.' };
+    if (record.proofType !== 'verified-zero-active-subscriptions-all-profiles' || record.verifiedZeroRemaining !== true || record.allProfilesVerified !== true) {
+      return { ok: false, error: 'Subscribe & Save needs explicit proof that every expected Amazon Chrome profile is clear.' };
+    }
+    if (Number(record.remainingCount) !== 0 || Number(record.failedCount) !== 0) {
+      return { ok: false, error: 'Subscribe & Save still has remaining or failed subscriptions.' };
+    }
+    const expectedProfiles = Number(record.expectedProfileCount);
+    const verifiedProfiles = Number(record.verifiedProfileCount);
+    if (!(expectedProfiles > 0) || verifiedProfiles !== expectedProfiles) {
+      return { ok: false, error: 'Subscribe & Save did not verify every expected Amazon Chrome profile.' };
+    }
+    if (record.operatorApprovalToken !== `APPROVE ALL AMAZON PROFILES ${expectedProfiles}`) {
+      return { ok: false, error: 'Subscribe & Save all-profile completion approval is missing or does not match the exact profile count.' };
     }
   }
   return { ok: true, rule };
@@ -1726,20 +2357,33 @@ function syncTasksCompletion_(record, providedSheet) {
   if (!proof.ok) throw new Error(proof.error);
   const sheet = providedSheet || SpreadsheetApp.openById(TASKS_SPREADSHEET_ID).getSheetByName(TASKS_SHEET);
   if (!sheet) return { row: 0, checked: false };
-  const schema = requireTasksSchema_(sheet, ['move99'], record.computerLabel);
+  const schema = record.featureKey === 'amazon-subscribe-save'
+    ? requireTasksSchema_(sheet, ['cancelSubscribe'], record.computerLabel)
+    : requireTasksSchema_(sheet, ['move99'], record.computerLabel);
   const computerCol = schema.computerColumn;
-  if (proof.rule.platform === 'ebay' && !isEbayMetricColumn_(sheet, computerCol)) {
+  if ((proof.rule.platform === 'ebay' || proof.rule.platform === 'amazon') && !isEbayMetricColumn_(sheet, computerCol)) {
     return { row: 0, checked: false };
   }
-  const row = findTaskRowByStartsWith_(sheet, proof.rule.taskStartsWith);
+  const row = proof.rule.taskStartsWith
+    ? findTaskRowByStartsWith_(sheet, proof.rule.taskStartsWith)
+    : findTaskRowByContains_(sheet, proof.rule.taskContains);
   if (!row) return { row: 0, checked: false };
   const checkedAt = validDate_(record.completedAt || new Date());
-  const note = [
-    'Last checked: ' + Utilities.formatDate(checkedAt, Session.getScriptTimeZone(), 'MM/dd/yyyy hh:mm:ss a'),
-    'Workflow: Move .99',
-    'Proof: final verification found 0 remaining and 0 failed',
-    'Rows scanned: ' + Number(record.scannedCount || 0)
-  ].join('\n');
+  const note = record.featureKey === 'amazon-subscribe-save'
+    ? [
+      'Last checked: ' + Utilities.formatDate(checkedAt, Session.getScriptTimeZone(), 'MM/dd/yyyy hh:mm:ss a'),
+      'Workflow: Amazon Subscribe & Save',
+      'Proof: verified every expected Amazon Chrome profile with 0 active subscriptions and 0 failures',
+      'Cancelled: ' + Number(record.cancelledCount || 0),
+      'Amazon profiles: ' + Number(record.verifiedProfileCount || 0) + ' / ' + Number(record.expectedProfileCount || 0),
+      'Approval: ' + cleanText_(record.operatorApprovalToken)
+    ].join('\n')
+    : [
+      'Last checked: ' + Utilities.formatDate(checkedAt, Session.getScriptTimeZone(), 'MM/dd/yyyy hh:mm:ss a'),
+      'Workflow: Move .99',
+      'Proof: final verification found 0 remaining and 0 failed',
+      'Rows scanned: ' + Number(record.scannedCount || 0)
+    ].join('\n');
   applyCheckboxRange_(sheet.getRange(row, 5, 1, 5));
   sheet.getRange(row, computerCol).setValue(true).setNote(note);
   clearPoshmarkOnlyMetricCells_(sheet, [row]);
@@ -1764,15 +2408,12 @@ function syncTasksListingStatus_(record) {
     items: findTaskRowByStartsWith_(sheet, 'Items Limit'),
     dollars: findTaskRowByStartsWith_(sheet, '$ Amount Limit')
   };
-  const sellerQuantityStatus = String(record.sellerQuantityStatus || '').trim().toUpperCase();
-  const sellerQuantityIsNonBlocking = sellerQuantityStatus === 'GOOD'
-    || sellerQuantityStatus === 'UNKNOWN'
-    || sellerQuantityStatus === 'NOT DETECTED'
-    || sellerQuantityStatus === '';
-  const underLimit = String(record.overallStatus || '').toUpperCase() === 'GOOD'
-    && String(record.subscriptionStatus || '').toUpperCase() === 'GOOD'
-    && sellerQuantityIsNonBlocking
-    && String(record.dollarStatus || '').toUpperCase() === 'GOOD';
+  const storeAllowanceUnderLimit = hardLimitState_(record.subscriptionUsedThisMonth, record.subscriptionListingLimit);
+  const sellerQuantityUnderLimit = hardLimitState_(record.currentQuantityUsed, record.monthlySellerQuantityLimit);
+  const sellerDollarUnderLimit = hardLimitState_(record.currentDollarUsed, record.monthlySellerDollarLimit);
+  const underLimit = storeAllowanceUnderLimit === true
+    && sellerDollarUnderLimit === true
+    && sellerQuantityUnderLimit !== false;
 
   if (rows.confirmed) {
     applyCheckboxRange_(sheet.getRange(rows.confirmed, 5, 1, 5));
@@ -1790,7 +2431,7 @@ function syncTasksListingStatus_(record) {
     SpreadsheetApp.flush();
     const checked = checkbox.getValue() === true;
     if (underLimit && !checked) {
-      throw new Error(`Listing limits were GOOD, but Tasks ${checkbox.getA1Notation()} did not read back as checked.`);
+      throw new Error(`Listing hard limits were below their caps, but Tasks ${checkbox.getA1Notation()} did not read back as checked.`);
     }
     setMergedTaskValue_(sheet, rows.items, computerCol, record.subscriptionListingLimit, '#,##0', checkedNote);
     setMergedTaskValue_(sheet, rows.dollars, computerCol, record.monthlySellerDollarLimit, '$#,##0', checkedNote);
@@ -1800,6 +2441,14 @@ function syncTasksListingStatus_(record) {
     return { row: rows.confirmed, cell: checkbox.getA1Notation(), checked };
   }
   return { row: 0, cell: '', checked: false };
+}
+
+function hardLimitState_(used, limit) {
+  if (used === null || used === undefined || used === '' || limit === null || limit === undefined || limit === '') return null;
+  const usedNumber = Number(used);
+  const limitNumber = Number(limit);
+  if (!Number.isFinite(usedNumber) || !Number.isFinite(limitNumber) || limitNumber <= 0) return null;
+  return usedNumber < limitNumber;
 }
 
 function setMergedTaskValue_(sheet, row, col, value, numberFormat, note) {
@@ -2196,6 +2845,95 @@ function formatProfitRow_(sheet, row) {
   if (Number.isFinite(profit)) {
     cell.setBackground(profit >= 0 ? '#dcfce7' : '#fee2e2').setFontColor(profit >= 0 ? '#166534' : '#991b1b').setFontWeight('bold');
   }
+}
+
+function formatPoshmarkCostQueue_(sheet) {
+  formatHeader_(sheet, POSHMARK_COST_QUEUE_HEADERS.length, '#172554');
+  sheet.setColumnWidths(1, POSHMARK_COST_QUEUE_HEADERS.length, 125);
+  sheet.setColumnWidth(4, 150);
+  sheet.setColumnWidth(5, 320);
+  sheet.setColumnWidth(10, 150);
+  sheet.setColumnWidth(11, 190);
+  sheet.setColumnWidth(12, 280);
+  sheet.setColumnWidth(16, 180);
+  sheet.setColumnWidth(17, 320);
+  sheet.setColumnWidths(18, 2, 260);
+  sheet.setColumnWidth(20, 210);
+  sheet.getRange('A:A').setNumberFormat('m/d/yyyy h:mm AM/PM');
+  sheet.getRange('F:G').setNumberFormat('$#,##0.00');
+  sheet.getRange('M:M').setNumberFormat('$#,##0.00');
+  sheet.getRange('U:U').setNumberFormat('m/d/yyyy h:mm AM/PM');
+  sheet.getRange(1, 1, Math.max(1, sheet.getLastRow()), POSHMARK_COST_QUEUE_HEADERS.length).setWrap(true).setVerticalAlignment('middle');
+  const statusRange = sheet.getRange(2, 11, Math.max(1, sheet.getMaxRows() - 1), 1);
+  sheet.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('RESOLVED').setBackground('#dcfce7').setFontColor('#166534').setRanges([statusRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextContains('OPEN').setBackground('#fee2e2').setFontColor('#991b1b').setRanges([statusRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextContains('REVIEW').setBackground('#fef3c7').setFontColor('#92400e').setRanges([statusRange]).build()
+  ]);
+}
+
+function formatEbayCostQueue_(sheet) {
+  formatHeader_(sheet, EBAY_COST_QUEUE_HEADERS.length, '#111827');
+  sheet.setColumnWidths(1, EBAY_COST_QUEUE_HEADERS.length, 125);
+  sheet.setColumnWidth(3, 95);
+  sheet.setColumnWidth(4, 150);
+  sheet.setColumnWidth(5, 190);
+  sheet.setColumnWidth(6, 320);
+  sheet.setColumnWidth(9, 170);
+  sheet.setColumnWidth(10, 150);
+  sheet.setColumnWidth(11, 190);
+  sheet.setColumnWidth(15, 210);
+  sheet.setColumnWidth(19, 180);
+  sheet.setColumnWidth(20, 320);
+  sheet.setColumnWidths(21, 2, 240);
+  sheet.setColumnWidth(25, 300);
+  sheet.setColumnWidth(26, 220);
+  sheet.setColumnWidth(27, 260);
+  sheet.getRange('A:A').setNumberFormat('m/d/yyyy h:mm AM/PM');
+  sheet.getRange('G:G').setNumberFormat('$#,##0.00');
+  sheet.getRange('L:L').setNumberFormat('$#,##0.00');
+  sheet.getRange('N:N').setNumberFormat('$#,##0.00');
+  sheet.getRange('P:P').setNumberFormat('$#,##0.00');
+  sheet.getRange('V:X').setNumberFormat('$#,##0.00');
+  sheet.getRange('AB:AB').setNumberFormat('m/d/yyyy h:mm AM/PM');
+  sheet.getRange('AC:AD').setNumberFormat('$#,##0.00');
+  sheet.getRange(1, 1, Math.max(1, sheet.getLastRow()), EBAY_COST_QUEUE_HEADERS.length).setWrap(true).setVerticalAlignment('middle');
+  const statusRange = sheet.getRange(2, 15, Math.max(1, sheet.getMaxRows() - 1), 1);
+  sheet.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule().whenTextContains('RESOLVED - MATCH').setBackground('#dcfce7').setFontColor('#166534').setRanges([statusRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextContains('RESOLVED - AMAZON ONLY').setBackground('#dbeafe').setFontColor('#1e40af').setRanges([statusRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextContains('DISCREPANCY').setBackground('#fee2e2').setFontColor('#991b1b').setRanges([statusRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextContains('OPEN').setBackground('#fff7ed').setFontColor('#9a3412').setRanges([statusRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextContains('REVIEW').setBackground('#fef3c7').setFontColor('#92400e').setRanges([statusRange]).build()
+  ]);
+  if (sheet.getFilter()) sheet.getFilter().remove();
+  sheet.getRange(1, 1, Math.max(2, sheet.getLastRow()), EBAY_COST_QUEUE_HEADERS.length).createFilter();
+}
+
+function formatPoshmarkMonthSheet_(sheet) {
+  formatHeader_(sheet, POSHMARK_MONTH_HEADERS.length, '#111827');
+  sheet.setFrozenColumns(1);
+  sheet.setColumnWidth(1, 360);
+  sheet.setColumnWidths(2, 3, 115);
+  sheet.setColumnWidth(5, 170);
+  sheet.setColumnWidth(6, 300);
+  sheet.setColumnWidth(7, 120);
+  sheet.setColumnWidth(8, 210);
+  sheet.setColumnWidth(9, 150);
+  sheet.setColumnWidth(10, 190);
+  sheet.setColumnWidth(11, 150);
+  sheet.setColumnWidths(12, 2, 270);
+  sheet.getRange('B:D').setNumberFormat('$#,##0.00');
+  sheet.getRange(1, 1, Math.max(1, sheet.getLastRow()), POSHMARK_MONTH_HEADERS.length).setWrap(true).setVerticalAlignment('middle');
+  sheet.getRange(1, 1, 1, POSHMARK_MONTH_HEADERS.length).setFontSize(11);
+  const statusRange = sheet.getRange(2, 5, Math.max(1, sheet.getMaxRows() - 1), 1);
+  sheet.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Resolved').setBackground('#dcfce7').setFontColor('#166534').setRanges([statusRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Missing Amazon Cost').setBackground('#fee2e2').setFontColor('#991b1b').setRanges([statusRange]).build(),
+    SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Needs Review').setBackground('#fef3c7').setFontColor('#92400e').setRanges([statusRange]).build()
+  ]);
+  if (sheet.getFilter()) sheet.getFilter().remove();
+  sheet.getRange(1, 1, Math.max(2, sheet.getLastRow()), POSHMARK_MONTH_HEADERS.length).createFilter();
 }
 
 function formatGenericDashboard_(sheet, count) {

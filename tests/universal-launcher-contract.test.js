@@ -11,7 +11,14 @@ const background = fs.readFileSync(path.join(root, "extension", "background.js")
 test("ordinary HTTP pages receive one lightweight universal launcher", () => {
   const entry = manifest.content_scripts.find((item) => item.js.includes("universal.js"));
   assert.ok(entry);
-  assert.deepEqual(entry.js, ["config.example.js", "theme-catalog.js", "foundation.js", "shared.js", "universal.js"]);
+  assert.deepEqual(entry.js, [
+    "config.example.js",
+    "theme-catalog.js",
+    "foundation.js",
+    "shared.js",
+    "control-heartbeat.js",
+    "universal.js"
+  ]);
   assert.deepEqual(entry.matches, ["http://*/*", "https://*/*"]);
   assert.notEqual(entry.all_frames, true);
   assert.match(source, /panel\.id = ['"]gldn-universal-panel['"]/);

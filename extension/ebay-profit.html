@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monthly eBay Profit - GLDN Ops</title>
+  <link rel="stylesheet" href="ebay-profit.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">GLDN OPS / EBAY</p>
+      <h1>Monthly eBay Profit</h1>
+      <p class="lede">Read 1 calculates profit only from the two amounts saved in the eBay note. Read 2 separately uses visible eBay earnings and an exact Amazon order-item cost.</p>
+    </div>
+    <div id="identity" class="identity">Loading account...</div>
+  </header>
+
+  <main>
+    <section class="controls" aria-label="Profit run controls">
+      <label for="monthKey">Month</label>
+      <input id="monthKey" type="month">
+      <button id="startRun" class="primary" type="button">Start Month</button>
+      <button id="resumeRun" type="button">Resume</button>
+      <button id="pauseRun" type="button">Pause</button>
+      <button id="resetRun" class="danger-quiet" type="button">Reset</button>
+    </section>
+
+    <div id="notice" class="notice" data-tone="neutral">No monthly run saved.</div>
+
+    <section class="metrics" aria-label="Run totals">
+      <div><span>Orders indexed</span><strong id="ordersIndexed">0</strong></div>
+      <div><span>Details read</span><strong id="detailsCaptured">0</strong></div>
+      <div><span>Note-ready rows</span><strong id="exactCount">0</strong></div>
+      <div><span>Notes to review</span><strong id="unresolvedCount">0</strong></div>
+      <div><span>Visible eBay earnings</span><strong id="visibleEbayTotal">$0.00</strong></div>
+      <div><span>Read 1: Note earnings</span><strong id="earningsTotal">$0.00</strong></div>
+      <div><span>Read 1: Note Amazon cost</span><strong id="amazonTotal">$0.00</strong></div>
+      <div><span>Read 1: Note-only profit</span><strong id="profitTotal">$0.00</strong></div>
+    </section>
+
+    <section class="review-toolbar">
+      <div>
+        <h2>Order review</h2>
+        <p id="reviewCaption">Start a month to collect orders.</p>
+      </div>
+      <div class="filter-group" role="group" aria-label="Filter rows">
+        <button type="button" class="filter active" data-filter="all">All</button>
+        <button type="button" class="filter" data-filter="exact">Note ready</button>
+        <button type="button" class="filter" data-filter="unresolved">Review note</button>
+      </div>
+    </section>
+
+    <section class="table-wrap" aria-label="eBay profit rows">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Order</th>
+            <th>Item</th>
+            <th>Note status</th>
+            <th class="money">Visible eBay earnings</th>
+            <th class="money">Read 1: Note earnings</th>
+            <th class="money">Read 1: Note Amazon cost</th>
+            <th class="money">Read 1: Note-only profit</th>
+            <th>Saved note / review</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody">
+          <tr><td colspan="9" class="empty">No monthly run saved.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="syncGate" class="sync-gate" hidden>
+      <div>
+        <p class="eyebrow">DASHBOARD WRITE</p>
+        <h2>Exact approval required</h2>
+        <p>Confirmed note results and unresolved rows are preserved. Read 2 remains a separate Amazon-order reconciliation and never overwrites Read 1.</p>
+        <code id="approvalToken">APPROVE SYNC EBAY YYYY-MM 0</code>
+      </div>
+      <div class="approval-controls">
+        <label for="approvalInput">Type the exact approval shown</label>
+        <input id="approvalInput" type="text" autocomplete="off" spellcheck="false">
+        <button id="syncRows" class="danger" type="button" disabled>Sync Reviewed Month</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="ebay-profit-core.js"></script>
+  <script src="ebay-profit.js"></script>
+</body>
+</html>

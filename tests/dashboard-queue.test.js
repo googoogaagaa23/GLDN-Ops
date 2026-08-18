@@ -84,4 +84,22 @@ test("failed dashboard writes queue and later retry without losing identity", as
   assert.equal(retried.processed, 1);
   assert.equal(storage.gldnDashboardQueue.length, 0);
   assert.equal(storage.lastDashboardSync.retried, true);
+
+  storage.gldnDashboardQueue = [{
+    action: "taskCompletion",
+    syncId: "legacy-current-profile-subscribe-save",
+    attempts: 9,
+    lastError: "Computer and eBay account are required.",
+    record: {
+      featureKey: "amazon-subscribe-save",
+      scopeMode: "current-amazon-account",
+      proofType: "verified-zero-active-subscriptions",
+      allProfilesVerified: false
+    }
+  }];
+  const migrated = await sandbox.migrateObsoleteDashboardQueue("test");
+  assert.equal(migrated.removed, 1);
+  assert.equal(storage.gldnDashboardQueue.length, 0);
+  assert.equal(storage.gldnDashboardQueueMigrationAudit.removedCount, 1);
+  assert.equal(storage.gldnDashboardQueueMigrationAudit.items[0].syncId, "legacy-current-profile-subscribe-save");
 });

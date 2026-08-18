@@ -760,7 +760,61 @@
 
   function backfillCurrency(value) {
     const amount = Number(value);
-    return Number.isFinite(amount) ? `$${amount.toFixed(2)}` : "not captured";
+    return value !== null && value !== undefined && value !== "" && Number.isFinite(amount)
+      ? `$${amount.toFixed(2)}`
+      : "not captured";
+  }
+
+  function backfillOptionalNumber(value) {
+    const amount = Number(value);
+    return value !== null && value !== undefined && value !== "" && Number.isFinite(amount) ? amount : null;
+  }
+
+  function ebayProfitSourceComparison(sale, result) {
+    const record = result?.record || {};
+    const visibleEarnings = backfillOptionalNumber(record.marketplaceEarnings ?? sale.marketplaceEarnings);
+    const noteEarnings = backfillOptionalNumber(sale.noteMarketplaceEarnings ?? sale.marketplaceEarnings);
+    const noteCost = backfillOptionalNumber(sale.noteSupplierTotal);
+    const noteProfit = backfillOptionalNumber(sale.noteProfit)
+      ?? (noteEarnings !== null && noteCost !== null ? Number((noteEarnings - noteCost).toFixed(2)) : null);
+    const amazonCost = result?.status === "exact" ? backfillOptionalNumber(record.supplierTotal) : null;
+    const amazonProfit = result?.status === "exact"
+      ? (backfillOptionalNumber(record.profit)
+        ?? (visibleEarnings !== null && amazonCost !== null ? Number((visibleEarnings - amazonCost).toFixed(2)) : null))
+      : null;
+    const earningsDifference = noteEarnings !== null && visibleEarnings !== null
+      ? Number((visibleEarnings - noteEarnings).toFixed(2))
+      : null;
+    const costDifference = noteCost !== null && amazonCost !== null
+      ? Number((amazonCost - noteCost).toFixed(2))
+      : null;
+    const profitDifference = noteProfit !== null && amazonProfit !== null
+      ? Number((amazonProfit - noteProfit).toFixed(2))
+      : null;
+    let comparison = "open";
+    let label = "AMAZON OPEN";
+    if (noteEarnings === null || noteCost === null) {
+      comparison = "note-review";
+      label = "NOTE REVIEW";
+    } else if (amazonCost !== null && amazonProfit !== null) {
+      const matches = [earningsDifference, costDifference, profitDifference]
+        .every((difference) => difference !== null && Math.abs(difference) <= 0.011);
+      comparison = matches ? "match" : "discrepancy";
+      label = matches ? "MATCH" : "DISCREPANCY";
+    }
+    return {
+      visibleEarnings,
+      noteEarnings,
+      noteCost,
+      noteProfit,
+      amazonCost,
+      amazonProfit,
+      earningsDifference,
+      costDifference,
+      profitDifference,
+      comparison,
+      label
+    };
   }
 
   function outsideWindowPurchaseSummary(run, sale) {
@@ -802,21 +856,55 @@
     const marketplaceName = resolvingEbay ? "eBay" : "Poshmark";
     const remaining = Number(summary.pending || 0);
     const salesByOrder = new Map((run.sales || []).map((sale) => [String(sale.orderNumber || ""), sale]));
+    const comparisons = (run.results || []).map((result) => {
+      const sale = salesByOrder.get(String(result.orderNumber || "")) || {};
+      return ebayProfitSourceComparison(sale, result);
+    });
     const rows = (run.results || []).slice(0, 100).map((result) => {
       const sale = salesByOrder.get(String(result.orderNumber || "")) || {};
       const record = result.record || {};
+      const comparison = ebayProfitSourceComparison(sale, result);
+      if (!resolvingEbay) {
+        return `
+          <div class="gldn-sales-row" data-status="${escapeHtml(result.status)}">
+            <div class="gldn-sales-main">
+              <span class="gldn-sales-order">${escapeHtml(result.orderNumber || "No order")}</span>
+              <strong class="gldn-sales-title">${escapeHtml(sale.itemTitle || "Item title unavailable")}</strong>
+              <small class="gldn-sales-detail">${escapeHtml(result.status === "exact"
+                ? `${backfillCurrency(record.marketplaceEarnings)} earnings - ${backfillCurrency(record.supplierTotal)} Amazon - order ${record.supplierOrderNumber || "not captured"}`
+                : `${result.reason || result.status}${outsideWindowPurchaseSummary(run, sale)}`)}</small>
+            </div>
+            <strong class="gldn-sales-earnings">${escapeHtml(result.status === "exact" ? backfillCurrency(record.profit) : "STILL OPEN")}</strong>
+          </div>`;
+      }
+      const differenceText = comparison.profitDifference === null
+        ? (result.status === "exact" ? "Read 1 is unavailable for comparison." : `${result.reason || result.status}${outsideWindowPurchaseSummary(run, sale)}`)
+        : `Read 2 minus Read 1: earnings ${backfillCurrency(comparison.earningsDifference)}, cost ${backfillCurrency(comparison.costDifference)}, profit ${backfillCurrency(comparison.profitDifference)}.`;
       return `
-        <div class="gldn-sales-row" data-status="${escapeHtml(result.status)}">
+        <div class="gldn-sales-row gldn-profit-comparison-row" data-status="${escapeHtml(result.status)}" data-comparison="${escapeHtml(comparison.comparison)}">
           <div class="gldn-sales-main">
             <span class="gldn-sales-order">${escapeHtml(result.orderNumber || "No order")}</span>
             <strong class="gldn-sales-title">${escapeHtml(sale.itemTitle || "Item title unavailable")}</strong>
-            <small class="gldn-sales-detail">${escapeHtml(result.status === "exact"
-              ? `${backfillCurrency(record.marketplaceEarnings)} earnings - ${backfillCurrency(record.supplierTotal)} Amazon - order ${record.supplierOrderNumber || "not captured"}`
-              : `${result.reason || result.status}${outsideWindowPurchaseSummary(run, sale)}`)}</small>
+            <div class="gldn-profit-source-grid">
+              <div class="gldn-profit-source" data-source="note">
+                <span>READ 1 - SAVED EBAY NOTE ONLY</span>
+                <strong>${backfillCurrency(comparison.noteEarnings)} - ${backfillCurrency(comparison.noteCost)} = ${backfillCurrency(comparison.noteProfit)}</strong>
+                <small>${escapeHtml(sale.noteStatus || "Note needs review")}${sale.noteSupplierProfile ? ` - ${escapeHtml(sale.noteSupplierProfile)}` : ""}</small>
+              </div>
+              <div class="gldn-profit-source" data-source="amazon">
+                <span>READ 2 - EBAY + AMAZON ORDER</span>
+                <strong>${backfillCurrency(comparison.visibleEarnings)} - ${backfillCurrency(comparison.amazonCost)} = ${backfillCurrency(comparison.amazonProfit)}</strong>
+                <small>${escapeHtml(result.status === "exact" ? `Amazon order ${record.supplierOrderNumber || "not captured"} - ${record.supplierProfile || "current profile"}` : "Exact Amazon order cost is still open")}</small>
+              </div>
+            </div>
+            <small class="gldn-sales-detail gldn-profit-difference">${escapeHtml(differenceText)}</small>
           </div>
-          <strong class="gldn-sales-earnings">${escapeHtml(result.status === "exact" ? backfillCurrency(record.profit) : "STILL OPEN")}</strong>
+          <strong class="gldn-sales-earnings gldn-comparison-badge">${escapeHtml(comparison.label)}</strong>
         </div>`;
     }).join("");
+    const noteReady = comparisons.filter((comparison) => comparison.noteEarnings !== null && comparison.noteCost !== null).length;
+    const matches = comparisons.filter((comparison) => comparison.comparison === "match").length;
+    const discrepancies = comparisons.filter((comparison) => comparison.comparison === "discrepancy").length;
     const overlay = document.createElement("div");
     overlay.id = "gldn-amazon-cost-resolution-review";
     overlay.className = "gldn-modal-backdrop gldn-review-backdrop";
@@ -824,10 +912,14 @@
       <div class="gldn-modal gldn-health-modal gldn-review-modal gldn-backfill-modal">
         <button type="button" class="gldn-close" aria-label="Close">x</button>
         <h2>Review Missing ${marketplaceName} Amazon Costs</h2>
-        <p class="gldn-help-text">This signed-in Amazon profile was searched by exact ${marketplaceName} SKU-linked ASIN. Exact order-item costs can be applied; misses remain open for another profile.</p>
+        <p class="gldn-help-text">${resolvingEbay
+          ? "Read 1 comes only from the saved eBay note. Read 2 uses visible eBay earnings plus this signed-in profile's exact Amazon order-item cost. Neither read overwrites the other."
+          : `This signed-in Amazon profile was searched by exact ${marketplaceName} SKU-linked ASIN. Exact order-item costs can be applied; misses remain open for another profile.`}</p>
         <div class="gldn-grid gldn-backfill-summary">
           <div><strong>Queue rows checked</strong><span>${Number(summary.salesIndexed || 0).toLocaleString()}</span></div>
+          ${resolvingEbay ? `<div><strong>Read 1 note-ready</strong><span>${noteReady.toLocaleString()}</span></div>` : ""}
           <div><strong>Exact costs found</strong><span>${Number(summary.exact || 0).toLocaleString()}</span></div>
+          ${resolvingEbay ? `<div><strong>Matches</strong><span>${matches.toLocaleString()}</span></div><div><strong>Discrepancies</strong><span>${discrepancies.toLocaleString()}</span></div>` : ""}
           <div><strong>Still open</strong><span>${Number((summary.missingSku || 0) + (summary.amazonNotFound || 0) + (summary.needsReview || 0)).toLocaleString()}</span></div>
         </div>
         <div class="gldn-sales-list">${rows || "<div class='gldn-help-text'>No queue rows were checked.</div>"}</div>

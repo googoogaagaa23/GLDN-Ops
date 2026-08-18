@@ -131,7 +131,7 @@ Write-Result "Chrome installed" ([bool]$chrome) $(if ($chrome) { $chrome } else 
 Write-Result "Git available" ([bool]$gitCommand) $(if ($gitCommand) { "updates can use Git" } else { "updates will use ZIP fallback" })
 
 Test-Dashboard
-Write-Result "EcomSniper handoff mode" $true "read-only configured page routing; private controls remain manual"
+Write-Result "EcomSniper click mode" $true "store-safe manual Extract Sellers detection"
 Scan-ChromeProfiles
 
 Write-Host ""

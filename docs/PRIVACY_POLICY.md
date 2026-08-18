@@ -58,6 +58,10 @@ The extension uses the clipboard only for visible workflow actions, such as copy
 
 Dashboard sync uses HTTPS and requires a private setup code saved in the local Chrome profile. The Chrome Web Store package should not contain the private setup code.
 
+## Reviewed eBay Final Actions
+
+The local unpacked build uses Chrome debugger input only after the operator separately approves eBay's final Mark as Shipped confirmation for an exact order count. Before sending one mouse press and one mouse release, GLDN Ops rechecks the exact owner tab, Awaiting shipment URL, approved count, confirmation dialog, action label, and hit-tested button. It does not inspect network traffic, change developer settings, or automatically retry an ambiguous final action.
+
 ## Contact
 
 For access, support, or data questions, contact the GLDN Ops administrator.

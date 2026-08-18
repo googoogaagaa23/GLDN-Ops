@@ -6,12 +6,14 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const sources = [
+  "apps-script-live/Code.js",
   "dashboard/GLDN_Ops_Dashboard_Code.gs",
   "extension/dashboard_apps_script/Code.gs"
 ].map((file) => ({ file, text: fs.readFileSync(path.join(root, file), "utf8") }));
 
 test("dashboard Apps Script copies stay identical", () => {
   assert.equal(sources[1].text, sources[0].text);
+  assert.equal(sources[2].text, sources[0].text);
 });
 
 test("seller metrics use row-safe task-label lookup", () => {

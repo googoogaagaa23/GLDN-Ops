@@ -3,8 +3,9 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.GLDN_PROFIT_BACKFILL = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, () => {
-  const STATE_VERSION = 1;
+  const STATE_VERSION = 2;
   const DEFAULT_MATCH_WINDOW_DAYS = 7;
+  const MONTH_KEY_PATTERN = /^\d{4}-(?:0[1-9]|1[0-2])$/;
 
   function text(value) {
     return String(value || "").replace(/\s+/g, " ").trim();
@@ -27,6 +28,25 @@
     return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate()).getTime();
   }
 
+  function normalizeMonthKey(value) {
+    const monthKey = text(value);
+    return MONTH_KEY_PATTERN.test(monthKey) ? monthKey : "";
+  }
+
+  function monthKeyForDate(value) {
+    const timestamp = parseDate(value);
+    if (timestamp === null) return "";
+    const date = new Date(timestamp);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function monthLabel(value) {
+    const monthKey = normalizeMonthKey(value);
+    if (!monthKey) return "";
+    const [year, month] = monthKey.split("-").map(Number);
+    return new Date(year, month - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  }
+
   function dayDifference(fromValue, toValue) {
     const from = parseDate(fromValue);
     const to = parseDate(toValue);
@@ -36,17 +56,25 @@
 
   function createRun(options = {}) {
     const now = String(options.now || new Date().toISOString());
-    const scope = ["single", "pilot", "incremental", "last90", "all"].includes(options.scope) ? options.scope : "pilot";
+    const scope = ["single", "pilot", "incremental", "last90", "month", "resolve-missing", "resolve-ebay", "all"].includes(options.scope) ? options.scope : "pilot";
+    const monthKey = normalizeMonthKey(options.monthKey);
+    if (scope === "month" && !monthKey) throw new Error("A valid YYYY-MM month is required for a monthly Poshmark run.");
     const maxOrders = scope === "single"
       ? 1
       : scope === "pilot"
       ? Math.max(1, Math.min(25, Number(options.maxOrders || 10)))
+      : ["resolve-missing", "resolve-ebay"].includes(scope)
+      ? Math.max(1, Math.min(100, Number(options.maxOrders || 100)))
       : Math.max(1, Math.min(10000, Number(options.maxOrders || (scope === "last90" ? 1500 : 10000))));
     return {
       stateVersion: STATE_VERSION,
       runId: text(options.runId) || `posh-backfill-${Date.now()}`,
       extensionVersion: text(options.extensionVersion),
       scope,
+      platform: text(options.platform) || (scope === "resolve-ebay" ? "eBay" : "Poshmark"),
+      supplierProfile: text(options.supplierProfile),
+      monthKey,
+      monthLabel: monthLabel(monthKey),
       maxOrders,
       rangeDays: scope === "last90" ? 90 : null,
       knownOrderNumbers: unique(options.knownOrderNumbers),
@@ -92,6 +120,15 @@
       if (run.scope === "incremental" && sawKnown) return;
       const orderNumber = saleKey(raw);
       if (!orderNumber) return;
+      if (run.scope === "month") {
+        const recordMonth = monthKeyForDate(raw.orderDate);
+        if (!recordMonth) return;
+        if (recordMonth > run.monthKey) return;
+        if (recordMonth < run.monthKey) {
+          sawOlder = true;
+          return;
+        }
+      }
       if (run.scope === "incremental" && knownOrders.has(orderNumber)) {
         sawKnown = true;
         return;
@@ -220,7 +257,7 @@
 
   function resultForSale(sale, available, options = {}) {
     const asins = unique(sale.asins).map(normalizeAsin).filter(Boolean);
-    if (!asins.length) return { status: "missing-sku", reason: "The Poshmark SKU did not decode to an Amazon ASIN." };
+    if (!asins.length) return { status: "missing-sku", reason: "The marketplace SKU did not decode to an Amazon ASIN." };
     const windowDays = Number(options.matchWindowDays || DEFAULT_MATCH_WINDOW_DAYS);
     const chosen = [];
     for (const asin of asins) {
@@ -269,16 +306,20 @@
       source: purchase.source,
       capturedAt: purchase.capturedAt || ""
     }));
+    const platform = text(options.platform || sale.platform || "Poshmark");
+    const computerLabel = text(sale.computerLabel || options.computerLabel || (platform === "Poshmark" ? "7" : ""));
+    const accountLabel = text(sale.accountLabel || sale.poshmarkAccountLabel || sale.ebayAccountLabel);
     return {
-      platform: "Poshmark",
-      computerLabel: text(options.computerLabel || "7"),
-      accountLabel: text(sale.accountLabel || sale.poshmarkAccountLabel),
-      poshmarkAccountLabel: text(sale.accountLabel || sale.poshmarkAccountLabel),
+      platform,
+      computerLabel,
+      accountLabel,
+      ...(platform === "Poshmark" ? { poshmarkAccountLabel: accountLabel } : { ebayAccountLabel: accountLabel }),
       orderNumber: sale.orderNumber,
       itemTitle: sale.itemTitle,
       orderDate: sale.orderDate || "",
       orderStatus: sale.orderStatus || "",
       earningsStatus: sale.earningsStatus || "",
+      monthKey: monthKeyForDate(sale.orderDate) || normalizeMonthKey(options.monthKey),
       marketplaceEarnings: Number.isFinite(earnings) ? earnings : null,
       marketplaceSoldPrice: Number.isFinite(Number(sale.marketplaceSoldPrice)) ? Number(sale.marketplaceSoldPrice) : null,
       supplier: "Amazon",
@@ -293,7 +334,9 @@
       supplierMatchSource: unique(supplierItems.map((item) => item.source)).join(", "),
       supplierPageUrl: unique(supplierItems.map((item) => item.orderUrl)).join(" | "),
       supplierItemEvidence: JSON.stringify(supplierItems),
-      source: "poshmark-historical-profit-backfill",
+      source: text(options.source) || (platform === "eBay"
+        ? options.scope === "resolve-ebay" ? "ebay-amazon-cost-resolution" : "ebay-amazon-order-reconciliation"
+        : "poshmark-historical-profit-backfill"),
       capturedAt: new Date().toISOString(),
       pageUrl: sale.pageUrl || ""
     };
@@ -310,7 +353,7 @@
         results.push({
           orderNumber: sale.orderNumber,
           status: "exact",
-          record: buildProfitRecord(sale, outcome.purchases, options),
+          record: buildProfitRecord(sale, outcome.purchases, { ...options, scope: run.scope, monthKey: run.monthKey }),
           purchaseUnitKeys: outcome.purchases.map((purchase) => purchase.unitKey)
         });
       } else {
@@ -328,6 +371,64 @@
     };
   }
 
+  function buildReviewRecord(run, result, options = {}) {
+    const sale = (run.sales || []).find((item) => saleKey(item) === text(result?.orderNumber)) || {};
+    const exact = result?.status === "exact" && result.record ? result.record : null;
+    const supplierProfile = text(exact?.supplierProfile || options.supplierProfile);
+    const platform = text(exact?.platform || sale.platform || run.platform || options.platform || "Poshmark");
+    const earnings = Number(exact?.marketplaceEarnings ?? sale.marketplaceEarnings);
+    const soldPrice = Number(exact?.marketplaceSoldPrice ?? sale.marketplaceSoldPrice);
+    return {
+      platform,
+      computerLabel: text(exact?.computerLabel || sale.computerLabel || run.computerLabel || (platform === "Poshmark" ? "7" : "")),
+      accountLabel: text(exact?.accountLabel || sale.accountLabel || sale.poshmarkAccountLabel),
+      monthKey: normalizeMonthKey(exact?.monthKey) || monthKeyForDate(sale.orderDate) || normalizeMonthKey(run.monthKey),
+      orderNumber: text(result?.orderNumber || sale.orderNumber),
+      itemTitle: text(exact?.itemTitle || sale.itemTitle),
+      marketplaceEarnings: Number.isFinite(earnings) ? earnings : null,
+      marketplaceSoldPrice: Number.isFinite(soldPrice) ? soldPrice : null,
+      orderDate: text(exact?.orderDate || sale.orderDate),
+      orderStatus: text(exact?.orderStatus || sale.orderStatus),
+      earningsStatus: text(exact?.earningsStatus || sale.earningsStatus),
+      sku: text(exact?.sku || unique(sale.skus).join(", ") || sale.sku),
+      supplierItemIds: text(exact?.supplierItemIds || unique(sale.asins).map(normalizeAsin).filter(Boolean).join(", ")),
+      supplierTotal: exact && Number.isFinite(Number(exact.supplierTotal)) ? Number(exact.supplierTotal) : null,
+      supplierProfile,
+      supplierOrderNumber: text(exact?.supplierOrderNumber),
+      supplierMatchSource: text(exact?.supplierMatchSource),
+      supplierPageUrl: text(exact?.supplierPageUrl),
+      supplierItemEvidence: text(exact?.supplierItemEvidence),
+      profit: exact && Number.isFinite(Number(exact.profit)) ? Number(exact.profit) : null,
+      margin: exact && Number.isFinite(Number(exact.margin)) ? Number(exact.margin) : null,
+      noteStatus: text(sale.noteStatus),
+      noteMarketplaceEarnings: sale.noteMarketplaceEarnings !== null && sale.noteMarketplaceEarnings !== undefined && sale.noteMarketplaceEarnings !== "" && Number.isFinite(Number(sale.noteMarketplaceEarnings))
+        ? Number(sale.noteMarketplaceEarnings)
+        : null,
+      noteSupplierTotal: sale.noteSupplierTotal !== null && sale.noteSupplierTotal !== undefined && sale.noteSupplierTotal !== "" && Number.isFinite(Number(sale.noteSupplierTotal))
+        ? Number(sale.noteSupplierTotal)
+        : null,
+      noteSupplierProfile: text(sale.noteSupplierProfile),
+      noteProfit: sale.noteProfit !== null && sale.noteProfit !== undefined && sale.noteProfit !== "" && Number.isFinite(Number(sale.noteProfit))
+        ? Number(sale.noteProfit)
+        : null,
+      noteText: text(sale.noteText),
+      status: exact ? "resolved" : text(result?.status || "needs-review"),
+      reason: exact ? "Exact Amazon order-item cost captured." : text(result?.reason || "Amazon cost still needs an exact order match."),
+      pageUrl: text(exact?.pageUrl || sale.pageUrl),
+      attemptedSupplierProfiles: supplierProfile ? [supplierProfile] : [],
+      source: exact?.source || (run.scope === "resolve-ebay"
+        ? "ebay-amazon-cost-resolution"
+        : run.scope === "resolve-missing"
+        ? "poshmark-amazon-cost-resolution"
+        : "poshmark-monthly-profit-backfill"),
+      capturedAt: new Date().toISOString()
+    };
+  }
+
+  function reviewRecords(run, options = {}) {
+    return (run.results || []).map((result) => buildReviewRecord(run, result, options));
+  }
+
   function summary(run) {
     const results = run.results || [];
     const count = (status) => results.filter((result) => result.status === status).length;
@@ -335,6 +436,9 @@
     return {
       runId: run.runId,
       scope: run.scope,
+      supplierProfile: text(run.supplierProfile),
+      monthKey: normalizeMonthKey(run.monthKey),
+      monthLabel: monthLabel(run.monthKey),
       phase: run.phase,
       active: Boolean(run.active),
       pagesScanned: (run.pageFingerprints || []).length,
@@ -347,6 +451,7 @@
       needsReview: count("needs-review-same-cost") + count("needs-review-ambiguous-cost"),
       exactProfit: Number(exactRecords.reduce((sum, record) => sum + Number(record.profit || 0), 0).toFixed(2)),
       synced: unique(run.syncedOrderNumbers).length,
+      pending: results.filter((result) => !(run.syncedOrderNumbers || []).includes(result.orderNumber)).length,
       errors: (run.errors || []).length
     };
   }
@@ -355,6 +460,9 @@
     STATE_VERSION,
     DEFAULT_MATCH_WINDOW_DAYS,
     normalizeAsin,
+    normalizeMonthKey,
+    monthKeyForDate,
+    monthLabel,
     parseDate,
     dayDifference,
     createRun,
@@ -365,6 +473,8 @@
     addPurchase,
     allocate,
     summary,
-    buildProfitRecord
+    buildProfitRecord,
+    buildReviewRecord,
+    reviewRecords
   });
 });

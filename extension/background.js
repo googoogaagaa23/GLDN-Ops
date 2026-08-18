@@ -7121,6 +7121,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'confirmEbayMonthlyProfitNoteAmounts') {
+    EBAY_PROFIT_BACKGROUND.confirmNoteAmounts(message.orderNumber, message.values || {}).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message.type === 'ebayMonthlyProfitWorkerError') {
     EBAY_PROFIT_BACKGROUND.handleWorkerError(message.error || {}, sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;

@@ -6,6 +6,7 @@ const vm = require("node:vm");
 
 const root = path.resolve(__dirname, "..");
 const dashboardFiles = [
+  "apps-script-live/Code.js",
   "dashboard/GLDN_Ops_Dashboard_Code.gs",
   "extension/dashboard_apps_script/Code.gs"
 ];
@@ -28,6 +29,7 @@ function extractFunction(source, name) {
 
 test("dashboard Apps Script copies stay identical", () => {
   assert.equal(dashboardSources[0], dashboardSources[1]);
+  assert.equal(dashboardSources[0], dashboardSources[2]);
 });
 
 test("only exact Move .99 zero-remaining proof earns the task checkbox", () => {
@@ -99,3 +101,4 @@ test("task completion writes are idempotent and probe cleanup is zero-action", (
   assert.match(source, /finally \{\s*if \(sheet\) ss\.deleteSheet\(sheet\)/);
   assert.doesNotMatch(source.match(/const TASK_COMPLETION_RULES = Object\.freeze\([\s\S]*?\n\}\);/)?.[0] || "", /second-round|bulk-listing|sniping/i);
 });
+

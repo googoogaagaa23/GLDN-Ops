@@ -31,8 +31,26 @@
   U.makePanelDraggable(panel, 'gldnEcomSniperPanelPosition');
   statusElement = panel.querySelector('.gldn-status');
 
+  const readHandoffStatus = () => new Promise((resolve) => {
+    try {
+      chrome.storage.local.get(['ecomSniperHandoffStatus'], (result) => {
+        let error = null;
+        try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+        if (error) {
+          U.markExtensionContextInvalidated?.(error);
+          resolve({});
+          return;
+        }
+        resolve(result || {});
+      });
+    } catch (error) {
+      U.markExtensionContextInvalidated?.(error);
+      resolve({});
+    }
+  });
+
   const refreshStatus = async () => {
-    const stored = await new Promise((resolve) => chrome.storage.local.get(['ecomSniperHandoffStatus'], resolve));
+    const stored = await readHandoffStatus();
     const handoff = stored.ecomSniperHandoffStatus;
     if (handoff?.state === 'open') {
       setStatus(`${handoff.pageLabel || 'EcomSniper'} handoff tab is open. Internal processing status is unknown.`, 'ready');
@@ -67,5 +85,5 @@
     setStatus('GLDN Ops was updated. Refresh this tab when you are ready.', 'error');
   });
 
-  refreshStatus();
+  refreshStatus().catch((error) => setStatus(error?.message || 'Handoff status could not be read.', 'error'));
 })();

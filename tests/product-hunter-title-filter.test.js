@@ -8,6 +8,7 @@ const root = path.resolve(__dirname, '..');
 const foundationSource = fs.readFileSync(path.join(root, 'extension', 'foundation.js'), 'utf8');
 const popupHtml = fs.readFileSync(path.join(root, 'extension', 'popup.html'), 'utf8');
 const popupJs = fs.readFileSync(path.join(root, 'extension', 'popup.js'), 'utf8');
+const amazonJs = fs.readFileSync(path.join(root, 'extension', 'amazon.js'), 'utf8');
 
 function loadFoundation() {
   const context = { GLDN_CONFIG: {} };
@@ -46,16 +47,19 @@ test('scanner clipboard filter removes exact duplicate titles', () => {
   assert.equal(result.duplicatesRemoved, 1);
 });
 
-test('popup prepares filtered clipboard before opening Product Hunter', () => {
+test('popup runs filtered clipboard through preflight before opening Product Hunter', () => {
   assert.match(popupHtml, /id="prepareProductHunterClipboard"/);
   assert.match(popupHtml, /id="productHunterClipboardReport"/);
   assert.match(popupJs, /FOUNDATION\.filterBulkProductTitles\(copied\)/);
-  assert.match(popupJs, /navigator\.clipboard\.writeText\(filtered\.kept\.join\('\\n'\)\)/);
+  assert.match(popupJs, /LISTING_PREFLIGHT\.evaluateRows/);
+  assert.match(popupJs, /pendingListingPreflightInput/);
+  assert.match(popupJs, /Product Hunter was not opened/);
+  assert.match(popupJs, /navigator\.clipboard\.writeText\(readyPayload\)/);
   assert.match(popupJs, /lastProductHunterClipboardPrep: report/);
   assert.match(popupJs, /openEcomSniperPage\('productHunter'/);
 });
 
-test('Product Hunter clipboard keeps the shared non-apparel exclusion policy', () => {
-  assert.match(popupJs, /FOUNDATION\.filterBulkProductTitles\(copied\)/);
-  assert.match(foundationSource, /BULK_PRODUCT_EXCLUSION_RE/);
+test('Amazon Best Sellers and Product Hunter use the same exclusion policy', () => {
+  assert.match(amazonJs, /const FOUNDATION = window\.GLDN_FOUNDATION/);
+  assert.match(amazonJs, /return FOUNDATION\.allowedBulkProductTitle\(title\)/);
 });

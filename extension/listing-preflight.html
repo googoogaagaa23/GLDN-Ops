@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GLDN Listing Preflight</title>
+  <link rel="stylesheet" href="listing-preflight.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="kicker">GLDN OPS / RESEARCH</div>
+      <h1>Listing Preflight</h1>
+      <p>Check proposed Amazon links and titles against human-reviewed restriction signals before EcomSniper listing work.</p>
+    </div>
+    <div class="rule-status" id="ruleStatus">Loading reviewed rules...</div>
+  </header>
+
+  <main>
+    <section class="input-band" aria-labelledby="inputHeading">
+      <div class="section-heading">
+        <div><h2 id="inputHeading">Items to check</h2><p>Use one Amazon URL, ASIN, or product title per line.</p></div>
+        <label class="file-button">Import text or CSV<input id="fileInput" type="file" accept=".txt,.csv,text/plain,text/csv"></label>
+      </div>
+      <textarea id="itemInput" spellcheck="false" placeholder="https://www.amazon.com/dp/B012345678&#10;ASIN: B012345678 | Product title&#10;Product title without a link"></textarea>
+      <div class="actions">
+        <button id="runCheck" class="primary" type="button">Check Items</button>
+        <button id="clearInput" type="button">Clear</button>
+        <button id="copyReady" class="ready-action" type="button" disabled>Copy Ready Links</button>
+        <button id="copyAndOpenProductHunter" class="primary" type="button" disabled>Copy Ready &amp; Open Product Hunter</button>
+        <button id="downloadReady" type="button" disabled>Download Ready Links</button>
+        <button id="downloadResults" type="button" disabled>Download Results</button>
+      </div>
+      <div class="copy-status" id="copyStatus" aria-live="polite"></div>
+    </section>
+
+    <section class="results-band" aria-labelledby="resultsHeading">
+      <div class="summary" aria-live="polite">
+        <div><span>Total</span><strong id="countTotal">0</strong></div>
+        <div class="clear"><span>Ready to copy</span><strong id="countClear">0</strong></div>
+        <div class="review"><span>Needs review</span><strong id="countReview">0</strong></div>
+        <div class="block"><span>Blocked</span><strong id="countBlock">0</strong></div>
+      </div>
+      <div class="section-heading compact">
+        <div><h2 id="resultsHeading">Review results</h2><p id="resultNote">Nothing checked yet.</p></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Status</th><th>Input</th><th>ASIN</th><th>Matched reviewed rule</th><th>Source</th></tr></thead>
+          <tbody id="resultsBody"><tr><td colspan="5" class="empty">Paste items above, then run the check.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="boundary"><strong>Boundary:</strong> Ready to copy means only that the item did not match the current reviewed rules. It does not mean eBay permits the listing. Review items need a person; Block items never continue through the handoff. When no reviewed rules are loaded, every item stays in Needs review. GLDN does not call an eBay API or submit listings from this page.</div>
+    </section>
+  </main>
+  <script src="listing-preflight-core.js"></script>
+  <script src="listing-preflight.js"></script>
+</body>
+</html>

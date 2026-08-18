@@ -45,16 +45,26 @@
   U.makePanelDraggable(panel, 'gldnUniversalPanelPosition');
   statusElement = panel.querySelector('.gldn-status');
 
-  chrome.storage.local.get(['computerLabel'], (result) => {
-    const computer = FOUNDATION.normalizeComputer(result.computerLabel);
-    const identity = FOUNDATION.identityForComputer(computer);
-    const account = identity.poshmarkOnly
-      ? 'Poshmark only'
-      : identity.ebayAccountLabel || 'Not configured';
-    panel.querySelector('.gldn-panel-identity').innerHTML = `
-      <span>Computer: <strong>${escapeHtml(computer || 'Not set')}</strong></span>
-      <span>Account: <strong>${escapeHtml(account)}</strong></span>`;
-  });
+  try {
+    chrome.storage.local.get(['computerLabel'], (result) => {
+      let error = null;
+      try { error = chrome.runtime.lastError; } catch (caught) { error = caught; }
+      if (error) {
+        U.markExtensionContextInvalidated?.(error);
+        return;
+      }
+      const computer = FOUNDATION.normalizeComputer(result.computerLabel);
+      const identity = FOUNDATION.identityForComputer(computer);
+      const account = identity.poshmarkOnly
+        ? 'Poshmark only'
+        : identity.ebayAccountLabel || 'Not configured';
+      panel.querySelector('.gldn-panel-identity').innerHTML = `
+        <span>Computer: <strong>${escapeHtml(computer || 'Not set')}</strong></span>
+        <span>Account: <strong>${escapeHtml(account)}</strong></span>`;
+    });
+  } catch (error) {
+    U.markExtensionContextInvalidated?.(error);
+  }
 
   panel.querySelector('[data-action="open-extension"]').addEventListener('click', () => openExtensionPage('popup.html'));
   panel.querySelector('[data-action="tour"]').addEventListener('click', () => openExtensionPage('onboarding.html'));
