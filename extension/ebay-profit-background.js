@@ -130,12 +130,33 @@
       pausedReason: reason
     });
     if (Number.isInteger(workerTabId) && workerTabId > 0) void tabRemove(workerTabId);
+    void sendToTab(paused.ownerTabId, { type: "ebayMonthlyProfitProgress", state: paused, summary: CORE.summary(paused) });
     return publicResult(paused);
+  }
+
+  async function pauseMissingWorker(run, reason = "The eBay profit worker tab closed before completion. Resume continues from the saved checkpoint.") {
+    if (!run?.active) return run;
+    const workerTabId = Number(run.workerTabId);
+    if (Number.isInteger(workerTabId) && workerTabId > 0 && await tabGet(workerTabId)) return run;
+    const result = await pauseAtCheckpoint(run, reason);
+    return result.state;
+  }
+
+  async function handleWorkerTabClosed(tabId) {
+    const run = await readRun();
+    if (!run?.active || Number(run.workerTabId) !== Number(tabId)) {
+      return { ok: true, changed: false, state: run };
+    }
+    const result = await pauseAtCheckpoint(
+      run,
+      "The eBay profit worker tab closed before completion. Resume continues from the saved checkpoint."
+    );
+    return { ...result, changed: true };
   }
 
   async function start(options = {}, sender = {}) {
     await pauseIncompatibleVersion("start-check");
-    const existing = await readRun();
+    const existing = await pauseMissingWorker(await readRun());
     if (existing?.active) return { ok: false, error: `An eBay monthly profit run is already active (${existing.phase}).` };
     const stored = await storageGet(["computerLabel", "ebayAccountLabel"]);
     const identity = FOUNDATION.identityForComputer(stored.computerLabel);
@@ -235,7 +256,7 @@
   }
 
   async function getStatus() {
-    const run = await readRun();
+    const run = await pauseMissingWorker(await readRun());
     return run ? publicResult(run) : { ok: true, state: null, summary: null };
   }
 
@@ -308,6 +329,7 @@
     handleOrdersPage,
     handleOrderDetail,
     handleWorkerError,
+    handleWorkerTabClosed,
     pendingForSync,
     markSynced,
     pauseIncompatibleVersion

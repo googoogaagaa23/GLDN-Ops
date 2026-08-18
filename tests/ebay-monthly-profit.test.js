@@ -242,7 +242,18 @@ test("runtime uses one inactive signed-in eBay worker and survives checkpoints",
   assert.match(ebay, /ebayMonthlyProfitOrderDetail/);
   assert.match(ebay, /ebayMonthlyProfitWorkerError/);
   assert.match(worker, /handleWorkerError/);
+  assert.match(worker, /handleWorkerTabClosed/);
+  assert.match(worker, /pauseMissingWorker\(await readRun\(\)\)/);
+  assert.match(worker, /The eBay profit worker tab closed before completion/);
+  assert.match(worker, /ebayMonthlyProfitProgress[\s\S]*state: paused/);
   assert.ok(ebayScripts.indexOf("ebay-profit-core.js") < ebayScripts.indexOf("ebay.js"));
+});
+
+test("unexpected monthly-profit worker closure is wired to a resumable pause", () => {
+  const background = fs.readFileSync(path.resolve(__dirname, "..", "extension", "background.js"), "utf8");
+  assert.match(background, /chrome\.tabs\.onRemoved\.addListener/);
+  assert.match(background, /EBAY_PROFIT_BACKGROUND\.handleWorkerTabClosed\(tabId\)/);
+  assert.match(background, /operation: 'worker-tab-closed'/);
 });
 
 test("dashboard sync is count-bound and sends exact notes plus every reconciliation row", () => {

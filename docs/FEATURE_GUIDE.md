@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.18. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.19. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -362,7 +362,7 @@ A resumable eBay month checkpoint, note-only earnings/cost/profit, visible-eBay-
 
 ### Evidence
 
-The signed-in July 2026 eBay month and approved Amazon-profile reconciliations remain historical live evidence. v3.12.18 adds deterministic proof for true note-only separation, visible-eBay separation, safe normalization, ambiguous typo review, missing-decimal suggestions, confirmation wiring, and separate dashboard persistence. Current Profile 2 UI readback remains a release gate.
+The signed-in July 2026 eBay month and approved Amazon-profile reconciliations remain historical live evidence. v3.12.18 adds deterministic proof for true note-only separation, visible-eBay separation, safe normalization, ambiguous typo review, missing-decimal suggestions, confirmation wiring, and separate dashboard persistence. v3.12.19 adds deterministic worker-close recovery so a missing worker becomes a resumable Paused checkpoint instead of stale Running. Live M0 confirmation remains pending.
 
 
 <a id="seller-metrics"></a>

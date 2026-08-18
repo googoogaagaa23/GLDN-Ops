@@ -1,4 +1,11 @@
-GLDN Ops v3.12.18
+GLDN Ops v3.12.19
+
+v3.12.19 monthly-profit worker recovery release:
+- Detects when Chrome or eBay closes the monthly-profit worker before completion.
+- Immediately changes the run from Running to a resumable Paused checkpoint.
+- Shows the closure reason on the Monthly eBay Profit page instead of leaving stale progress.
+- Rechecks worker existence whenever status is read or a new run is requested.
+- Keeps normal review/completion closure unchanged.
 
 v3.12.18 dual-source eBay profit release:
 - Makes Read 1 a true saved-note-only calculation: note earnings minus note Amazon cost.

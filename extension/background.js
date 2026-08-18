@@ -6785,6 +6785,9 @@ chrome.runtime.onStartup.addListener(() => {
 
 if (chrome.tabs?.onRemoved?.addListener) {
   chrome.tabs.onRemoved.addListener((tabId) => {
+    EBAY_PROFIT_BACKGROUND.handleWorkerTabClosed(tabId).catch((error) => {
+      recordExtensionLog({ source: 'ebay-profit', operation: 'worker-tab-closed', message: error.message });
+    });
     clearOpenReviewsForTab({ tab: { id: tabId } }).catch((error) => {
       recordExtensionLog({ source: 'background', operation: 'review-tab-closed', message: error.message });
     });

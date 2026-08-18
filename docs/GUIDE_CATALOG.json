@@ -1,5 +1,5 @@
 {
-  "version": "3.12.18",
+  "version": "3.12.19",
   "updated": "2026-08-17",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -100,7 +100,7 @@
       "approvalStop": "STOP at both reviews. The eBay month write requires APPROVE SYNC EBAY YYYY-MM N. Each independent Amazon-profile result requires APPROVE RESOLVE EBAY COSTS N. Neither approval changes an eBay order, listing, or Amazon order.",
       "output": "A resumable eBay month checkpoint, note-only earnings/cost/profit, visible-eBay-plus-Amazon earnings/cost/profit, their differences, discrepancy status, attempted supplier profiles, and a durable unresolved queue.",
       "recovery": ["Pause closes only the worker tab and preserves the exact checkpoint.", "Resume recreates one inactive worker in the same Chrome profile.", "An extension update pauses an in-progress run instead of mixing versions.", "Never guess a missing Amazon cost or substitute a current product price.", "Deterministic note formatting cleanup may be automatic, but uncertain dollar values require editable operator confirmation before entering exact totals.", "Confirming note amounts changes only GLDN Ops internal evidence and never edits the saved eBay note.", "Do not rename an Amazon profile after it has recorded attempts; use the same permanent label on that Chrome profile.", "The Monthly eBay Profit page can correctly say No saved run in an Amazon-only Chrome profile; the month checkpoint remains local to the eBay Chrome profile and Amazon reconciliation receipts are written to the shared sheet.", "Copy diagnostics if eBay or Amazon changes its order-row or order-detail layout."],
-      "evidence": "The signed-in July 2026 eBay month and approved Amazon-profile reconciliations remain historical live evidence. v3.12.18 adds deterministic proof for true note-only separation, visible-eBay separation, safe normalization, ambiguous typo review, missing-decimal suggestions, confirmation wiring, and separate dashboard persistence. Current Profile 2 UI readback remains a release gate."
+      "evidence": "The signed-in July 2026 eBay month and approved Amazon-profile reconciliations remain historical live evidence. v3.12.18 adds deterministic proof for true note-only separation, visible-eBay separation, safe normalization, ambiguous typo review, missing-decimal suggestions, confirmation wiring, and separate dashboard persistence. v3.12.19 adds deterministic worker-close recovery so a missing worker becomes a resumable Paused checkpoint instead of stale Running. Live M0 confirmation remains pending."
     },
     {
       "id": "seller-metrics",

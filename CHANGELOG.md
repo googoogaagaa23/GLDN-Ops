@@ -2,6 +2,14 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.19 - 2026-08-17
+
+- Fixed Monthly eBay Profit remaining on Running after its inactive worker tab closed unexpectedly.
+- Unexpected worker closure now saves a resumable Paused checkpoint and reports the exact recovery instruction.
+- Status reads self-heal an active run whose worker is already missing, including after a service-worker restart or missed tab-close event.
+- Starting a month also repairs stale active state before deciding whether another run is already active.
+- Normal worker closure after reaching review or completion remains unchanged.
+
 ## v3.12.18 - 2026-08-17
 
 - Split Monthly eBay Profit into two independent calculations instead of treating eBay's visible earnings as the note-only input.
