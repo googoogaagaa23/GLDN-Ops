@@ -2,6 +2,13 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.21 - 2026-08-21
+
+- Kept the final Monthly eBay Profit worker page open through operator review.
+- Deferred worker cleanup until the reviewed month is completely synced or explicitly reset.
+- Prevented stale `0 of 0` text elsewhere in eBay's single-page interface from overriding visible order-detail links.
+- Added an explicit zero-order review message so an empty result cannot look like an unexplained disappearing tab.
+
 ## v3.12.20 - 2026-08-17
 
 - Fixed Monthly eBay Profit deleting its own worker tab after an eBay page-verification error.

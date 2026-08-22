@@ -130,6 +130,15 @@ test("monthly order indexing requires All orders plus rendered evidence", () => 
   });
   assert.equal(empty.ready, true);
   assert.equal(empty.explicitEmpty, true);
+
+  const staleEmptyText = core.classifyOrdersIndexPage({
+    heading: "Manage orders",
+    selectedStatus: "All orders",
+    detailLinkCount: 20,
+    bodyText: "Results: 0 of 0 Results: 1-20 of 317"
+  });
+  assert.equal(staleEmptyText.ready, true);
+  assert.equal(staleEmptyText.explicitEmpty, false);
 });
 
 test("monthly order indexing fails closed on an eBay interruption", () => {
@@ -309,6 +318,26 @@ test("monthly-profit page failures preserve the worker while deliberate pause st
   assert.match(stopBlock, /return pauseAtCheckpoint\(run, "Paused by the operator\./);
   assert.match(ebay, /let workerPhase = "unknown"/);
   assert.match(ebay, /phase: workerPhase/);
+});
+
+test("monthly-profit review preserves its final eBay page until sync or reset", () => {
+  const worker = fs.readFileSync(path.resolve(__dirname, "..", "extension", "ebay-profit-background.js"), "utf8");
+  const review = fs.readFileSync(path.resolve(__dirname, "..", "extension", "ebay-profit.js"), "utf8");
+  const finishBlock = worker.slice(
+    worker.indexOf("async function finishReview"),
+    worker.indexOf("async function pauseAtCheckpoint")
+  );
+  const syncBlock = worker.slice(
+    worker.indexOf("async function markSynced"),
+    worker.indexOf("async function pauseIncompatibleVersion")
+  );
+
+  assert.match(finishBlock, /workerTabId: preservedWorker \? workerTabId : null/);
+  assert.match(finishBlock, /workerPreserved: preservedWorker/);
+  assert.doesNotMatch(finishBlock, /tabRemove\(/);
+  assert.match(syncBlock, /if \(!remaining\.length[\s\S]*tabRemove\(workerTabId\)/);
+  assert.match(review, /final eBay worker page was left open/);
+  assert.match(review, /final eBay worker page remains open until this run is synced or reset/);
 });
 
 test("dashboard sync is count-bound and sends exact notes plus every reconciliation row", () => {

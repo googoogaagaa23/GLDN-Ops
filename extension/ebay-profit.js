@@ -143,7 +143,8 @@
     $("monthKey").disabled = active;
 
     if (!state) setNotice("No monthly run saved.");
-    else if (state.phase === "review") setNotice(`Read 1 ready: ${summary.exact} note-only profit rows; ${summary.unresolved} notes need review. After approval, Read 2 independently matches Amazon orders using visible eBay earnings.`, summary.unresolved ? "warn" : "good");
+    else if (state.phase === "review" && Number(summary.ordersIndexed || 0) === 0) setNotice(`No ${state.monthLabel || state.monthKey} orders were found. The final eBay worker page was left open so this result can be inspected before Reset.`, "warn");
+    else if (state.phase === "review") setNotice(`Read 1 ready: ${summary.exact} note-only profit rows; ${summary.unresolved} notes need review. The final eBay worker page remains open until this run is synced or reset. After approval, Read 2 independently matches Amazon orders using visible eBay earnings.`, summary.unresolved ? "warn" : "good");
     else if (state.phase === "completed") setNotice(`Completed: ${summary.synced} reviewed orders handled.`, "good");
     else if (state.phase === "paused") setNotice(state.pausedReason || "Paused at a safe checkpoint.", "warn");
     else setNotice(`Running ${displayStatus(state.phase)}: ${summary.detailsCaptured} of ${summary.ordersIndexed} order details read.`, "neutral");

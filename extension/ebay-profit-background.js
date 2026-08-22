@@ -105,15 +105,19 @@
 
   async function finishReview(run) {
     const workerTabId = Number(run.workerTabId);
+    const preservedWorker = Number.isInteger(workerTabId)
+      && workerTabId > 0
+      && Boolean(await tabGet(workerTabId));
     const review = await writeRun({
       ...run,
       active: false,
       stopRequested: false,
       phase: "review",
-      workerTabId: null,
+      workerTabId: preservedWorker ? workerTabId : null,
+      workerPreserved: preservedWorker,
+      workerFailure: null,
       reviewReadyAt: run.reviewReadyAt || new Date().toISOString()
     });
-    if (Number.isInteger(workerTabId) && workerTabId > 0) void tabRemove(workerTabId);
     void sendToTab(review.ownerTabId, { type: "ebayMonthlyProfitProgress", state: review, summary: CORE.summary(review) });
     return publicResult(review);
   }
@@ -324,6 +328,7 @@
   async function markSynced(orderNumbers, options = {}) {
     const run = await readRun();
     if (!run) throw new Error("The monthly eBay profit checkpoint is missing.");
+    const workerTabId = Number(run.workerTabId);
     const syncedOrderNumbers = [...new Set([...(run.syncedOrderNumbers || []), ...(orderNumbers || []).map(String)])];
     const remaining = CORE.unsyncedReviewResults({ ...run, syncedOrderNumbers });
     const next = await writeRun({
@@ -332,10 +337,13 @@
       ...(remaining.length ? {} : {
         active: false,
         phase: "completed",
+        workerTabId: null,
+        workerPreserved: false,
         completedAt: new Date().toISOString(),
         syncDelivery: options.queued === true ? "queued" : "confirmed"
       })
     });
+    if (!remaining.length && Number.isInteger(workerTabId) && workerTabId > 0) void tabRemove(workerTabId);
     return next;
   }
 

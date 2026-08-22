@@ -1,4 +1,10 @@
-GLDN Ops v3.12.20
+GLDN Ops v3.12.21
+
+v3.12.21 monthly-profit visible-review release:
+- Keeps the final signed-in eBay worker page open when Monthly eBay Profit reaches review.
+- Closes that worker only after the reviewed month is fully synced or explicitly reset.
+- Prevents stale zero-result text in eBay's SPA from overriding visible order-detail links.
+- Shows a clear zero-order review message instead of silently removing the worker page.
 
 v3.12.20 monthly-profit launch repair:
 - Stops Monthly eBay Profit from deleting its own worker tab when eBay page verification fails.

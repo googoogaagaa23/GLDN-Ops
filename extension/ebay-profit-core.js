@@ -199,9 +199,12 @@
       || heading === "manage orders"
       || heading === "manage all orders"
     );
-    const explicitEmpty = /\bresults?\s*:\s*0(?:\s*-\s*0)?\s+of\s+0\b/.test(bodyText)
+    const explicitEmptySignal = /\bresults?\s*:\s*0(?:\s*-\s*0)?\s+of\s+0\b/.test(bodyText)
       || /\b(?:no|zero)\s+(?:matching\s+)?orders?\s+(?:found|to show|available)\b/.test(bodyText)
       || /\bthere are no (?:matching )?orders?\b/.test(bodyText);
+    // eBay can leave stale zero-result text elsewhere in its SPA while real
+    // order links are rendered. Visible detail links are authoritative.
+    const explicitEmpty = detailLinkCount === 0 && explicitEmptySignal;
     const interrupted = /\bpardon our interruption\b|\bsecurity challenge\b|\bverify (?:that )?(?:it'?s|you are) you\b|\bcaptcha\b|\bthink you are a bot\b/.test(bodyText);
     const ready = allOrders && !interrupted && (detailLinkCount > 0 || explicitEmpty);
     let reason = "";
