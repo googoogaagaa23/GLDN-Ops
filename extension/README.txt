@@ -1,4 +1,14 @@
-GLDN Ops v3.12.23
+GLDN Ops v3.12.24
+
+v3.12.24 Order Placement Audit access:
+- Adds an always-visible Open Order Placement Audit shortcut near the top of the full extension popup.
+- Keeps the existing Workflows > Profit entry.
+- Opens the same read-only cross-profile audit from every participating Amazon Chrome profile.
+- Renames Monthly eBay Profit to eBay Profit Audit.
+- Adds one-month or all-available-history reads.
+- Shows Pending instead of $0.00 when no saved-note profit has been confirmed.
+- Shows saved-note profit coverage and labels partial totals clearly.
+- Names the two methods Saved-note profit and Independent Amazon profit.
 
 v3.12.23 updater-ready order audit release:
 - Publishes the cross-profile Order Placement Audit through Update & Reload.

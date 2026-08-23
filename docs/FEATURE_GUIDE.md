@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.23. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.24. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -23,7 +23,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Local Update and Rollback](#deployment) - **PARTIAL**
 - [Mark as Shipped](#mark-shipped) - **PARTIAL**
 - [eBay Order Note and Profit](#ebay-note-profit) - **LIVE PASS**
-- [Monthly eBay Profit](#ebay-monthly-profit) - **PARTIAL LIVE**
+- [eBay Profit Audit](#ebay-monthly-profit) - **PARTIAL LIVE**
 - [Order Placement Audit](#order-placement-audit) - **PARTIAL LIVE**
 - [Seller Level and Tasks Metrics](#seller-metrics) - **LIVE PASS**
 - [Confirm Listings Under Limit](#listing-limits) - **LIVE PASS**
@@ -309,63 +309,65 @@ Profile 2 matched an exact Amazon order and ASIN, filled the real eBay note, and
 
 
 <a id="ebay-monthly-profit"></a>
-## Monthly eBay Profit
+## eBay Profit Audit
 
-**Matrix:** E-12
+**Matrix:** E-14
 
 **Evidence status:** PARTIAL LIVE
 
-**Purpose:** Read a complete eBay order month, calculate one profit result only from the saved note, and calculate a second independent result from visible eBay earnings plus exact Amazon order-item costs.
+**Purpose:** Read one eBay order month or all available history, calculate Saved-note profit from the note alone, and separately calculate Independent Amazon profit from visible eBay earnings plus exact Amazon order-item costs.
 
 ### Prerequisites
 
-- Use the Chrome profile already signed into the intended eBay account for the month collection.
+- Use the Chrome profile already signed into the intended eBay account for order collection.
 - The saved computer identity must map to that eBay account.
 - Set one permanent Amazon profile name in Setup in every Chrome profile used for cost reconciliation.
 - Orders count as saved-note exact only when their existing eBay note follows earnings - Amazon cost - Amazon profile - ETA, or an ambiguous amount has been explicitly confirmed inside GLDN Ops.
 
 ### Exact Steps
 
-1. Open Workflows in the eBay Chrome profile and click Open Monthly eBay Profit.
-2. Choose the calendar month and click Start Month.
-3. Let the one inactive signed-in eBay worker index the month's order pages and open each exact order detail.
-4. Review Read 1 separately: saved-note earnings, saved-note Amazon cost, and note-only profit.
-5. Review Read 2 separately: visible eBay earnings, exact matched Amazon order-item cost, and Amazon-order profit.
-6. Allow GLDN Ops to normalize harmless money formatting mistakes. When it flags an ambiguous character, likely missing decimal, or earnings mismatch, edit the suggested values and click Confirm note amounts.
-7. Keep missing notes, unconfirmed ambiguous amounts, missing earnings, and date mismatches outside exact saved-note totals.
-8. Type the displayed APPROVE SYNC EBAY YYYY-MM N token only after reviewing the exact month and exact unsynced row count.
-9. Confirm dashboard delivery or a retained retry queue, then read back the computer profit sheet.
-10. In an Amazon Chrome profile, verify its permanent Amazon profile name in Setup, choose the same month, and click Resolve eBay Amazon Costs.
-11. Review the exact supplier profile, exact matches, misses, and live pending count. Click Save Cost Resolution Results once; GLDN Ops binds that explicit action to the unchanged live count.
-12. Wait for the visible Results Saved or Results Queued Safely receipt before leaving the page.
-13. Move to each other signed-in Amazon Chrome profile and repeat. Rows already attempted by that named profile are excluded; unresolved rows remain open without becoming zero.
-14. Compare the two independent profits and their earnings, cost, and profit differences in the shared reconciliation sheet. Missing SKU and substituted-item cases remain manual review.
+1. Open Workflows in the eBay Chrome profile and click Open eBay Profit Audit.
+2. Choose One month for a smaller audit or All available history for the full available eBay history range.
+3. For One month, choose the calendar month and click Read Month. For all history, click Read All History.
+4. Let the one inactive signed-in eBay worker index the selected range and open each exact order detail.
+5. Read Saved-note profit separately: saved-note earnings minus saved-note Amazon cost.
+6. Use the coverage count to see how many reviewed orders are included. Pending means no confirmed saved-note profit exists; a dollar result with incomplete coverage is a partial total.
+7. Review Independent Amazon profit separately after sync: visible eBay earnings minus an exact matched Amazon order-item cost.
+8. Allow GLDN Ops to normalize harmless money formatting mistakes. When it flags an ambiguous character, likely missing decimal, or earnings mismatch, edit the suggested values and click Confirm note amounts.
+9. Keep missing notes, unconfirmed ambiguous amounts, missing earnings, and date mismatches outside confirmed saved-note totals.
+10. Type the displayed APPROVE SYNC EBAY YYYY-MM N token for a month or APPROVE SYNC EBAY ALL N for all history only after reviewing the exact unsynced row count.
+11. Confirm dashboard delivery or a retained retry queue, then read back the computer profit sheet.
+12. In an Amazon Chrome profile, verify its permanent Amazon profile name in Setup and click Resolve eBay Amazon Costs for the corresponding unresolved rows.
+13. Review the exact supplier profile, exact matches, misses, and live pending count. Click Save Cost Resolution Results once; GLDN Ops binds that explicit action to the unchanged live count.
+14. Wait for the visible Results Saved or Results Queued Safely receipt before leaving the page.
+15. Move to each other signed-in Amazon Chrome profile and repeat. Rows already attempted by that named profile are excluded; unresolved rows remain open without becoming zero.
+16. Compare Saved-note profit and Independent Amazon profit in the shared reconciliation sheet. Missing SKU and substituted-item cases remain manual review.
 
 ### Approval Stop
 
-STOP at both reviews. The eBay month write requires APPROVE SYNC EBAY YYYY-MM N. Each independent Amazon-profile result requires APPROVE RESOLVE EBAY COSTS N. Neither approval changes an eBay order, listing, or Amazon order.
+STOP at both reviews. The eBay write requires APPROVE SYNC EBAY YYYY-MM N for a month or APPROVE SYNC EBAY ALL N for all history. Each independent Amazon-profile result requires APPROVE RESOLVE EBAY COSTS N. Neither approval changes an eBay order, listing, or Amazon order.
 
 ### Expected Output
 
-A resumable eBay month checkpoint, note-only earnings/cost/profit, visible-eBay-plus-Amazon earnings/cost/profit, their differences, discrepancy status, attempted supplier profiles, and a durable unresolved queue.
+A resumable selected-range checkpoint; visibly covered Saved-note earnings, cost, and profit; separate Independent Amazon earnings, cost, and profit; discrepancy status; attempted supplier profiles; and a durable unresolved queue.
 
 ### Failure Recovery
 
 - A deliberate Pause closes only the worker tab and preserves the exact checkpoint.
 - A page-verification failure leaves the exact failed eBay tab open and changes the run to Paused with the real reason.
 - Resume reuses a preserved failed worker or recreates one inactive worker when the old tab no longer exists.
-- The final eBay page remains open at review and closes only after the month is fully synced or explicitly reset.
+- The final eBay page remains open at review and closes only after the selected range is fully synced or explicitly reset.
 - An extension update pauses an in-progress run instead of mixing versions.
 - Never guess a missing Amazon cost or substitute a current product price.
-- Deterministic note formatting cleanup may be automatic, but uncertain dollar values require editable operator confirmation before entering exact totals.
+- Deterministic note formatting cleanup may be automatic, but uncertain dollar values require editable operator confirmation before entering confirmed totals.
 - Confirming note amounts changes only GLDN Ops internal evidence and never edits the saved eBay note.
 - Do not rename an Amazon profile after it has recorded attempts; use the same permanent label on that Chrome profile.
-- The Monthly eBay Profit page can correctly say No saved run in an Amazon-only Chrome profile; the month checkpoint remains local to the eBay Chrome profile and Amazon reconciliation receipts are written to the shared sheet.
-- Copy diagnostics if eBay or Amazon changes its order-row or order-detail layout.
+- The eBay Profit Audit page can correctly say No saved run in an Amazon-only Chrome profile; the eBay checkpoint remains local to the eBay Chrome profile and Amazon reconciliation receipts are written to the shared sheet.
+- Copy diagnostics if eBay or Amazon changes its order-row, period control, Custom date range, or order-detail layout.
 
 ### Evidence
 
-The signed-in July 2026 eBay month and approved Amazon-profile reconciliations remain historical live evidence. v3.12.18 adds deterministic proof for true note-only separation, visible-eBay separation, safe normalization, ambiguous typo review, missing-decimal suggestions, confirmation wiring, and separate dashboard persistence. v3.12.19 adds deterministic missing-worker recovery so stale Running becomes a resumable Paused checkpoint. v3.12.20 prevents a page-verification error from deleting its own worker, preserves the exact failed page, reuses it on Resume, and supports encoded All Orders URLs plus nested controls. v3.12.21 keeps the final worker page open through review and rejects stale empty-result text when real order links exist. Live M0 confirmation remains pending.
+The signed-in July 2026 eBay month and approved Amazon-profile reconciliations remain historical live evidence. v3.12.24 adds deterministic all-history range, year-rollover, per-order month preservation, clear coverage, Pending-state, and partial-profit contracts. A signed-in all-history live run remains pending.
 
 
 <a id="order-placement-audit"></a>

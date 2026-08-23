@@ -6340,7 +6340,7 @@ async function performReviewedEbayMonthlyProfitSync(confirmToken) {
   const pending = await EBAY_PROFIT_BACKGROUND.pendingForSync();
   const expectedToken = EBAY_PROFIT_CORE.approvalToken(pending.run);
   if (String(confirmToken || '').trim() !== expectedToken) {
-    return { ok: false, error: `Explicit monthly eBay profit approval is missing. Expected ${expectedToken}.` };
+    return { ok: false, error: `Explicit eBay profit approval is missing. Expected ${expectedToken}.` };
   }
   if (!pending.reviewRecords.length) {
     return {
@@ -6366,7 +6366,7 @@ async function performReviewedEbayMonthlyProfitSync(confirmToken) {
       batchIndex,
       records,
       reviewRecords
-    }, 'Monthly eBay note-profit and Amazon reconciliation batch synced');
+    }, 'eBay saved-note profit and Amazon reconciliation batch synced');
     responses.push(response);
     if (!response.ok && !response.queued) break;
     handledOrders.push(...reviewRecords.map((record) => String(record.orderNumber || '')).filter(Boolean));
@@ -7229,6 +7229,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'ebayMonthlyProfitOrdersPage') {
     EBAY_PROFIT_BACKGROUND.handleOrdersPage(message.payload || {}, sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'ebayMonthlyProfitPeriodPrepared') {
+    EBAY_PROFIT_BACKGROUND.handlePeriodPrepared(message.payload || {}, sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 

@@ -168,11 +168,11 @@
   async function start(options = {}, sender = {}) {
     await pauseIncompatibleVersion("start-check");
     const existing = await pauseMissingWorker(await readRun());
-    if (existing?.active) return { ok: false, error: `An eBay monthly profit run is already active (${existing.phase}).` };
+    if (existing?.active) return { ok: false, error: `An eBay profit run is already active (${existing.phase}).` };
     const stored = await storageGet(["computerLabel", "ebayAccountLabel"]);
     const identity = FOUNDATION.identityForComputer(stored.computerLabel);
     if (!identity.computerLabel || identity.poshmarkOnly || !identity.ebayAccountLabel) {
-      return { ok: false, error: "Choose an eBay computer in Setup before starting monthly eBay profit." };
+      return { ok: false, error: "Choose an eBay computer in Setup before starting eBay profit." };
     }
     const owner = await ownerTab(sender);
     let run = CORE.createRun({
@@ -269,6 +269,30 @@
     return { ...publicResult(run), instruction: "worker-navigating" };
   }
 
+  async function handlePeriodPrepared(payload, sender) {
+    const run = await readRun();
+    if (!isWorker(run, sender) || run.phase !== "index-orders" || run.scope !== "all") {
+      return { ok: false, ignored: true };
+    }
+    const prepared = payload?.prepared === true;
+    const attempts = prepared
+      ? Number(run.periodConfigureAttempts || 0) + 1
+      : Number(run.periodConfigureAttempts || 0);
+    if (attempts > 3) {
+      return pauseAtCheckpoint(run, "The eBay Custom history range did not stay applied after three attempts. The signed-in worker tab was left open for inspection.", {
+        closeWorker: false,
+        failure: { phase: run.phase, message: "Custom history range did not stay applied.", url: String(sender?.tab?.url || "") }
+      });
+    }
+    const next = await writeRun({
+      ...run,
+      periodPrepared: prepared,
+      periodConfigureAttempts: attempts,
+      periodConfiguredAt: prepared ? new Date().toISOString() : null
+    });
+    return publicResult(next);
+  }
+
   async function handleWorkerError(payload, sender) {
     const run = await readRun();
     if (!isWorker(run, sender)) return { ok: false, ignored: true };
@@ -327,7 +351,7 @@
 
   async function markSynced(orderNumbers, options = {}) {
     const run = await readRun();
-    if (!run) throw new Error("The monthly eBay profit checkpoint is missing.");
+    if (!run) throw new Error("The eBay profit checkpoint is missing.");
     const workerTabId = Number(run.workerTabId);
     const syncedOrderNumbers = [...new Set([...(run.syncedOrderNumbers || []), ...(orderNumbers || []).map(String)])];
     const remaining = CORE.unsyncedReviewResults({ ...run, syncedOrderNumbers });
@@ -377,6 +401,7 @@
     getStatus,
     confirmNoteAmounts,
     handleOrdersPage,
+    handlePeriodPrepared,
     handleOrderDetail,
     handleWorkerError,
     handleWorkerTabClosed,

@@ -3,8 +3,9 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.GLDN_EBAY_PROFIT_CORE = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, () => {
-  const STATE_VERSION = 1;
+  const STATE_VERSION = 2;
   const MONTH_KEY_PATTERN = /^\d{4}-(?:0[1-9]|1[0-2])$/;
+  const DATE_KEY_PATTERN = /^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])$/;
 
   function text(value) {
     return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -124,6 +125,35 @@
   function normalizeMonthKey(value) {
     const normalized = text(value);
     return MONTH_KEY_PATTERN.test(normalized) ? normalized : "";
+  }
+
+  function normalizeDateKey(value) {
+    const normalized = text(value);
+    if (!DATE_KEY_PATTERN.test(normalized)) return "";
+    const [year, month, day] = normalized.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+      ? normalized
+      : "";
+  }
+
+  function dateKey(date) {
+    return [
+      date.getFullYear(),
+      String(date.getMonth() + 1).padStart(2, "0"),
+      String(date.getDate()).padStart(2, "0")
+    ].join("-");
+  }
+
+  function allHistoryRange(options = {}) {
+    const now = options.now ? new Date(options.now) : new Date();
+    const safeNow = Number.isFinite(now.getTime()) ? now : new Date();
+    const defaultEnd = new Date(safeNow.getFullYear(), safeNow.getMonth(), safeNow.getDate());
+    const defaultStart = new Date(defaultEnd.getFullYear() - 2, defaultEnd.getMonth(), defaultEnd.getDate());
+    const rangeStart = normalizeDateKey(options.rangeStart) || dateKey(defaultStart);
+    const rangeEnd = normalizeDateKey(options.rangeEnd) || dateKey(defaultEnd);
+    if (rangeStart > rangeEnd) throw new Error("The all-history start date must not be after the end date.");
+    return { rangeStart, rangeEnd };
   }
 
   function monthLabel(value) {
@@ -320,16 +350,27 @@
   }
 
   function createRun(options = {}) {
+    const scope = text(options.scope).toLowerCase() === "all" ? "all" : "month";
     const monthKey = normalizeMonthKey(options.monthKey);
-    if (!monthKey) throw new Error("A valid YYYY-MM month is required for an eBay profit run.");
+    if (scope === "month" && !monthKey) throw new Error("A valid YYYY-MM month is required for an eBay profit run.");
+    const range = scope === "all" ? allHistoryRange(options) : {
+      rangeStart: `${monthKey}-01`,
+      rangeEnd: dateKey(new Date(Number(monthKey.slice(0, 4)), Number(monthKey.slice(5, 7)), 0))
+    };
     const now = text(options.now) || new Date().toISOString();
     return {
       stateVersion: STATE_VERSION,
-      runId: text(options.runId) || `ebay-profit-${monthKey}-${Date.now()}`,
+      runId: text(options.runId) || `ebay-profit-${scope === "all" ? "all" : monthKey}-${Date.now()}`,
       extensionVersion: text(options.extensionVersion),
+      scope,
       monthKey,
-      monthLabel: monthLabel(monthKey),
-      maxOrders: Math.max(1, Math.min(5000, Number(options.maxOrders || 5000))),
+      monthLabel: scope === "all" ? "All available history" : monthLabel(monthKey),
+      rangeStart: range.rangeStart,
+      rangeEnd: range.rangeEnd,
+      dateCursor: range.rangeEnd,
+      periodPrepared: false,
+      periodConfigureAttempts: 0,
+      maxOrders: Math.max(1, Math.min(25000, Number(options.maxOrders || (scope === "all" ? 25000 : 5000)))),
       computerLabel: text(options.computerLabel),
       accountLabel: text(options.accountLabel),
       active: true,
@@ -354,20 +395,44 @@
     const byOrder = new Map((run.orders || []).map((record) => [orderKey(record), { ...record }]));
     let sawOlder = false;
     let sawTarget = false;
+    let sawBeforeRange = false;
     let newestMonth = "";
+    let dateCursor = normalizeDateKey(run.dateCursor) || normalizeDateKey(run.rangeEnd);
     const pageOrders = [];
     (records || []).forEach((raw) => {
       const orderNumber = orderKey(raw);
       if (!orderNumber) return;
-      const orderDate = isoDate(raw.orderDate, run.monthKey);
+      let orderDate = "";
+      if (run.scope === "all") {
+        const rawDate = text(raw.orderDate);
+        const explicitYear = /\b(?:19|20)\d{2}\b/.test(rawDate);
+        if (explicitYear) {
+          orderDate = isoDate(rawDate, String(run.rangeEnd || "").slice(0, 7));
+        } else {
+          const cursorYear = Number(String(dateCursor || run.rangeEnd || "").slice(0, 4)) || new Date().getFullYear();
+          orderDate = isoDate(rawDate, `${cursorYear}-01`);
+          if (orderDate && dateCursor && orderDate > dateCursor) {
+            orderDate = isoDate(rawDate, `${cursorYear - 1}-01`);
+          }
+        }
+        if (!orderDate) return;
+        if (!dateCursor || orderDate < dateCursor) dateCursor = orderDate;
+        if (orderDate < run.rangeStart) {
+          sawBeforeRange = true;
+          return;
+        }
+        if (orderDate > run.rangeEnd) return;
+      } else {
+        orderDate = isoDate(raw.orderDate, run.monthKey);
+      }
       const recordMonth = orderDate.slice(0, 7);
       if (!recordMonth) return;
       if (!newestMonth || recordMonth > newestMonth) newestMonth = recordMonth;
-      if (recordMonth < run.monthKey) {
+      if (run.scope !== "all" && recordMonth < run.monthKey) {
         sawOlder = true;
         return;
       }
-      if (recordMonth !== run.monthKey) return;
+      if (run.scope !== "all" && recordMonth !== run.monthKey) return;
       sawTarget = true;
       const record = {
         ...(byOrder.get(orderNumber) || {}),
@@ -384,11 +449,12 @@
     const orders = [...byOrder.values()].slice(0, run.maxOrders);
     const reachedLimit = orders.length >= run.maxOrders;
     const noNextPage = options.hasNext === false;
-    const targetCannotAppear = !sawTarget && newestMonth && newestMonth < run.monthKey;
-    const indexComplete = reachedLimit || sawOlder || targetCannotAppear || noNextPage || repeatedPage;
+    const targetCannotAppear = run.scope !== "all" && !sawTarget && newestMonth && newestMonth < run.monthKey;
+    const indexComplete = reachedLimit || sawOlder || sawBeforeRange || targetCannotAppear || noNextPage || repeatedPage;
     return {
       ...run,
       orders,
+      dateCursor,
       pagesScanned: Number(run.pagesScanned || 0) + 1,
       pageFingerprints: fingerprint && !repeatedPage
         ? [...(run.pageFingerprints || []), fingerprint]
@@ -411,6 +477,7 @@
       computerLabel: run.computerLabel,
       accountLabel: run.accountLabel,
       ebayAccountLabel: run.accountLabel,
+      monthKey: text(base.orderDate).slice(0, 7),
       orderNumber: base.orderNumber,
       itemTitle: base.itemTitle,
       marketplaceEarnings: noteEarnings,
@@ -445,7 +512,10 @@
 
   function buildResult(run, sale, detail = {}) {
     const orderNumber = orderKey(detail) || orderKey(sale);
-    const orderDate = isoDate(detail.orderDate || sale.orderDate, run.monthKey);
+    const dateReference = run.scope === "all"
+      ? text(sale?.orderDate).slice(0, 7) || text(run.rangeEnd).slice(0, 7)
+      : run.monthKey;
+    const orderDate = isoDate(detail.orderDate || sale.orderDate, dateReference);
     const base = {
       orderNumber,
       orderDate,
@@ -466,8 +536,11 @@
     if (!orderNumber || (sale?.orderNumber && orderNumber !== sale.orderNumber)) {
       return { ...base, status: "order-mismatch", reason: "The order detail page did not match the indexed eBay order." };
     }
-    if (!orderDate || orderDate.slice(0, 7) !== run.monthKey) {
-      return { ...base, status: "date-mismatch", reason: "The order date is missing or outside the selected month." };
+    const dateOutsideScope = run.scope === "all"
+      ? !orderDate || orderDate < run.rangeStart || orderDate > run.rangeEnd
+      : !orderDate || orderDate.slice(0, 7) !== run.monthKey;
+    if (dateOutsideScope) {
+      return { ...base, status: "date-mismatch", reason: `The order date is missing or outside the selected ${run.scope === "all" ? "history range" : "month"}.` };
     }
     const visibleEarnings = money(detail.marketplaceEarnings);
     if (visibleEarnings === null || visibleEarnings < 0) {
@@ -583,7 +656,7 @@
       computerLabel: text(run?.computerLabel),
       accountLabel: text(run?.accountLabel),
       ebayAccountLabel: text(run?.accountLabel),
-      monthKey: normalizeMonthKey(run?.monthKey) || text(result?.orderDate).slice(0, 7),
+      monthKey: text(result?.orderDate).slice(0, 7) || normalizeMonthKey(run?.monthKey),
       orderNumber: text(result?.orderNumber),
       itemTitle: text(exact?.itemTitle || result?.itemTitle),
       marketplaceEarnings: visibleEarnings,
@@ -623,7 +696,8 @@
   }
 
   function approvalToken(run) {
-    return `APPROVE SYNC EBAY ${run?.monthKey || "YYYY-MM"} ${unsyncedReviewResults(run).length}`;
+    const range = run?.scope === "all" ? "ALL" : (run?.monthKey || "YYYY-MM");
+    return `APPROVE SYNC EBAY ${range} ${unsyncedReviewResults(run).length}`;
   }
 
   function summary(run) {
@@ -645,13 +719,21 @@
     return {
       runId: run.runId,
       phase: run.phase,
+      scope: run.scope || "month",
       monthKey: run.monthKey,
       monthLabel: run.monthLabel,
+      rangeStart: run.rangeStart,
+      rangeEnd: run.rangeEnd,
       pagesScanned: Number(run.pagesScanned || 0),
       ordersIndexed: (run.orders || []).length,
       detailsCaptured: (run.results || []).length,
       exact: exact.length,
       unresolved: (run.results || []).length - exact.length,
+      profitCoverage: {
+        included: exact.length,
+        reviewed: (run.results || []).length,
+        complete: (run.results || []).length > 0 && exact.length === (run.results || []).length
+      },
       unsyncedExact: unsyncedExactResults(run).length,
       unsyncedReviewed: unsyncedReviewResults(run).length,
       synced: (run.syncedOrderNumbers || []).length,
@@ -670,7 +752,10 @@
       active: run.active === true,
       phase: run.phase,
       runId: run.runId,
+      scope: run.scope || "month",
       monthKey: run.monthKey,
+      rangeStart: run.rangeStart,
+      rangeEnd: run.rangeEnd,
       workerTabId: run.workerTabId,
       ownerTabId: run.ownerTabId,
       updatedAt: run.updatedAt,
@@ -682,6 +767,8 @@
   return Object.freeze({
     STATE_VERSION,
     normalizeMonthKey,
+    normalizeDateKey,
+    allHistoryRange,
     monthLabel,
     classifyOrdersIndexPage,
     isoDate,

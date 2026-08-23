@@ -1451,6 +1451,92 @@
     return label?.closest?.(controlSelector) || null;
   }
 
+  function ebayProfitSetControlValue(element, value) {
+    if (element instanceof HTMLSelectElement) {
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+      descriptor?.set?.call(element, value);
+      element.dispatchEvent(new Event("input", { bubbles: true }));
+      element.dispatchEvent(new Event("change", { bubbles: true }));
+      return;
+    }
+    U.setNativeValue(element, value);
+  }
+
+  function ebayProfitDateDisplay(dateKey) {
+    const match = String(dateKey || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? `${Number(match[2])}/${Number(match[3])}/${match[1]}` : "";
+  }
+
+  function ebayProfitCustomDateInputs() {
+    return [...document.querySelectorAll("input")]
+      .filter((input) => U.isVisible(input))
+      .filter((input) => !input.disabled && input.getAttribute("aria-disabled") !== "true")
+      .filter((input) => !input.closest?.("[id^='gldn-'], .gldn-modal-backdrop"))
+      .map((input, index) => {
+        const signal = U.normalizeText([
+          input.type,
+          input.placeholder,
+          input.getAttribute("aria-label"),
+          input.getAttribute("name"),
+          input.labels?.[0]?.innerText,
+          input.closest("label")?.innerText
+        ].filter(Boolean).join(" "));
+        const matches = input.type === "date" || /\b(?:start|from|end|to|date)\b|mm\/dd\/yyyy/.test(signal);
+        const rank = /\b(?:start|from)\b/.test(signal) ? 0 : (/\b(?:end|to)\b/.test(signal) ? 2 : 1);
+        return { input, index, matches, rank };
+      })
+      .filter((candidate) => candidate.matches)
+      .sort((left, right) => left.rank - right.rank || left.index - right.index)
+      .slice(0, 2)
+      .map((candidate) => candidate.input);
+  }
+
+  function ebayProfitCustomRangeApplyControl(inputs) {
+    let container = inputs?.[0]?.parentElement || null;
+    while (container && container !== document.documentElement) {
+      if (inputs.every((input) => container.contains(input))) {
+        const control = [...container.querySelectorAll('button, [role="button"]')]
+          .filter((element) => U.isVisible(element))
+          .filter((element) => !element.disabled && element.getAttribute("aria-disabled") !== "true")
+          .find((element) => /^(?:search|apply|done)$/i.test(U.normalizeText(element.innerText || element.textContent || "")));
+        if (control) return control;
+      }
+      container = container.parentElement;
+    }
+    return ["Search", "Apply", "Done"].map(ebayProfitExactControl).find(Boolean) || null;
+  }
+
+  function ebayProfitPeriodText(period) {
+    return period instanceof HTMLSelectElement
+      ? U.normalizeText(`${period.getAttribute("aria-label") || ""} ${period.options[period.selectedIndex]?.text || ""}`)
+      : U.normalizeText(`${period?.getAttribute?.("aria-label") || ""} ${period?.innerText || period?.textContent || ""}`);
+  }
+
+  function ebayProfitPeriodMatchesCustomRange(periodText, runState = {}) {
+    const normalized = U.normalizeText(periodText || "");
+    if (normalized.includes("custom")) return true;
+    const range = [runState.rangeStart, runState.rangeEnd]
+      .map((value) => String(value || "").trim())
+      .filter(Boolean);
+    if (range.length !== 2) return false;
+    return range.every((value) => {
+      const date = new Date(`${value}T00:00:00`);
+      if (Number.isNaN(date.getTime())) return false;
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const year = date.getFullYear();
+      const shortMonth = date.toLocaleString("en-US", { month: "short" }).toLowerCase();
+      const longMonth = date.toLocaleString("en-US", { month: "long" }).toLowerCase();
+      return [
+        value,
+        `${month}/${day}/${year}`,
+        `${month}-${day}-${year}`,
+        `${shortMonth} ${day}, ${year}`,
+        `${longMonth} ${day}, ${year}`
+      ].some((candidate) => normalized.includes(candidate.toLowerCase()));
+    });
+  }
+
   function rerunEbayMonthlyProfitWorkerSoon() {
     setTimeout(() => {
       ebayMonthlyProfitWorkerRunning = false;
@@ -1458,7 +1544,7 @@
     }, 2500);
   }
 
-  async function prepareEbayMonthlyProfitOrdersPage() {
+  async function prepareEbayMonthlyProfitOrdersPage(runState = {}) {
     const initial = await U.waitFor(() => {
       const state = ebayProfitOrdersPageState();
       return state.heading || state.detailLinkCount || state.explicitEmpty || state.interrupted ? state : null;
@@ -1475,14 +1561,48 @@
 
     const period = await U.waitFor(() => ebayProfitPeriodControl(), 10000, 200);
     if (!period) throw new Error("The eBay All orders period control was not available.");
-    const currentPeriod = period instanceof HTMLSelectElement
-      ? U.normalizeText(period.options[period.selectedIndex]?.text || "")
-      : U.normalizeText(`${period.getAttribute("aria-label") || ""} ${period.innerText || period.textContent || ""}`);
-    if (!currentPeriod.includes("last 90 days")) {
+    const currentPeriod = ebayProfitPeriodText(period);
+    if (runState.scope === "all") {
+      if (runState.periodPrepared === true && !ebayProfitPeriodMatchesCustomRange(currentPeriod, runState)) {
+        await runtimeMessage({ type: "ebayMonthlyProfitPeriodPrepared", payload: { prepared: false } }, 45000);
+        rerunEbayMonthlyProfitWorkerSoon();
+        return null;
+      }
+      if (runState.periodPrepared !== true) {
+        if (period instanceof HTMLSelectElement) {
+          const option = [...period.options].find((item) => U.normalizeText(item.text) === "custom");
+          if (!option) throw new Error("The eBay period menu did not offer Custom.");
+          ebayProfitSetControlValue(period, option.value);
+        } else {
+          dispatchFullClick(period);
+          const custom = await U.waitFor(() => ebayProfitExactControl("Custom"), 8000, 150);
+          if (!custom) throw new Error("The eBay period menu did not open Custom.");
+          dispatchFullClick(custom);
+        }
+        const inputs = await U.waitFor(() => {
+          const candidates = ebayProfitCustomDateInputs();
+          return candidates.length === 2 ? candidates : null;
+        }, 10000, 150);
+        if (!inputs) throw new Error("The eBay Custom period did not show both date fields.");
+        const values = [runState.rangeStart, runState.rangeEnd];
+        inputs.forEach((input, index) => ebayProfitSetControlValue(
+          input,
+          input.type === "date" ? values[index] : ebayProfitDateDisplay(values[index])
+        ));
+        const apply = await U.waitFor(() => ebayProfitCustomRangeApplyControl(inputs), 8000, 150);
+        if (!apply) throw new Error("The eBay Custom period did not show its Search or Apply control.");
+        const saved = await runtimeMessage({ type: "ebayMonthlyProfitPeriodPrepared", payload: { prepared: true } }, 45000);
+        if (!saved?.ok) throw new Error(saved?.error || "GLDN Ops could not save the Custom history checkpoint.");
+        dispatchFullClick(apply);
+        rerunEbayMonthlyProfitWorkerSoon();
+        return null;
+      }
+    }
+    if (runState.scope !== "all" && !currentPeriod.includes("last 90 days")) {
       if (period instanceof HTMLSelectElement) {
         const option = [...period.options].find((item) => U.normalizeText(item.text) === "last 90 days");
         if (!option) throw new Error("The eBay period menu did not offer Last 90 days.");
-        U.setNativeValue(period, option.value);
+        ebayProfitSetControlValue(period, option.value);
       } else {
         dispatchFullClick(period);
         const last90 = await U.waitFor(() => ebayProfitExactControl("Last 90 days"), 8000, 150);
@@ -1585,7 +1705,7 @@
       if (!status?.ok || !state?.active) return;
       workerPhase = String(state.phase || "unknown");
       if (state.phase === "index-orders" && /\/sh\/ord\/?(?:[?#]|$)/i.test(location.href)) {
-        const pageState = await prepareEbayMonthlyProfitOrdersPage();
+        const pageState = await prepareEbayMonthlyProfitOrdersPage(state);
         if (!pageState) return;
         const payload = extractEbayMonthlyProfitOrdersPage(state.monthKey, pageState);
         const response = await runtimeMessage({ type: "ebayMonthlyProfitOrdersPage", payload }, 45000);
@@ -11155,6 +11275,15 @@
     return response;
   }
 
+  async function startEbayProfitForRange(scope, monthKey = "") {
+    if (scope === "all") {
+      const response = await runtimeMessage({ type: "startEbayMonthlyProfit", options: { scope: "all" } }, 120000);
+      if (!response?.ok) throw new Error(response?.error || "Could not start the all-history eBay profit audit.");
+      return response;
+    }
+    return startEbayMonthlyProfitForMonth(monthKey);
+  }
+
   async function showEbayMonthlyProfitLauncher() {
     document.getElementById("gldn-ebay-monthly-profit-launcher")?.remove();
     const overlay = document.createElement("div");
@@ -11163,24 +11292,25 @@
     overlay.innerHTML = `
       <div class="gldn-modal gldn-health-modal gldn-review-modal" data-gldn-workflow-launcher="true">
         <button type="button" class="gldn-close" aria-label="Close">&times;</button>
-        <h2>Monthly eBay Profit</h2>
-        <p class="gldn-help-text">Reads one complete eBay order month and verifies each saved Amazon-cost note against visible Order earnings. Nothing is written to the dashboard until the exact review token is approved.</p>
+        <h2>eBay Profit Audit</h2>
+        <p class="gldn-help-text">Read one month or all available eBay order history. Saved-note profit stays separate from the later independent Amazon-order match. Nothing is written to the dashboard until the exact review token is approved.</p>
         <div class="gldn-health-grid">
-          <label class="gldn-field">Month<input id="gldn-ebay-profit-month" type="month" value="${priorCalendarMonthKey()}"></label>
+          <label class="gldn-field">Read range<select id="gldn-ebay-profit-scope"><option value="month">One month</option><option value="all">All available history</option></select></label>
+          <label class="gldn-field" data-profit-month-field>Month<input id="gldn-ebay-profit-month" type="month" value="${priorCalendarMonthKey()}"></label>
           <div class="gldn-field"><span>Phase</span><strong data-profit-phase>No saved run</strong></div>
           <div class="gldn-field"><span>Orders indexed</span><strong data-profit-orders>0</strong></div>
           <div class="gldn-field"><span>Details read</span><strong data-profit-details>0</strong></div>
-          <div class="gldn-field"><span>Exact rows</span><strong data-profit-exact>0</strong></div>
+          <div class="gldn-field"><span>Saved-note coverage</span><strong data-profit-exact>0 of 0</strong></div>
           <div class="gldn-field"><span>Needs review</span><strong data-profit-unresolved>0</strong></div>
-          <div class="gldn-field"><span>eBay earnings</span><strong data-profit-earnings>$0.00</strong></div>
-          <div class="gldn-field"><span>Amazon cost</span><strong data-profit-cost>$0.00</strong></div>
-          <div class="gldn-field"><span>Profit</span><strong data-profit-total>$0.00</strong></div>
+          <div class="gldn-field"><span>Earnings from saved notes</span><strong data-profit-earnings>Pending</strong></div>
+          <div class="gldn-field"><span>Amazon cost from saved notes</span><strong data-profit-cost>Pending</strong></div>
+          <div class="gldn-field"><span>Profit from saved notes</span><strong data-profit-total>Pending</strong></div>
         </div>
         <div class="gldn-actions">
           <button type="button" class="gldn-secondary" data-action="close-profit">Close</button>
           <button type="button" class="gldn-secondary" data-action="pause-profit">Pause</button>
           <button type="button" class="gldn-secondary" data-action="resume-profit">Resume</button>
-          <button type="button" class="gldn-primary" data-action="start-profit">Start Month</button>
+          <button type="button" class="gldn-primary" data-action="start-profit">Read Month</button>
           <button type="button" class="gldn-primary" data-action="open-profit-review">Open Full Review</button>
         </div>
         <div class="gldn-modal-status">Reading the saved monthly checkpoint...</div>
@@ -11190,13 +11320,23 @@
     U.enhanceModal?.(modal);
     U.makePanelDraggable(modal, "gldnEbayMonthlyProfitLauncherPosition");
     const status = overlay.querySelector(".gldn-modal-status");
+    const scopeInput = overlay.querySelector("#gldn-ebay-profit-scope");
     const monthInput = overlay.querySelector("#gldn-ebay-profit-month");
+    const monthField = overlay.querySelector("[data-profit-month-field]");
     const startButton = overlay.querySelector("[data-action='start-profit']");
     const resumeButton = overlay.querySelector("[data-action='resume-profit']");
     const pauseButton = overlay.querySelector("[data-action='pause-profit']");
     let closed = false;
+    let controlsTouched = false;
 
     const money = (value) => Number(value || 0).toLocaleString(undefined, { style: "currency", currency: "USD" });
+    const updateRangeControls = (active = false) => {
+      const allHistory = scopeInput.value === "all";
+      monthField.hidden = allHistory;
+      monthInput.disabled = active || allHistory;
+      scopeInput.disabled = active;
+      startButton.textContent = allHistory ? "Read All History" : "Read Month";
+    };
     const refresh = async () => {
       if (closed) return;
       const response = await runtimeMessage({ type: "getEbayMonthlyProfit" }, 30000);
@@ -11207,26 +11347,29 @@
       const state = response.state || null;
       const summary = globalThis.GLDN_EBAY_PROFIT_CORE?.summary?.(state) || {};
       const totals = summary.totals || {};
-      if (state?.monthKey) monthInput.value = state.monthKey;
+      if ((state?.active || !controlsTouched) && state) scopeInput.value = state.scope === "all" ? "all" : "month";
+      if ((state?.active || !controlsTouched) && state?.monthKey) monthInput.value = state.monthKey;
       overlay.querySelector("[data-profit-phase]").textContent = String(state?.phase || "No saved run").replace(/-/g, " ");
       overlay.querySelector("[data-profit-orders]").textContent = Number(summary.ordersIndexed || 0).toLocaleString();
-      overlay.querySelector("[data-profit-details]").textContent = Number(summary.detailsCaptured || 0).toLocaleString();
-      overlay.querySelector("[data-profit-exact]").textContent = Number(summary.exact || 0).toLocaleString();
+      const details = Number(summary.detailsCaptured || 0);
+      const exact = Number(summary.exact || 0);
+      overlay.querySelector("[data-profit-details]").textContent = details.toLocaleString();
+      overlay.querySelector("[data-profit-exact]").textContent = `${exact.toLocaleString()} of ${details.toLocaleString()}`;
       overlay.querySelector("[data-profit-unresolved]").textContent = Number(summary.unresolved || 0).toLocaleString();
-      overlay.querySelector("[data-profit-earnings]").textContent = money(totals.earnings);
-      overlay.querySelector("[data-profit-cost]").textContent = money(totals.amazonCost);
-      overlay.querySelector("[data-profit-total]").textContent = money(totals.profit);
+      overlay.querySelector("[data-profit-earnings]").textContent = exact ? money(totals.earnings) : "Pending";
+      overlay.querySelector("[data-profit-cost]").textContent = exact ? money(totals.amazonCost) : "Pending";
+      overlay.querySelector("[data-profit-total]").textContent = exact ? money(totals.profit) : "Pending";
       const active = state?.active === true;
       const review = state?.phase === "review";
-      monthInput.disabled = active;
+      updateRangeControls(active);
       startButton.disabled = active || review;
       resumeButton.disabled = !state || active || ["review", "completed"].includes(state.phase);
       pauseButton.disabled = !active;
       status.textContent = review
-        ? `Review ready: ${Number(summary.exact || 0).toLocaleString()} exact and ${Number(summary.unresolved || 0).toLocaleString()} unresolved. Nothing has been synced.`
+        ? `Saved-note profit covers ${exact.toLocaleString()} of ${details.toLocaleString()} reviewed orders. ${exact ? `Current total: ${money(totals.profit)}${exact === details ? "." : " (partial)."}` : "Profit is Pending."} Nothing has been synced.`
         : active
           ? `Running: ${Number(summary.detailsCaptured || 0).toLocaleString()} of ${Number(summary.ordersIndexed || 0).toLocaleString()} order details read.`
-          : state?.pausedReason || (state ? "Checkpoint ready." : "Choose a month and start the read-only run.");
+          : state?.pausedReason || (state ? "Checkpoint ready." : "Choose a range and start the read-only run.");
     };
     const close = () => {
       closed = true;
@@ -11239,13 +11382,18 @@
       startButton.disabled = true;
       status.textContent = "Starting one inactive signed-in eBay worker tab...";
       try {
-        await startEbayMonthlyProfitForMonth(monthInput.value);
+        await startEbayProfitForRange(scopeInput.value, monthInput.value);
         await refresh();
       } catch (error) {
         status.textContent = error?.message || String(error);
         startButton.disabled = false;
       }
     });
+    scopeInput.addEventListener("change", () => {
+      controlsTouched = true;
+      updateRangeControls(false);
+    });
+    monthInput.addEventListener("change", () => { controlsTouched = true; });
     resumeButton.addEventListener("click", async () => {
       const response = await runtimeMessage({ type: "resumeEbayMonthlyProfit" }, 120000);
       if (!response?.ok) status.textContent = response?.error || "Could not resume monthly eBay profit.";
@@ -11261,6 +11409,7 @@
       if (!response?.ok) status.textContent = response?.error || "Could not open the full monthly review.";
     });
     const refreshTimer = setInterval(refresh, 3000);
+    updateRangeControls(false);
     await refresh();
   }
 
@@ -11408,7 +11557,7 @@
       monthlyProfitButton.type = "button";
       monthlyProfitButton.className = "gldn-secondary";
       monthlyProfitButton.dataset.action = "monthly-profit";
-      monthlyProfitButton.textContent = "Monthly eBay Profit";
+      monthlyProfitButton.textContent = "eBay Profit Audit";
       monthlyProfitButton.addEventListener("click", () => {
         panelSettingsMenu.setAttribute("hidden", "");
         showEbayMonthlyProfitLauncher().catch((error) => renderStatus(`Monthly eBay Profit could not open: ${error.message}`, "error"));

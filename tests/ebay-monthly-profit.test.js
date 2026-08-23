@@ -73,6 +73,66 @@ test("July indexing ignores newer August orders and stops after June", () => {
   ]);
 });
 
+test("all-history indexing spans the rolling available range and infers year rollover", () => {
+  let run = core.createRun({
+    scope: "all",
+    computerLabel: "0",
+    accountLabel: "FAK12",
+    now: "2026-08-23T12:00:00.000Z"
+  });
+  assert.equal(run.scope, "all");
+  assert.equal(run.monthKey, "");
+  assert.equal(run.monthLabel, "All available history");
+  assert.equal(run.rangeStart, "2024-08-23");
+  assert.equal(run.rangeEnd, "2026-08-23");
+  assert.equal(run.maxOrders, 25000);
+
+  run = core.mergeOrdersPage(run, [
+    order("18-10001-10001", "Aug 22"),
+    order("18-10002-10002", "Jan 2")
+  ], { hasNext: true });
+  assert.equal(run.phase, "index-orders");
+
+  run = core.mergeOrdersPage(run, [
+    order("18-10003-10003", "Dec 31"),
+    order("18-10004-10004", "Aug 23"),
+    order("18-10005-10005", "Aug 22, 2024")
+  ], { hasNext: true });
+  assert.equal(run.phase, "capture-details");
+  assert.deepEqual(run.orders.map((item) => [item.orderNumber, item.orderDate]), [
+    ["18-10001-10001", "2026-08-22"],
+    ["18-10002-10002", "2026-01-02"],
+    ["18-10003-10003", "2025-12-31"],
+    ["18-10004-10004", "2025-08-23"]
+  ]);
+});
+
+test("all-history results retain each order month for profit and reconciliation", () => {
+  const run = core.createRun({
+    scope: "all",
+    rangeStart: "2024-08-23",
+    rangeEnd: "2026-08-23",
+    computerLabel: "0",
+    accountLabel: "FAK12"
+  });
+  run.orders = [order("18-20001-20001", "2025-12-31")];
+  const result = core.buildResult(run, run.orders[0], {
+    orderNumber: "18-20001-20001",
+    orderDate: "Dec 31",
+    itemTitle: "History item",
+    marketplaceEarnings: 30,
+    note: "30.00 - 12.00 - F9132 - 1/3",
+    asins: ["B012345678"],
+    pageUrl: run.orders[0].pageUrl
+  });
+  assert.equal(result.status, "exact");
+  assert.equal(result.orderDate, "2025-12-31");
+  assert.equal(result.record.monthKey, "2025-12");
+  const review = core.buildReconciliationRecord({ ...run, results: [result] }, result);
+  assert.equal(review.monthKey, "2025-12");
+  assert.equal(core.approvalToken({ ...run, results: [result] }), "APPROVE SYNC EBAY ALL 1");
+});
+
 test("monthly order indexing requires All orders plus rendered evidence", () => {
   const awaiting = core.classifyOrdersIndexPage({
     heading: "Manage orders awaiting shipment",
@@ -264,8 +324,11 @@ test("runtime uses one inactive signed-in eBay worker and survives checkpoints",
   assert.doesNotMatch(worker, /Promise\.all\([^)]*tabCreate/);
   assert.match(ebay, /extractEbayMonthlyProfitOrdersPage/);
   assert.match(ebay, /prepareEbayMonthlyProfitOrdersPage/);
+  assert.match(ebay, /ebayProfitPeriodMatchesCustomRange/);
   assert.match(ebay, /ebayProfitExactControl\("All orders"\)/);
   assert.match(ebay, /ebayProfitExactControl\("Last 90 days"\)/);
+  assert.match(ebay, /ebayProfitExactControl\("Custom"\)/);
+  assert.match(ebay, /ebayMonthlyProfitPeriodPrepared/);
   assert.match(ebay, /url: location\.href/);
   assert.match(ebay, /nested\?\.closest\?\.\(clickableSelector\)/);
   assert.doesNotMatch(ebay, /document\.querySelector\("a\[href\*='\/ord\/details'\]"\) \|\| document\.readyState === "complete"/);
@@ -353,11 +416,11 @@ test("dashboard sync is count-bound and sends exact notes plus every reconciliat
   assert.match(review, /confirmEbayMonthlyProfitNoteAmounts/);
   assert.match(review, /Confirm note amounts/);
   assert.match(review, /This changes only the internal note-based profit read/i);
-  assert.match(review, /approved reviewed month/i);
+  assert.match(review, /approved reviewed range/i);
   assert.match(review, /independent Amazon-cost queue/i);
 });
 
-test("popup and eBay panel settings expose monthly profit without cluttering daily actions", () => {
+test("popup and eBay panel settings expose profit audit without cluttering daily actions", () => {
   const popupHtml = fs.readFileSync(path.resolve(__dirname, "..", "extension", "popup.html"), "utf8");
   const popupJs = fs.readFileSync(path.resolve(__dirname, "..", "extension", "popup.js"), "utf8");
   const ebay = fs.readFileSync(path.resolve(__dirname, "..", "extension", "ebay.js"), "utf8");
@@ -368,10 +431,23 @@ test("popup and eBay panel settings expose monthly profit without cluttering dai
   assert.doesNotMatch(dailyPanel, /monthly-profit|Monthly eBay Profit/);
   assert.match(ebay, /panelSettingsMenu\.appendChild\(monthlyProfitButton\)/);
   assert.match(ebay, /showEbayMonthlyProfitLauncher/);
-  assert.match(ebay, /startEbayMonthlyProfitForMonth\(monthInput\.value\)/);
+  assert.match(ebay, /startEbayProfitForRange\(scopeInput\.value, monthInput\.value\)/);
+  assert.match(ebay, /Read All History/);
   assert.ok(ebay.includes('if (/\\/sh\\/ord\\/?(?:[?#]|$)/i.test(String(href || ""))) return true;'));
   const panelKeys = ebay.match(/const EBAY_PANEL_WORKFLOW_KEYS = Object\.freeze\(\[([\s\S]*?)\]\);/)?.[1] || "";
   assert.doesNotMatch(panelKeys, /ebayMonthlyProfit/);
+});
+
+test("profit review labels both methods clearly and never presents missing coverage as zero profit", () => {
+  const html = fs.readFileSync(path.resolve(__dirname, "..", "extension", "ebay-profit.html"), "utf8");
+  const review = fs.readFileSync(path.resolve(__dirname, "..", "extension", "ebay-profit.js"), "utf8");
+  assert.match(html, /Profit from saved notes/);
+  assert.match(html, /Independent Amazon profit/);
+  assert.match(html, /All available history/);
+  assert.match(html, /Saved-note profit coverage/);
+  assert.doesNotMatch(html, /Read 1|Read 2/);
+  assert.match(review, /exact \? money\(totals\.profit\) : "Pending"/);
+  assert.match(review, /this is a partial total/);
 });
 
 test("Profile 2 control can start and read one exact eBay profit month", () => {

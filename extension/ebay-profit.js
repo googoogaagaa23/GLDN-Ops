@@ -4,6 +4,7 @@
   let state = null;
   let summary = null;
   let filter = "all";
+  let controlsTouched = false;
 
   function priorMonthKey() {
     const now = new Date();
@@ -41,6 +42,31 @@
   function setNotice(message, tone = "neutral") {
     $("notice").textContent = message;
     $("notice").dataset.tone = tone;
+  }
+
+  function selectedScope() {
+    return $("runScope").value === "all" ? "all" : "month";
+  }
+
+  function rangeLabel(run = state) {
+    if (!run) return "selected range";
+    if (run.scope === "all") return `${run.rangeStart || "history start"} through ${run.rangeEnd || "today"}`;
+    return run.monthLabel || run.monthKey || "selected month";
+  }
+
+  function setMetric(id, value, metricState = "") {
+    const element = $(id);
+    element.textContent = value;
+    if (metricState) element.dataset.state = metricState;
+    else delete element.dataset.state;
+  }
+
+  function updateRangeControls(active = false) {
+    const scope = selectedScope();
+    $("monthField").hidden = scope === "all";
+    $("monthKey").disabled = active || scope === "all";
+    $("runScope").disabled = active;
+    $("startRun").textContent = scope === "all" ? "Read All History" : "Read Month";
   }
 
   function displayStatus(value) {
@@ -125,26 +151,35 @@
       : "No saved run";
     $("ordersIndexed").textContent = Number(summary?.ordersIndexed || 0).toLocaleString();
     $("detailsCaptured").textContent = Number(summary?.detailsCaptured || 0).toLocaleString();
-    $("exactCount").textContent = Number(summary?.exact || 0).toLocaleString();
+    const details = Number(summary?.detailsCaptured || 0);
+    const exact = Number(summary?.exact || 0);
+    const coverageComplete = details > 0 && exact === details;
+    setMetric("profitCoverage", `${exact.toLocaleString()} of ${details.toLocaleString()}`, coverageComplete ? "complete" : (details ? "pending" : ""));
     $("unresolvedCount").textContent = Number(summary?.unresolved || 0).toLocaleString();
-    $("visibleEbayTotal").textContent = money(totals.visibleEbayEarnings);
-    $("earningsTotal").textContent = money(totals.earnings);
-    $("amazonTotal").textContent = money(totals.amazonCost);
-    $("profitTotal").textContent = money(totals.profit);
+    setMetric("visibleEbayTotal", details ? money(totals.visibleEbayEarnings) : "-");
+    const savedNoteState = exact ? (coverageComplete ? "complete" : "pending") : "pending";
+    setMetric("earningsTotal", exact ? money(totals.earnings) : "Pending", savedNoteState);
+    setMetric("amazonTotal", exact ? money(totals.amazonCost) : "Pending", savedNoteState);
+    setMetric("profitTotal", exact ? money(totals.profit) : "Pending", savedNoteState);
     $("reviewCaption").textContent = state
-      ? `${state.monthLabel || state.monthKey}: ${displayStatus(state.phase)}. ${Number(summary?.pagesScanned || 0).toLocaleString()} order pages scanned.`
-      : "Start a month to collect orders.";
+      ? `${rangeLabel(state)}: ${displayStatus(state.phase)}. ${Number(summary?.pagesScanned || 0).toLocaleString()} order pages scanned.`
+      : "Choose a range to collect orders.";
 
     const active = state?.active === true;
     $("startRun").disabled = active || state?.phase === "review";
     $("resumeRun").disabled = !state || active || ["review", "completed"].includes(state.phase);
     $("pauseRun").disabled = !active;
     $("resetRun").disabled = !state;
-    $("monthKey").disabled = active;
+    if (state && (active || !controlsTouched)) {
+      $("runScope").value = state.scope === "all" ? "all" : "month";
+      if (state.monthKey) $("monthKey").value = state.monthKey;
+    }
+    updateRangeControls(active);
 
-    if (!state) setNotice("No monthly run saved.");
-    else if (state.phase === "review" && Number(summary.ordersIndexed || 0) === 0) setNotice(`No ${state.monthLabel || state.monthKey} orders were found. The final eBay worker page was left open so this result can be inspected before Reset.`, "warn");
-    else if (state.phase === "review") setNotice(`Read 1 ready: ${summary.exact} note-only profit rows; ${summary.unresolved} notes need review. The final eBay worker page remains open until this run is synced or reset. After approval, Read 2 independently matches Amazon orders using visible eBay earnings.`, summary.unresolved ? "warn" : "good");
+    if (!state) setNotice("No profit audit saved.");
+    else if (state.phase === "review" && Number(summary.ordersIndexed || 0) === 0) setNotice(`No orders were found for ${rangeLabel(state)}. The final eBay worker page was left open so this result can be inspected before Reset.`, "warn");
+    else if (state.phase === "review" && exact === 0) setNotice(`Saved-note profit is Pending: 0 of ${details.toLocaleString()} reviewed orders have confirmed note earnings and Amazon cost. Review the notes below. Independent Amazon profit begins only after the reviewed range is approved and synced. The final eBay worker page remains open until this run is synced or reset.`, "warn");
+    else if (state.phase === "review") setNotice(`Saved-note profit is ${money(totals.profit)} across ${exact.toLocaleString()} of ${details.toLocaleString()} reviewed orders${coverageComplete ? "." : "; this is a partial total."} Independent Amazon profit is calculated separately after approval and exact Amazon matching. The final eBay worker page remains open until this run is synced or reset.`, coverageComplete ? "good" : "warn");
     else if (state.phase === "completed") setNotice(`Completed: ${summary.synced} reviewed orders handled.`, "good");
     else if (state.phase === "paused") setNotice(state.pausedReason || "Paused at a safe checkpoint.", "warn");
     else setNotice(`Running ${displayStatus(state.phase)}: ${summary.detailsCaptured} of ${summary.ordersIndexed} order details read.`, "neutral");
@@ -160,7 +195,7 @@
   async function refresh() {
     const response = await runtimeMessage({ type: "getEbayMonthlyProfit" });
     if (!response?.ok) {
-      setNotice(response?.error || "Could not read monthly eBay profit status.", "error");
+      setNotice(response?.error || "Could not read eBay profit status.", "error");
       return;
     }
     state = response.state || null;
@@ -168,10 +203,11 @@
   }
 
   $("startRun").addEventListener("click", async () => {
+    const scope = selectedScope();
     const monthKey = $("monthKey").value;
     setNotice("Starting one inactive signed-in eBay worker tab...");
-    const response = await runtimeMessage({ type: "startEbayMonthlyProfit", options: { monthKey } });
-    if (!response?.ok) setNotice(response?.error || "Could not start monthly eBay profit.", "error");
+    const response = await runtimeMessage({ type: "startEbayMonthlyProfit", options: { scope, monthKey } });
+    if (!response?.ok) setNotice(response?.error || "Could not start eBay profit.", "error");
     await refresh();
   });
   $("resumeRun").addEventListener("click", async () => {
@@ -194,7 +230,7 @@
   $("syncRows").addEventListener("click", async () => {
     const confirm = $("approvalInput").value.trim();
     $("syncRows").disabled = true;
-    setNotice("Sending the approved reviewed month to note-profit history and the independent Amazon-cost queue...");
+    setNotice("Sending the approved reviewed range to saved-note profit history and the independent Amazon-cost queue...");
     const response = await runtimeMessage({ type: "syncEbayMonthlyProfit", confirm }, 180000);
     if (!response?.ok && !response?.queued) setNotice(response?.error || "Dashboard sync failed.", "error");
     else setNotice(response.queued ? `${response.count} rows queued for dashboard delivery.` : `${response.count} rows synced.`, response.queued ? "warn" : "good");
@@ -245,6 +281,12 @@
   });
   window.addEventListener("ebayMonthlyProfitProgress", refresh);
   $("monthKey").value = priorMonthKey();
+  $("runScope").addEventListener("change", () => {
+    controlsTouched = true;
+    updateRangeControls(state?.active === true);
+  });
+  $("monthKey").addEventListener("change", () => { controlsTouched = true; });
+  updateRangeControls(false);
   refresh();
   setInterval(refresh, 3000);
 })();

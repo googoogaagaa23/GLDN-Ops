@@ -1155,9 +1155,12 @@ document.getElementById('openEbayMonthlyProfit').addEventListener('click', () =>
   chrome.tabs.create({ url: chrome.runtime.getURL('ebay-profit.html') });
 });
 
-document.getElementById('openOrderPlacementAudit').addEventListener('click', () => {
+function openOrderPlacementAuditPage() {
   chrome.tabs.create({ url: chrome.runtime.getURL('order-audit.html') });
-});
+}
+
+document.getElementById('openOrderPlacementAudit').addEventListener('click', openOrderPlacementAuditPage);
+document.getElementById('openOrderPlacementAuditQuick').addEventListener('click', openOrderPlacementAuditPage);
 
 function requestReverseMove99SaleEventStatus() {
   const dialog = document.getElementById('reverseMove99SaleEventDialog');

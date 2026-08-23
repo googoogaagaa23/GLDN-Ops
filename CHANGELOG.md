@@ -2,6 +2,16 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.24 - 2026-08-23
+
+- Added an always-visible **Open Order Placement Audit** shortcut above the popup tabs.
+- The audit can now be opened directly from every participating Amazon Chrome profile without discovering the hidden Workflows > Profit filter first.
+- Kept the existing Workflows > Profit entry and the audit's read-only marketplace boundary.
+- Renamed Monthly eBay Profit to **eBay Profit Audit** and replaced the repeated Read 1 / Read 2 language with **Saved-note profit** and **Independent Amazon profit**.
+- Added a **Read All History** option alongside the existing one-month run.
+- Replaced fake `$0.00` profit totals with **Pending** when no reviewed saved-note result exists.
+- Added confirmed-order coverage and explicit partial-profit labeling so every displayed profit total states how much of the review it represents.
+
 ## v3.12.23 - 2026-08-23
 
 - Published the cross-profile Order Placement Audit through the verified local updater feed.
