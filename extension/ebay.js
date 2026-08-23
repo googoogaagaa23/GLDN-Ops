@@ -5,6 +5,7 @@
   const U = window.OrderNoteUtils;
   const AUDIT = window.GLDN_PROFIT_AUDIT;
   const EBAY_PROFIT = window.GLDN_EBAY_PROFIT_CORE;
+  const ORDER_AUDIT = window.GLDN_ORDER_PLACEMENT_AUDIT;
   const SNIPING = window.GLDN_SNIPING_AUDIT;
   let panel;
   let statusElement;
@@ -1281,6 +1282,49 @@
     };
   }
 
+  function ebayOrderItemContainerForSku(sku) {
+    const target = String(sku || "").trim();
+    if (!target) return null;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const candidates = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (!String(node.nodeValue || "").includes(target)) continue;
+      let element = node.parentElement;
+      for (let depth = 0; element && element !== document.body && depth < 9; depth += 1, element = element.parentElement) {
+        if (element.closest?.("[id^='gldn-'], .gldn-modal-backdrop")) break;
+        const body = String(element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
+        if (body.length > 5000) break;
+        if (/\bQuantity\b/i.test(body) && /Custom label\s*\(SKU\)/i.test(body)) candidates.push(element);
+      }
+    }
+    return candidates.sort((left, right) => (
+      String(left.innerText || left.textContent || "").length
+      - String(right.innerText || right.textContent || "").length
+    ))[0] || null;
+  }
+
+  function extractEbayOrderItemsForAudit() {
+    return extractEbaySkuValues().map((sku) => {
+      const asin = decodeSkuToAsin(sku);
+      if (!asin) return null;
+      const container = ebayOrderItemContainerForSku(sku);
+      const body = String(container?.innerText || container?.textContent || "").replace(/\s+/g, " ").trim();
+      const quantityMatch = body.match(/\bQuantity\s*:?\s*(\d{1,3})\b/i);
+      const title = [...(container?.querySelectorAll?.("a[href], h2, h3, h4") || [])]
+        .map((element) => String(element.innerText || element.textContent || "").replace(/\s+/g, " ").trim())
+        .filter((value) => value.length >= 8 && value.length <= 500)
+        .filter((value) => !/^(?:copy|copy auto link|add tracking|view item|message buyer)$/i.test(value))
+        .sort((left, right) => right.length - left.length)[0] || firstUsefulEbayTitle();
+      return {
+        sku,
+        asin,
+        quantity: Math.max(1, Number.parseInt(quantityMatch?.[1] || "1", 10) || 1),
+        itemTitle: title
+      };
+    }).filter(Boolean);
+  }
+
   function extractExistingNote() {
     const container = findExistingNoteContainer();
     if (!container) return "";
@@ -1510,6 +1554,8 @@
 
   function extractEbayMonthlyProfitDetail() {
     const skus = extractEbaySkuValues();
+    const shippingBlock = extractShipToBlock();
+    const shippingIdentity = ORDER_AUDIT?.shippingIdentity?.(shippingBlock) || {};
     return {
       orderNumber: extractEbayOrderNumber(),
       orderDate: extractEbayMonthlyProfitOrderDate(),
@@ -1518,6 +1564,11 @@
       itemTitle: firstUsefulEbayTitle(),
       skus,
       asins: [...new Set(skus.map(decodeSkuToAsin).filter(Boolean))],
+      items: extractEbayOrderItemsForAudit(),
+      shippingBlock,
+      recipient: shippingIdentity.recipient || "",
+      recipientFingerprint: shippingIdentity.recipientFingerprint || "",
+      addressFingerprint: shippingIdentity.addressFingerprint || "",
       orderStatus: extractEbayMonthlyProfitOrderStatus(),
       pageUrl: location.href,
       capturedAt: new Date().toISOString()

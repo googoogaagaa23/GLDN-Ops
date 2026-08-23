@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order Placement Audit - GLDN Ops</title>
+  <link rel="stylesheet" href="order-audit.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">GLDN OPS / ORDER CONTROL</p>
+      <h1>Order Placement Audit</h1>
+      <p class="lede">Compare one month of legitimate eBay demand with purchases found across every signed-in Amazon Chrome profile. This audit is read-only and never cancels, refunds, ships, or changes an order.</p>
+    </div>
+    <div id="identity" class="identity">Choose an audit target.</div>
+  </header>
+
+  <main>
+    <section class="setup-band" aria-label="Audit setup">
+      <label for="computerLabel">Computer</label>
+      <select id="computerLabel"></select>
+      <label for="monthKey">eBay order month</label>
+      <input id="monthKey" type="month">
+      <label for="expectedProfiles">Expected Amazon profiles</label>
+      <input id="expectedProfiles" type="text" placeholder="Example: Main, F9132, Buying 3" autocomplete="off">
+      <button id="saveExpectedProfiles" type="button">Save Profile List</button>
+      <button id="refreshAudit" type="button">Refresh Results</button>
+    </section>
+
+    <div id="notice" class="notice" data-tone="neutral">No order audit loaded.</div>
+
+    <section class="steps" aria-label="Audit workflow">
+      <div class="step">
+        <span class="step-number">1</span>
+        <div>
+          <h2>Build eBay demand</h2>
+          <p>Run this once from the eBay Chrome profile after Monthly eBay Profit has finished reading the same month.</p>
+        </div>
+        <button id="seedExpected" class="primary" type="button">Build From Completed eBay Month</button>
+      </div>
+      <div class="step">
+        <span class="step-number">2</span>
+        <div>
+          <h2>Scan this Amazon profile</h2>
+          <p id="amazonProfileText">Name this signed-in Amazon profile in Setup, then scan it here. Repeat from every Amazon Chrome profile used on this computer.</p>
+        </div>
+        <button id="startAmazonScan" class="primary" type="button">Scan This Signed-In Amazon Profile</button>
+      </div>
+    </section>
+
+    <section class="worker" aria-label="Current Amazon scan">
+      <div>
+        <p class="eyebrow">CURRENT AMAZON PROFILE</p>
+        <strong id="workerTitle">No scan checkpoint</strong>
+        <p id="workerProgress">Nothing is running in this Chrome profile.</p>
+      </div>
+      <div class="worker-actions">
+        <button id="resumeAmazonScan" type="button">Resume</button>
+        <button id="pauseAmazonScan" type="button">Pause</button>
+        <button id="resetAmazonScan" class="danger-quiet" type="button">Reset This Profile Scan</button>
+      </div>
+    </section>
+
+    <section class="metrics" aria-label="Audit totals">
+      <div><span>eBay units expected</span><strong id="expectedUnits">0</strong></div>
+      <div><span>Amazon units found</span><strong id="amazonUnits">0</strong></div>
+      <div><span>Profiles scanned</span><strong id="profilesScanned">0</strong></div>
+      <div><span>Covered</span><strong id="covered">0</strong></div>
+      <div class="metric-critical"><span>Duplicate, same recipient</span><strong id="duplicates">0</strong></div>
+      <div class="metric-high"><span>Possible extra purchase</span><strong id="possibleExtras">0</strong></div>
+      <div class="metric-high"><span>Purchased after cancel</span><strong id="canceledPurchases">0</strong></div>
+      <div class="metric-review"><span>Missing Amazon purchase</span><strong id="missingPurchases">0</strong></div>
+    </section>
+
+    <section class="profile-coverage" aria-label="Amazon profile coverage">
+      <div>
+        <h2>Profile coverage</h2>
+        <p id="profileCoverageText">No Amazon profiles have been scanned for this audit.</p>
+      </div>
+      <div id="profileChips" class="profile-chips"></div>
+    </section>
+
+    <section class="review-toolbar">
+      <div>
+        <h2>Audit findings</h2>
+        <p id="reviewCaption">Build eBay demand to begin.</p>
+      </div>
+      <div class="toolbar-actions">
+        <div class="filter-group" role="group" aria-label="Filter audit findings">
+          <button type="button" class="filter active" data-filter="issues">Issues</button>
+          <button type="button" class="filter" data-filter="review">Needs Review</button>
+          <button type="button" class="filter" data-filter="covered">Covered</button>
+          <button type="button" class="filter" data-filter="all">All</button>
+        </div>
+        <button id="downloadAudit" type="button">Download CSV</button>
+      </div>
+    </section>
+
+    <section class="table-wrap" aria-label="Order audit findings">
+      <table>
+        <thead>
+          <tr>
+            <th>Status</th>
+            <th>ASIN / item</th>
+            <th>eBay demand</th>
+            <th>Amazon purchase</th>
+            <th>Recipient evidence</th>
+            <th>Finding</th>
+          </tr>
+        </thead>
+        <tbody id="findingsBody">
+          <tr><td colspan="6" class="empty">No audit findings loaded.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="foundation.js"></script>
+  <script src="order-audit-core.js"></script>
+  <script src="order-audit.js"></script>
+</body>
+</html>

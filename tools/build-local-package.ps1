@@ -19,6 +19,7 @@ $extensionFiles = @(
   "sniping-review.html", "sniping-review.css", "sniping-review.js", "background.js",
   "listing-preflight.html", "listing-preflight.css", "listing-preflight-core.js", "listing-preflight.js", "listing-preflight-rules.json",
   "policy-listing-audit.html", "policy-listing-audit.css", "policy-listing-audit-core.js", "policy-listing-audit.js",
+  "order-audit.html", "order-audit.css", "order-audit-core.js", "order-audit-background.js", "order-audit.js",
   "popup.html", "popup.js", "styles.css", "themes.css", "theme-page.js", "guide.html", "onboarding.html", "onboarding.js", "universal.js",
   "variation-core.js", "variation-audit.html", "variation-audit.css", "variation-audit.js",
   "ebay-profit-core.js", "ebay-profit-background.js", "ebay-profit.html", "ebay-profit.css", "ebay-profit.js",

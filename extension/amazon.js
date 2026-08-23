@@ -7,6 +7,7 @@
   const SNIPING = window.GLDN_SNIPING_AUDIT;
   const SUBSCRIBE_SAVE = window.GLDN_SUBSCRIBE_SAVE;
   const FOUNDATION = window.GLDN_FOUNDATION;
+  const ORDER_AUDIT = window.GLDN_ORDER_PLACEMENT_AUDIT;
   const EXTENSION_VERSION = chrome.runtime.getManifest().version;
   const SUBSCRIBE_SAVE_STATE_KEY = "pendingAmazonSubscribeSaveRun";
   const SUBSCRIBE_SAVE_RESULT_KEY = "lastAmazonSubscribeSaveResult";
@@ -30,6 +31,7 @@
   let amazonAutoCacheInterval = 0;
   let amazonMutationTimer = 0;
   let subscribeSaveWorkerBusy = false;
+  let orderAuditWorkerBusy = false;
 
   function stopInvalidatedAmazonContext(error) {
     if (extensionContextInvalidated) return;
@@ -541,6 +543,10 @@
         // price is the actual item row. Larger ancestors include neighboring items.
         if (hasAmazonOrderSignal && uniquePrices.length <= 2 && asinLinkCount <= 3) {
           const quantityMatch = text.match(/\b(?:qty|quantity)\s*:?\s*(\d{1,3})\b/i);
+          const orderCard = findAmazonOrderDetailsCard(pageOrderId || pendingOrderId);
+          const shippingBlock = extractAmazonOrderDetailData()?.shippingBlock
+            || extractAmazonOrderDetailShippingBlock(orderCard);
+          const identity = ORDER_AUDIT?.shippingIdentity?.(shippingBlock) || {};
           return {
             total: uniquePrices[0],
             cost: uniquePrices[0],
@@ -550,6 +556,11 @@
             orderUrl: location.href,
             source: "amazon-order-detail-asin-row",
             quantity: Math.max(1, Number.parseInt(quantityMatch?.[1] || "1", 10) || 1),
+            purchaseDate: amazonPurchaseDateFromOrderDetail(),
+            shippingBlock,
+            recipient: identity.recipient || "",
+            recipientFingerprint: identity.recipientFingerprint || "",
+            addressFingerprint: identity.addressFingerprint || "",
             score: 1,
             capturedAt: new Date().toISOString()
           };
@@ -756,6 +767,156 @@
     const text = String(container?.innerText || container?.textContent || "").replace(/\s+/g, " ").trim();
     return amazonOrderSearchResultCards().length > 0
       || /\b\d+\s+orders?\s+matching\b|\bno orders?\b|\bno results\b/i.test(text);
+  }
+
+  function orderAuditDateBounds(monthKey, paddingDays = 14) {
+    const normalized = ORDER_AUDIT?.normalizeMonthKey?.(monthKey) || "";
+    const [year, month] = normalized.split("-").map(Number);
+    if (!year || !month) return null;
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 1));
+    return {
+      lower: new Date(start.getTime() - (paddingDays * 86400000)),
+      upper: new Date(end.getTime() + (paddingDays * 86400000))
+    };
+  }
+
+  function extractOrderPlacementAuditHistory(state = {}) {
+    const targets = new Set((state.targetAsins || []).map((value) => String(value || "").trim().toUpperCase()));
+    const bounds = orderAuditDateBounds(state.monthKey);
+    const records = [];
+    let reachedOlder = false;
+
+    amazonOrderSearchResultCards().forEach((card) => {
+      const rawText = String(card.innerText || card.textContent || "");
+      const cardText = rawText.replace(/\s+/g, " ").trim();
+      if (/cancelled|not been charged/i.test(cardText)) return;
+      const purchaseDate = amazonPurchaseDateFromText(cardText);
+      const purchaseTime = purchaseDate ? Date.parse(purchaseDate) : NaN;
+      if (bounds && Number.isFinite(purchaseTime) && purchaseTime < bounds.lower.getTime()) reachedOlder = true;
+      if (bounds && Number.isFinite(purchaseTime) && purchaseTime > bounds.upper.getTime()) return;
+      if (bounds && Number.isFinite(purchaseTime) && purchaseTime < bounds.lower.getTime()) return;
+
+      const itemsByAsin = new Map();
+      [...card.querySelectorAll("a[href]")]
+        .filter((anchor) => !isInjectedToolUiNode(anchor))
+        .forEach((anchor) => {
+          const asin = asinFromAmazonProductHref(anchor.href || anchor.getAttribute("href") || "");
+          if (!asin || !targets.has(asin)) return;
+          const title = String(anchor.innerText || anchor.textContent || "").replace(/\s+/g, " ").trim();
+          const previous = itemsByAsin.get(asin) || { asin, title: "" };
+          if (title.length > previous.title.length) previous.title = title;
+          itemsByAsin.set(asin, previous);
+        });
+      if (!itemsByAsin.size) return;
+
+      const detailsLink = [...card.querySelectorAll("a[href]")]
+        .filter((anchor) => !isInjectedToolUiNode(anchor))
+        .find((anchor) => /view order details/i.test(anchor.innerText || anchor.textContent || "")
+          || /\/(?:your-orders\/order-details|gp\/css\/order-details)/i.test(anchor.href || ""));
+      if (!detailsLink) return;
+      const orderDetailsUrl = new URL(detailsLink.href || detailsLink.getAttribute("href") || "", location.href).toString();
+      records.push({
+        orderId: orderIdFromUrl(orderDetailsUrl),
+        orderDetailsUrl,
+        purchaseDate,
+        asins: [...itemsByAsin.keys()],
+        items: [...itemsByAsin.values()],
+        historyUrl: location.href
+      });
+    });
+
+    const next = amazonNextOrdersControl();
+    const hasNext = Boolean(next && !amazonControlDisabled(next));
+    const nextHref = hasNext ? String(next.href || next.getAttribute?.("href") || "") : "";
+    return {
+      records,
+      reachedOlder,
+      hasNext,
+      nextUrl: nextHref ? new URL(nextHref, location.href).toString() : "",
+      pageUrl: location.href
+    };
+  }
+
+  async function resumeOrderPlacementAuditWorker() {
+    if (orderAuditWorkerBusy) return false;
+    orderAuditWorkerBusy = true;
+    try {
+      const [status, tab] = await Promise.all([
+        runtimeMessage({ type: "getOrderPlacementAuditAmazon" }),
+        runtimeMessage({ type: "currentTabInfo" })
+      ]);
+      const run = status?.state;
+      if (!run || !run.active || Number(run.workerTabId) !== Number(tab?.tabId)) return false;
+      await new Promise((resolve) => setTimeout(resolve, 700));
+
+      if (run.phase === "index-amazon" && (isAmazonOrdersHistoryPage() || isAmazonOrdersSearchPage())) {
+        for (let attempt = 0; attempt < 12 && !amazonOrderSearchResultsReady(); attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        if (!amazonOrderSearchResultsReady()) return true;
+        const response = await runtimeMessage({
+          type: "orderPlacementAuditAmazonIndex",
+          payload: extractOrderPlacementAuditHistory(run)
+        }, 120000);
+        if (!response?.ok && !response?.ignored) throw new Error(response?.error || "The Amazon history page could not be indexed.");
+        return true;
+      }
+
+      if (run.phase === "capture-amazon-details" && isAmazonOrderDetailsPage()) {
+        const candidate = (run.candidates || [])[Number(run.candidateIndex || 0)] || {};
+        const expectedOrderId = String(candidate.orderId || "");
+        let pageOrderId = orderIdFromUrl(location.href);
+        for (let attempt = 0; attempt < 12 && (!pageOrderId || (expectedOrderId && expectedOrderId !== pageOrderId)); attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          pageOrderId = orderIdFromUrl(location.href);
+        }
+        if (expectedOrderId && pageOrderId !== expectedOrderId) {
+          throw new Error(`Expected Amazon order ${expectedOrderId}, but this tab opened ${pageOrderId || "an unverified order"}.`);
+        }
+
+        const purchases = [];
+        const missingAsins = [];
+        for (const asin of candidate.asins || []) {
+          const fallbackTitle = (candidate.items || []).find((item) => item.asin === asin)?.title || "";
+          let purchase = null;
+          for (let attempt = 0; attempt < 12 && !purchase; attempt += 1) {
+            purchase = extractAmazonOrderDetailItemCostByAsin(asin, fallbackTitle, pageOrderId, expectedOrderId);
+            if (!purchase) await new Promise((resolve) => setTimeout(resolve, 500));
+          }
+          if (purchase) purchases.push(purchase);
+          else missingAsins.push(asin);
+        }
+        if (missingAsins.length) {
+          throw new Error(`Amazon order ${pageOrderId || expectedOrderId} did not expose an exact item row for ${missingAsins.join(", ")}.`);
+        }
+        const detail = extractAmazonOrderDetailData() || {};
+        const response = await runtimeMessage({
+          type: "orderPlacementAuditAmazonDetail",
+          payload: {
+            orderId: pageOrderId || expectedOrderId,
+            shippingBlock: detail.shippingBlock || "",
+            purchases
+          }
+        }, 120000);
+        if (!response?.ok && !response?.ignored) throw new Error(response?.error || "The Amazon order detail could not be saved.");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      if (U.isExtensionContextInvalidated?.(error)) {
+        stopInvalidatedAmazonContext(error);
+        return false;
+      }
+      await runtimeMessage({
+        type: "orderPlacementAuditWorkerError",
+        error: { message: error?.message || String(error), url: location.href }
+      }).catch(() => {});
+      renderStatus(error?.message || "Order placement audit paused.", "error");
+      return false;
+    } finally {
+      orderAuditWorkerBusy = false;
+    }
   }
 
   function backfillCurrency(value) {
@@ -2938,6 +3099,7 @@
   autoCacheCheckout();
   resumePendingPoshmarkAmazonLookup();
   resumePoshmarkProfitBackfillWorker().catch((error) => renderStatus(error.message || "Historical-profit worker stopped.", "error"));
+  resumeOrderPlacementAuditWorker().catch((error) => renderStatus(error.message || "Order placement audit paused.", "error"));
   reviewPendingSnipingSellerCandidates();
   reviewPendingSnipingWinner();
 
@@ -3032,6 +3194,10 @@
         resumePoshmarkProfitBackfillWorker().catch((error) => {
           if (U.isExtensionContextInvalidated?.(error)) stopInvalidatedAmazonContext(error);
           else renderStatus(error.message || "Historical-profit worker stopped.", "error");
+        });
+        resumeOrderPlacementAuditWorker().catch((error) => {
+          if (U.isExtensionContextInvalidated?.(error)) stopInvalidatedAmazonContext(error);
+          else renderStatus(error.message || "Order placement audit paused.", "error");
         });
       }, 1200);
     });

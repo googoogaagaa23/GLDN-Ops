@@ -47,12 +47,18 @@ $requiredFiles = @(
   "extension\policy-listing-audit.css",
   "extension\policy-listing-audit-core.js",
   "extension\policy-listing-audit.js",
+  "extension\order-audit.html",
+  "extension\order-audit.css",
+  "extension\order-audit-core.js",
+  "extension\order-audit-background.js",
+  "extension\order-audit.js",
   "tools\listing-preflight\publish-reviewed-rules.ps1",
   "tools\build-local-package.ps1",
   "tools\local-extension-manager.ps1",
   "tools\update.ps1",
   "tools\gldn-update-core.ps1",
   "tools\gldn-update-agent.ps1",
+  "tools\restart-update-agent.ps1",
   "tools\install-update-agent.ps1",
   "tests\local-install-fixture.ps1",
   "tests\one-time-installer-fixture.ps1",
@@ -174,7 +180,7 @@ if (-not (Test-Path $node)) { $node = "node" }
 
 & $node -e @"
 const fs = require('fs');
-for (const f of ['extension/config.example.js','extension/foundation.js','extension/shared.js','extension/profit-audit.js','extension/sniping-audit.js','extension/subscribe-save.js','extension/sniping-review.js','extension/listing-preflight-core.js','extension/listing-preflight.js','extension/policy-listing-audit-core.js','extension/policy-listing-audit.js','extension/ebay.js','extension/amazon.js','extension/walmart.js','extension/ecomsniper.js','extension/poshmark.js','extension/background.js','extension/popup.js','extension/start-move99.js']) {
+for (const f of ['extension/config.example.js','extension/foundation.js','extension/shared.js','extension/profit-audit.js','extension/sniping-audit.js','extension/subscribe-save.js','extension/sniping-review.js','extension/listing-preflight-core.js','extension/listing-preflight.js','extension/policy-listing-audit-core.js','extension/policy-listing-audit.js','extension/order-audit-core.js','extension/order-audit-background.js','extension/order-audit.js','extension/ebay.js','extension/amazon.js','extension/walmart.js','extension/ecomsniper.js','extension/poshmark.js','extension/background.js','extension/popup.js','extension/start-move99.js']) {
   new Function(fs.readFileSync(f, 'utf8'));
   console.log('parse ok', f);
 }

@@ -7,6 +7,7 @@ param(
   [string]$PageAction = "",
   [string]$ConfirmationToken = "",
   [string]$MonthKey = "",
+  [string]$AmazonProfileLabel = "",
   [int]$ExpectedCount = 0,
   [string]$WorkspaceId = "",
   [string[]]$ItemIds = @(),
@@ -16,7 +17,7 @@ param(
   [string]$ReportFingerprint = "",
   [ValidateSet("", "popup", "onboarding", "guide", "variations", "policyaudit", "preflight")]
   [string]$ExtensionPage = "",
-  [ValidateSet("", "health-check", "dashboard-test", "dashboard-retry", "dashboard-setup", "variation-scan", "policy-listing-scan", "listing-preflight-proof", "ecomsniper-handoff-proof", "sync-ebay-monthly-profit", "start-ebay-amazon-resolution")]
+  [ValidateSet("", "health-check", "dashboard-test", "dashboard-retry", "dashboard-setup", "variation-scan", "policy-listing-scan", "listing-preflight-proof", "ecomsniper-handoff-proof", "sync-ebay-monthly-profit", "start-ebay-amazon-resolution", "set-amazon-profile-label", "seed-order-placement-audit", "start-order-placement-audit-amazon", "read-order-placement-audit", "resume-order-placement-audit-amazon")]
   [string]$ExtensionAction = "",
   [int]$TabId = 0,
   [string[]]$Keys = @(),
@@ -221,12 +222,19 @@ function ConvertTo-ControlRequest {
     }
     "ExtensionAction" {
       if (-not $ExtensionAction) { throw "ExtensionAction requires -ExtensionAction." }
+      if ($ExtensionAction -eq "set-amazon-profile-label" -and $AmazonProfileLabel -cnotmatch '^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$') {
+        throw "set-amazon-profile-label requires -AmazonProfileLabel with 1 to 64 letters, numbers, spaces, periods, underscores, or hyphens."
+      }
       if ($ExtensionAction -eq "start-ebay-amazon-resolution" -and $MonthKey -cnotmatch '^\d{4}-(?:0[1-9]|1[0-2])$') {
         throw "start-ebay-amazon-resolution requires -MonthKey YYYY-MM."
       }
+      $orderAuditMonthActions = @("seed-order-placement-audit", "start-order-placement-audit-amazon", "read-order-placement-audit")
+      if ($ExtensionAction -in $orderAuditMonthActions -and $MonthKey -cnotmatch '^\d{4}-(?:0[1-9]|1[0-2])$') {
+        throw "$ExtensionAction requires -MonthKey YYYY-MM."
+      }
       return [pscustomobject]@{
         action = "extension-action"
-        payload = [pscustomobject]@{ action = $ExtensionAction; confirmationToken = $ConfirmationToken; monthKey = $MonthKey }
+        payload = [pscustomobject]@{ action = $ExtensionAction; confirmationToken = $ConfirmationToken; monthKey = $MonthKey; amazonProfileLabel = $AmazonProfileLabel }
       }
     }
     "ReadState" {
@@ -257,6 +265,8 @@ function ConvertTo-ControlRequest {
         "latestPoshmarkVisibleSales",
         "latestMarketplaceProfit",
         "ebayMonthlyProfit",
+        "amazonProfileLabel",
+        "orderPlacementAuditAmazonScan",
         "poshmarkProfitBackfill",
         "gldnErrorLog"
       ) }

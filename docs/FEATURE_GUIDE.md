@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.21. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.23. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -24,6 +24,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Mark as Shipped](#mark-shipped) - **PARTIAL**
 - [eBay Order Note and Profit](#ebay-note-profit) - **LIVE PASS**
 - [Monthly eBay Profit](#ebay-monthly-profit) - **PARTIAL LIVE**
+- [Order Placement Audit](#order-placement-audit) - **PARTIAL LIVE**
 - [Seller Level and Tasks Metrics](#seller-metrics) - **LIVE PASS**
 - [Confirm Listings Under Limit](#listing-limits) - **LIVE PASS**
 - [Cancel Amazon Subscribe & Save](#amazon-subscribe-save) - **LIVE PASS**
@@ -365,6 +366,57 @@ A resumable eBay month checkpoint, note-only earnings/cost/profit, visible-eBay-
 ### Evidence
 
 The signed-in July 2026 eBay month and approved Amazon-profile reconciliations remain historical live evidence. v3.12.18 adds deterministic proof for true note-only separation, visible-eBay separation, safe normalization, ambiguous typo review, missing-decimal suggestions, confirmation wiring, and separate dashboard persistence. v3.12.19 adds deterministic missing-worker recovery so stale Running becomes a resumable Paused checkpoint. v3.12.20 prevents a page-verification error from deleting its own worker, preserves the exact failed page, reuses it on Resume, and supports encoded All Orders URLs plus nested controls. v3.12.21 keeps the final worker page open through review and rejects stale empty-result text when real order links exist. Live M0 confirmation remains pending.
+
+
+<a id="order-placement-audit"></a>
+## Order Placement Audit
+
+**Matrix:** E-13
+
+**Evidence status:** PARTIAL LIVE
+
+**Purpose:** Compare unit-level eBay demand with exact ASIN purchases found across every signed-in Amazon Chrome profile, then flag duplicate, extra, canceled-order, and missing purchases without changing either marketplace.
+
+### Prerequisites
+
+- Finish the Monthly eBay Profit read for the same computer, eBay account, and month so exact order numbers, dates, ASINs, quantities, statuses, and ship-to evidence are available.
+- Set one permanent Amazon profile name in Setup in every Chrome profile used to place orders.
+- List every expected Amazon profile name on the audit page so cross-profile completion can be proven.
+- The shared dashboard connection must work in every participating Chrome profile.
+
+### Exact Steps
+
+1. Open Order Placement Audit from the eBay Chrome profile.
+2. Choose the computer and eBay order month, enter every Amazon profile expected on that computer, and click Build From Completed eBay Month.
+3. Review the exact eBay unit count. Rebuilding this demand deliberately clears prior Amazon scans for that computer, account, and month.
+4. Open GLDN Ops in the first signed-in Amazon Chrome profile, open Order Placement Audit, choose the same computer and month, and click Scan This Signed-In Amazon Profile.
+5. Let the one inactive Amazon worker index order history and read only matching exact-ASIN order details.
+6. Wait until that profile shows review/completed and appears as scanned in Profile coverage.
+7. Repeat the same scan from every other signed-in Amazon Chrome profile used on that computer. The shared audit deduplicates an Amazon order that is visible in more than one Chrome profile.
+8. Review Duplicate, same recipient first; then Possible extra purchase, Purchased after cancel, and Missing Amazon purchase.
+9. Use the exact eBay and Amazon links to verify any flagged unit, and download the CSV for a retained audit copy.
+
+### Approval Stop
+
+None. This workflow is read-only. It never cancels, refunds, marks shipped, purchases, edits, or deletes an eBay or Amazon order. Any corrective marketplace action must be handled separately with its own exact approval.
+
+### Expected Output
+
+A shared computer/account/month audit with expected eBay units, Amazon purchase units, scanned-profile coverage, exact same-recipient duplicates, possible different-recipient extras, canceled-order purchases, unmatched demand, source links, and CSV export.
+
+### Failure Recovery
+
+- Pause stops at the next Amazon page checkpoint; Resume continues the saved profile scan.
+- If the inactive worker closes or a page cannot be verified, the checkpoint remains resumable in that same signed-in Chrome profile.
+- Reset This Profile Scan clears only that Chrome profile's local checkpoint; completed shared results from other profiles remain saved.
+- Save Profile List updates the expected-profile checklist without erasing completed scans.
+- Do not call a different-recipient purchase an exact duplicate unless total Amazon units exceed total eBay demand for the ASIN.
+- A canceled eBay order with no Amazon purchase is clean; a matched purchase for a canceled or refunded order is flagged.
+- Missing Amazon purchase remains open until all expected Amazon profiles have been scanned.
+
+### Evidence
+
+Deterministic unit-allocation tests cover exact matches, same-recipient duplicates, different-recipient extras, two legitimate customers sharing one ASIN, quantities, canceled orders, active-before-canceled allocation, missing purchases, and cross-profile deduplication. Signed-in Profile 2 seeded 101 July 2026 eBay units, preserved all 101 through an extension reload, and scanned 10 Amazon order-history pages for profile F9132 across 83 exact ASIN targets. That profile returned zero matching purchases; one exact target ASIN was also visibly searched in the signed-in Amazon account and returned no result. The remaining Amazon profiles have not been scanned, so the complete cross-profile audit is not LIVE PASS.
 
 
 <a id="seller-metrics"></a>

@@ -1,4 +1,18 @@
-GLDN Ops v3.12.21
+GLDN Ops v3.12.23
+
+v3.12.23 updater-ready order audit release:
+- Publishes the cross-profile Order Placement Audit through Update & Reload.
+- Keeps the permanent Amazon profile label and completed profile scan visible after extension reloads.
+- Preserves the shared July eBay demand and profile-by-profile Amazon progress without marketplace writes.
+- Keeps incomplete profile coverage clearly marked partial until every expected Amazon profile is scanned.
+
+v3.12.22 cross-profile order-placement audit:
+- Builds exact monthly eBay unit demand from a completed Monthly eBay Profit run.
+- Scans exact-ASIN Amazon order details separately in every signed-in Amazon Chrome profile.
+- Combines those profile results through the shared dashboard without counting one Amazon order twice.
+- Flags likely same-recipient duplicates, possible different-recipient extras, canceled-order purchases, and missing purchases.
+- Remains read-only and never cancels, refunds, purchases, marks shipped, or edits an order.
+- Profile 2 control can seed, start, resume, and read the audit without manual extension-page operation.
 
 v3.12.21 monthly-profit visible-review release:
 - Keeps the final signed-in eBay worker page open when Monthly eBay Profit reaches review.

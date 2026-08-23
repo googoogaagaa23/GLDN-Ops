@@ -29,7 +29,25 @@ const EBAY_COST_QUEUE_SHEET = 'eBay Profit Reconciliation';
 const POSHMARK_ORDER_SHEET_ID = '1PV4Fpnjjd5tNwdwmqLDbi-RLBbIqMq94Gxj0YU4AOl4';
 const AMAZON_SUBSCRIBE_SAVE_HISTORY_SHEET = 'Amazon Subscribe Save History';
 const SYNC_RECEIPT_SHEET = 'Sync Receipts';
+const ORDER_AUDIT_RUNS_SHEET = 'Order Audit Runs';
+const ORDER_AUDIT_EXPECTED_SHEET = 'Order Audit - eBay Demand';
+const ORDER_AUDIT_PURCHASES_SHEET = 'Order Audit - Amazon Purchases';
 const SYNC_RECEIPT_HEADERS = ['Sync ID', 'Action', 'Received At', 'Computer', 'Account', 'Result'];
+const ORDER_AUDIT_RUN_HEADERS = [
+  'Last Updated', 'Run Key', 'Computer', 'eBay Account', 'Month',
+  'Expected Amazon Profiles', 'Expected Units', 'Scanned Amazon Profiles', 'Status'
+];
+const ORDER_AUDIT_EXPECTED_HEADERS = [
+  'Last Updated', 'Run Key', 'Computer', 'eBay Account', 'Month', 'eBay Order',
+  'Order Date', 'ASIN', 'Unit', 'Quantity', 'Item', 'Order Status', 'Recipient',
+  'Recipient Fingerprint', 'Address Fingerprint', 'Ship To', 'eBay URL'
+];
+const ORDER_AUDIT_PURCHASE_HEADERS = [
+  'Last Updated', 'Run Key', 'Computer', 'eBay Account', 'Month', 'Amazon Profile',
+  'Amazon Order', 'Purchase Date', 'ASIN', 'Unit', 'Quantity', 'Item', 'Cost',
+  'Recipient', 'Recipient Fingerprint', 'Address Fingerprint', 'Ship To',
+  'Amazon URL', 'Seen Profiles'
+];
 const PROFIT_COMPUTER_LABELS = ['M0', '2', '6', '0', 'M1', '7'];
 const AMAZON_SUBSCRIBE_SAVE_HEADERS = [
   'Timestamp', 'Computer', 'eBay Account', 'Amazon Profile', 'Amazon Account',
@@ -191,6 +209,9 @@ function setupSellerLevelDashboard() {
   const ebayCostQueue = ensureSheet_(ss, EBAY_COST_QUEUE_SHEET, EBAY_COST_QUEUE_HEADERS);
   const amazonSubscribeSave = ensureSheet_(ss, AMAZON_SUBSCRIBE_SAVE_HISTORY_SHEET, AMAZON_SUBSCRIBE_SAVE_HEADERS);
   const syncReceipts = ensureSheet_(ss, SYNC_RECEIPT_SHEET, SYNC_RECEIPT_HEADERS);
+  const orderAuditRuns = ensureSheet_(ss, ORDER_AUDIT_RUNS_SHEET, ORDER_AUDIT_RUN_HEADERS);
+  const orderAuditExpected = ensureSheet_(ss, ORDER_AUDIT_EXPECTED_SHEET, ORDER_AUDIT_EXPECTED_HEADERS);
+  const orderAuditPurchases = ensureSheet_(ss, ORDER_AUDIT_PURCHASES_SHEET, ORDER_AUDIT_PURCHASE_HEADERS);
   const computerProfitSheets = PROFIT_COMPUTER_LABELS.map((computer) => ensureSheet_(ss, `${MARKETPLACE_PROFIT_PREFIX}${computer}`, MARKETPLACE_PROFIT_HEADERS));
 
   dedupeDashboardByComputer_(seller, SELLER_HEADERS.length, 10);
@@ -211,6 +232,7 @@ function setupSellerLevelDashboard() {
   formatEbayCostQueue_(ebayCostQueue);
   formatGenericDashboard_(amazonSubscribeSave, AMAZON_SUBSCRIBE_SAVE_HEADERS.length);
   formatGenericDashboard_(syncReceipts, SYNC_RECEIPT_HEADERS.length);
+  formatOrderAuditSheets_(orderAuditRuns, orderAuditExpected, orderAuditPurchases);
   computerProfitSheets.forEach(formatProfitSheet_);
 
   protectSheet_(sellerHistory, 'GLDN protected Seller Level history');
@@ -223,6 +245,9 @@ function setupSellerLevelDashboard() {
   protectSheet_(ebayCostQueue, 'GLDN protected eBay profit reconciliation');
   protectSheet_(amazonSubscribeSave, 'GLDN protected Amazon Subscribe Save history');
   protectSheet_(syncReceipts, 'GLDN protected sync receipts');
+  protectSheet_(orderAuditRuns, 'GLDN protected order audit runs');
+  protectSheet_(orderAuditExpected, 'GLDN protected order audit eBay demand');
+  protectSheet_(orderAuditPurchases, 'GLDN protected order audit Amazon purchases');
 
   ss.setActiveSheet(seller);
   SpreadsheetApp.flush();
@@ -235,7 +260,7 @@ function doPost(e) {
     validateKey_(payload.key);
     const action = cleanText_(payload.action);
     const syncId = cleanText_(payload.syncId || (payload.record && payload.record.syncId)).slice(0, 180);
-    const writeActions = ['sellerLevel', 'accountLimits', 'markShipped', 'taskCompletion', 'amazonSubscribeSaveProfile', 'poshmarkStats', 'ebaySnapshot', 'marketplaceProfit', 'marketplaceProfitBatch', 'ebayMonthlyProfitBatch', 'ebayCostResolutionBatch', 'poshmarkMonthlyProfitBatch', 'poshmarkCostResolutionBatch', 'receiptTest'];
+    const writeActions = ['sellerLevel', 'accountLimits', 'markShipped', 'taskCompletion', 'amazonSubscribeSaveProfile', 'poshmarkStats', 'ebaySnapshot', 'marketplaceProfit', 'marketplaceProfitBatch', 'ebayMonthlyProfitBatch', 'ebayCostResolutionBatch', 'poshmarkMonthlyProfitBatch', 'poshmarkCostResolutionBatch', 'orderPlacementAuditConfig', 'orderPlacementAuditExpectedBatch', 'orderPlacementAuditAmazonBatch', 'receiptTest'];
 
     if (writeActions.includes(action) && syncId) {
       const response = withLock_(() => {
@@ -346,7 +371,304 @@ function processDashboardAction_(action, input) {
     const records = readOpenPoshmarkCostQueue_(input);
     return { ok: true, message: `${records.length} open Poshmark Amazon-cost rows loaded.`, count: records.length, records };
   }
+  if (action === 'orderPlacementAuditConfig') {
+    return { ok: true, message: 'Order placement audit configured.', ...saveOrderPlacementAuditConfig_(input) };
+  }
+  if (action === 'orderPlacementAuditExpectedBatch') {
+    const saved = saveOrderPlacementAuditExpectedBatch_(input);
+    return { ok: true, message: `${saved.count} eBay demand units saved for order auditing.`, ...saved };
+  }
+  if (action === 'orderPlacementAuditAmazonBatch') {
+    const saved = saveOrderPlacementAuditAmazonBatch_(input);
+    return { ok: true, message: `${saved.count} Amazon purchase units saved for order auditing.`, ...saved };
+  }
+  if (action === 'orderPlacementAuditRead') {
+    return { ok: true, message: 'Order placement audit loaded.', ...readOrderPlacementAudit_(input) };
+  }
   throw new Error('Unsupported action.');
+}
+
+function orderAuditProfiles_(value) {
+  const values = Array.isArray(value) ? value : String(value || '').split(/[|,\n]+/);
+  const seen = {};
+  return values.map(cleanText_).filter((profile) => {
+    const key = profile.toLowerCase();
+    if (!key || seen[key]) return false;
+    seen[key] = true;
+    return true;
+  });
+}
+
+function orderAuditRunKey_(input) {
+  const explicit = cleanText_(input.runKey);
+  if (explicit) return explicit;
+  const computer = cleanText_(input.computerLabel);
+  const account = cleanText_(input.accountLabel || input.ebayAccountLabel).toUpperCase();
+  const month = cleanText_(input.monthKey);
+  if (!computer || !account || !/^\d{4}-(?:0[1-9]|1[0-2])$/.test(month)) {
+    throw new Error('Order audit requires a computer, eBay account and YYYY-MM month.');
+  }
+  return [computer, account, month].join('|');
+}
+
+function orderAuditSheetRows_(sheet, headers) {
+  if (sheet.getLastRow() < 2) return [];
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
+}
+
+function orderAuditRewriteRows_(sheet, headers, rows) {
+  const bodyRows = Math.max(0, sheet.getLastRow() - 1);
+  if (bodyRows) sheet.getRange(2, 1, bodyRows, headers.length).clearContent();
+  if (rows.length) sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+}
+
+function orderAuditRemoveRows_(sheet, headers, predicate) {
+  const rows = orderAuditSheetRows_(sheet, headers);
+  const kept = rows.filter((row) => !predicate(row));
+  if (kept.length !== rows.length) orderAuditRewriteRows_(sheet, headers, kept);
+  return rows.length - kept.length;
+}
+
+function orderAuditFindRunRow_(sheet, runKey) {
+  const rows = orderAuditSheetRows_(sheet, ORDER_AUDIT_RUN_HEADERS);
+  const index = rows.findIndex((row) => cleanText_(row[1]) === runKey);
+  return { rows, index };
+}
+
+function orderAuditUpsertRun_(input) {
+  const sheet = ensureSheet_(getSpreadsheet_(), ORDER_AUDIT_RUNS_SHEET, ORDER_AUDIT_RUN_HEADERS);
+  const runKey = orderAuditRunKey_(input);
+  const found = orderAuditFindRunRow_(sheet, runKey);
+  const previous = found.index >= 0 ? found.rows[found.index] : [];
+  const expectedProfiles = Object.prototype.hasOwnProperty.call(input, 'expectedProfiles')
+    ? orderAuditProfiles_(input.expectedProfiles)
+    : orderAuditProfiles_(previous[5]);
+  const scannedProfiles = Object.prototype.hasOwnProperty.call(input, 'scannedProfiles')
+    ? orderAuditProfiles_(input.scannedProfiles)
+    : orderAuditProfiles_(previous[7]);
+  const expectedUnits = input.expectedUnits === undefined || input.expectedUnits === null || input.expectedUnits === ''
+    ? Number(previous[6] || 0)
+    : Math.max(0, Number(input.expectedUnits || 0));
+  const status = cleanText_(input.status || previous[8] || 'Waiting for Amazon profile scans');
+  const row = [
+    new Date(),
+    runKey,
+    cleanText_(input.computerLabel || previous[2]),
+    cleanText_(input.accountLabel || input.ebayAccountLabel || previous[3]).toUpperCase(),
+    cleanText_(input.monthKey || previous[4]),
+    expectedProfiles.join(' | '),
+    expectedUnits,
+    scannedProfiles.join(' | '),
+    status
+  ];
+  if (found.index >= 0) sheet.getRange(found.index + 2, 1, 1, row.length).setValues([row]);
+  else sheet.appendRow(row);
+  return {
+    runKey,
+    expectedProfiles,
+    scannedProfiles,
+    expectedUnits,
+    status,
+    computerLabel: row[2],
+    accountLabel: row[3],
+    monthKey: row[4]
+  };
+}
+
+function saveOrderPlacementAuditConfig_(input) {
+  return withLock_(() => {
+    const runKey = orderAuditRunKey_(input);
+    if (input.resetPurchases === true) {
+      const ss = getSpreadsheet_();
+      orderAuditRemoveRows_(
+        ensureSheet_(ss, ORDER_AUDIT_EXPECTED_SHEET, ORDER_AUDIT_EXPECTED_HEADERS),
+        ORDER_AUDIT_EXPECTED_HEADERS,
+        (row) => cleanText_(row[1]) === runKey
+      );
+      orderAuditRemoveRows_(
+        ensureSheet_(ss, ORDER_AUDIT_PURCHASES_SHEET, ORDER_AUDIT_PURCHASE_HEADERS),
+        ORDER_AUDIT_PURCHASE_HEADERS,
+        (row) => cleanText_(row[1]) === runKey
+      );
+    }
+    const config = {
+      ...input,
+      runKey,
+      status: 'Waiting for Amazon profile scans'
+    };
+    if (input.resetPurchases === true) config.scannedProfiles = [];
+    else if (!Object.prototype.hasOwnProperty.call(input, 'scannedProfiles')) delete config.scannedProfiles;
+    return orderAuditUpsertRun_(config);
+  });
+}
+
+function saveOrderPlacementAuditExpectedBatch_(input) {
+  return withLock_(() => {
+    const records = Array.isArray(input.records) ? input.records : [];
+    if (!records.length) throw new Error('Order audit eBay demand batch is empty.');
+    if (records.length > 100) throw new Error('Order audit eBay demand batch cannot exceed 100 records.');
+    const runKey = orderAuditRunKey_(input);
+    const ss = getSpreadsheet_();
+    const sheet = ensureSheet_(ss, ORDER_AUDIT_EXPECTED_SHEET, ORDER_AUDIT_EXPECTED_HEADERS);
+    if (input.replace === true) {
+      orderAuditRemoveRows_(sheet, ORDER_AUDIT_EXPECTED_HEADERS, (row) => cleanText_(row[1]) === runKey);
+    }
+    const now = new Date();
+    const rows = records.map((record) => [
+      now,
+      runKey,
+      cleanText_(record.computerLabel || input.computerLabel),
+      cleanText_(record.accountLabel || record.ebayAccountLabel || input.accountLabel).toUpperCase(),
+      cleanText_(record.monthKey || input.monthKey),
+      cleanText_(record.orderNumber),
+      cleanText_(record.orderDate),
+      cleanText_(record.asin).toUpperCase(),
+      Math.max(1, Number(record.unitIndex || 1)),
+      Math.max(1, Number(record.quantity || 1)),
+      cleanText_(record.itemTitle),
+      cleanText_(record.orderStatus),
+      cleanText_(record.recipient),
+      cleanText_(record.recipientFingerprint),
+      cleanText_(record.addressFingerprint),
+      cleanText_(record.shippingBlock),
+      cleanText_(record.pageUrl)
+    ]);
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, ORDER_AUDIT_EXPECTED_HEADERS.length).setValues(rows);
+    return { runKey, count: rows.length };
+  });
+}
+
+function saveOrderPlacementAuditAmazonBatch_(input) {
+  return withLock_(() => {
+    const records = Array.isArray(input.records) ? input.records : [];
+    if (records.length > 100) throw new Error('Order audit Amazon batch cannot exceed 100 records.');
+    const runKey = orderAuditRunKey_(input);
+    const supplierProfile = cleanText_(input.supplierProfile);
+    if (!supplierProfile) throw new Error('Order audit Amazon profile is missing.');
+    const ss = getSpreadsheet_();
+    const sheet = ensureSheet_(ss, ORDER_AUDIT_PURCHASES_SHEET, ORDER_AUDIT_PURCHASE_HEADERS);
+    if (input.replaceProfile === true) {
+      orderAuditRemoveRows_(sheet, ORDER_AUDIT_PURCHASE_HEADERS, (row) => (
+        cleanText_(row[1]) === runKey
+        && cleanText_(row[5]).toLowerCase() === supplierProfile.toLowerCase()
+      ));
+    }
+    const now = new Date();
+    const rows = records.map((record) => [
+      now,
+      runKey,
+      cleanText_(record.computerLabel || input.computerLabel),
+      cleanText_(input.accountLabel).toUpperCase(),
+      cleanText_(record.monthKey || input.monthKey),
+      cleanText_(record.supplierProfile || supplierProfile),
+      cleanText_(record.orderId),
+      cleanText_(record.purchaseDate),
+      cleanText_(record.asin).toUpperCase(),
+      Math.max(1, Number(record.unitIndex || 1)),
+      Math.max(1, Number(record.quantity || 1)),
+      cleanText_(record.title || record.itemTitle),
+      numberOrBlank_(record.cost),
+      cleanText_(record.recipient),
+      cleanText_(record.recipientFingerprint),
+      cleanText_(record.addressFingerprint),
+      cleanText_(record.shippingBlock),
+      cleanText_(record.orderUrl),
+      orderAuditProfiles_(record.seenProfiles || [supplierProfile]).join(' | ')
+    ]);
+    if (rows.length) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, ORDER_AUDIT_PURCHASE_HEADERS.length).setValues(rows);
+    }
+
+    let metadata = orderAuditUpsertRun_(input);
+    if (input.profileCompleted === true) {
+      const scannedProfiles = orderAuditProfiles_([...(metadata.scannedProfiles || []), supplierProfile]);
+      const expectedProfiles = metadata.expectedProfiles || [];
+      const allExpectedScanned = expectedProfiles.length > 0
+        && expectedProfiles.every((profile) => scannedProfiles.some((scanned) => scanned.toLowerCase() === profile.toLowerCase()));
+      metadata = orderAuditUpsertRun_({
+        ...metadata,
+        runKey,
+        scannedProfiles,
+        status: allExpectedScanned
+          ? 'All expected Amazon profiles scanned'
+          : `Scanned ${scannedProfiles.length} Amazon profile${scannedProfiles.length === 1 ? '' : 's'}; more may remain`
+      });
+    }
+    return { runKey, count: rows.length, metadata };
+  });
+}
+
+function orderAuditDateText_(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone() || 'America/Chicago', 'yyyy-MM-dd');
+  }
+  return cleanText_(value);
+}
+
+function readOrderPlacementAudit_(input) {
+  const runKey = orderAuditRunKey_(input);
+  const ss = getSpreadsheet_();
+  const runSheet = ensureSheet_(ss, ORDER_AUDIT_RUNS_SHEET, ORDER_AUDIT_RUN_HEADERS);
+  const runFound = orderAuditFindRunRow_(runSheet, runKey);
+  const runRow = runFound.index >= 0 ? runFound.rows[runFound.index] : [];
+  const metadata = {
+    runKey,
+    computerLabel: cleanText_(runRow[2] || input.computerLabel),
+    accountLabel: cleanText_(runRow[3] || input.accountLabel).toUpperCase(),
+    monthKey: cleanText_(runRow[4] || input.monthKey),
+    expectedProfiles: orderAuditProfiles_(runRow[5]),
+    expectedUnits: Number(runRow[6] || 0),
+    scannedProfiles: orderAuditProfiles_(runRow[7]),
+    status: cleanText_(runRow[8] || 'No audit seed saved'),
+    updatedAt: orderAuditDateText_(runRow[0])
+  };
+  const expectedRows = orderAuditSheetRows_(
+    ensureSheet_(ss, ORDER_AUDIT_EXPECTED_SHEET, ORDER_AUDIT_EXPECTED_HEADERS),
+    ORDER_AUDIT_EXPECTED_HEADERS
+  ).filter((row) => cleanText_(row[1]) === runKey);
+  const purchaseRows = orderAuditSheetRows_(
+    ensureSheet_(ss, ORDER_AUDIT_PURCHASES_SHEET, ORDER_AUDIT_PURCHASE_HEADERS),
+    ORDER_AUDIT_PURCHASE_HEADERS
+  ).filter((row) => cleanText_(row[1]) === runKey);
+  const expected = expectedRows.map((row) => ({
+    runKey,
+    computerLabel: cleanText_(row[2]),
+    accountLabel: cleanText_(row[3]),
+    monthKey: cleanText_(row[4]),
+    orderNumber: cleanText_(row[5]),
+    orderDate: orderAuditDateText_(row[6]),
+    asin: cleanText_(row[7]),
+    unitIndex: Number(row[8] || 1),
+    quantity: Number(row[9] || 1),
+    itemTitle: cleanText_(row[10]),
+    orderStatus: cleanText_(row[11]),
+    recipient: cleanText_(row[12]),
+    recipientFingerprint: cleanText_(row[13]),
+    addressFingerprint: cleanText_(row[14]),
+    shippingBlock: cleanText_(row[15]),
+    pageUrl: cleanText_(row[16])
+  }));
+  const purchases = purchaseRows.map((row) => ({
+    runKey,
+    computerLabel: cleanText_(row[2]),
+    accountLabel: cleanText_(row[3]),
+    monthKey: cleanText_(row[4]),
+    supplierProfile: cleanText_(row[5]),
+    seenProfiles: orderAuditProfiles_(row[18] || row[5]),
+    orderId: cleanText_(row[6]),
+    purchaseDate: orderAuditDateText_(row[7]),
+    asin: cleanText_(row[8]),
+    unitIndex: Number(row[9] || 1),
+    quantity: Number(row[10] || 1),
+    title: cleanText_(row[11]),
+    cost: optionalNumber_(row[12]),
+    recipient: cleanText_(row[13]),
+    recipientFingerprint: cleanText_(row[14]),
+    addressFingerprint: cleanText_(row[15]),
+    shippingBlock: cleanText_(row[16]),
+    orderUrl: cleanText_(row[17])
+  }));
+  return { metadata, expected, purchases };
 }
 
 function doGet(e) {
@@ -2940,6 +3262,32 @@ function formatGenericDashboard_(sheet, count) {
   formatHeader_(sheet, count, '#111827');
   sheet.autoResizeColumns(1, Math.min(count, 12));
   if (count > 12) sheet.setColumnWidths(13, count - 12, 125);
+}
+
+function formatOrderAuditSheets_(runs, expected, purchases) {
+  formatHeader_(runs, ORDER_AUDIT_RUN_HEADERS.length, '#111827');
+  runs.setColumnWidths(1, ORDER_AUDIT_RUN_HEADERS.length, 145);
+  runs.setColumnWidth(2, 260);
+  runs.setColumnWidths(6, 1, 260);
+  runs.setColumnWidth(8, 260);
+  runs.getRange('A:A').setNumberFormat('m/d/yyyy h:mm AM/PM');
+
+  formatHeader_(expected, ORDER_AUDIT_EXPECTED_HEADERS.length, '#1d4ed8');
+  expected.setColumnWidths(1, ORDER_AUDIT_EXPECTED_HEADERS.length, 130);
+  expected.setColumnWidth(2, 260);
+  expected.setColumnWidth(11, 320);
+  expected.setColumnWidth(16, 360);
+  expected.setColumnWidth(17, 280);
+  expected.getRange('A:A').setNumberFormat('m/d/yyyy h:mm AM/PM');
+
+  formatHeader_(purchases, ORDER_AUDIT_PURCHASE_HEADERS.length, '#047857');
+  purchases.setColumnWidths(1, ORDER_AUDIT_PURCHASE_HEADERS.length, 130);
+  purchases.setColumnWidth(2, 260);
+  purchases.setColumnWidth(12, 320);
+  purchases.setColumnWidth(17, 360);
+  purchases.setColumnWidth(18, 280);
+  purchases.getRange('A:A').setNumberFormat('m/d/yyyy h:mm AM/PM');
+  purchases.getRange('M:M').setNumberFormat('$#,##0.00');
 }
 
 function formatPoshmarkStatsSheet_(sheet, history) {

@@ -455,6 +455,11 @@
       marketplaceEarnings: money(detail.marketplaceEarnings),
       skus: unique(detail.skus),
       asins: unique(detail.asins).map((value) => value.toUpperCase()).filter((value) => /^[A-Z0-9]{10}$/.test(value)),
+      items: Array.isArray(detail.items) ? detail.items.map((item) => ({ ...item })) : [],
+      shippingBlock: text(detail.shippingBlock),
+      recipient: text(detail.recipient),
+      recipientFingerprint: text(detail.recipientFingerprint),
+      addressFingerprint: text(detail.addressFingerprint),
       orderStatus: text(detail.orderStatus),
       capturedAt: text(detail.capturedAt) || new Date().toISOString()
     };

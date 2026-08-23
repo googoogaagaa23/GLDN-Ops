@@ -205,6 +205,38 @@ test('Profile 2 control starts the read-only eBay Amazon-cost resolver for one e
   assert.match(background, /maxOrders: 100/);
 });
 
+test('Profile 2 control can seed, run, resume, and read the cross-profile order-placement audit without marketplace writes', () => {
+  for (const action of [
+    'set-amazon-profile-label',
+    'seed-order-placement-audit',
+    'start-order-placement-audit-amazon',
+    'read-order-placement-audit',
+    'resume-order-placement-audit-amazon'
+  ]) {
+    assert.match(control, new RegExp(action));
+    assert.match(agent, new RegExp(action));
+    assert.match(background, new RegExp(`'${action}'`));
+  }
+  const actionSource = background.slice(
+    background.indexOf("if (action === 'seed-order-placement-audit')"),
+    background.indexOf("if (action === 'sync-ebay-monthly-profit')")
+  );
+  assert.match(actionSource, /seedExpectedFromMonthlyRun/);
+  assert.match(actionSource, /startAmazonScan/);
+  assert.match(actionSource, /ORDER_AUDIT_BACKGROUND\.resume/);
+  assert.match(actionSource, /lastAmazonSubscribeSaveResult/);
+  assert.match(actionSource, /lastPreparedNote\?\.payload\?\.profileLabel/);
+  assert.match(actionSource, /latestMarketplaceProfit\?\.supplierProfile/);
+  assert.match(actionSource, /supplierProfile: amazonProfileLabel/);
+  assert.match(control, /AmazonProfileLabel/);
+  assert.match(agent, /amazonProfileLabel = \(\[string\]\$value\.amazonProfileLabel\)\.Trim\(\)/);
+  assert.match(agent, /"amazonProfileLabel"/);
+  assert.match(agent, /"orderPlacementAuditAmazonScan"/);
+  assert.match(background, /await storageSet\(\{ amazonProfileLabel \}\)/);
+  assert.match(actionSource, /readShared/);
+  assert.doesNotMatch(actionSource, /click|submit|cancel|refund|mark.*ship/i);
+});
+
 test('Profile 2 control exposes a bounded read-only Amazon-cost reconciliation review', () => {
   assert.match(control, /"ReadProfitBackfillReview"/);
   assert.match(control, /action = "read-profit-backfill-review"/);

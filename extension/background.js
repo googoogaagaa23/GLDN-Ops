@@ -5,6 +5,8 @@ importScripts(
   'variation-core.js',
   'ebay-profit-core.js',
   'ebay-profit-background.js',
+  'order-audit-core.js',
+  'order-audit-background.js',
   'listing-preflight-core.js',
   'policy-listing-audit-core.js',
   'profit-backfill.js',
@@ -60,6 +62,7 @@ const HISTORICAL_PROFIT_SYNC_BATCH_SIZE = 50;
 const FOUNDATION = globalThis.GLDN_FOUNDATION;
 const EBAY_PROFIT_CORE = globalThis.GLDN_EBAY_PROFIT_CORE;
 const EBAY_PROFIT_BACKGROUND = globalThis.GLDN_EBAY_PROFIT_BACKGROUND;
+const ORDER_AUDIT_BACKGROUND = globalThis.GLDN_ORDER_PLACEMENT_AUDIT_BACKGROUND;
 const LISTING_PREFLIGHT = globalThis.GLDN_LISTING_PREFLIGHT;
 const POLICY_LISTING_AUDIT = globalThis.GLDN_POLICY_LISTING_AUDIT;
 const PROFIT_BACKFILL_BACKGROUND = globalThis.GLDN_PROFIT_BACKFILL_BACKGROUND;
@@ -91,6 +94,7 @@ const VERSIONED_WORKFLOW_KEYS = Object.freeze([
   'variationAuditScanState',
   'pendingPolicyListingEndReview',
   'ebayPolicyListingScanState',
+  'orderPlacementAuditAmazonScan',
   'pendingMarkShippedRun',
   'pendingSellerLevelScan',
   'pendingReviewMonthlyLimits',
@@ -439,7 +443,12 @@ const LOCAL_CONTROL_EXTENSION_ACTIONS = new Set([
   'listing-preflight-proof',
   'ecomsniper-handoff-proof',
   'sync-ebay-monthly-profit',
-  'start-ebay-amazon-resolution'
+  'start-ebay-amazon-resolution',
+  'set-amazon-profile-label',
+  'seed-order-placement-audit',
+  'start-order-placement-audit-amazon',
+  'read-order-placement-audit',
+  'resume-order-placement-audit-amazon'
 ]);
 const LOCAL_CONTROL_STATE_KEYS = new Set([
   'settingsSchemaVersion',
@@ -476,6 +485,8 @@ const LOCAL_CONTROL_STATE_KEYS = new Set([
   'latestPoshmarkVisibleSales',
   'latestMarketplaceProfit',
   'ebayMonthlyProfit',
+  'amazonProfileLabel',
+  'orderPlacementAuditAmazonScan',
   'lastPreparedNote',
   'gldnErrorLog'
 ]);
@@ -1532,6 +1543,102 @@ async function runLocalControlExtensionAction(payload = {}) {
     }, {});
     if (!result?.ok) throw new Error(result?.error || 'The eBay Amazon-cost resolver could not start.');
     return { ok: true, action, result };
+  }
+  if (action === 'set-amazon-profile-label') {
+    const amazonProfileLabel = String(payload.amazonProfileLabel || '').trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$/.test(amazonProfileLabel)) {
+      throw new Error('The Amazon profile label must contain 1 to 64 letters, numbers, spaces, periods, underscores, or hyphens.');
+    }
+    await storageSet({ amazonProfileLabel });
+    return { ok: true, action, result: { amazonProfileLabel } };
+  }
+  if (action === 'seed-order-placement-audit') {
+    const monthKey = String(payload.monthKey || '').trim();
+    if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(monthKey)) {
+      throw new Error('The order-placement audit requires a valid YYYY-MM month.');
+    }
+    const stored = await storageGet(['ebayMonthlyProfit']);
+    const result = await ORDER_AUDIT_BACKGROUND.seedExpectedFromMonthlyRun(
+      stored.ebayMonthlyProfit || null,
+      { monthKey, expectedProfiles: [] },
+      { postToDashboard }
+    );
+    return { ok: true, action, result };
+  }
+  if (action === 'start-order-placement-audit-amazon') {
+    const monthKey = String(payload.monthKey || '').trim();
+    if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(monthKey)) {
+      throw new Error('The order-placement audit requires a valid YYYY-MM month.');
+    }
+    const stored = await storageGet([
+      'ebayMonthlyProfit',
+      'computerLabel',
+      'ebayAccountLabel',
+      'amazonProfileLabel',
+      'lastAmazonSubscribeSaveResult',
+      'lastPreparedNote',
+      'latestMarketplaceProfit'
+    ]);
+    const monthlyRun = stored.ebayMonthlyProfit || null;
+    if (!monthlyRun || String(monthlyRun.phase || '') !== 'review' || String(monthlyRun.monthKey || '') !== monthKey) {
+      throw new Error('Finish the selected Monthly eBay Profit read before scanning Amazon for this month.');
+    }
+    let amazonProfileLabel = String(stored.amazonProfileLabel || '').trim();
+    if (!amazonProfileLabel) {
+      const candidates = [
+        stored.lastAmazonSubscribeSaveResult?.amazonProfileLabel,
+        stored.lastPreparedNote?.payload?.profileLabel,
+        stored.lastPreparedNote?.profitRecord?.supplierProfile,
+        stored.latestMarketplaceProfit?.supplierProfile
+      ]
+        .map((value) => String(value || '').trim())
+        .filter(Boolean);
+      const unique = [...new Map(candidates.map((value) => [value.toLowerCase(), value])).values()];
+      if (unique.length !== 1) {
+        throw new Error('Name this signed-in Amazon profile once in GLDN Ops Setup before scanning it. No single prior same-profile identity could be restored safely.');
+      }
+      amazonProfileLabel = unique[0];
+      await storageSet({ amazonProfileLabel });
+    }
+    const result = await ORDER_AUDIT_BACKGROUND.startAmazonScan({
+      monthKey,
+      computerLabel: monthlyRun.computerLabel || stored.computerLabel,
+      accountLabel: monthlyRun.accountLabel || stored.ebayAccountLabel,
+      supplierProfile: amazonProfileLabel
+    }, {}, { postToDashboard });
+    return { ok: true, action, result };
+  }
+  if (action === 'resume-order-placement-audit-amazon') {
+    const result = await ORDER_AUDIT_BACKGROUND.resume({}, { postToDashboard });
+    return { ok: true, action, result };
+  }
+  if (action === 'read-order-placement-audit') {
+    const monthKey = String(payload.monthKey || '').trim();
+    if (!/^\d{4}-(?:0[1-9]|1[0-2])$/.test(monthKey)) {
+      throw new Error('The order-placement audit requires a valid YYYY-MM month.');
+    }
+    const stored = await storageGet(['ebayMonthlyProfit', 'computerLabel', 'ebayAccountLabel']);
+    const monthlyRun = stored.ebayMonthlyProfit || {};
+    const computerLabel = String(monthlyRun.computerLabel || stored.computerLabel || '').trim();
+    const accountLabel = String(monthlyRun.accountLabel || stored.ebayAccountLabel || '').trim();
+    const shared = await ORDER_AUDIT_BACKGROUND.readShared({ computerLabel, accountLabel, monthKey }, { postToDashboard });
+    const worker = await ORDER_AUDIT_BACKGROUND.getStatus();
+    const metadata = shared.metadata || {};
+    return {
+      ok: true,
+      action,
+      result: {
+        runKey: String(shared.runKey || metadata.runKey || ''),
+        computerLabel,
+        accountLabel,
+        monthKey,
+        expectedProfiles: Array.isArray(metadata.expectedProfiles) ? metadata.expectedProfiles : [],
+        scannedProfiles: Array.isArray(metadata.scannedProfiles) ? metadata.scannedProfiles : [],
+        coverageStatus: String(metadata.status || ''),
+        summary: shared.summary || {},
+        worker: worker.summary || null
+      }
+    };
   }
   if (action === 'sync-ebay-monthly-profit') {
     const confirmationToken = String(payload.confirmationToken || '').trim();
@@ -5842,7 +5949,10 @@ function dashboardRequestTimeoutMs(action) {
     'ebayMonthlyProfitBatch',
     'ebayCostResolutionBatch',
     'poshmarkMonthlyProfitBatch',
-    'poshmarkCostResolutionBatch'
+    'poshmarkCostResolutionBatch',
+    'orderPlacementAuditConfig',
+    'orderPlacementAuditExpectedBatch',
+    'orderPlacementAuditAmazonBatch'
   ]);
   return batchActions.has(String(action || ''))
     ? DASHBOARD_BATCH_REQUEST_TIMEOUT_MS
@@ -6788,6 +6898,9 @@ if (chrome.tabs?.onRemoved?.addListener) {
     EBAY_PROFIT_BACKGROUND.handleWorkerTabClosed(tabId).catch((error) => {
       recordExtensionLog({ source: 'ebay-profit', operation: 'worker-tab-closed', message: error.message });
     });
+    ORDER_AUDIT_BACKGROUND.handleWorkerTabClosed(tabId).catch((error) => {
+      recordExtensionLog({ source: 'order-placement-audit', operation: 'worker-tab-closed', message: error.message });
+    });
     clearOpenReviewsForTab({ tab: { id: tabId } }).catch((error) => {
       recordExtensionLog({ source: 'background', operation: 'review-tab-closed', message: error.message });
     });
@@ -7139,6 +7252,88 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'seedOrderPlacementAuditExpected') {
+    storageGet(['ebayMonthlyProfit'])
+      .then((stored) => ORDER_AUDIT_BACKGROUND.seedExpectedFromMonthlyRun(
+        stored.ebayMonthlyProfit || null,
+        message.options || {},
+        { postToDashboard }
+      ))
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'readOrderPlacementAudit') {
+    ORDER_AUDIT_BACKGROUND.readShared(message.options || {}, { postToDashboard })
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'configureOrderPlacementAudit') {
+    ORDER_AUDIT_BACKGROUND.configure(message.options || {}, { postToDashboard })
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'startOrderPlacementAuditAmazon') {
+    ORDER_AUDIT_BACKGROUND.startAmazonScan(message.options || {}, sender, { postToDashboard })
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'getOrderPlacementAuditAmazon') {
+    ORDER_AUDIT_BACKGROUND.getStatus()
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'resumeOrderPlacementAuditAmazon') {
+    ORDER_AUDIT_BACKGROUND.resume(sender, { postToDashboard })
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'stopOrderPlacementAuditAmazon') {
+    ORDER_AUDIT_BACKGROUND.stop()
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'resetOrderPlacementAuditAmazon') {
+    ORDER_AUDIT_BACKGROUND.reset()
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'orderPlacementAuditAmazonIndex') {
+    ORDER_AUDIT_BACKGROUND.handleAmazonIndex(message.payload || {}, sender, { postToDashboard })
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'orderPlacementAuditAmazonDetail') {
+    ORDER_AUDIT_BACKGROUND.handleAmazonDetail(message.payload || {}, sender, { postToDashboard })
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'orderPlacementAuditWorkerError') {
+    ORDER_AUDIT_BACKGROUND.workerError(message.error || {}, sender)
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
   if (message.type === 'startPoshmarkProfitBackfill') {
     startPoshmarkProfitBackfillGuarded(message.options || {}, sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
@@ -7270,7 +7465,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'openExtensionPage') {
-    const allowedPages = new Set(['guide.html', 'onboarding.html', 'popup.html', 'ebay-profit.html', 'policy-listing-audit.html']);
+    const allowedPages = new Set(['guide.html', 'onboarding.html', 'popup.html', 'ebay-profit.html', 'order-audit.html', 'policy-listing-audit.html']);
     const page = String(message.page || '');
     if (!allowedPages.has(page)) {
       sendResponse({ ok: false, error: 'Unknown extension page.' });

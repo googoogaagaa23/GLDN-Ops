@@ -98,6 +98,8 @@ $script:AgentControlStateKeys = @(
   "latestPoshmarkVisibleSales",
   "latestMarketplaceProfit",
   "ebayMonthlyProfit",
+  "amazonProfileLabel",
+  "orderPlacementAuditAmazonScan",
   "lastPreparedNote",
   "gldnErrorLog"
 )
@@ -233,13 +235,23 @@ function ConvertTo-AgentControlPayload {
     }
     "extension-action" {
       $extensionAction = ([string]$value.action).Trim().ToLowerInvariant()
-      if ($extensionAction -notin @("health-check", "dashboard-test", "dashboard-retry", "dashboard-setup", "variation-scan", "policy-listing-scan", "listing-preflight-proof", "ecomsniper-handoff-proof", "sync-ebay-monthly-profit", "start-ebay-amazon-resolution")) {
+      if ($extensionAction -notin @("health-check", "dashboard-test", "dashboard-retry", "dashboard-setup", "variation-scan", "policy-listing-scan", "listing-preflight-proof", "ecomsniper-handoff-proof", "sync-ebay-monthly-profit", "start-ebay-amazon-resolution", "set-amazon-profile-label", "seed-order-placement-audit", "start-order-placement-audit-amazon", "read-order-placement-audit", "resume-order-placement-audit-amazon")) {
         throw "The requested GLDN Ops action is not on the approved action list."
       }
-      if ($extensionAction -eq "start-ebay-amazon-resolution") {
+      if ($extensionAction -eq "set-amazon-profile-label") {
+        $amazonProfileLabel = ([string]$value.amazonProfileLabel).Trim()
+        if ($amazonProfileLabel -cnotmatch '^[A-Za-z0-9][A-Za-z0-9 ._-]{0,63}$') {
+          throw "The Amazon profile label must contain 1 to 64 letters, numbers, spaces, periods, underscores, or hyphens."
+        }
+        return [pscustomobject]@{
+          action = $extensionAction
+          amazonProfileLabel = $amazonProfileLabel
+        }
+      }
+      if ($extensionAction -in @("start-ebay-amazon-resolution", "seed-order-placement-audit", "start-order-placement-audit-amazon", "read-order-placement-audit")) {
         $monthKey = ([string]$value.monthKey).Trim()
         if ($monthKey -cnotmatch '^\d{4}-(?:0[1-9]|1[0-2])$') {
-          throw "The eBay Amazon-cost resolver requires a valid YYYY-MM month."
+          throw "The requested monthly GLDN Ops action requires a valid YYYY-MM month."
         }
         return [pscustomobject]@{
           action = $extensionAction

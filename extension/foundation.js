@@ -80,6 +80,7 @@
     "pendingAmazonSubscribeSaveRun",
     "pendingPoshmarkStatsScan",
     "ebayMonthlyProfit",
+    "orderPlacementAuditAmazonScan",
     "poshmarkProfitBackfill",
     "pendingWalmartAutoOrder"
   ]);
@@ -851,6 +852,11 @@
     add("ebayMonthlyProfit", "ebay-monthly-profit", "Monthly eBay profit", ebayProfit, {
       busy: active(ebayProfit) || ebayProfitReview,
       approvalReady: ebayProfitReview
+    });
+
+    const orderPlacementAudit = stored.orderPlacementAuditAmazonScan;
+    add("orderPlacementAuditAmazonScan", "order-placement-audit", "Amazon order placement audit", orderPlacementAudit, {
+      busy: active(orderPlacementAudit)
     });
 
     const poshmarkBackfill = stored.poshmarkProfitBackfill;

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.12.21",
+  "version": "3.12.23",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",
@@ -46,6 +46,7 @@
         "control-heartbeat.js",
         "profit-audit.js",
         "profit-backfill.js",
+        "order-audit-core.js",
         "sniping-audit.js",
         "subscribe-save.js",
         "amazon.js"
@@ -84,6 +85,7 @@
         "control-heartbeat.js",
         "profit-audit.js",
         "ebay-profit-core.js",
+        "order-audit-core.js",
         "sniping-audit.js",
         "ebay.js"
       ],

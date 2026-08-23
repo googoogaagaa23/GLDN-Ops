@@ -2,6 +2,23 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.23 - 2026-08-23
+
+- Published the cross-profile Order Placement Audit through the verified local updater feed.
+- Preserved the permanent Amazon profile label and completed Amazon scan checkpoint in approved updater readback after an extension reload.
+- Verified signed-in Profile 2 could seed 101 July eBay order units, scan 10 Amazon history pages for 83 exact ASINs as profile F9132, and retain the shared result through reload.
+- Kept the result partial: F9132 found no matching purchases and the remaining Amazon profiles still require their own read-only scans.
+- Rebuilt the extension ZIP, local bundle, installer, rollback metadata, and release manifest; the complete 440-test suite passes.
+
+## v3.12.22 - 2026-08-22
+
+- Added a read-only Order Placement Audit seeded by a completed Monthly eBay Profit month.
+- Reconciles exact eBay ASIN units against exact Amazon order-item units across every named Amazon Chrome profile on the computer.
+- Flags same-recipient duplicates, possible different-recipient extras, purchases for canceled eBay orders, and missing Amazon purchases.
+- Deduplicates the same Amazon order visible in multiple profiles and preserves exact eBay/Amazon source links.
+- Deployed shared cross-profile audit storage as Apps Script production version `46`.
+- Added Profile 2 controls to seed, start, resume, and read the audit without manual extension-page operation.
+
 ## v3.12.21 - 2026-08-21
 
 - Kept the final Monthly eBay Profit worker page open through operator review.
