@@ -1,8 +1,8 @@
 {
     "schemaVersion":  1,
-    "generatedAt":  "2026-08-09T05:22:35.5505186Z",
-    "sourceGeneratedAt":  "2026-08-09T00:00:00Z",
-    "ruleCount":  175,
+    "generatedAt":  "2026-08-24T01:24:01.9303904Z",
+    "sourceGeneratedAt":  "2026-08-24T00:00:00.000Z",
+    "ruleCount":  177,
     "rules":  [
                   {
                       "id":  "f160e82957b3511035fc",
@@ -308,6 +308,22 @@
                                        ]
                   },
                   {
+                      "id":  "26609aab55b2538fb077",
+                      "type":  "keyword",
+                      "value":  "CE documentation",
+                      "action":  "review",
+                      "reason":  "A source-linked EcomSniper Discord report described a CE-documentation violation. Verify the claim and applicable official eBay product-safety requirements before listing.",
+                      "reviewedBy":  "GLDN Ops reviewed research",
+                      "reviewedAt":  "2026-08-24T00:00:00.000Z",
+                      "source":  "profile2-discord-reviewed",
+                      "sourceType":  "profile2-discord",
+                      "authority":  "EcomSniper Discord community report",
+                      "evidenceUrls":  [
+                                           "https://discord.com/channels/1225761896289009684/1291126334893981776/1534487049707454474",
+                                           "https://discord.com/channels/1225761896289009684/1291126334893981776/1534487227357331516"
+                                       ]
+                  },
+                  {
                       "id":  "11e77b85aedb20107d7e",
                       "type":  "keyword",
                       "value":  "CE marked",
@@ -383,6 +399,21 @@
                       "evidenceUrls":  [
                                            "https://www.ebay.com/help/policies/listing-policies/intellectual-property-policy?id=4349",
                                            "https://www.ebay.com/help/policies/listing-policies/search-browse-manipulation-policy?id=4243"
+                                       ]
+                  },
+                  {
+                      "id":  "2c5455a4f95ec48d14c8",
+                      "type":  "keyword",
+                      "value":  "conformity documentation",
+                      "action":  "review",
+                      "reason":  "A source-linked EcomSniper Discord discussion described follow-up documentation concerns. Verify any conformity claim against current official eBay requirements before listing.",
+                      "reviewedBy":  "GLDN Ops reviewed research",
+                      "reviewedAt":  "2026-08-24T00:00:00.000Z",
+                      "source":  "profile2-discord-reviewed",
+                      "sourceType":  "profile2-discord",
+                      "authority":  "EcomSniper Discord community report",
+                      "evidenceUrls":  [
+                                           "https://discord.com/channels/1225761896289009684/1291126334893981776/1534562616108646521"
                                        ]
                   },
                   {

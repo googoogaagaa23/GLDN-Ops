@@ -1,0 +1,62 @@
+{
+  "schemaVersion": 1,
+  "reviewedAt": "2026-08-24T00:00:00.000Z",
+  "scope": {
+    "chromeProfile": "Profile 2",
+    "mode": "read-only",
+    "excludedTopics": [
+      "dropshipping policy",
+      "fulfillment source",
+      "retail arbitrage"
+    ],
+    "writesPerformed": false
+  },
+  "sources": [
+    {
+      "sourceType": "profile2-discord",
+      "label": "EcomSniper Discord",
+      "location": "Ebay Dropshipping - EcomSniper / suspensions-restrictions",
+      "reviewedSignalGroups": 4,
+      "publishedProductRules": 2,
+      "findings": [
+        {
+          "topic": "CE documentation and conformity evidence",
+          "listingPreflightDecision": "review",
+          "summary": "Community reports described a CE-documentation violation and a follow-up request after affected listings were ended. Treat CE or conformity-documentation language as a manual-review signal; official eBay policy remains authoritative.",
+          "sourceUrls": [
+            "https://discord.com/channels/1225761896289009684/1291126334893981776/1534487049707454474",
+            "https://discord.com/channels/1225761896289009684/1291126334893981776/1534487227357331516",
+            "https://discord.com/channels/1225761896289009684/1291126334893981776/1534562616108646521"
+          ]
+        },
+        {
+          "topic": "MC011, service metrics, out-of-stock cancellations, and held payouts",
+          "listingPreflightDecision": "ignore",
+          "summary": "These reports concern account health and operations rather than a product phrase that can be evaluated from a Product Hunter title or Amazon link.",
+          "sourceUrls": [
+            "https://discord.com/channels/1225761896289009684/1291126334893981776/1533451452779859968",
+            "https://discord.com/channels/1225761896289009684/1291126334893981776/1534973160246476981",
+            "https://discord.com/channels/1225761896289009684/1291126334893981776/1535025298318430238"
+          ]
+        }
+      ]
+    },
+    {
+      "sourceType": "profile2-telegram",
+      "label": "EcomSniper Telegram",
+      "location": "DropFlowLister.com / @dropflowlister",
+      "reviewedSignalGroups": 1,
+      "publishedProductRules": 0,
+      "findings": [
+        {
+          "topic": "Amazon delivery-date display issue",
+          "listingPreflightDecision": "ignore",
+          "summary": "The reviewed post described an Amazon delivery-date issue. It did not identify a product-policy or eBay listing-restriction signal, so no preflight rule was created.",
+          "sourceUrls": [
+            "https://t.me/dropflowlister/21848"
+          ]
+        }
+      ]
+    }
+  ]
+}

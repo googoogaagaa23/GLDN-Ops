@@ -17,7 +17,7 @@ $latestPath = Join-Path $distRoot "GLDN-Ops-latest.zip"
 $extensionFiles = @(
   "manifest.json", "config.example.js", "theme-catalog.js", "foundation.js", "shared.js", "control-heartbeat.js", "profit-audit.js", "profit-backfill.js", "profit-backfill-background.js", "sniping-audit.js", "subscribe-save.js",
   "sniping-review.html", "sniping-review.css", "sniping-review.js", "background.js",
-  "listing-preflight.html", "listing-preflight.css", "listing-preflight-core.js", "listing-preflight.js", "listing-preflight-rules.json",
+  "listing-preflight.html", "listing-preflight.css", "listing-preflight-core.js", "listing-preflight.js", "listing-preflight-rules.json", "product-research-output.json",
   "policy-listing-audit.html", "policy-listing-audit.css", "policy-listing-audit-core.js", "policy-listing-audit.js",
   "order-audit.html", "order-audit.css", "order-audit-core.js", "order-audit-background.js", "order-audit.js",
   "popup.html", "popup.js", "styles.css", "themes.css", "theme-page.js", "guide.html", "onboarding.html", "onboarding.js", "universal.js",

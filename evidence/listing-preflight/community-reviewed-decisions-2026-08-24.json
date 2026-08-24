@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "sourceGeneratedAt": "2026-08-24T00:00:00.000Z",
+  "decisions": [
+    {
+      "type": "keyword",
+      "value": "CE documentation",
+      "decision": "review",
+      "reason": "A source-linked EcomSniper Discord report described a CE-documentation violation. Verify the claim and applicable official eBay product-safety requirements before listing.",
+      "reviewedBy": "GLDN Ops reviewed research",
+      "reviewedAt": "2026-08-24T00:00:00.000Z",
+      "sourceType": "profile2-discord",
+      "evidenceUrls": [
+        "https://discord.com/channels/1225761896289009684/1291126334893981776/1534487049707454474",
+        "https://discord.com/channels/1225761896289009684/1291126334893981776/1534487227357331516"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "conformity documentation",
+      "decision": "review",
+      "reason": "A source-linked EcomSniper Discord discussion described follow-up documentation concerns. Verify any conformity claim against current official eBay requirements before listing.",
+      "reviewedBy": "GLDN Ops reviewed research",
+      "reviewedAt": "2026-08-24T00:00:00.000Z",
+      "sourceType": "profile2-discord",
+      "evidenceUrls": [
+        "https://discord.com/channels/1225761896289009684/1291126334893981776/1534562616108646521"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "Amazon delivery date glitch",
+      "decision": "ignore",
+      "reason": "The reviewed Telegram post concerns Amazon delivery timing, not an eBay item-listing restriction.",
+      "reviewedBy": "GLDN Ops reviewed research",
+      "reviewedAt": "2026-08-24T00:00:00.000Z",
+      "sourceType": "profile2-telegram",
+      "evidenceUrls": [
+        "https://t.me/dropflowlister/21848"
+      ]
+    }
+  ]
+}

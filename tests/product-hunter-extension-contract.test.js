@@ -73,7 +73,10 @@ test('eBay listing guard is read-only, resumable, and required before protected 
 test('policy data ships as a nonempty reviewed rule set', () => {
   const rules = JSON.parse(read('policy-rules.json'));
   assert.equal(rules.ruleCount, rules.rules.length);
-  assert.ok(rules.rules.length >= 175);
+  assert.ok(rules.rules.length >= 177);
   assert.ok(rules.rules.every((rule) => ['block', 'review'].includes(rule.action)));
-  assert.ok(rules.rules.every((rule) => rule.sourceType === 'official-ebay'));
+  assert.ok(rules.rules.every((rule) => ['official-ebay', 'profile2-discord', 'profile2-telegram'].includes(rule.sourceType)));
+  assert.equal(rules.rules.filter((rule) => rule.sourceType === 'official-ebay').length, 175);
+  assert.equal(rules.rules.filter((rule) => rule.sourceType === 'profile2-discord').length, 2);
+  assert.ok(rules.rules.filter((rule) => rule.sourceType !== 'official-ebay').every((rule) => rule.action === 'review'));
 });

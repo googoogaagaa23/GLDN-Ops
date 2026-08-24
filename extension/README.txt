@@ -1,4 +1,12 @@
-GLDN Ops v3.12.25
+GLDN Ops v3.12.26
+
+v3.12.26 Product Research Desk:
+- Adds selectable lower-risk Product Hunter starting words inside Listing Preflight.
+- Shows official eBay, Profile 2 Discord, and Profile 2 Telegram research coverage separately.
+- Publishes 175 official rules and 2 Discord-backed Review signals; the reviewed Telegram post correctly publishes no product rule.
+- Copies selected words directly into the EcomSniper Product Hunter handoff.
+- Keeps Product Hunter results in the existing Ready, Review, and Block link preflight before Bulk Poster.
+- Allows community research to create Review warnings only; hard Blocks still require official eBay evidence.
 
 v3.12.25 in-extension workflow guides:
 - Adds a searchable Guides tab with all 29 canonical workflow and setup guides.

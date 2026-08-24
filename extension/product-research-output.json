@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-08-24T00:00:00.000Z",
+  "title": "GLDN Product Research Desk",
+  "description": "Lower-risk starting words for EcomSniper Product Hunter, informed by reviewed official eBay policy and read-only EcomSniper community research.",
+  "disclaimer": "These are research starting points, not approved products. Every Product Hunter result must still pass Listing Preflight and final human review.",
+  "sourceCoverage": [
+    {
+      "sourceType": "official-ebay",
+      "label": "Official eBay policy",
+      "status": "active",
+      "reviewedSignals": 175,
+      "publishedRules": 175,
+      "note": "Authoritative reviewed baseline. Official evidence may create Review or Block rules.",
+      "links": [
+        "https://www.ebay.com/help/default/default/prohibited-restricted-items?id=4207",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300"
+      ]
+    },
+    {
+      "sourceType": "profile2-discord",
+      "label": "Profile 2 EcomSniper Discord",
+      "status": "active",
+      "reviewedSignals": 4,
+      "publishedRules": 2,
+      "note": "Community evidence adds manual Review signals only. CE-documentation language is the current actionable product signal.",
+      "links": [
+        "https://discord.com/channels/1225761896289009684/1291126334893981776/1534487049707454474"
+      ]
+    },
+    {
+      "sourceType": "profile2-telegram",
+      "label": "Profile 2 EcomSniper Telegram",
+      "status": "reviewed-no-actionable-rule",
+      "reviewedSignals": 1,
+      "publishedRules": 0,
+      "note": "The reviewed delivery-date post was not an item-policy signal. Telegram coverage is visible without inventing a rule.",
+      "links": [
+        "https://t.me/dropflowlister/21848"
+      ]
+    }
+  ],
+  "searchSeeds": [
+    { "id": "drawer-organizer", "term": "drawer organizer", "reason": "Ordinary home organization starting point." },
+    { "id": "cable-management-clips", "term": "cable management clips", "reason": "Generic desk organization starting point." },
+    { "id": "furniture-felt-pads", "term": "furniture felt pads", "reason": "Generic household protection starting point." },
+    { "id": "cabinet-shelf-liner", "term": "cabinet shelf liner", "reason": "Ordinary storage accessory starting point." },
+    { "id": "picture-hanging-hooks", "term": "picture hanging hooks", "reason": "Generic home organization starting point." },
+    { "id": "desk-organizer", "term": "desk organizer", "reason": "Ordinary office organization starting point." },
+    { "id": "shower-caddy", "term": "shower caddy", "reason": "Generic bathroom storage starting point." },
+    { "id": "under-sink-organizer", "term": "under sink organizer", "reason": "Ordinary household storage starting point." },
+    { "id": "reusable-cleaning-brush", "term": "reusable cleaning brush", "reason": "Generic manual cleaning accessory starting point." },
+    { "id": "vacuum-storage-bags", "term": "vacuum storage bags", "reason": "Ordinary household storage starting point." },
+    { "id": "plant-support-clips", "term": "plant support clips", "reason": "Generic non-plant gardening accessory starting point." },
+    { "id": "window-cleaning-tool", "term": "window cleaning tool", "reason": "Generic manual household tool starting point." },
+    { "id": "laundry-storage-organizer", "term": "laundry storage organizer", "reason": "Ordinary household organization starting point." },
+    { "id": "kitchen-drawer-divider", "term": "kitchen drawer divider", "reason": "Generic kitchen organization starting point." },
+    { "id": "furniture-sliders", "term": "furniture sliders", "reason": "Ordinary household accessory starting point." },
+    { "id": "silicone-kitchen-mat", "term": "silicone kitchen mat", "reason": "Generic non-powered kitchen accessory starting point." },
+    { "id": "label-holder", "term": "label holder", "reason": "Generic organization accessory starting point." },
+    { "id": "cord-organizer", "term": "cord organizer", "reason": "Ordinary desk organization starting point." },
+    { "id": "microfiber-cleaning-cloth", "term": "microfiber cleaning cloth", "reason": "Generic household cleaning supply starting point." },
+    { "id": "pot-lid-organizer", "term": "pot lid organizer", "reason": "Ordinary kitchen storage starting point." },
+    { "id": "sponge-holder", "term": "sponge holder", "reason": "Generic sink organization starting point." },
+    { "id": "under-desk-cable-tray", "term": "under desk cable tray", "reason": "Generic office organization starting point." },
+    { "id": "non-slip-drawer-liner", "term": "non slip drawer liner", "reason": "Ordinary storage accessory starting point." },
+    { "id": "storage-hooks", "term": "storage hooks", "reason": "Generic home organization starting point." }
+  ],
+  "avoidCategories": [
+    "Apparel, shoes, costumes, and fashion accessories",
+    "Medical, health-treatment, and diagnostic products",
+    "Food, supplements, alcohol, tobacco, and ingestible products",
+    "Weapons, lock bypass, surveillance, police, and military products",
+    "Chemicals, pesticides, hazardous materials, and regulated batteries",
+    "Branded replacement parts or products with authenticity and compatibility risk",
+    "Products making CE, UKCA, UL, safety, health, or performance certification claims"
+  ],
+  "workflow": [
+    { "step": 1, "title": "Choose research words", "instruction": "Copy selected lower-risk starting words from the Product Research Desk." },
+    { "step": 2, "title": "Run Product Hunter", "instruction": "Paste one word per line into EcomSniper Product Hunter and export the resulting Amazon links." },
+    { "step": 3, "title": "Run Listing Preflight", "instruction": "Paste the Product Hunter Amazon links into Listing Preflight. Bare ASINs or opaque links without product-name evidence remain Needs review." },
+    { "step": 4, "title": "Continue Ready links only", "instruction": "Copy only Ready links into EcomSniper Bulk Poster. Review and Block rows never continue automatically." },
+    { "step": 5, "title": "Final human review", "instruction": "Review the final EcomSniper set before starting any listing work." }
+  ]
+}

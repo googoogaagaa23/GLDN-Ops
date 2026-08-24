@@ -38,11 +38,13 @@ function classify(overrides = {}, settings = {}, historyEntry = null, phase = 'd
   });
 }
 
-test('loads the reviewed official eBay policy pack', () => {
-  assert.equal(rulePack.ruleCount, 175);
-  assert.equal(rulePack.rules.length, 175);
+test('loads the reviewed official and community policy pack', () => {
+  assert.equal(rulePack.ruleCount, 177);
+  assert.equal(rulePack.rules.length, 177);
   assert.equal(rulePack.rules.filter((rule) => rule.action === 'block').length, 130);
-  assert.equal(rulePack.rules.filter((rule) => rule.action === 'review').length, 45);
+  assert.equal(rulePack.rules.filter((rule) => rule.action === 'review').length, 47);
+  assert.equal(rulePack.rules.filter((rule) => rule.sourceType === 'official-ebay').length, 175);
+  assert.equal(rulePack.rules.filter((rule) => rule.sourceType === 'profile2-discord').length, 2);
 });
 
 test('normalizes configurable hunt limits', () => {

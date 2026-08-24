@@ -4,7 +4,9 @@
 
 Listing Preflight checks pasted Amazon URLs, ASINs, and product titles against a local pack of human-reviewed rules before EcomSniper listing work. It does not use an eBay API and it does not submit listings.
 
-The current official baseline contains 175 reviewed rules from eBay's product-safety, medical-device, drug, tobacco, firearm, pesticide, cosmetics, hazardous-material, counterfeit, intellectual-property, search-manipulation, electronic-equipment, lockpicking, vehicle-parts, government-items, police-items, food, alcohol, gift-card, payment-card, military-items, animal-trap, animal-product, plants-and-seeds, and illegal-activity policies. Community reports from signed-in EcomSniper Discord research are stored as a separate source type and never override official policy.
+The current shared pack contains 177 reviewed rules: 175 official eBay rules and 2 Discord-backed manual-review signals. Telegram research is also tracked as a separate source type; the reviewed Telegram post produced zero item-policy rules because it was not relevant to listing eligibility. Community research never overrides official policy and can publish Review only, never Block.
+
+The Product Research Desk appears above the link checker. It provides a versioned, selectable set of lower-risk Product Hunter starting words and shows the exact official, Discord, and Telegram coverage behind the current output. See `docs/PRODUCT_RESEARCH_DESK.md` for the complete operator flow.
 
 ## Results
 
@@ -46,7 +48,7 @@ Keyword preflight cannot prove that a product is permitted. It cannot reliably i
 - Misleading keyword combinations, health claims, compatibility claims, or variation structure without full listing context.
 - New restrictions that are not yet in the reviewed rule pack.
 
-Those cases still need manual review and continued official-policy and Profile 2 Discord research.
+Those cases still need manual review and continued official-policy plus read-only Profile 2 Discord and Telegram research.
 
 ## Rule Publishing
 
@@ -55,6 +57,7 @@ Reviewed decisions live under `evidence/listing-preflight/`. Publish them with:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\listing-preflight\publish-reviewed-rules.ps1 -DecisionFile .\evidence\listing-preflight\official-ebay-reviewed-decisions-2026-08-08.json
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\listing-preflight\publish-reviewed-rules.ps1 -DecisionFile .\evidence\listing-preflight\official-ebay-expanded-decisions-2026-08-08.json
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\listing-preflight\publish-reviewed-rules.ps1 -DecisionFile .\evidence\listing-preflight\community-reviewed-decisions-2026-08-24.json
 ```
 
-Every rule needs a reason, reviewer, review date, source type, and exact source URL. Accepted source types are `official-ebay` and `profile2-discord`.
+Every rule needs a reason, reviewer, review date, source type, and exact source URL. Accepted source types are `official-ebay`, `profile2-discord`, and `profile2-telegram`. Discord and Telegram decisions may publish Review rules only. A hard Block requires official eBay evidence.

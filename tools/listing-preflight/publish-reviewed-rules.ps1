@@ -20,7 +20,9 @@ $existing = if (Test-Path -LiteralPath $rulesPath) {
 
 $byKey = @{}
 foreach ($rule in @($existing.rules)) {
-  $key = "$(([string]$rule.type).ToLowerInvariant()):$(([string]$rule.value).ToLowerInvariant())"
+  $ruleSourceType = ([string]$rule.sourceType).Trim().ToLowerInvariant()
+  if (-not $ruleSourceType) { $ruleSourceType = 'official-ebay' }
+  $key = "$(([string]$rule.type).ToLowerInvariant()):$(([string]$rule.value).ToLowerInvariant()):$ruleSourceType"
   $byKey[$key] = $rule
 }
 
@@ -43,8 +45,11 @@ foreach ($decision in $decisions) {
   if ($reason.Length -lt 10) { throw "Every shared rule needs a clear review reason." }
   if (-not $reviewedBy) { throw "Every shared rule needs a reviewer." }
   if (-not $reviewedAt) { throw "Every shared rule needs a review date." }
-  if ($sourceType -notin @('official-ebay', 'profile2-discord')) {
-    throw "Every shared rule needs sourceType official-ebay or profile2-discord."
+  if ($sourceType -notin @('official-ebay', 'profile2-discord', 'profile2-telegram')) {
+    throw "Every shared rule needs sourceType official-ebay, profile2-discord, or profile2-telegram."
+  }
+  if ($sourceType -ne 'official-ebay' -and $action -ne 'review') {
+    throw "Community research may publish Review rules only. Hard Block rules require separate official eBay evidence."
   }
   if (-not $evidenceUrls.Count) { throw "Every shared rule needs at least one exact source URL." }
 
@@ -54,15 +59,19 @@ foreach ($decision in $decisions) {
       $_ -notmatch '^https://(?:www\.)?ebay\.com/sellercenter/' -and
       $_ -notmatch '^https://ocsnext\.ebay\.com/help/'
     })
-  } else {
+  } elseif ($sourceType -eq 'profile2-discord') {
     @($evidenceUrls | Where-Object { $_ -notmatch '^https://discord\.com/channels/\d{15,22}/\d{15,22}/\d{15,22}$' })
+  } else {
+    @($evidenceUrls | Where-Object {
+      $_ -notmatch '^https://t\.me/(?:s/)?[A-Za-z0-9_]{5,}/\d+$'
+    })
   }
   if ($invalidEvidence.Count) {
     throw "Rule '$value' has evidence that does not match sourceType '$sourceType'."
   }
 
   $normalizedValue = if ($type -eq "asin") { $value.ToUpperInvariant() } else { $value }
-  $key = "$type`:$($normalizedValue.ToLowerInvariant())"
+  $key = "$type`:$($normalizedValue.ToLowerInvariant()):$sourceType"
   $hashBytes = [Text.Encoding]::UTF8.GetBytes($key)
   $sha = [Security.Cryptography.SHA256]::Create()
   try { $id = -join ($sha.ComputeHash($hashBytes)[0..9] | ForEach-Object { $_.ToString("x2") }) }
@@ -75,9 +84,21 @@ foreach ($decision in $decisions) {
     reason = $reason
     reviewedBy = $reviewedBy
     reviewedAt = $reviewedAt
-    source = if ($sourceType -eq 'official-ebay') { 'official-ebay-policy-reviewed' } else { 'profile2-discord-reviewed' }
+    source = if ($sourceType -eq 'official-ebay') {
+      'official-ebay-policy-reviewed'
+    } elseif ($sourceType -eq 'profile2-discord') {
+      'profile2-discord-reviewed'
+    } else {
+      'profile2-telegram-reviewed'
+    }
     sourceType = $sourceType
-    authority = if ($sourceType -eq 'official-ebay') { 'eBay' } else { 'EcomSniper community report' }
+    authority = if ($sourceType -eq 'official-ebay') {
+      'eBay'
+    } elseif ($sourceType -eq 'profile2-discord') {
+      'EcomSniper Discord community report'
+    } else {
+      'EcomSniper Telegram community report'
+    }
     evidenceUrls = $evidenceUrls
   }
   $accepted += 1

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>GLDN Listing Preflight</title>
+  <title>GLDN Product Research Desk</title>
   <link rel="stylesheet" href="listing-preflight.css">
   <link rel="stylesheet" href="workflow-guide.css">
 </head>
@@ -11,25 +11,55 @@
   <header class="topbar">
     <div>
       <div class="kicker">GLDN OPS / RESEARCH</div>
-      <h1>Listing Preflight</h1>
-      <p>Check proposed Amazon links and titles against human-reviewed restriction signals before EcomSniper listing work.</p>
+      <h1>Product Research Desk</h1>
+      <p>Choose lower-risk Product Hunter starting words, then preflight the resulting Amazon links before EcomSniper listing work.</p>
     </div>
     <div class="rule-status" id="ruleStatus">Loading reviewed rules...</div>
   </header>
 
   <main>
     <div class="gldn-inline-guide-host" data-gldn-inline-guide="listing-preflight"></div>
+    <section class="research-band" aria-labelledby="researchHeading">
+      <div class="section-heading">
+        <div>
+          <h2 id="researchHeading">Product Hunter research words</h2>
+          <p>Reviewed Discord and Telegram findings inform the warning set. These words are starting points, not approved products.</p>
+        </div>
+        <div class="research-status" id="researchStatus">Loading research output...</div>
+      </div>
+      <div class="source-coverage" id="sourceCoverage" aria-label="Research source coverage"></div>
+      <div class="research-flow" id="researchFlow" aria-label="Research workflow"></div>
+      <div class="seed-toolbar">
+        <strong>Current lower-risk starting words</strong>
+        <div class="seed-controls">
+          <button id="selectAllResearch" type="button">Select All</button>
+          <button id="clearResearch" type="button">Clear</button>
+        </div>
+      </div>
+      <div class="research-words" id="researchWords"></div>
+      <div class="actions">
+        <button id="copyResearchWords" class="ready-action" type="button" disabled>Copy Selected Words</button>
+        <button id="copyAndOpenResearchWords" class="primary" type="button" disabled>Copy Words &amp; Open Product Hunter</button>
+        <button id="continueToPreflight" type="button">Continue to Link Preflight</button>
+        <button id="downloadResearchOutput" type="button" disabled>Download Research Output</button>
+      </div>
+      <div class="copy-status" id="researchCopyStatus" aria-live="polite"></div>
+      <details class="avoid-list">
+        <summary>Categories to avoid during Product Hunter research</summary>
+        <ul id="avoidCategories"></ul>
+      </details>
+    </section>
     <section class="input-band" aria-labelledby="inputHeading">
       <div class="section-heading">
-        <div><h2 id="inputHeading">Items to check</h2><p>Use one Amazon URL, ASIN, or product title per line.</p></div>
+        <div><h2 id="inputHeading">Product Hunter links to preflight</h2><p>Use one Amazon URL or ASIN per line.</p></div>
         <label class="file-button">Import text or CSV<input id="fileInput" type="file" accept=".txt,.csv,text/plain,text/csv"></label>
       </div>
-      <textarea id="itemInput" spellcheck="false" placeholder="https://www.amazon.com/dp/B012345678&#10;ASIN: B012345678 | Product title&#10;Product title without a link"></textarea>
+      <textarea id="itemInput" spellcheck="false" placeholder="https://www.amazon.com/dp/B012345678&#10;ASIN: B012345678"></textarea>
       <div class="actions">
         <button id="runCheck" class="primary" type="button">Check Items</button>
         <button id="clearInput" type="button">Clear</button>
         <button id="copyReady" class="ready-action" type="button" disabled>Copy Ready Links</button>
-        <button id="copyAndOpenProductHunter" class="primary" type="button" disabled>Copy Ready &amp; Open Product Hunter</button>
+        <button id="copyAndOpenProductHunter" class="primary" type="button" disabled>Copy Ready &amp; Open Bulk Poster</button>
         <button id="downloadReady" type="button" disabled>Download Ready Links</button>
         <button id="downloadResults" type="button" disabled>Download Results</button>
       </div>

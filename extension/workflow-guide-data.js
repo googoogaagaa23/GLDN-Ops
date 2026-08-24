@@ -1,5 +1,5 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.25",
+  "version": "3.12.26",
   "updated": "2026-08-23",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -603,36 +603,36 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
     {
       "id": "listing-preflight",
       "matrix": "C-05",
-      "title": "Profile 2 Research and Listing Preflight",
-      "status": "LIVE PASS",
-      "summary": "Collect source-linked listing-restriction evidence from approved EcomSniper Discord channels, require human review, and check Amazon links before bulk listing without using an eBay API.",
+      "title": "Product Research Desk and Listing Preflight",
+      "status": "LIVE PASS WITH BOUNDARY",
+      "summary": "Use a versioned set of lower-risk Product Hunter starting words, then check resulting Amazon links against reviewed official eBay policy plus source-linked Discord and Telegram research without using an eBay API.",
       "prerequisites": [
-        "Use only the signed-in Discord interface in Chrome Profile 2.",
-        "Research only approved EcomSniper channels and preserve exact source-message URLs.",
-        "Do not use a bot, Discord token, self-bot, or hidden account access."
+        "Open Product Research Desk from GLDN Ops.",
+        "Use signed-in Chrome Profile 2 only when refreshing Discord or Telegram research; ordinary operators use the published output without opening community chats.",
+        "Do not use a bot, user token, self-bot, or hidden account access."
       ],
       "steps": [
-        "Open the EcomSniper Discord server in signed-in Chrome Profile 2.",
-        "Search approved channels for listing restrictions, prohibited items, restricted products, VeRO reports, listing takedowns, suspensions, and reported resolutions.",
-        "Open each relevant result in context and record its exact message URL, date, channel, relevant text, attachments, and outcome.",
-        "Exclude dropshipping-policy and fulfillment-source discussions.",
-        "Mark every candidate Ignore, Review, or Block and provide reviewer and reason for Review or Block.",
-        "Publish reviewed decisions with tools/listing-preflight/publish-reviewed-rules.ps1, then update or reload GLDN Ops.",
-        "For title research, use Prepare Product Hunter Handoff. Fashion rows and duplicates are removed before preflight, and Product Hunter stays closed when Review or Block rows exist.",
-        "After Product Hunter produces Amazon links, copy them and click Preflight Bulk Poster Links.",
+        "Open Product Research Desk and review official eBay, Profile 2 Discord, and Profile 2 Telegram coverage.",
+        "Select lower-risk starting words and click Copy Words & Open Product Hunter.",
+        "Paste one word per line into EcomSniper Product Hunter and export its Amazon links.",
+        "Return to Product Research Desk, paste one Amazon link per line, and click Check Items. The Preflight Bulk Poster Links popup shortcut can load copied links automatically.",
         "Review Ready to copy, Needs review, and Blocked results. A bare ASIN or opaque URL without product-name evidence remains Needs review.",
         "Click Copy Ready and Open Bulk Poster. Only canonical Ready Amazon links reach the clipboard; Review, Blocked, duplicate, and non-Amazon rows remain excluded.",
-        "Review the final link set again inside EcomSniper before starting its private listing workflow."
+        "Review the final link set again inside EcomSniper before starting its private listing workflow.",
+        "For research refreshes, read approved Discord and Telegram sources in Profile 2, preserve exact source URLs, and record unrelated findings as Ignore.",
+        "Exclude dropshipping-policy and fulfillment-source discussions.",
+        "Publish community decisions as Review only; a hard Block requires separate official eBay evidence."
       ],
-      "approvalStop": "Rule publication requires human-reviewed decisions. Listing Preflight is read-only and never authorizes or submits an eBay listing.",
-      "output": "Source-linked Profile 2 research, a reviewer-approved shared rule pack, a ready-to-copy list, and separate review and blocked results.",
+      "approvalStop": "Rule publication requires human-reviewed decisions. Product Research Desk and Listing Preflight are read-only and never authorize or submit an eBay listing.",
+      "output": "Selectable Product Hunter words, visible official/Discord/Telegram coverage, a downloadable research output, a reviewer-approved shared rule pack, and separate Ready, Review, and Block results.",
       "recovery": [
-        "If Discord sources or attachments cannot be verified visibly in Profile 2, do not publish the rule.",
+        "If a Discord or Telegram source cannot be verified visibly in Profile 2, do not publish the rule.",
         "If the rule pack is empty or unavailable, every input stays in Needs review and no ready list is produced.",
         "A Ready result does not mean eBay permits the item.",
-        "Do not add dropshipping-policy or fulfillment-source discussion to this research set."
+        "Do not add dropshipping-policy or fulfillment-source discussion to this research set.",
+        "A community report may require Review but can never create a hard Block without official eBay evidence."
       ],
-      "evidence": "Signed-in Profile 2 source research is preserved with exact Discord message links and no Discord write. The shared pack contains 175 human-reviewed official rules. Signed-in Profile 2 visibly classified one controlled Ready, one Review, and one Block input, copied only the canonical Ready Amazon URL, and opened the exact Bulk Poster route without starting it or performing any marketplace action."
+      "evidence": "The shared pack contains 177 reviewed rules: 175 official eBay rules and 2 Discord-backed Review signals. One Telegram signal was visibly reviewed and correctly produced zero product rules. The signed-in Profile 2 preflight path previously classified controlled Ready, Review, and Block inputs, copied only the canonical Ready Amazon URL, and opened the exact Bulk Poster route without starting it or performing any marketplace action."
     },
     {
       "id": "product-hunter-listing-guard",

@@ -2,6 +2,16 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.26 - 2026-08-23
+
+- Added Product Research Desk to the existing Listing Preflight page.
+- Added 24 selectable lower-risk starting words with one-click Product Hunter handoff.
+- Added visible official eBay, Profile 2 Discord, and Profile 2 Telegram source coverage.
+- Expanded the shared pack from 175 to 177 rules with two source-linked Discord Review signals.
+- Recorded the reviewed Telegram signal with zero product rules instead of inventing a restriction.
+- Community evidence can publish Review only; hard Block rules require official eBay evidence.
+- Added versioned downloadable research output, operator documentation, packaging checks, and regression coverage.
+
 ## v3.12.25 - 2026-08-23
 
 - Added a searchable **Guides** tab containing all 29 canonical GLDN Ops feature guides.

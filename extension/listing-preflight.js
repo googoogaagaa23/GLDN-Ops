@@ -3,24 +3,16 @@
   const core = globalThis.GLDN_LISTING_PREFLIGHT;
   const byId = (id) => document.getElementById(id);
   let rulePack = { schemaVersion: 1, rules: [] };
+  let researchOutput = { schemaVersion: 1, sourceCoverage: [], searchSeeds: [], workflow: [], avoidCategories: [] };
   let latestResults = [];
-  let copyMode = 'original-input';
-  let targetPage = 'productHunter';
-  let targetLabel = 'Product Hunter';
+  let copyMode = 'amazon-links';
+  let targetPage = 'bulkPoster';
+  let targetLabel = 'Bulk Poster';
   const currentTabIdPromise = new Promise((resolve) => {
     chrome.tabs.getCurrent((tab) => resolve(Number(tab?.id || 0)));
   });
 
-  try {
-    const response = await fetch(chrome.runtime.getURL('listing-preflight-rules.json'), { cache: 'no-store' });
-    if (!response.ok) throw new Error(`Rule file returned ${response.status}.`);
-    rulePack = core.normalizeRulePack(await response.json());
-    byId('ruleStatus').textContent = rulePack.ruleCount
-      ? `${rulePack.ruleCount.toLocaleString()} reviewed rules loaded${rulePack.generatedAt ? ` | updated ${formatDate(rulePack.generatedAt)}` : ''}`
-      : 'No reviewed rules are published yet. Every item will stay in Needs review.';
-  } catch (error) {
-    byId('ruleStatus').textContent = `Reviewed rules could not be loaded: ${error.message}`;
-  }
+  await Promise.all([loadRulePack(), loadResearchOutput()]);
 
   byId('runCheck').addEventListener('click', runCheck);
   byId('clearInput').addEventListener('click', () => {
@@ -33,6 +25,16 @@
   byId('copyAndOpenProductHunter').addEventListener('click', copyAndOpenProductHunter);
   byId('downloadReady').addEventListener('click', downloadReadyLinks);
   byId('downloadResults').addEventListener('click', downloadResults);
+  byId('selectAllResearch').addEventListener('click', () => setResearchSelection(true));
+  byId('clearResearch').addEventListener('click', () => setResearchSelection(false));
+  byId('copyResearchWords').addEventListener('click', copyResearchWords);
+  byId('copyAndOpenResearchWords').addEventListener('click', copyResearchWordsAndOpen);
+  byId('downloadResearchOutput').addEventListener('click', downloadResearchOutput);
+  byId('continueToPreflight').addEventListener('click', () => {
+    byId('inputHeading').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    byId('itemInput').focus();
+  });
+  byId('researchWords').addEventListener('change', updateResearchActionState);
   byId('fileInput').addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -59,6 +61,179 @@
   });
 
   await loadPendingHandoff();
+
+  async function loadRulePack() {
+    try {
+      const response = await fetch(chrome.runtime.getURL('listing-preflight-rules.json'), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Rule file returned ${response.status}.`);
+      rulePack = core.normalizeRulePack(await response.json());
+      const counts = countRulesBySource(rulePack.rules);
+      byId('ruleStatus').textContent = rulePack.ruleCount
+        ? `${rulePack.ruleCount.toLocaleString()} rules | ${counts.official.toLocaleString()} official | ${counts.discord.toLocaleString()} Discord | ${counts.telegram.toLocaleString()} Telegram${rulePack.generatedAt ? ` | ${formatDate(rulePack.generatedAt)}` : ''}`
+        : 'No reviewed rules are published yet. Every item will stay in Needs review.';
+    } catch (error) {
+      byId('ruleStatus').textContent = `Reviewed rules could not be loaded: ${error.message}`;
+    }
+  }
+
+  async function loadResearchOutput() {
+    try {
+      const response = await fetch(chrome.runtime.getURL('product-research-output.json'), { cache: 'no-store' });
+      if (!response.ok) throw new Error(`Research output returned ${response.status}.`);
+      const payload = await response.json();
+      if (Number(payload?.schemaVersion) !== 1 || !Array.isArray(payload?.searchSeeds)) {
+        throw new Error('Research output has an unsupported format.');
+      }
+      researchOutput = payload;
+      renderResearchOutput();
+      byId('researchStatus').textContent = `${researchOutput.searchSeeds.length.toLocaleString()} starting words | updated ${formatDate(researchOutput.generatedAt)}`;
+      byId('downloadResearchOutput').disabled = false;
+    } catch (error) {
+      byId('researchStatus').textContent = `Research output could not be loaded: ${error.message}`;
+      byId('researchWords').textContent = 'No research words are available.';
+    }
+  }
+
+  function renderResearchOutput() {
+    const coverage = byId('sourceCoverage');
+    coverage.replaceChildren();
+    for (const source of researchOutput.sourceCoverage || []) {
+      const card = document.createElement('article');
+      card.className = 'source-card';
+      const title = document.createElement('h3');
+      title.textContent = source.label;
+      const state = document.createElement('span');
+      state.className = `source-state ${source.status}`;
+      state.textContent = source.status === 'reviewed-no-actionable-rule' ? 'Reviewed, no product rule' : 'Active';
+      const note = document.createElement('p');
+      note.textContent = source.note;
+      const counts = document.createElement('div');
+      counts.className = 'source-counts';
+      counts.appendChild(metric(source.reviewedSignals, 'Signals reviewed'));
+      counts.appendChild(metric(source.publishedRules, 'Rules published'));
+      const links = document.createElement('div');
+      links.className = 'source-links';
+      for (const [index, url] of (source.links || []).entries()) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noreferrer';
+        link.textContent = `Open source ${index + 1}`;
+        links.appendChild(link);
+      }
+      card.append(title, state, note, counts, links);
+      coverage.appendChild(card);
+    }
+
+    const flow = byId('researchFlow');
+    flow.replaceChildren();
+    for (const item of researchOutput.workflow || []) {
+      const step = document.createElement('div');
+      step.className = 'flow-step';
+      const number = document.createElement('span');
+      number.className = 'number';
+      number.textContent = item.step;
+      const title = document.createElement('strong');
+      title.textContent = item.title;
+      const instruction = document.createElement('p');
+      instruction.textContent = item.instruction;
+      step.append(number, title, instruction);
+      flow.appendChild(step);
+    }
+
+    const words = byId('researchWords');
+    words.replaceChildren();
+    for (const seed of researchOutput.searchSeeds || []) {
+      const label = document.createElement('label');
+      label.className = 'research-word';
+      label.title = seed.reason || '';
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'researchSeed';
+      checkbox.value = seed.term;
+      checkbox.checked = true;
+      const text = document.createElement('span');
+      text.textContent = seed.term;
+      label.append(checkbox, text);
+      words.appendChild(label);
+    }
+
+    const avoid = byId('avoidCategories');
+    avoid.replaceChildren();
+    for (const category of researchOutput.avoidCategories || []) {
+      const item = document.createElement('li');
+      item.textContent = category;
+      avoid.appendChild(item);
+    }
+    updateResearchActionState();
+  }
+
+  function metric(value, label) {
+    const wrap = document.createElement('div');
+    const count = document.createElement('strong');
+    count.textContent = Number(value || 0).toLocaleString();
+    const text = document.createElement('span');
+    text.textContent = label;
+    wrap.append(count, text);
+    return wrap;
+  }
+
+  function selectedResearchTerms() {
+    return [...document.querySelectorAll('input[name="researchSeed"]:checked')]
+      .map((input) => String(input.value || '').trim())
+      .filter(Boolean);
+  }
+
+  function setResearchSelection(checked) {
+    for (const input of document.querySelectorAll('input[name="researchSeed"]')) input.checked = checked;
+    updateResearchActionState();
+  }
+
+  function updateResearchActionState() {
+    const selected = selectedResearchTerms().length;
+    byId('copyResearchWords').disabled = !selected;
+    byId('copyAndOpenResearchWords').disabled = !selected;
+    byId('researchCopyStatus').textContent = selected
+      ? `${selected.toLocaleString()} word${selected === 1 ? '' : 's'} selected.`
+      : 'Select at least one starting word.';
+  }
+
+  async function copyResearchWords() {
+    const terms = selectedResearchTerms();
+    if (!terms.length) return;
+    try {
+      await navigator.clipboard.writeText(terms.join('\n'));
+      byId('researchCopyStatus').textContent = `Copied ${terms.length.toLocaleString()} Product Hunter word${terms.length === 1 ? '' : 's'}, one per line.`;
+    } catch (error) {
+      byId('researchCopyStatus').textContent = `Copy failed: ${error.message}`;
+    }
+  }
+
+  async function copyResearchWordsAndOpen() {
+    const terms = selectedResearchTerms();
+    if (!terms.length) return;
+    try {
+      await navigator.clipboard.writeText(terms.join('\n'));
+      const response = await chrome.runtime.sendMessage({ type: 'openEcomSniperPage', page: 'productHunter' });
+      if (!response?.ok) throw new Error(response?.error || 'Product Hunter could not open.');
+      byId('researchCopyStatus').textContent = `Copied ${terms.length.toLocaleString()} word${terms.length === 1 ? '' : 's'} and opened EcomSniper Product Hunter.`;
+    } catch (error) {
+      byId('researchCopyStatus').textContent = `Product Hunter handoff failed: ${error.message}`;
+    }
+  }
+
+  function downloadResearchOutput() {
+    downloadText(`${JSON.stringify(researchOutput, null, 2)}\n`, `gldn-product-research-output-${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
+  }
+
+  function countRulesBySource(rules) {
+    return (rules || []).reduce((counts, rule) => {
+      if (rule.sourceType === 'official-ebay') counts.official += 1;
+      else if (rule.sourceType === 'profile2-discord') counts.discord += 1;
+      else if (rule.sourceType === 'profile2-telegram') counts.telegram += 1;
+      return counts;
+    }, { official: 0, discord: 0, telegram: 0 });
+  }
 
   function runCheck() {
     const rows = core.parseInputRows(byId('itemInput').value);
@@ -103,6 +278,8 @@
       block: Number(byId('countBlock')?.textContent || 0),
       note: String(byId('resultNote')?.textContent || '').trim(),
       copyStatus: String(byId('copyStatus')?.textContent || '').trim(),
+      researchStatus: String(byId('researchStatus')?.textContent || '').trim(),
+      selectedResearchWords: selectedResearchTerms().length,
       handoffLabel: String(byId('copyAndOpenProductHunter')?.textContent || '').trim(),
       handoffEnabled: byId('copyAndOpenProductHunter')?.disabled === false,
       statuses: [...document.querySelectorAll('#resultsBody .status')].map((node) => String(node.textContent || '').trim())
@@ -196,7 +373,12 @@
     const stored = await new Promise((resolve) => chrome.storage.local.get(['pendingListingPreflightInput'], resolve));
     const pending = stored?.pendingListingPreflightInput;
     if (!pending?.input) return;
-    if (pending.source === 'bulk-poster-clipboard') {
+    if (pending.source === 'product-hunter-clipboard') {
+      copyMode = 'original-input';
+      targetPage = 'productHunter';
+      targetLabel = 'Product Hunter';
+      byId('copyAndOpenProductHunter').textContent = 'Copy Ready & Open Product Hunter';
+    } else if (pending.source === 'bulk-poster-clipboard') {
       copyMode = 'amazon-links';
       targetPage = 'bulkPoster';
       targetLabel = 'Bulk Poster';
@@ -220,7 +402,9 @@
         ? 'Official eBay policy'
         : rule.sourceType === 'profile2-discord'
           ? 'Discord report'
-          : 'Reviewed source';
+          : rule.sourceType === 'profile2-telegram'
+            ? 'Telegram report'
+            : 'Reviewed source';
       for (const url of rule.evidenceUrls || []) {
         if (seen.has(url)) continue;
         seen.add(url);

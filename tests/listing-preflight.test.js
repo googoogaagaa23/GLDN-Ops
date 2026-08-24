@@ -38,10 +38,17 @@ test('reviewed rules produce block, review, and explicit no-match results', () =
 
 test('published official eBay baseline is nonempty and separates block, review, and ready rows', () => {
   const rulePack = JSON.parse(fs.readFileSync(path.join(ROOT, 'extension', 'listing-preflight-rules.json'), 'utf8'));
-  assert.ok(rulePack.ruleCount >= 160, `Expected the expanded reviewed baseline, received ${rulePack.ruleCount}.`);
+  assert.ok(rulePack.ruleCount >= 177, `Expected the expanded reviewed baseline, received ${rulePack.ruleCount}.`);
   assert.equal(rulePack.ruleCount, rulePack.rules.length);
-  assert.ok(rulePack.rules.every((rule) => rule.sourceType === 'official-ebay'));
-  assert.ok(rulePack.rules.every((rule) => rule.evidenceUrls.some((url) => /^https:\/\/(?:www\.)?ebay\.com\/help\/|^https:\/\/ocsnext\.ebay\.com\/help\//.test(url))));
+  const officialRules = rulePack.rules.filter((rule) => rule.sourceType === 'official-ebay');
+  const discordRules = rulePack.rules.filter((rule) => rule.sourceType === 'profile2-discord');
+  const telegramRules = rulePack.rules.filter((rule) => rule.sourceType === 'profile2-telegram');
+  assert.equal(officialRules.length, 175);
+  assert.equal(discordRules.length, 2);
+  assert.equal(telegramRules.length, 0);
+  assert.ok(officialRules.every((rule) => rule.evidenceUrls.some((url) => /^https:\/\/(?:www\.)?ebay\.com\/(?:help\/|sellercenter\/)|^https:\/\/ocsnext\.ebay\.com\/help\//.test(url))));
+  assert.ok(discordRules.every((rule) => rule.action === 'review'));
+  assert.ok(discordRules.every((rule) => rule.evidenceUrls.every((url) => /^https:\/\/discord\.com\/channels\/\d+\/\d+\/\d+$/.test(url))));
 
   const rows = core.parseInputRows([
     'Replacement CPAP mask with headgear',
@@ -160,25 +167,57 @@ test('popup exposes Listing Preflight and the page disclaims eBay API approval',
   assert.match(page, /does not call an eBay API/i);
   assert.match(page, /does not mean eBay permits the listing/i);
   assert.match(page, /Copy Ready Links/);
-  assert.match(page, /Copy Ready &amp; Open Product Hunter/);
+  assert.match(page, /Copy Ready &amp; Open Bulk Poster/);
+  assert.match(page, /Product Hunter research words/);
+  assert.match(page, /Copy Words &amp; Open Product Hunter/);
+  assert.match(popup, /Open Product Research Desk/);
   assert.match(popup, /id="preflightBulkPosterClipboard"/);
   assert.match(popupJs, /source: 'bulk-poster-clipboard'/);
   assert.match(popupJs, /targetPage: 'bulkPoster'/);
+  const runtime = fs.readFileSync(path.join(ROOT, 'extension', 'listing-preflight.js'), 'utf8');
+  assert.match(runtime, /pending\.source === 'product-hunter-clipboard'/);
+  assert.match(runtime, /targetPage = 'bulkPoster'/);
 });
 
 test('preflight renders official policy and community evidence as distinct sources', () => {
   const pageJs = fs.readFileSync(path.join(ROOT, 'extension', 'listing-preflight.js'), 'utf8');
   assert.match(pageJs, /Official eBay policy/);
   assert.match(pageJs, /Discord report/);
+  assert.match(pageJs, /Telegram report/);
   assert.doesNotMatch(pageJs, /link\.textContent = `Discord evidence/);
 });
 
-test('reviewed-rule publisher accepts only exact official eBay or Discord evidence', () => {
+test('reviewed-rule publisher accepts exact official, Discord, or Telegram evidence and limits community rules to Review', () => {
   const publisher = fs.readFileSync(path.join(ROOT, 'tools', 'listing-preflight', 'publish-reviewed-rules.ps1'), 'utf8');
   assert.match(publisher, /official-ebay/);
   assert.match(publisher, /profile2-discord/);
+  assert.match(publisher, /profile2-telegram/);
   assert.ok(publisher.includes("ebay\\.com/help/"));
   assert.ok(publisher.includes("ebay\\.com/sellercenter/"));
   assert.ok(publisher.includes("discord\\.com/channels/"));
+  assert.ok(publisher.includes("t\\.me/"));
+  assert.match(publisher, /Community research may publish Review rules only/);
   assert.match(publisher, /Every shared rule needs a review date/);
+});
+
+test('Product Research Desk publishes versioned words, complete source coverage, and the correct handoff order', () => {
+  const output = JSON.parse(fs.readFileSync(path.join(ROOT, 'extension', 'product-research-output.json'), 'utf8'));
+  assert.equal(output.schemaVersion, 1);
+  assert.ok(output.searchSeeds.length >= 20);
+  assert.equal(new Set(output.searchSeeds.map((seed) => seed.term.toLowerCase())).size, output.searchSeeds.length);
+  assert.ok(output.searchSeeds.every((seed) => !/\b(?:apparel|shoes?|dress|costume|supplement|medical device)\b/i.test(seed.term)));
+  assert.deepEqual(output.sourceCoverage.map((source) => source.sourceType), [
+    'official-ebay',
+    'profile2-discord',
+    'profile2-telegram'
+  ]);
+  assert.deepEqual(output.sourceCoverage.map((source) => source.publishedRules), [175, 2, 0]);
+  assert.deepEqual(output.workflow.map((step) => step.title), [
+    'Choose research words',
+    'Run Product Hunter',
+    'Run Listing Preflight',
+    'Continue Ready links only',
+    'Final human review'
+  ]);
+  assert.match(output.disclaimer, /not approved products/i);
 });
