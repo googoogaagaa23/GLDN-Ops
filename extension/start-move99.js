@@ -37,6 +37,11 @@ function requestReverseMove99SaleEventStatus() {
 async function start() {
   const params = new URLSearchParams(location.search);
   const scanMode = params.get('mode') === 'non99' ? 'non99' : 'price99';
+  const guideHost = document.getElementById('move99WorkflowGuide');
+  if (guideHost && globalThis.GLDN_WORKFLOW_GUIDES) {
+    guideHost.dataset.gldnInlineGuide = scanMode === 'non99' ? 'reverse99' : 'move99';
+    globalThis.GLDN_WORKFLOW_GUIDES.renderInlineGuide(guideHost);
+  }
   const saleEventStatus = scanMode === 'non99'
     ? await requestReverseMove99SaleEventStatus()
     : '';

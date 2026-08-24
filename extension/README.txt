@@ -1,4 +1,11 @@
-GLDN Ops v3.12.24
+GLDN Ops v3.12.25
+
+v3.12.25 in-extension workflow guides:
+- Adds a searchable Guides tab with all 29 canonical workflow and setup guides.
+- Adds a compact ? guide control beside every main workflow launcher.
+- Opens contextual guide links directly to the requested workflow with its steps expanded.
+- Adds a collapsible full guide inside eBay Profit Audit, Order Placement Audit, Existing Listings Policy Audit, Variation Listings, Listing Preflight, Sniping Review, and both Move .99 launch paths.
+- Keeps prerequisites, exact steps, approval stops, expected results, and recovery instructions generated from one versioned catalog.
 
 v3.12.24 Order Placement Audit access:
 - Adds an always-visible Open Order Placement Audit shortcut near the top of the full extension popup.

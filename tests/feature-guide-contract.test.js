@@ -10,6 +10,9 @@ const markdown = fs.readFileSync(path.join(ROOT, 'docs', 'FEATURE_GUIDE.md'), 'u
 const html = fs.readFileSync(path.join(ROOT, 'extension', 'guide.html'), 'utf8');
 const onboarding = fs.readFileSync(path.join(ROOT, 'extension', 'onboarding.html'), 'utf8');
 const onboardingJs = fs.readFileSync(path.join(ROOT, 'extension', 'onboarding.js'), 'utf8');
+const popup = fs.readFileSync(path.join(ROOT, 'extension', 'popup.html'), 'utf8');
+const guideData = fs.readFileSync(path.join(ROOT, 'extension', 'workflow-guide-data.js'), 'utf8');
+const workflowGuideJs = fs.readFileSync(path.join(ROOT, 'extension', 'workflow-guide.js'), 'utf8');
 const builder = require(path.join(ROOT, 'tools', 'build-feature-guides.cjs'));
 
 test('canonical guide version matches the extension manifest', () => {
@@ -34,12 +37,58 @@ test('generated GitHub and extension guides exactly match the catalog', () => {
   assert.equal(markdown, builder.renderMarkdown(catalog));
   assert.equal(html, builder.renderHtml(catalog));
   assert.equal(onboarding, builder.renderOnboardingHtml(catalog));
+  assert.equal(guideData, builder.renderGuideData(catalog));
   for (const feature of catalog.features) {
     assert.match(markdown, new RegExp(`id="${feature.id}"`));
     assert.match(html, new RegExp(`id="${feature.id}"`));
     assert.ok(markdown.includes(`**Evidence status:** ${feature.status}`));
     assert.ok(html.includes(feature.status));
   }
+});
+
+test('popup exposes a searchable guide directory and every contextual guide target exists', () => {
+  const catalogIds = new Set(catalog.features.map((feature) => feature.id));
+  const guideTargets = [...popup.matchAll(/data-guide-id="([^"]+)"/g)].map((match) => match[1]);
+  assert.match(popup, /data-popup-tab="guides"/);
+  assert.match(popup, /data-gldn-guide-directory/);
+  assert.match(popup, /workflow-guide-data\.js/);
+  assert.match(popup, /workflow-guide\.js/);
+  assert.ok(guideTargets.length >= 20);
+  for (const id of guideTargets) assert.ok(catalogIds.has(id), `Popup guide target ${id} is missing from the catalog.`);
+  assert.match(workflowGuideJs, /Search workflows/);
+  assert.match(workflowGuideJs, /Approval stop/);
+  assert.match(workflowGuideJs, /Expected result/);
+  assert.match(workflowGuideJs, /If something goes wrong/);
+});
+
+test('dedicated workflow pages include their exact collapsible guide', () => {
+  const pages = {
+    'ebay-profit.html': 'ebay-monthly-profit',
+    'order-audit.html': 'order-placement-audit',
+    'policy-listing-audit.html': 'existing-listings-policy-audit',
+    'variation-audit.html': 'ebay-variations',
+    'listing-preflight.html': 'listing-preflight',
+    'sniping-review.html': 'sniping'
+  };
+  for (const [file, guideId] of Object.entries(pages)) {
+    const page = fs.readFileSync(path.join(ROOT, 'extension', file), 'utf8');
+    assert.match(page, new RegExp(`data-gldn-inline-guide="${guideId}"`));
+    assert.match(page, /workflow-guide-data\.js/);
+    assert.match(page, /workflow-guide\.js/);
+    assert.match(page, /workflow-guide\.css/);
+  }
+  const move99Start = fs.readFileSync(path.join(ROOT, 'extension', 'start-move99.html'), 'utf8');
+  const move99StartJs = fs.readFileSync(path.join(ROOT, 'extension', 'start-move99.js'), 'utf8');
+  assert.match(move99Start, /id="move99WorkflowGuide"/);
+  assert.match(move99StartJs, /scanMode === 'non99' \? 'reverse99' : 'move99'/);
+});
+
+test('guide deep links open and focus the requested workflow', () => {
+  assert.match(html, /workflow-guide-data\.js/);
+  assert.match(html, /workflow-guide\.js/);
+  assert.match(workflowGuideJs, /target\.open = true/);
+  assert.match(workflowGuideJs, /scrollIntoView/);
+  assert.match(workflowGuideJs, /guide-target/);
 });
 
 test('first-use onboarding teaches every canonical feature and remains skippable', () => {

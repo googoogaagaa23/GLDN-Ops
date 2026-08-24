@@ -70,7 +70,7 @@
     #updaterStatus.ready { color:#166534; border-color:#86efac; background:#f0fdf4; }
     #updaterStatus.warning { color:#854d0e; border-color:#facc15; background:#fefce8; }
     #updaterStatus.error { color:#991b1b; border-color:#fca5a5; background:#fff1f2; }
-    .popup-nav { position:sticky; top:0; z-index:20; display:grid; grid-template-columns:repeat(3, 1fr); gap:4px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; background:rgba(248,250,252,.96); backdrop-filter:blur(10px); }
+    .popup-nav { position:sticky; top:0; z-index:20; display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; background:rgba(248,250,252,.96); backdrop-filter:blur(10px); }
     .popup-tab { min-height:36px; margin:0; padding:7px 5px; border:1px solid transparent; background:transparent; color:#475569; }
     .popup-tab[aria-selected="true"] { border-color:#1d4ed8; background:#2563eb; color:#fff; }
     .workflow-filter { display:grid; grid-template-columns:repeat(3, 1fr); gap:5px; margin-top:10px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; background:#f1f5f9; }
@@ -211,6 +211,7 @@
     }
   </style>
   <link rel="stylesheet" href="themes.css">
+  <link rel="stylesheet" href="workflow-guide.css">
 </head>
 <body>
   <div class="header">
@@ -228,15 +229,22 @@
     <button id="reloadExtension" class="secondary" type="button">Reload Current Files</button>
     <button id="openFeatureGuide" class="secondary" type="button">Open Guide</button>
     <button id="openFeatureTour" class="secondary" type="button">Start Feature Tour</button>
-    <button id="openOrderPlacementAuditQuick" class="warning" type="button">Open Order Placement Audit</button>
+    <button id="openOrderPlacementAuditQuick" class="warning" type="button" data-guide-id="order-placement-audit">Open Order Placement Audit</button>
   </div>
 
   <nav class="popup-nav" role="tablist" aria-label="GLDN Ops sections">
     <button class="popup-tab" type="button" role="tab" aria-selected="true" data-popup-tab="workflows">Workflows</button>
+    <button class="popup-tab" type="button" role="tab" aria-selected="false" data-popup-tab="guides">Guides</button>
     <button class="popup-tab" type="button" role="tab" aria-selected="false" data-popup-tab="status">Status</button>
     <button class="popup-tab" type="button" role="tab" aria-selected="false" data-popup-tab="settings">Settings</button>
   </nav>
   <div id="status" role="status" aria-live="polite"></div>
+
+  <section class="section-card" data-popup-section="guides" hidden>
+    <h2>Step-by-step workflow guides</h2>
+    <p class="hint">Choose any feature to open its exact prerequisites, steps, approval stop, expected result, and recovery instructions.</p>
+    <div data-gldn-guide-directory></div>
+  </section>
 
   <nav class="workflow-filter" data-popup-section="workflows" aria-label="Workflow category">
     <button type="button" aria-pressed="true" data-workflow-filter="daily">Daily</button>
@@ -273,11 +281,11 @@
   <section id="ecomSniperSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="research">
     <h2>EcomSniper Handoffs</h2>
     <p class="hint">GLDN Ops opens handoff tabs and reports their tab state. EcomSniper owns Scanner, Product Hunter, Bulk Poster, Extract Sellers, and all listing work.</p>
-    <button id="startSnipingWorkflow" class="secondary" type="button">Start Sniping Workflow</button>
-    <button id="openEcomSniperCompetitorScanner" class="secondary" type="button">Open EcomSniper Competitor Scanner</button>
-    <button id="prepareProductHunterClipboard" class="primary" type="button">Prepare Product Hunter Handoff</button>
-    <button id="openEcomSniperProductHunter" class="secondary" type="button">Open EcomSniper Product Hunter</button>
-    <button id="preflightBulkPosterClipboard" class="primary" type="button">Preflight Bulk Poster Links</button>
+    <button id="startSnipingWorkflow" class="secondary" type="button" data-guide-id="sniping">Start Sniping Workflow</button>
+    <button id="openEcomSniperCompetitorScanner" class="secondary" type="button" data-guide-id="ecomsniper-handoffs">Open EcomSniper Competitor Scanner</button>
+    <button id="prepareProductHunterClipboard" class="primary" type="button" data-guide-id="ecomsniper-handoffs">Prepare Product Hunter Handoff</button>
+    <button id="openEcomSniperProductHunter" class="secondary" type="button" data-guide-id="ecomsniper-handoffs">Open EcomSniper Product Hunter</button>
+    <button id="preflightBulkPosterClipboard" class="primary" type="button" data-guide-id="listing-preflight">Preflight Bulk Poster Links</button>
     <div id="ecomSniperMonitorCard" class="helper-card">
       <div class="helper-title">
         <span>Handoff monitor</span>
@@ -298,18 +306,18 @@
   <section id="listingPreflightSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="research">
     <h2>Listing Preflight</h2>
     <p class="hint">Check Amazon links, ASINs, and titles against reviewed official eBay policies and sourced community restriction reports before sending products to EcomSniper.</p>
-    <button id="openListingPreflight" class="primary" type="button">Open Listing Preflight</button>
+    <button id="openListingPreflight" class="primary" type="button" data-guide-id="listing-preflight">Open Listing Preflight</button>
     <div class="preset-box">Paste links manually or use Preflight Bulk Poster Links after Product Hunter. Ready links stay separate from Review and Block results. No eBay API is used, and a clear result is not an eBay approval.</div>
   </section>
 
   <section id="ebayDailySection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="daily">
     <h2>eBay daily actions</h2>
     <p class="hint">Start the workflow here. The floating page panel appears only while work or review is active.</p>
-    <button type="button" class="primary" data-ebay-action="mark-shipped">Mark as Shipped</button>
-    <button type="button" class="secondary" data-ebay-action="seller-level">Scan Seller Level</button>
-    <button type="button" class="secondary" data-ebay-action="sales-snapshot">Scan Sales Snapshot</button>
-    <button type="button" class="danger" data-ebay-action="listing-limits">Confirm Listings Under Limit</button>
-    <button type="button" class="primary" data-ebay-action="prepare-order-note">Prepare Order Note</button>
+    <button type="button" class="primary" data-ebay-action="mark-shipped" data-guide-id="mark-shipped">Mark as Shipped</button>
+    <button type="button" class="secondary" data-ebay-action="seller-level" data-guide-id="seller-metrics">Scan Seller Level</button>
+    <button type="button" class="secondary" data-ebay-action="sales-snapshot" data-guide-id="ebay-snapshot">Scan Sales Snapshot</button>
+    <button type="button" class="danger" data-ebay-action="listing-limits" data-guide-id="listing-limits">Confirm Listings Under Limit</button>
+    <button type="button" class="primary" data-ebay-action="prepare-order-note" data-guide-id="ebay-note-profit">Prepare Order Note</button>
   </section>
 
   <section id="move99Section" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="listings">
@@ -323,31 +331,31 @@
     <input id="move99SourceCategoryIds" type="text" placeholder="Only if known. Example: 44678633011, 1" autocomplete="off">
     <label for="move99BackburnerIds">Backburner item IDs</label>
     <input id="move99BackburnerIds" type="text" placeholder="Example: 318521296686" autocomplete="off">
-    <button id="saveMove99Categories" class="primary" type="button">Save .99 Categories for This eBay</button>
-    <button id="openMove99Workflow" class="secondary" type="button">Open Move .99 Workflow</button>
-    <button id="openNon99Workflow" class="secondary" type="button">Move Non-.99 Out of Sale</button>
+    <button id="saveMove99Categories" class="primary" type="button" data-guide-id="store-categories">Save .99 Categories for This eBay</button>
+    <button id="openMove99Workflow" class="secondary" type="button" data-guide-id="move99">Open Move .99 Workflow</button>
+    <button id="openNon99Workflow" class="secondary" type="button" data-guide-id="reverse99">Move Non-.99 Out of Sale</button>
     <div class="current">Current .99 destination: <strong id="currentMove99Destination">Not set</strong></div>
   </section>
 
   <section id="variationListingsSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="listings">
     <h2>Variation listings</h2>
     <p class="hint">Scan every active listing automatically, review the exact variation parents, and approve each exact End batch inside GLDN Ops.</p>
-    <button id="openVariationAudit" class="warning" type="button">Find / End Variation Listings</button>
+    <button id="openVariationAudit" class="warning" type="button" data-guide-id="ebay-variations">Find / End Variation Listings</button>
   </section>
 
   <section id="policyListingAuditSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="listings">
     <h2>Existing listings policy audit</h2>
     <p class="hint">Scan every active listing against reviewed policy rules. Review and Needs Review are never ended; exact Block batches require a visible eBay review and typed approval.</p>
-    <button id="openPolicyListingAudit" class="warning" type="button">Scan Existing Listings</button>
+    <button id="openPolicyListingAudit" class="warning" type="button" data-guide-id="existing-listings-policy-audit">Scan Existing Listings</button>
   </section>
 
   <section id="ebayMonthlyProfitSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="profit">
     <h2>Monthly eBay profit</h2>
     <p class="hint">Reads a complete month of signed-in eBay orders, keeps the saved-note profit, and queues every order for an independent exact Amazon order-cost match.</p>
-    <button id="openEbayMonthlyProfit" class="primary" type="button">Open eBay Profit Audit</button>
+    <button id="openEbayMonthlyProfit" class="primary" type="button" data-guide-id="ebay-monthly-profit">Open eBay Profit Audit</button>
     <label for="ebayCostResolutionMonth">Amazon-cost month</label>
     <input id="ebayCostResolutionMonth" type="month">
-    <button id="resolveEbayCosts" class="secondary" type="button">Resolve eBay Amazon Costs</button>
+    <button id="resolveEbayCosts" class="secondary" type="button" data-guide-id="ebay-monthly-profit">Resolve eBay Amazon Costs</button>
     <div id="ebayCostResolutionStatus" class="preset-box">Independent Amazon-cost matching: no checkpoint</div>
     <div class="preset-box">Name this Amazon profile once in Setup, then run the resolver here. Review the exact profile and live count before approving. Exact SKU-linked order costs fill the same shared reconciliation rows; every miss records this profile and stays open for a different signed-in Amazon profile.</div>
   </section>
@@ -355,21 +363,21 @@
   <section id="orderPlacementAuditSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="profit">
     <h2>Order placement audit</h2>
     <p class="hint">Compare eBay order demand against purchases found across every signed-in Amazon Chrome profile. Flags duplicate, extra, cancelled-order, and missing purchases without changing any order.</p>
-    <button id="openOrderPlacementAudit" class="warning" type="button">Open Order Placement Audit</button>
+    <button id="openOrderPlacementAudit" class="warning" type="button" data-guide-id="order-placement-audit">Open Order Placement Audit</button>
   </section>
 
   <section id="amazonSubscribeSaveSection" class="section-card" data-popup-section="workflows" data-workflow-group="supplier">
     <h2>Amazon Subscribe &amp; Save</h2>
     <p class="hint">Scans the signed-in Amazon account in this Chrome profile. It excludes recommendations and stops at an exact-count review before cancelling anything.</p>
-    <button id="openAmazonSubscribeSave" class="warning" type="button">Scan Active Subscriptions</button>
+    <button id="openAmazonSubscribeSave" class="warning" type="button" data-guide-id="amazon-subscribe-save">Scan Active Subscriptions</button>
     <div id="amazonSubscribeSaveStatus" class="preset-box">No Subscribe &amp; Save run saved in this Chrome profile.</div>
   </section>
 
   <section id="poshmarkSection" class="section-card" data-platform="poshmark" data-popup-section="workflows" data-workflow-group="poshmark" style="display:none">
     <h2>Poshmark tools</h2>
     <p class="hint">Use these from any Poshmark Chrome profile. Computer 7 is Poshmark-only, while M0 can also have Poshmark work.</p>
-    <button id="openPoshmarkStats" class="primary" type="button">Open Poshmark Stats</button>
-    <button id="openPoshmarkOrders" class="secondary" type="button">Open Poshmark Orders</button>
+    <button id="openPoshmarkStats" class="primary" type="button" data-guide-id="poshmark-stats">Open Poshmark Stats</button>
+    <button id="openPoshmarkOrders" class="secondary" type="button" data-guide-id="poshmark-profit">Open Poshmark Orders</button>
     <label for="poshmarkBackfillScope">Historical profit range</label>
     <select id="poshmarkBackfillScope">
       <option value="month">One month</option>
@@ -380,9 +388,9 @@
     </select>
     <label for="poshmarkBackfillMonth">Month</label>
     <input id="poshmarkBackfillMonth" type="month" value="2026-04">
-    <button id="startPoshmarkBackfill" class="primary" type="button">Start Historical Profit Backfill</button>
-    <button id="resolvePoshmarkCosts" class="secondary" type="button">Resolve Missing Amazon Costs</button>
-    <button id="resumePoshmarkBackfill" class="secondary" type="button">Resume / Open Review</button>
+    <button id="startPoshmarkBackfill" class="primary" type="button" data-guide-id="poshmark-profit-backfill">Start Historical Profit Backfill</button>
+    <button id="resolvePoshmarkCosts" class="secondary" type="button" data-guide-id="poshmark-profit-backfill">Resolve Missing Amazon Costs</button>
+    <button id="resumePoshmarkBackfill" class="secondary" type="button" data-guide-id="poshmark-profit-backfill">Resume / Open Review</button>
     <button id="stopPoshmarkBackfill" class="warning" type="button">Pause at Safe Checkpoint</button>
     <div id="poshmarkBackfillStatus" class="preset-box">Historical profit: no checkpoint</div>
     <div class="preset-box">The worker reads Poshmark earnings and exact SKU-linked Amazon order-item costs. It never uses EcomSniper markup or a current product-page price. Dashboard sync remains a separate approval step.</div>
@@ -637,9 +645,11 @@
   </dialog>
   <script src="config.example.js"></script>
   <script src="theme-catalog.js"></script>
+  <script src="workflow-guide-data.js"></script>
   <script src="foundation.js"></script>
   <script src="listing-preflight-core.js"></script>
   <script src="control-heartbeat.js"></script>
+  <script src="workflow-guide.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

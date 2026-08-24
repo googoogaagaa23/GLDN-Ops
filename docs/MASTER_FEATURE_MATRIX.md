@@ -1,11 +1,13 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-08-23  
-Current local manifest: 3.12.24
+Current local manifest: 3.12.25
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  
 Current machine identity: eBay computer `0` / account `FAK12`, plus Poshmark computer `7`
+
+> v3.12.25 operator guidance: the popup now has a searchable **Guides** tab for all 29 cataloged features, every main workflow launcher has a contextual `?` control, and every dedicated workflow page includes a collapsible copy of the exact same prerequisites, steps, approval stop, expected result, and recovery guidance. Contextual links open the requested guide expanded instead of dropping a new operator at the top of a generic manual.
 
 > v3.12.24 eBay Profit Audit: the profit screen now reports confirmed Saved-note profit instead of displaying a misleading `$0.00` while evidence is unresolved. It shows exact coverage, labels incomplete totals as partial, keeps unavailable values at `Pending`, and can read either one calendar month or all history available through eBay's Custom date range. Independent Amazon profit remains a separate reconciliation result.
 

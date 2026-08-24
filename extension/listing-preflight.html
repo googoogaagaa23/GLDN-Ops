@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>GLDN Listing Preflight</title>
   <link rel="stylesheet" href="listing-preflight.css">
+  <link rel="stylesheet" href="workflow-guide.css">
 </head>
 <body>
   <header class="topbar">
@@ -17,6 +18,7 @@
   </header>
 
   <main>
+    <div class="gldn-inline-guide-host" data-gldn-inline-guide="listing-preflight"></div>
     <section class="input-band" aria-labelledby="inputHeading">
       <div class="section-heading">
         <div><h2 id="inputHeading">Items to check</h2><p>Use one Amazon URL, ASIN, or product title per line.</p></div>
@@ -53,6 +55,8 @@
       <div class="boundary"><strong>Boundary:</strong> Ready to copy means only that the item did not match the current reviewed rules. It does not mean eBay permits the listing. Review items need a person; Block items never continue through the handoff. When no reviewed rules are loaded, every item stays in Needs review. GLDN does not call an eBay API or submit listings from this page.</div>
     </section>
   </main>
+  <script src="workflow-guide-data.js"></script>
+  <script src="workflow-guide.js"></script>
   <script src="listing-preflight-core.js"></script>
   <script src="listing-preflight.js"></script>
 </body>

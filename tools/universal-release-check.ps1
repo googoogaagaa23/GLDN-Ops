@@ -137,7 +137,7 @@ Pass "visible Windows installer and persistent log"
 $popupHtml = Read-Text (ExtensionPath "popup.html")
 $popupJs = Read-Text (ExtensionPath "popup.js")
 $htmlIds = @{}
-foreach ($match in [regex]::Matches($popupHtml, '\bid=["'']([^"'']+)["'']')) {
+foreach ($match in [regex]::Matches($popupHtml, '(?:^|\s)id=["'']([^"'']+)["'']')) {
   $htmlIds[$match.Groups[1].Value] = $true
 }
 
@@ -146,7 +146,7 @@ foreach ($match in [regex]::Matches($popupJs, 'document\.getElementById\(\s*["''
   Assert-True ($htmlIds.ContainsKey($id)) "popup.js references missing popup.html id: $id"
 }
 
-foreach ($match in [regex]::Matches($popupHtml, '<button\b[^>]*\bid=["'']([^"'']+)["''][^>]*>')) {
+foreach ($match in [regex]::Matches($popupHtml, '<button\b[^>]*\sid=["'']([^"'']+)["''][^>]*>')) {
   $id = $match.Groups[1].Value
   Assert-True ($popupJs.Contains($id)) "popup.html button is not wired in popup.js: $id"
 }

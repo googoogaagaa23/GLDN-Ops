@@ -88,7 +88,7 @@ test("popup copy reflects the verified local updater model", () => {
 });
 
 test("every popup button has an interaction path", () => {
-  const ids = [...html.matchAll(/<button[^>]*id="([^"]+)"/g)].map((match) => match[1]);
+  const ids = [...html.matchAll(/<button\b[^>]*\sid="([^"]+)"/g)].map((match) => match[1]);
   const missing = ids.filter((id) => !new RegExp(`getElementById\\('${id}'\\)\\.addEventListener`).test(js));
   assert.deepEqual(missing, []);
 });

@@ -6,6 +6,7 @@ const CATALOG_PATH = path.join(ROOT, 'docs', 'GUIDE_CATALOG.json');
 const MARKDOWN_PATH = path.join(ROOT, 'docs', 'FEATURE_GUIDE.md');
 const HTML_PATH = path.join(ROOT, 'extension', 'guide.html');
 const ONBOARDING_PATH = path.join(ROOT, 'extension', 'onboarding.html');
+const GUIDE_DATA_PATH = path.join(ROOT, 'extension', 'workflow-guide-data.js');
 
 function escapeHtml(value) {
   return String(value)
@@ -146,6 +147,7 @@ function renderHtml(catalog) {
     .status.partial { background:#475569; }
     .status.unproven { background:var(--red); }
     .feature { margin:10px 0; border:1px solid var(--line); border-radius:8px; background:var(--panel); overflow:hidden; scroll-margin-top:12px; }
+    .feature.guide-target { border-color:var(--gold); box-shadow:0 0 0 2px rgba(215,179,84,.2); }
     .feature summary { display:flex; justify-content:space-between; align-items:center; gap:12px; min-height:58px; padding:12px 14px; cursor:pointer; font-size:17px; font-weight:700; }
     .feature summary:hover { background:var(--panel2); }
     .feature-body { padding:0 14px 16px; border-top:1px solid var(--line); }
@@ -175,6 +177,8 @@ ${features}
 <script src="control-heartbeat.js"></script>
 <script src="theme-catalog.js"></script>
 <script src="theme-page.js"></script>
+<script src="workflow-guide-data.js"></script>
+<script src="workflow-guide.js"></script>
 </body>
 </html>
 `;
@@ -279,6 +283,17 @@ function renderOnboardingHtml(catalog) {
 `;
 }
 
+function renderGuideData(catalog) {
+  const data = JSON.stringify({
+    version: catalog.version,
+    updated: catalog.updated,
+    safetyRule: catalog.safetyRule,
+    statusDefinitions: catalog.statusDefinitions,
+    features: catalog.features
+  }, null, 2).replaceAll('<', '\\u003c');
+  return `globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze(${data});\n`;
+}
+
 function validateCatalog(catalog) {
   if (!catalog.version || !catalog.safetyRule || !Array.isArray(catalog.features)) throw new Error('Guide catalog is incomplete.');
   const ids = new Set();
@@ -300,9 +315,10 @@ function build() {
   fs.writeFileSync(MARKDOWN_PATH, renderMarkdown(catalog), 'utf8');
   fs.writeFileSync(HTML_PATH, renderHtml(catalog), 'utf8');
   fs.writeFileSync(ONBOARDING_PATH, renderOnboardingHtml(catalog), 'utf8');
-  return { version: catalog.version, features: catalog.features.length, markdown: MARKDOWN_PATH, html: HTML_PATH, onboarding: ONBOARDING_PATH };
+  fs.writeFileSync(GUIDE_DATA_PATH, renderGuideData(catalog), 'utf8');
+  return { version: catalog.version, features: catalog.features.length, markdown: MARKDOWN_PATH, html: HTML_PATH, onboarding: ONBOARDING_PATH, data: GUIDE_DATA_PATH };
 }
 
 if (require.main === module) console.log(JSON.stringify(build(), null, 2));
 
-module.exports = { build, escapeHtml, renderHtml, renderMarkdown, renderOnboardingHtml, validateCatalog };
+module.exports = { build, escapeHtml, renderGuideData, renderHtml, renderMarkdown, renderOnboardingHtml, validateCatalog };

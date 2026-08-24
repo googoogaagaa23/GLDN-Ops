@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Order Placement Audit - GLDN Ops</title>
   <link rel="stylesheet" href="order-audit.css">
+  <link rel="stylesheet" href="workflow-guide.css">
 </head>
 <body>
   <header class="topbar">
@@ -17,6 +18,7 @@
   </header>
 
   <main>
+    <div class="gldn-inline-guide-host" data-gldn-inline-guide="order-placement-audit"></div>
     <section class="setup-band" aria-label="Audit setup">
       <label for="computerLabel">Computer</label>
       <select id="computerLabel"></select>
@@ -116,6 +118,8 @@
     </section>
   </main>
 
+  <script src="workflow-guide-data.js"></script>
+  <script src="workflow-guide.js"></script>
   <script src="foundation.js"></script>
   <script src="order-audit-core.js"></script>
   <script src="order-audit.js"></script>

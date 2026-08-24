@@ -34,6 +34,9 @@ $requiredFiles = @(
   "extension\manifest.json",
   "extension\README.txt",
   "extension\guide.html",
+  "extension\workflow-guide-data.js",
+  "extension\workflow-guide.js",
+  "extension\workflow-guide.css",
   "extension\onboarding.html",
   "extension\sniping-review.html",
   "extension\sniping-review.css",
@@ -69,7 +72,9 @@ $requiredFiles = @(
   "tests\dashboard-profit-upsert.test.js",
   "tests\reload-wiring.test.js",
   "tests\listing-preflight.test.js",
-  "tests\policy-listing-audit.test.js"
+  "tests\policy-listing-audit.test.js",
+  "tests\feature-guide-contract.test.js",
+  "tools\test-workflow-guides.cjs"
 )
 
 $missing = @()
@@ -180,7 +185,7 @@ if (-not (Test-Path $node)) { $node = "node" }
 
 & $node -e @"
 const fs = require('fs');
-for (const f of ['extension/config.example.js','extension/foundation.js','extension/shared.js','extension/profit-audit.js','extension/sniping-audit.js','extension/subscribe-save.js','extension/sniping-review.js','extension/listing-preflight-core.js','extension/listing-preflight.js','extension/policy-listing-audit-core.js','extension/policy-listing-audit.js','extension/order-audit-core.js','extension/order-audit-background.js','extension/order-audit.js','extension/ebay.js','extension/amazon.js','extension/walmart.js','extension/ecomsniper.js','extension/poshmark.js','extension/background.js','extension/popup.js','extension/start-move99.js']) {
+for (const f of ['extension/config.example.js','extension/foundation.js','extension/shared.js','extension/profit-audit.js','extension/sniping-audit.js','extension/subscribe-save.js','extension/sniping-review.js','extension/workflow-guide-data.js','extension/workflow-guide.js','extension/listing-preflight-core.js','extension/listing-preflight.js','extension/policy-listing-audit-core.js','extension/policy-listing-audit.js','extension/order-audit-core.js','extension/order-audit-background.js','extension/order-audit.js','extension/ebay.js','extension/amazon.js','extension/walmart.js','extension/ecomsniper.js','extension/poshmark.js','extension/background.js','extension/popup.js','extension/start-move99.js']) {
   new Function(fs.readFileSync(f, 'utf8'));
   console.log('parse ok', f);
 }

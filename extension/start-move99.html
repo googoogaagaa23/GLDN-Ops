@@ -18,11 +18,13 @@
     [data-sale-event-status="on"] { background:#dc2626; }
     [data-sale-event-status="off"] { background:#15803d; }
   </style>
+  <link rel="stylesheet" href="workflow-guide.css">
 </head>
 <body>
   <main>
     <h1>Starting Move .99</h1>
     <p>This internal page starts the saved Move .99 or Non-.99 cleanup workflow and opens eBay Active Listings.</p>
+    <div id="move99WorkflowGuide" class="gldn-inline-guide-host"></div>
     <section id="saleEventGate" class="sale-event-gate" hidden>
       <h2>Is a sale event active?</h2>
       <p>Move Non-.99 Out of Sale reads eBay's displayed prices. It only works correctly when the sale event is off.</p>
@@ -34,6 +36,8 @@
     <div id="status" class="status">Preparing...</div>
   </main>
   <script src="config.example.js"></script>
+  <script src="workflow-guide-data.js"></script>
+  <script src="workflow-guide.js"></script>
   <script src="foundation.js"></script>
   <script src="start-move99.js"></script>
 </body>

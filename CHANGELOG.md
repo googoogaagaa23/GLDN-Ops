@@ -2,6 +2,15 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.25 - 2026-08-23
+
+- Added a searchable **Guides** tab containing all 29 canonical GLDN Ops feature guides.
+- Added a compact contextual guide control beside each main workflow launcher in the popup.
+- Contextual links now open the requested workflow directly with its exact steps expanded and focused.
+- Added collapsible inline guidance to every dedicated workflow page, including Move .99 and reverse Non-.99 startup.
+- Kept prerequisites, exact steps, approval boundaries, expected results, and recovery instructions generated from one versioned source.
+- Added contract and isolated-browser checks for catalog coverage, popup search, deep links, inline guides, responsive layout, and page errors.
+
 ## v3.12.24 - 2026-08-23
 
 - Added an always-visible **Open Order Placement Audit** shortcut above the popup tabs.
