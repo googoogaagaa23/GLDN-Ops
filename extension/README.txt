@@ -1,4 +1,11 @@
-GLDN Ops v3.12.26
+GLDN Ops v3.12.27
+
+v3.12.27 Poshmark backfill recovery:
+- Detects a closed or silent historical-profit worker instead of leaving the run stuck on a blank page.
+- Pauses at the exact saved checkpoint and preserves the signed-in failed tab for inspection and Resume.
+- Reports Poshmark and Amazon parser/navigation failures to the background controller.
+- Keeps deliberate Pause behavior separate: Pause still closes the worker cleanly while retaining progress.
+- Does not resync an already approved month or duplicate rows during recovery.
 
 v3.12.26 Product Research Desk:
 - Adds selectable lower-risk Product Hunter starting words inside Listing Preflight.

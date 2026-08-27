@@ -1086,7 +1086,7 @@
       }
     });
     if (!response?.ok) {
-      if (!response?.ignored) renderStatus(response?.error || "Historical sales indexing stopped.", "error");
+      if (!response?.ignored) throw new Error(response?.error || "Historical sales indexing stopped.");
       return;
     }
     renderStatus(`Historical profit: ${response.summary.salesIndexed} sales indexed across ${response.summary.pagesScanned} page(s).`, "ready");
@@ -1369,36 +1369,59 @@
   async function resumePoshmarkProfitBackfillWorker() {
     if (backfillResumeBusy) return false;
     backfillResumeBusy = true;
+    let workerPhase = "unknown";
     try {
-    const [status, tab] = await Promise.all([
-      runtimeMessage({ type: "getPoshmarkProfitBackfill" }),
-      runtimeMessage({ type: "currentTabInfo" })
-    ]);
-    const run = status?.state;
-    if (!run || Number(run.workerTabId) !== Number(tab?.tabId)) return false;
-    if (run.phase === "review") {
-      const runId = String(run.runId || `${run.scope || "historical"}:${run.monthKey || "all"}`);
-      if (!document.getElementById("gldn-posh-backfill-preview") && restoredBackfillReviewRunId !== runId) {
-        showHistoricalProfitBackfillReview(run);
+      const [status, tab] = await Promise.all([
+        runtimeMessage({ type: "getPoshmarkProfitBackfill" }),
+        runtimeMessage({ type: "currentTabInfo" })
+      ]);
+      const run = status?.state;
+      if (!run || Number(run.workerTabId) !== Number(tab?.tabId)) return false;
+      workerPhase = String(run.phase || "unknown");
+      if (run.phase === "review") {
+        const runId = String(run.runId || `${run.scope || "historical"}:${run.monthKey || "all"}`);
+        if (!document.getElementById("gldn-posh-backfill-preview") && restoredBackfillReviewRunId !== runId) {
+          showHistoricalProfitBackfillReview(run);
+        }
+        return true;
       }
-      return true;
-    }
-    if (!run.active) return false;
-    await delay(900);
-    if (run.phase === "index-sales" && /^\/order\/sales\/?$/i.test(location.pathname)) {
-      await reportHistoricalSalesPage();
-      return true;
-    }
-    if (run.phase === "capture-posh-details" && /\/order\/sales\//i.test(location.href)) {
-      const detail = parseOrderProfit();
-      detail.accountLabel = detail.poshmarkAccountLabel;
-      detail.marketplaceEarnings = detail.poshmarkEarnings;
-      detail.marketplaceSoldPrice = detail.soldPrice;
-      const response = await runtimeMessage({ type: "poshmarkBackfillOrderDetail", detail });
-      if (!response?.ok && !response?.ignored) renderStatus(response?.error || "Could not checkpoint this Poshmark order.", "error");
-      return true;
-    }
-    return false;
+      if (!run.active) return false;
+      await delay(900);
+      if (run.phase === "index-sales" && /^\/order\/sales\/?$/i.test(location.pathname)) {
+        await reportHistoricalSalesPage();
+        return true;
+      }
+      if (run.phase === "capture-posh-details" && /\/order\/sales\//i.test(location.href)) {
+        const detail = parseOrderProfit();
+        detail.accountLabel = detail.poshmarkAccountLabel;
+        detail.marketplaceEarnings = detail.poshmarkEarnings;
+        detail.marketplaceSoldPrice = detail.soldPrice;
+        const response = await runtimeMessage({ type: "poshmarkBackfillOrderDetail", detail });
+        if (!response?.ok && !response?.ignored) throw new Error(response?.error || "Could not checkpoint this Poshmark order.");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      if (invalidContextError(error)) {
+        stopInvalidatedPoshmarkContext(error);
+        return false;
+      }
+      U.recordExtensionLog?.({
+        source: "poshmark-profit",
+        operation: "historical-worker",
+        level: "error",
+        message: error?.message || String(error)
+      });
+      await runtimeMessage({
+        type: "poshmarkBackfillWorkerError",
+        error: {
+          message: error?.message || String(error),
+          url: location.href,
+          phase: workerPhase
+        }
+      }, 45000).catch(() => {});
+      renderStatus(`${error?.message || "Historical-profit worker stopped."} Resume will continue from the saved checkpoint.`, "error");
+      return false;
     } finally {
       backfillResumeBusy = false;
     }

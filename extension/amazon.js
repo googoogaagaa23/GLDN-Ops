@@ -1143,71 +1143,97 @@
   async function resumePoshmarkProfitBackfillWorker() {
     if (backfillWorkerBusy) return false;
     backfillWorkerBusy = true;
+    let workerPhase = "unknown";
     try {
-    const [status, tab] = await Promise.all([
-      runtimeMessage({ type: "getPoshmarkProfitBackfill" }),
-      runtimeMessage({ type: "currentTabInfo" })
-    ]);
-    const run = status?.state;
-    if (!run || Number(run.workerTabId) !== Number(tab?.tabId)) return false;
-    if (["resolve-missing", "resolve-ebay"].includes(run.scope) && run.phase === "review") {
-      showAmazonCostResolutionReview(run);
-      return true;
-    }
-    if (!run.active) return false;
-    await new Promise((resolve) => setTimeout(resolve, 900));
-
-    if (run.phase === "amazon-search") {
-      const asin = String(run.currentAsin || "").trim().toUpperCase();
-      const input = document.querySelector("#searchOrdersInput, input[aria-label='Search all orders'], input[name='search']");
-      const currentQuery = String(input?.value || new URL(location.href).searchParams.get("search") || "").trim().toUpperCase();
-      if (currentQuery !== asin && (isAmazonOrdersHistoryPage() || isAmazonOrdersSearchPage())) {
-        const submitted = await submitHistoricalAmazonSearch(asin);
-        if (!submitted) {
-          await runtimeMessage({ type: "poshmarkBackfillAmazonSearch", payload: { matches: [], searchError: "Amazon order search control was not found." } });
-        }
+      const [status, tab] = await Promise.all([
+        runtimeMessage({ type: "getPoshmarkProfitBackfill" }),
+        runtimeMessage({ type: "currentTabInfo" })
+      ]);
+      const run = status?.state;
+      if (!run || Number(run.workerTabId) !== Number(tab?.tabId)) return false;
+      workerPhase = String(run.phase || "unknown");
+      if (["resolve-missing", "resolve-ebay"].includes(run.scope) && run.phase === "review") {
+        showAmazonCostResolutionReview(run);
         return true;
       }
-      for (let attempt = 0; attempt < 10 && !amazonOrderSearchResultsReady(); attempt += 1) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-      if (!amazonOrderSearchResultsReady()) return true;
-      const matches = findAmazonOrderSearchMatches(asin);
-      const next = amazonNextOrdersControl();
-      const response = await runtimeMessage({
-        type: "poshmarkBackfillAmazonSearch",
-        payload: { asin, matches, hasNext: Boolean(next && !amazonControlDisabled(next)), pageUrl: location.href }
-      });
-      if (response?.instruction === "next-amazon-page" && next && !amazonControlDisabled(next)) next.click();
-      return true;
-    }
+      if (!run.active) return false;
+      await new Promise((resolve) => setTimeout(resolve, 900));
 
-    if (run.phase === "amazon-detail" && isAmazonOrderDetailsPage()) {
-      const searchMatch = (run.amazonSearchMatches || [])[Number(run.amazonCandidateIndex || 0)] || {};
-      const pageOrderId = orderIdFromUrl(location.href);
-      let purchase = null;
-      for (let attempt = 0; attempt < 12 && !purchase; attempt += 1) {
-        purchase = extractAmazonOrderDetailItemCostByAsin(
-          run.currentAsin,
-          searchMatch.amazonTitle || "",
-          pageOrderId,
-          searchMatch.orderId || ""
-        );
-        if (!purchase) await new Promise((resolve) => setTimeout(resolve, 500));
-      }
-      await runtimeMessage({
-        type: "poshmarkBackfillAmazonDetail",
-        payload: {
-          purchase: purchase ? {
-            ...purchase,
-            purchaseDate: amazonPurchaseDateFromOrderDetail() || searchMatch.purchaseDate || ""
-          } : null,
-          pageUrl: location.href
+      if (run.phase === "amazon-search") {
+        const asin = String(run.currentAsin || "").trim().toUpperCase();
+        const input = document.querySelector("#searchOrdersInput, input[aria-label='Search all orders'], input[name='search']");
+        const currentQuery = String(input?.value || new URL(location.href).searchParams.get("search") || "").trim().toUpperCase();
+        if (currentQuery !== asin && (isAmazonOrdersHistoryPage() || isAmazonOrdersSearchPage())) {
+          const submitted = await submitHistoricalAmazonSearch(asin);
+          if (!submitted) {
+            const response = await runtimeMessage({ type: "poshmarkBackfillAmazonSearch", payload: { matches: [], searchError: "Amazon order search control was not found." } });
+            if (!response?.ok && !response?.ignored) throw new Error(response?.error || "Could not checkpoint the Amazon order search failure.");
+          }
+          return true;
         }
+        for (let attempt = 0; attempt < 10 && !amazonOrderSearchResultsReady(); attempt += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        if (!amazonOrderSearchResultsReady()) return true;
+        const matches = findAmazonOrderSearchMatches(asin);
+        const next = amazonNextOrdersControl();
+        const response = await runtimeMessage({
+          type: "poshmarkBackfillAmazonSearch",
+          payload: { asin, matches, hasNext: Boolean(next && !amazonControlDisabled(next)), pageUrl: location.href }
+        });
+        if (!response?.ok && !response?.ignored) throw new Error(response?.error || "Could not checkpoint this Amazon order-search page.");
+        if (response?.instruction === "next-amazon-page" && next && !amazonControlDisabled(next)) next.click();
+        return true;
+      }
+
+      if (run.phase === "amazon-detail" && isAmazonOrderDetailsPage()) {
+        const searchMatch = (run.amazonSearchMatches || [])[Number(run.amazonCandidateIndex || 0)] || {};
+        const pageOrderId = orderIdFromUrl(location.href);
+        let purchase = null;
+        for (let attempt = 0; attempt < 12 && !purchase; attempt += 1) {
+          purchase = extractAmazonOrderDetailItemCostByAsin(
+            run.currentAsin,
+            searchMatch.amazonTitle || "",
+            pageOrderId,
+            searchMatch.orderId || ""
+          );
+          if (!purchase) await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        const response = await runtimeMessage({
+          type: "poshmarkBackfillAmazonDetail",
+          payload: {
+            purchase: purchase ? {
+              ...purchase,
+              purchaseDate: amazonPurchaseDateFromOrderDetail() || searchMatch.purchaseDate || ""
+            } : null,
+            pageUrl: location.href
+          }
+        });
+        if (!response?.ok && !response?.ignored) throw new Error(response?.error || "Could not checkpoint this Amazon order detail.");
+        return true;
+      }
+      return false;
+    } catch (error) {
+      if (U.isExtensionContextInvalidated?.(error)) {
+        stopInvalidatedAmazonContext(error);
+        return false;
+      }
+      U.recordExtensionLog?.({
+        source: "poshmark-profit",
+        operation: "amazon-worker",
+        level: "error",
+        message: error?.message || String(error)
       });
-      return true;
-    }
-    return false;
+      await runtimeMessage({
+        type: "poshmarkBackfillWorkerError",
+        error: {
+          message: error?.message || String(error),
+          url: location.href,
+          phase: workerPhase
+        }
+      }, 45000).catch(() => {});
+      renderStatus(`${error?.message || "Historical-profit Amazon worker stopped."} Resume will continue from the saved checkpoint.`, "error");
+      return false;
     } finally {
       backfillWorkerBusy = false;
     }

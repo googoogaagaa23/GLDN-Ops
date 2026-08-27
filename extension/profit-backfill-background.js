@@ -6,6 +6,7 @@
   const AMAZON_ORDERS_URL = "https://www.amazon.com/gp/your-account/order-history?orderFilter=months-6";
   const MAX_EMPTY_SALES_PAGE_ATTEMPTS = 8;
   const MAX_POSH_DETAIL_ATTEMPTS = 3;
+  const WORKER_STALE_MS = 3 * 60 * 1000;
 
   function amazonOrdersSearchUrl(asin) {
     const normalized = BACKFILL.normalizeAsin(asin);
@@ -208,7 +209,8 @@
 
   async function start(options = {}, sender = {}) {
     await pauseIncompatibleVersion("start-check");
-    const existing = await readRun();
+    let existing = await pauseMissingWorker(await readRun());
+    existing = await pauseStaleWorker(existing);
     if (existing?.active) return { ok: false, error: `A marketplace Amazon-cost lookup is already running (${BACKFILL.summary(existing).phase}).` };
     const identitySettings = await storageGet(["computerLabel", "poshmarkProfitKnownOrders", "amazonProfileLabel"]);
     const resolvingPoshmark = options.scope === "resolve-missing";
@@ -269,17 +271,80 @@
     return publicResult(started);
   }
 
-  async function pauseAtCheckpoint(run, reason = "Stopped at a safe checkpoint.") {
+  async function pauseAtCheckpoint(run, reason = "Stopped at a safe checkpoint.", options = {}) {
+    const workerTabId = Number(run.workerTabId);
+    const closeWorker = options.closeWorker !== false;
+    const preservedWorker = !closeWorker
+      && Number.isInteger(workerTabId)
+      && workerTabId > 0
+      && Boolean(await tabGet(workerTabId));
     const paused = await writeRun({
       ...run,
       active: false,
       stopRequested: false,
-      resumePhase: run.phase,
+      resumePhase: run.phase === "paused" ? (run.resumePhase || "index-sales") : run.phase,
       phase: "paused",
-      pausedReason: reason
+      workerTabId: preservedWorker ? workerTabId : null,
+      pausedReason: reason,
+      workerPreserved: preservedWorker,
+      workerFailure: options.failure || null
     });
+    if (closeWorker && Number.isInteger(workerTabId) && workerTabId > 0) void tabRemove(workerTabId);
     await sendToTab(paused.ownerTabId, { type: "poshmarkBackfillProgress", summary: BACKFILL.summary(paused), state: paused });
     return publicResult(paused);
+  }
+
+  async function pauseMissingWorker(run, reason = "The Poshmark profit worker tab closed before completion. Resume continues from the saved checkpoint.") {
+    if (!run?.active) return run;
+    const workerTabId = Number(run.workerTabId);
+    if (Number.isInteger(workerTabId) && workerTabId > 0 && await tabGet(workerTabId)) return run;
+    const result = await pauseAtCheckpoint(run, reason);
+    return result.state;
+  }
+
+  async function pauseStaleWorker(run) {
+    if (!run?.active) return run;
+    const updatedAt = Date.parse(String(run.updatedAt || ""));
+    if (!Number.isFinite(updatedAt) || Date.now() - updatedAt <= WORKER_STALE_MS) return run;
+    const message = "The Poshmark profit worker stopped reporting progress. Its exact checkpoint and signed-in worker tab were preserved for Resume.";
+    const result = await pauseAtCheckpoint(run, message, {
+      closeWorker: false,
+      failure: {
+        phase: String(run.phase || "unknown"),
+        message,
+        url: String((await tabGet(Number(run.workerTabId)))?.url || ""),
+        at: new Date().toISOString()
+      }
+    });
+    return result.state;
+  }
+
+  async function handleWorkerTabClosed(tabId) {
+    const run = await readRun();
+    if (!run?.active || Number(run.workerTabId) !== Number(tabId)) {
+      return { ok: true, changed: false, state: run };
+    }
+    const result = await pauseAtCheckpoint(
+      run,
+      "The Poshmark profit worker tab closed before completion. Resume continues from the saved checkpoint."
+    );
+    return { ...result, changed: true };
+  }
+
+  async function handleWorkerError(payload, sender) {
+    const run = await readRun();
+    if (!isWorker(run, sender)) return { ok: false, ignored: true };
+    const message = String(payload?.message || "The Poshmark profit worker stopped before producing verified page evidence.").trim();
+    const failure = {
+      phase: String(payload?.phase || run.phase || "unknown"),
+      message,
+      url: String(payload?.url || sender?.tab?.url || ""),
+      at: new Date().toISOString()
+    };
+    return pauseAtCheckpoint(run, `${message} The failed worker tab was left open for inspection; Resume will reuse it.`, {
+      closeWorker: false,
+      failure
+    });
   }
 
   async function stop() {
@@ -588,7 +653,8 @@
   }
 
   async function getStatus() {
-    const run = await readRun();
+    let run = await pauseMissingWorker(await readRun());
+    run = await pauseStaleWorker(run);
     return run ? publicResult(run) : { ok: true, state: null, summary: null };
   }
 
@@ -664,6 +730,8 @@
     handlePoshDetail,
     handleAmazonSearch,
     handleAmazonDetail,
+    handleWorkerError,
+    handleWorkerTabClosed,
     exactRecordsForSync,
     pendingReviewForSync,
     markSynced,

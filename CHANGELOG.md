@@ -2,6 +2,16 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.27 - 2026-08-26
+
+- Fixed Historical Poshmark Profit Backfill getting stuck on a blank or unresponsive worker page.
+- Added closed-worker and three-minute silent-worker detection.
+- Preserves the exact signed-in failed worker tab, URL, phase, and saved checkpoint for Resume.
+- Added explicit worker-error reporting from both Poshmark sale pages and Amazon order pages.
+- Kept deliberate Pause behavior unchanged: it closes only the worker tab and retains the checkpoint.
+- Added regression coverage for the complete Poshmark, Amazon, and service-worker recovery route.
+- Recovery never writes or resyncs an approved month automatically.
+
 ## v3.12.26 - 2026-08-23
 
 - Added Product Research Desk to the existing Listing Preflight page.

@@ -294,6 +294,35 @@ test("runtime workflow uses one worker tab and an explicit spreadsheet approval 
   assert.doesNotMatch(poshmark, /syncPoshmarkProfitBackfill[\s\S]{0,120}captureVisibleSales/);
 });
 
+test("blank or failed Poshmark profit workers pause at a resumable checkpoint", () => {
+  const background = fs.readFileSync(path.resolve(__dirname, "..", "extension", "profit-backfill-background.js"), "utf8");
+  const serviceWorker = fs.readFileSync(path.resolve(__dirname, "..", "extension", "background.js"), "utf8");
+  const poshmark = fs.readFileSync(path.resolve(__dirname, "..", "extension", "poshmark.js"), "utf8");
+  const amazon = fs.readFileSync(path.resolve(__dirname, "..", "extension", "amazon.js"), "utf8");
+
+  assert.match(background, /WORKER_STALE_MS = 3 \* 60 \* 1000/);
+  assert.match(background, /async function pauseMissingWorker/);
+  assert.match(background, /async function pauseStaleWorker/);
+  assert.match(background, /async function handleWorkerTabClosed/);
+  assert.match(background, /async function handleWorkerError/);
+  assert.match(background, /closeWorker: false/);
+  assert.match(background, /workerPreserved: preservedWorker/);
+  assert.match(background, /Resume will reuse it/);
+  assert.match(background, /pauseMissingWorker\(await readRun\(\)\)/);
+  assert.match(background, /pauseStaleWorker\(run\)/);
+
+  assert.match(serviceWorker, /PROFIT_BACKFILL_BACKGROUND\.handleWorkerTabClosed\(tabId\)/);
+  assert.match(serviceWorker, /message\.type === 'poshmarkBackfillWorkerError'/);
+  assert.match(serviceWorker, /PROFIT_BACKFILL_BACKGROUND\.handleWorkerError/);
+
+  assert.match(poshmark, /type: "poshmarkBackfillWorkerError"/);
+  assert.match(poshmark, /Historical-profit worker stopped/);
+  assert.match(amazon, /type: "poshmarkBackfillWorkerError"/);
+  assert.match(amazon, /Historical-profit Amazon worker stopped/);
+  assert.match(amazon, /Could not checkpoint this Amazon order-search page/);
+  assert.match(amazon, /Could not checkpoint this Amazon order detail/);
+});
+
 test("monthly sync batches are durable, count every reviewed row, and finish the checkpoint", () => {
   const background = fs.readFileSync(path.resolve(__dirname, "..", "extension", "profit-backfill-background.js"), "utf8");
   const serviceWorker = fs.readFileSync(path.resolve(__dirname, "..", "extension", "background.js"), "utf8");

@@ -6895,6 +6895,9 @@ chrome.runtime.onStartup.addListener(() => {
 
 if (chrome.tabs?.onRemoved?.addListener) {
   chrome.tabs.onRemoved.addListener((tabId) => {
+    PROFIT_BACKFILL_BACKGROUND.handleWorkerTabClosed(tabId).catch((error) => {
+      recordExtensionLog({ source: 'poshmark-profit', operation: 'worker-tab-closed', message: error.message });
+    });
     EBAY_PROFIT_BACKGROUND.handleWorkerTabClosed(tabId).catch((error) => {
       recordExtensionLog({ source: 'ebay-profit', operation: 'worker-tab-closed', message: error.message });
     });
@@ -7381,6 +7384,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'poshmarkBackfillAmazonDetail') {
     PROFIT_BACKFILL_BACKGROUND.handleAmazonDetail(message.payload || {}, sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'poshmarkBackfillWorkerError') {
+    PROFIT_BACKFILL_BACKGROUND.handleWorkerError(message.error || {}, sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 

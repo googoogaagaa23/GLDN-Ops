@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.26. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.27. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -1182,14 +1182,15 @@ A resumable checkpoint, one-use Amazon unit ledger, a formatted month tab, exact
 ### Failure Recovery
 
 - Pause at Safe Checkpoint before closing the worker tab.
-- Resume recreates one worker tab if the old worker was closed.
+- If a worker tab closes, becomes blank, or stops reporting progress, GLDN Ops pauses at the exact checkpoint instead of restarting or writing rows.
+- A failed signed-in worker tab is preserved for inspection and Resume; deliberate Pause closes only the worker and retains progress.
 - Missing or ambiguous Amazon costs remain blank rather than becoming zero.
 - Use Resolve Missing Amazon Costs from another signed-in Amazon profile; every attempted profile is retained.
 - Never substitute EcomSniper markup, a product-page price, cart total, checkout total, or a different Amazon order.
 
 ### Evidence
 
-The original exact single-order path is live-proven in Profile 2. v3.11.35 added month filtering, formatted monthly output, unresolved-cost queuing, and cross-profile resolution. v3.11.36 through v3.11.41 hardened empty-page rejection, reload recovery, complete page loading, pagination, Show 100 selection, and review-time detail repair. Dashboard deployment @42 is live. The approved April 2026 run saved 317 unique reviewed orders: 260 exact Amazon costs and 57 unresolved costs retained blank and queued without duplicate sales. v3.11.42 aligns approval with every reviewed row, uses deterministic durable batches, and closes completed worker checkpoints. May, June, and July remain separate signed-in Profile 2 review and count-bound approval gates.
+The original exact single-order path is live-proven in Profile 2. v3.11.35 added month filtering, formatted monthly output, unresolved-cost queuing, and cross-profile resolution. v3.11.36 through v3.11.41 hardened empty-page rejection, reload recovery, complete page loading, pagination, Show 100 selection, and review-time detail repair. Dashboard deployment @42 is live. The approved April 2026 run saved 317 unique reviewed orders: 260 exact Amazon costs and 57 unresolved costs retained blank and queued without duplicate sales. v3.11.42 aligns approval with every reviewed row, uses deterministic durable batches, and closes completed worker checkpoints. The approved May 2026 sheet already contains 386 reviewed orders and must not be restarted or duplicated. v3.12.27 adds closed, blank, and silent-worker recovery with a preserved signed-in failure tab and exact Resume checkpoint.
 
 
 <a id="tasks-automation"></a>

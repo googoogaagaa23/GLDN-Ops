@@ -1,12 +1,14 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-08-23  
-Current local manifest: 3.12.26
+Last updated: 2026-08-26  
+Current local manifest: 3.12.27
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  
 Current machine identity: eBay computer `0` / account `FAK12`, plus Poshmark computer `7`
 
+> v3.12.27 Poshmark recovery: a closed, blank, or silent historical-profit worker now pauses at the exact saved checkpoint. A failed signed-in tab is preserved for inspection and Resume; deliberate Pause still closes only the worker. Recovery never resyncs an already approved month automatically.
+>
 > v3.12.26 product research: **Product Research Desk** now combines a selectable Product Hunter word output with the existing link preflight. The page shows 175 official rules, 2 Discord-backed Review signals, and transparent Telegram coverage with zero published rules from the unrelated reviewed post. Community evidence can never create a hard Block.
 >
 > v3.12.25 operator guidance: the popup now has a searchable **Guides** tab for all 29 cataloged features, every main workflow launcher has a contextual `?` control, and every dedicated workflow page includes a collapsible copy of the exact same prerequisites, steps, approval stop, expected result, and recovery guidance. Contextual links open the requested guide expanded instead of dropping a new operator at the top of a generic manual.
