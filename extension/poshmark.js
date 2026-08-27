@@ -1338,6 +1338,7 @@
         <div class="gldn-actions gldn-backfill-launcher-actions">
           <button type="button" class="gldn-primary" data-action="start">Start New Run</button>
           <button type="button" class="gldn-secondary" data-action="resume" ${run ? "" : "disabled"}>Resume / Open Review</button>
+          <button type="button" class="gldn-secondary" data-action="progress">Open Live Progress</button>
           <button type="button" class="gldn-secondary" data-action="pause" ${run?.active ? "" : "disabled"}>Pause at Checkpoint</button>
         </div>
         <div class="gldn-modal-status">${run ? `Saved checkpoint: ${escapeHtml(summary.phase || run.phase || "ready")}.` : "No historical-profit checkpoint is currently saved."}</div>
@@ -1358,6 +1359,10 @@
       status.textContent = "Resuming saved checkpoint...";
       const result = await resumeHistoricalProfitBackfill();
       status.textContent = result?.ok ? `Checkpoint resumed: ${result.summary?.phase || "working"}.` : result?.error || "The checkpoint did not resume.";
+    });
+    overlay.querySelector("[data-action='progress']").addEventListener("click", async () => {
+      const result = await runtimeMessage({ type: "openExtensionPage", page: "profit-progress.html", reuse: true });
+      status.textContent = result?.ok ? "Live profit progress opened." : result?.error || "Live profit progress did not open.";
     });
     overlay.querySelector("[data-action='pause']").addEventListener("click", async () => {
       const result = await runtimeMessage({ type: "stopPoshmarkProfitBackfill" });

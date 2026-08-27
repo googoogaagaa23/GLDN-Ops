@@ -59,6 +59,8 @@ const DASHBOARD_REQUEST_TIMEOUT_MS = 15000;
 const DASHBOARD_BATCH_REQUEST_TIMEOUT_MS = 90000;
 const HISTORICAL_PROFIT_PAGE_ACTION_TIMEOUT_MS = 360000;
 const HISTORICAL_PROFIT_SYNC_BATCH_SIZE = 50;
+const POSHMARK_PROFIT_WORKBOOK_ID = '1PV4Fpnjjd5tNwdwmqLDbi-RLBbIqMq94Gxj0YU4AOl4';
+const SHARED_PROFIT_WORKBOOK_ID = '1z3ouzNopLpiT3icJyhzLf3AkCO7I2thV1mQWnIEdIx8';
 const FOUNDATION = globalThis.GLDN_FOUNDATION;
 const EBAY_PROFIT_CORE = globalThis.GLDN_EBAY_PROFIT_CORE;
 const EBAY_PROFIT_BACKGROUND = globalThis.GLDN_EBAY_PROFIT_BACKGROUND;
@@ -499,6 +501,51 @@ function queryTabs(queryInfo = {}) {
       else resolve(tabs || []);
     });
   });
+}
+
+async function openOrFocusExtensionPage(page, reuse = true) {
+  const url = chrome.runtime.getURL(page);
+  if (reuse) {
+    const existing = (await queryTabs({})).find((tab) => controlUrlsEqual(tab?.url, url));
+    if (Number.isInteger(existing?.id)) {
+      const tab = await updateChromeTab(existing.id, { active: true });
+      return { ok: true, reused: true, tabId: tab.id };
+    }
+  }
+  const tab = await createChromeTab({ url, active: true });
+  return { ok: true, reused: false, tabId: tab.id };
+}
+
+async function openOrFocusProfitWorkbook(spreadsheetId) {
+  const id = String(spreadsheetId || '').trim();
+  if (![POSHMARK_PROFIT_WORKBOOK_ID, SHARED_PROFIT_WORKBOOK_ID].includes(id)) {
+    throw new Error('Unknown GLDN Ops profit workbook.');
+  }
+  const marker = `/spreadsheets/d/${id}/`;
+  const existing = (await queryTabs({})).find((tab) => String(tab?.url || '').includes(marker));
+  if (Number.isInteger(existing?.id)) {
+    const tab = await updateChromeTab(existing.id, { active: true });
+    return { ok: true, reused: true, tabId: tab.id };
+  }
+  const tab = await createChromeTab({ url: `https://docs.google.com/spreadsheets/d/${id}/edit`, active: true });
+  return { ok: true, reused: false, tabId: tab.id };
+}
+
+async function openProfitProgressAfter(resultPromise) {
+  const result = await resultPromise;
+  if (!result?.ok) return result;
+  const progress = await openOrFocusExtensionPage('profit-progress.html', true);
+  return { ...result, progressTabId: progress.tabId, progressTabReused: progress.reused };
+}
+
+async function syncPoshmarkProfitAndOpenWorkbook(confirmToken) {
+  const result = await syncReviewedPoshmarkBackfill(confirmToken);
+  if (!result?.ok || result.queued) return result;
+  const spreadsheetId = result.state?.scope === 'resolve-ebay'
+    ? SHARED_PROFIT_WORKBOOK_ID
+    : POSHMARK_PROFIT_WORKBOOK_ID;
+  const workbook = await openOrFocusProfitWorkbook(spreadsheetId);
+  return { ...result, workbookTabId: workbook.tabId, workbookTabReused: workbook.reused };
 }
 
 function getTab(tabId) {
@@ -7343,12 +7390,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'startPoshmarkProfitBackfill') {
-    startPoshmarkProfitBackfillGuarded(message.options || {}, sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
+    openProfitProgressAfter(startPoshmarkProfitBackfillGuarded(message.options || {}, sender)).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 
   if (message.type === 'resumePoshmarkProfitBackfill') {
-    PROFIT_BACKFILL_BACKGROUND.resume(sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
+    openProfitProgressAfter(PROFIT_BACKFILL_BACKGROUND.resume(sender)).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 
@@ -7393,7 +7440,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'syncPoshmarkProfitBackfill') {
-    syncReviewedPoshmarkBackfill(message.confirm).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
+    syncPoshmarkProfitAndOpenWorkbook(message.confirm).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 
@@ -7478,18 +7525,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'openExtensionPage') {
-    const allowedPages = new Set(['guide.html', 'onboarding.html', 'popup.html', 'ebay-profit.html', 'order-audit.html', 'policy-listing-audit.html']);
+    const allowedPages = new Set(['guide.html', 'onboarding.html', 'popup.html', 'ebay-profit.html', 'order-audit.html', 'policy-listing-audit.html', 'profit-progress.html']);
     const page = String(message.page || '');
     if (!allowedPages.has(page)) {
       sendResponse({ ok: false, error: 'Unknown extension page.' });
       return true;
     }
-    chrome.tabs.create({ url: chrome.runtime.getURL(page) }, (tab) => {
-      const error = chrome.runtime.lastError;
-      sendResponse(error
-        ? { ok: false, error: error.message }
-        : { ok: true, tabId: tab?.id ?? null });
-    });
+    openOrFocusExtensionPage(page, message.reuse === true)
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'openPoshmarkProfitWorkbook') {
+    openOrFocusProfitWorkbook(POSHMARK_PROFIT_WORKBOOK_ID)
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+
+  if (message.type === 'openSharedProfitWorkbook') {
+    openOrFocusProfitWorkbook(SHARED_PROFIT_WORKBOOK_ID)
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 

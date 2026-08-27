@@ -2,6 +2,16 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.28 - 2026-08-26
+
+- Added a dedicated, durable Profit Run Progress page for Historical Poshmark Profit and Amazon cost-resolution runs.
+- Start and Resume now reuse one progress tab instead of leaving progress inside a disposable popup or spawning duplicate tabs.
+- Shows the current phase, order or ASIN, indexed/detail/match/review counts, exact staged profit, errors, pause reason, and exact spreadsheet destination.
+- Added Show Current Page, Open Review, Resume, Pause Safely, and Reset Checkpoint controls without starting duplicate work.
+- Added direct progress access in both the full popup and Poshmark workflow launcher.
+- Opens or focuses the correct real workbook only after an explicitly approved sync succeeds without entering the retry queue.
+- A queued, failed, or unapproved run never opens a sheet as though its rows were already saved.
+
 ## v3.12.27 - 2026-08-26
 
 - Fixed Historical Poshmark Profit Backfill getting stuck on a blank or unresponsive worker page.

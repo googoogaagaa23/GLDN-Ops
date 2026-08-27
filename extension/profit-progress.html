@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Profit Run Progress - GLDN Ops</title>
+  <link rel="stylesheet" href="profit-progress.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">GLDN OPS / PROFIT</p>
+      <h1>Profit Run Progress</h1>
+      <p class="lede">Live checkpoint status for the current Poshmark and Amazon profit run.</p>
+    </div>
+    <div class="run-identity">
+      <strong id="runIdentity">No saved run</strong>
+      <span id="extensionVersion">Loading GLDN Ops...</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="run-bar" aria-label="Current run">
+      <div>
+        <span class="label">Current state</span>
+        <strong id="phaseLabel">No checkpoint</strong>
+        <span id="lastUpdated" class="secondary-text">Waiting for a profit run.</span>
+      </div>
+      <div class="run-actions">
+        <button id="resumeRun" class="primary" type="button" disabled>Resume</button>
+        <button id="pauseRun" type="button" disabled>Pause Safely</button>
+        <button id="openWorker" type="button" disabled>Show Current Page</button>
+        <button id="openReview" type="button" disabled>Open Review</button>
+        <button id="resetRun" class="danger-quiet" type="button" disabled>Reset Checkpoint</button>
+      </div>
+    </section>
+
+    <div id="notice" class="notice" data-tone="neutral">Start Historical Profit Backfill from GLDN Ops to begin.</div>
+
+    <section class="stages" aria-label="Profit run stages">
+      <div class="stage" id="stageIndex" data-state="pending">
+        <span class="stage-number">1</span>
+        <div><strong>Index sales</strong><span id="stageIndexDetail">0 pages, 0 sales</span></div>
+      </div>
+      <div class="stage" id="stageDetails" data-state="pending">
+        <span class="stage-number">2</span>
+        <div><strong>Read Poshmark orders</strong><span id="stageDetailsDetail">0 of 0 details</span></div>
+      </div>
+      <div class="stage" id="stageAmazon" data-state="pending">
+        <span class="stage-number">3</span>
+        <div><strong>Match Amazon costs</strong><span id="stageAmazonDetail">0 of 0 ASINs</span></div>
+      </div>
+      <div class="stage" id="stageReview" data-state="pending">
+        <span class="stage-number">4</span>
+        <div><strong>Review and approve</strong><span id="stageReviewDetail">Not ready</span></div>
+      </div>
+    </section>
+
+    <section class="metrics" aria-label="Profit totals">
+      <div><span>Sales indexed</span><strong id="salesIndexed">0</strong></div>
+      <div><span>Details read</span><strong id="detailsCaptured">0</strong></div>
+      <div><span>Amazon units read</span><strong id="amazonUnits">0</strong></div>
+      <div><span>Exact costs</span><strong id="exactCount">0</strong></div>
+      <div><span>Needs review</span><strong id="reviewCount">0</strong></div>
+      <div><span>Missing SKU</span><strong id="missingSkuCount">0</strong></div>
+      <div><span>Amazon not found</span><strong id="notFoundCount">0</strong></div>
+      <div class="profit-metric"><span>Exact profit staged</span><strong id="exactProfit">$0.00</strong></div>
+    </section>
+
+    <section class="detail-grid">
+      <div class="current-work">
+        <p class="eyebrow">CURRENT WORK</p>
+        <h2 id="currentWorkTitle">Waiting for a run</h2>
+        <p id="currentWorkDetail" class="secondary-text">The saved checkpoint will appear here automatically.</p>
+        <dl>
+          <div><dt>Run range</dt><dd id="runScope">-</dd></div>
+          <div><dt>Amazon profile</dt><dd id="supplierProfile">Not set</dd></div>
+          <div><dt>Synced</dt><dd id="syncedCount">0</dd></div>
+          <div><dt>Pending</dt><dd id="pendingCount">0</dd></div>
+          <div><dt>Errors</dt><dd id="errorCount">0</dd></div>
+        </dl>
+      </div>
+
+      <div class="destinations">
+        <p class="eyebrow">DESTINATIONS</p>
+        <h2 id="destinationTitle">Profit sheets</h2>
+        <p id="destinationDetail" class="secondary-text">Rows appear only after the exact review is approved.</p>
+        <div class="destination-actions">
+          <button id="openMonthlySheet" class="primary" type="button">Open Poshmark Profit Workbook</button>
+          <button id="openSharedSheet" type="button">Open Shared Profit Sheets</button>
+        </div>
+        <p id="sheetNames" class="sheet-names">Monthly tab: not selected</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="profit-progress.js"></script>
+</body>
+</html>

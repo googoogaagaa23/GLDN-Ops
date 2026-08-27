@@ -7,19 +7,19 @@
 Run Setup once on each Windows computer. Load the stable extension folder once
 in every intended Chrome profile. Later updates use **Update & Reload**.
 
-SHA-256: 70B486B353066BE9CD63ACE4EC695A6422AD28506A83C23FD0CCDA21CAE580BE
+SHA-256: 39B79EA86EC8521D7D7193BE37D641D0A7EF270FC880ECECBB74C7068376ED5A
 
 ## Current extension package
 
-- [Download GLDN Ops v3.12.27](./GLDN-Ops-extension-v3.12.27.zip)
+- [Download GLDN Ops v3.12.28](./GLDN-Ops-extension-v3.12.28.zip)
 
-SHA-256: 30CE3CA3593E7F822D7B57B0B5891D87D4F83AB698B919EEC5091372F53216AE
+SHA-256: 50D413628D5D9C05DD73F833EE5733ED9253BDA45575D9FDB12724DD2DF8030B
 
 ## Current full local bundle
 
-- [Download the GLDN Ops v3.12.27 local bundle](./GLDN-Ops-local-v3.12.27.zip)
+- [Download the GLDN Ops v3.12.28 local bundle](./GLDN-Ops-local-v3.12.28.zip)
 
-SHA-256: 27E2969BCF008090FEEF2BB9DB2B4B177A6A6F04DF7C27934FFF277D72C88080
+SHA-256: 794764CBC6B53E31CD51941A5595B6DD2E7995C16DC3C76C2B365A74E8DF7766
 
 The complete machine-readable file list is in
-[release-manifest-v3.12.27.json](./release-manifest-v3.12.27.json).
+[release-manifest-v3.12.28.json](./release-manifest-v3.12.28.json).

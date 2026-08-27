@@ -1,4 +1,11 @@
-GLDN Ops v3.12.27
+GLDN Ops v3.12.28
+
+v3.12.28 live profit progress:
+- Opens one reusable Profit Run Progress tab whenever Historical Poshmark Profit starts or resumes.
+- Shows the live phase, current order or ASIN, counts, exact profit staged, errors, pause reason, and exact sheet destination.
+- Keeps progress visible after the popup closes without creating a second worker or changing marketplace data.
+- Opens the correct real workbook only after an approved sync succeeds without entering the retry queue.
+- Adds direct progress and workbook controls in the popup and Poshmark workflow launcher.
 
 v3.12.27 Poshmark backfill recovery:
 - Detects a closed or silent historical-profit worker instead of leaving the run stuck on a blank page.

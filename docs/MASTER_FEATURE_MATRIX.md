@@ -1,13 +1,13 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-08-26  
-Current local manifest: 3.12.27
+Current local manifest: 3.12.28
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  
 Current machine identity: eBay computer `0` / account `FAK12`, plus Poshmark computer `7`
 
-> v3.12.27 Poshmark recovery: a closed, blank, or silent historical-profit worker now pauses at the exact saved checkpoint. A failed signed-in tab is preserved for inspection and Resume; deliberate Pause still closes only the worker. Recovery never resyncs an already approved month automatically.
+> v3.12.28 profit visibility: Historical Poshmark Profit Start and Resume now open one reusable live progress page with the exact phase, order or ASIN, counts, errors, pause reason, and destination. A confirmed non-queued sync opens the real workbook; unsynced work remains only in the local checkpoint.
 >
 > v3.12.26 product research: **Product Research Desk** now combines a selectable Product Hunter word output with the existing link preflight. The page shows 175 official rules, 2 Discord-backed Review signals, and transparent Telegram coverage with zero published rules from the unrelated reviewed post. Community evidence can never create a hard Block.
 >

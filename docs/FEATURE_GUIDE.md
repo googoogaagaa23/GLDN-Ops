@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.27. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.28. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -1163,13 +1163,15 @@ Ten exact Profile 2 order-cost/profit matches are live-proven. The separate visi
 
 1. Open Workflows in the popup, or click Historical Profit Backfill on a Poshmark page, and choose Current sale, Pilot, New since last sync, Last 90 days, One month, or All sales.
 2. For the initial history, use One month and enter YYYY-MM, such as 2026-04 for April 2026. Month-by-month is recommended; All sales is available for a deliberate full-history migration but creates a much larger review and recovery surface.
-3. Let the single background worker switch Poshmark to Show 100 and index only the selected range or month.
-4. Let the worker open each Poshmark sale detail and decode every EcomSniper SKU into an exact ASIN.
-5. Let it search all matching Amazon order result pages and open each exact order detail in the same worker tab.
-6. Review every row, including earnings, exact Amazon item cost, supplier order, unresolved reason, and attempted Amazon profile.
-7. Approve the exact month and live row count before creating or updating the month tab; unresolved costs remain blank and enter the shared queue.
-8. On another signed-in Amazon Chrome profile, use Resolve Missing Amazon Costs to retry open queue rows, then approve the exact resolution count.
-9. Repeat each missing historical month once, then use New since last sync for ongoing additions. The dashboard totals the saved monthly tabs without rescanning completed sales.
+3. Start or Resume opens one reusable Profit Run Progress tab. Keep it open to see the current phase, current order or ASIN, exact and unresolved counts, errors, pause reason, and destination tab without interrupting the signed-in worker.
+4. Let the single background worker switch Poshmark to Show 100 and index only the selected range or month.
+5. Let the worker open each Poshmark sale detail and decode every EcomSniper SKU into an exact ASIN.
+6. Let it search all matching Amazon order result pages and open each exact order detail in the same worker tab.
+7. Review every row, including earnings, exact Amazon item cost, supplier order, unresolved reason, and attempted Amazon profile.
+8. Approve the exact month and live row count before creating or updating the month tab; unresolved costs remain blank and enter the shared queue.
+9. After a confirmed, non-queued sync, GLDN Ops opens or focuses the actual Poshmark profit workbook. Use the progress page workbook buttons at any time to inspect existing saved rows; unsynced work never appears there.
+10. On another signed-in Amazon Chrome profile, use Resolve Missing Amazon Costs to retry open queue rows, then approve the exact resolution count.
+11. Repeat each missing historical month once, then use New since last sync for ongoing additions. The dashboard totals the saved monthly tabs without rescanning completed sales.
 
 ### Approval Stop
 
@@ -1182,6 +1184,7 @@ A resumable checkpoint, one-use Amazon unit ledger, a formatted month tab, exact
 ### Failure Recovery
 
 - Pause at Safe Checkpoint before closing the worker tab.
+- If the popup closes, reopen the durable Profit Run Progress page; it reads the saved checkpoint and never starts a duplicate run.
 - If a worker tab closes, becomes blank, or stops reporting progress, GLDN Ops pauses at the exact checkpoint instead of restarting or writing rows.
 - A failed signed-in worker tab is preserved for inspection and Resume; deliberate Pause closes only the worker and retains progress.
 - Missing or ambiguous Amazon costs remain blank rather than becoming zero.
@@ -1190,7 +1193,7 @@ A resumable checkpoint, one-use Amazon unit ledger, a formatted month tab, exact
 
 ### Evidence
 
-The original exact single-order path is live-proven in Profile 2. v3.11.35 added month filtering, formatted monthly output, unresolved-cost queuing, and cross-profile resolution. v3.11.36 through v3.11.41 hardened empty-page rejection, reload recovery, complete page loading, pagination, Show 100 selection, and review-time detail repair. Dashboard deployment @42 is live. The approved April 2026 run saved 317 unique reviewed orders: 260 exact Amazon costs and 57 unresolved costs retained blank and queued without duplicate sales. v3.11.42 aligns approval with every reviewed row, uses deterministic durable batches, and closes completed worker checkpoints. The approved May 2026 sheet already contains 386 reviewed orders and must not be restarted or duplicated. v3.12.27 adds closed, blank, and silent-worker recovery with a preserved signed-in failure tab and exact Resume checkpoint.
+The original exact single-order path is live-proven in Profile 2. v3.11.35 added month filtering, formatted monthly output, unresolved-cost queuing, and cross-profile resolution. v3.11.36 through v3.11.41 hardened empty-page rejection, reload recovery, complete page loading, pagination, Show 100 selection, and review-time detail repair. Dashboard deployment @42 is live. The approved April 2026 run saved 317 unique reviewed orders: 260 exact Amazon costs and 57 unresolved costs retained blank and queued without duplicate sales. v3.11.42 aligns approval with every reviewed row, uses deterministic durable batches, and closes completed worker checkpoints. The approved May 2026 sheet already contains 386 reviewed orders and must not be restarted or duplicated. v3.12.27 adds closed, blank, and silent-worker recovery with a preserved signed-in failure tab and exact Resume checkpoint. v3.12.28 adds a durable live progress page and opens the real workbook only after a confirmed non-queued sync.
 
 
 <a id="tasks-automation"></a>

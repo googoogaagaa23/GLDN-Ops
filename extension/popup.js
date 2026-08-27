@@ -1571,6 +1571,11 @@ document.getElementById('refreshEcomSniperMonitor').addEventListener('click', ()
   setMessage('EcomSniper handoff status refreshed. Only GLDN-observable state is reported.');
 });
 
+document.getElementById('openProfitProgress').addEventListener('click', async () => {
+  const response = await runtimeMessage({ type: 'openExtensionPage', page: 'profit-progress.html', reuse: true });
+  if (!response?.ok) setMessage(response?.error || 'Could not open live profit progress.', true);
+});
+
 document.getElementById('stopEcomSniperAssist').addEventListener('click', async () => {
   const response = await runtimeMessage({ type: 'stopEcomSniperHandoff' });
   setMessage(response?.ok ? response.message : response?.error || 'The EcomSniper handoff could not be stopped.', !response?.ok);
