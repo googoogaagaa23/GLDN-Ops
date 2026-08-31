@@ -20,7 +20,7 @@ test('standalone manifest grants only the permissions the hunter needs', () => {
   assert.ok(!manifest.permissions.includes('nativeMessaging'));
   assert.ok(!manifest.host_permissions.some((host) => host === 'https://*/*' || host === 'http://*/*'));
   const ebayScript = manifest.content_scripts.find((script) => script.matches.includes('https://*.ebay.com/*'));
-  assert.deepEqual(ebayScript.js, ['hunter-core.js', 'ebay-content.js']);
+  assert.deepEqual(ebayScript.js, ['risk-profile.js', 'hunter-core.js', 'ebay-content.js']);
 });
 
 test('every file declared by the manifest exists', () => {
@@ -76,7 +76,17 @@ test('policy data ships as a nonempty reviewed rule set', () => {
   assert.ok(rules.rules.length >= 177);
   assert.ok(rules.rules.every((rule) => ['block', 'review'].includes(rule.action)));
   assert.ok(rules.rules.every((rule) => ['official-ebay', 'profile2-discord', 'profile2-telegram'].includes(rule.sourceType)));
-  assert.equal(rules.rules.filter((rule) => rule.sourceType === 'official-ebay').length, 175);
+  assert.ok(rules.rules.filter((rule) => rule.sourceType === 'official-ebay').length >= 175);
   assert.equal(rules.rules.filter((rule) => rule.sourceType === 'profile2-discord').length, 2);
   assert.ok(rules.rules.filter((rule) => rule.sourceType !== 'official-ebay').every((rule) => rule.action === 'review'));
+});
+
+test('a versioned fail-closed Product Hunter risk profile ships with the extension', () => {
+  const profile = require(path.join(root, 'risk-profile.js'));
+  assert.equal(profile.schemaVersion, 1);
+  assert.match(profile.profileVersion, /^\d{4}-\d{2}-\d{2}\./);
+  assert.deepEqual(profile.approvedSeeds, []);
+  assert.match(profile.disclaimer, /seed authority comes from the versioned policy-rules clearance profile/i);
+  assert.ok(profile.genericBrandLabels.includes('generic'));
+  assert.ok(profile.ipCuePhrases.includes('compatible with'));
 });

@@ -1,12 +1,17 @@
 # GLDN Product Hunter
 
+Current package: v0.3.0
+
 GLDN Product Hunter is a separate Chrome extension for finding Amazon products before EcomSniper lists them. It searches Amazon in a normal signed-in Chrome session, opens each candidate product page, applies the reviewed GLDN eBay listing-policy rules, and prepares a clean list of Ready Amazon links.
 
 It does not replace EcomSniper. It does not use an eBay API, edit eBay, control EcomSniper's private extension pages, or submit listings.
 
 ## Filters
 
-- Reviewed official eBay listing-policy rules: Block or Review.
+- Exact, versioned Product Research Desk starting-word allowlist; unknown words cannot start a hunt.
+- Reviewed official eBay listing-policy rules: Block or Review. Official Blocks keep priority.
+- Missing or non-generic brands and brand, character, franchise, licensing, fan-art, compatibility, replacement, and model cues require Review.
+- Live Amazon Sold by and Ships from evidence is retained in the audit; branded offers never become Ready, even when Amazon is the retailer.
 - Clothing, shoes, and fashion exclusion.
 - Sponsored Amazon result exclusion.
 - Configurable Amazon price range.
@@ -35,7 +40,7 @@ The packaged ZIP must be extracted before using **Load unpacked**.
 2. Choose the computer used by the signed-in eBay account.
 3. Select **Scan Active Listings**. The extension reads every Active Listings page in one inactive eBay tab and verifies the final unique-item count before replacing the prior index.
 4. If live scanning is unavailable, download eBay's **All active listings** CSV and use **Import Active Listings CSV**.
-5. Enter one product keyword per line and choose the filters.
+5. Enter one approved Product Research Desk starting word per line and choose the filters. The hunt will not start if any word is outside the versioned allowlist.
 6. Leave **Exclude products already active on eBay** enabled, then select **Start Hunt**.
 7. Leave the inactive Amazon worker tab open. If Amazon presents a CAPTCHA, solve it in that tab and select **Resume**.
 8. Review the Ready, Review, Blocked, Excluded, and Incomplete rows. Exact active ASIN/SKU matches are Excluded; exact title matches are Review.
@@ -45,7 +50,7 @@ The packaged ZIP must be extracted before using **Load unpacked**.
 
 ## Status meanings
 
-- **Ready:** Full Amazon evidence passed current filters and no reviewed policy rule matched. This is not an eBay guarantee.
+- **Ready:** Full Amazon evidence passed the versioned generic risk profile and no reviewed policy rule matched. This is not eBay approval or a guarantee.
 - **Review:** Evidence is ambiguous or a reviewed restricted-item rule requires a person to inspect it.
 - **Blocked:** A reviewed prohibited-item rule matched.
 - **Excluded:** A non-policy filter removed the product, such as fashion, sponsored, price, rating, reviews, stock, or recent reuse.
@@ -60,3 +65,4 @@ The packaged ZIP must be extracted before using **Load unpacked**.
 - The worker runs in one inactive Amazon tab and stops when the target is reached.
 - Pause, Resume, Stop, Reset, run log, and alarm recovery are built in.
 - Copying Ready links is the explicit handoff. No listing is created automatically.
+- Any uncertainty about authenticity, authorization, seller source, packaging, images, or product identity remains Review.

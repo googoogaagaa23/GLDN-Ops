@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GLDN Product Hunter",
-  "version": "0.2.0",
-  "description": "Finds Amazon products, applies reviewed eBay listing-policy rules, and prepares clean EcomSniper links.",
+  "version": "0.3.0",
+  "description": "Uses approved generic research seeds, conservative IP review, and reviewed eBay policy rules before preparing EcomSniper links.",
   "permissions": [
     "storage",
     "unlimitedStorage",
@@ -33,6 +33,7 @@
         "https://*.amazon.com/*"
       ],
       "js": [
+        "risk-profile.js",
         "hunter-core.js",
         "amazon-content.js"
       ],
@@ -43,6 +44,7 @@
         "https://*.ebay.com/*"
       ],
       "js": [
+        "risk-profile.js",
         "hunter-core.js",
         "ebay-content.js"
       ],

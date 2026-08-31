@@ -201,7 +201,10 @@ test("extension and dashboard contracts expose the read-only cross-profile workf
   assert.match(worker, /active:\s*false/);
   assert.match(worker, /replaceProfile/);
   assert.match(popup, /Open Order Placement Audit/);
+  assert.match(popup, /id="openOrderPlacementAuditQuick"/);
+  assert.ok(popup.indexOf('id="openOrderPlacementAuditQuick"') < popup.indexOf('class="popup-nav"'));
   assert.match(popupJs, /order-audit\.html/);
+  assert.match(popupJs, /openOrderPlacementAuditQuick/);
   assert.match(page, /This audit is read-only/);
   assert.match(page, /Save Profile List/);
   assert.match(page, /Download CSV/);

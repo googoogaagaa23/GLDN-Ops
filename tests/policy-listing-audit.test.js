@@ -46,11 +46,15 @@ test('existing listing audit classifies every unique item and decodes SKU ASINs'
   }, preflight);
 
   assert.equal(audit.totalListings, 3);
-  assert.deepEqual(audit.summary, { total: 3, clear: 1, review: 1, block: 1 });
+  assert.deepEqual(audit.summary, { total: 3, clear: 0, review: 2, block: 1, authenticityReview: 0 });
   assert.equal(audit.listings.find((row) => row.itemId === '123456789012').asin, 'B012345678');
   assert.equal(audit.listings.find((row) => row.itemId === '123456789012').action, 'block');
   assert.equal(audit.listings.find((row) => row.itemId === '123456789013').action, 'review');
-  assert.equal(audit.listings.find((row) => row.itemId === '123456789014').action, 'clear');
+  assert.equal(audit.listings.find((row) => row.itemId === '123456789014').action, 'review');
+  assert.match(
+    audit.listings.find((row) => row.itemId === '123456789014').reason,
+    /Existing-listing evidence is limited|No valid generic-only clearance profile is loaded/i
+  );
   assert.equal(audit.listings.find((row) => row.itemId === '123456789013').price, 9.99);
   assert.match(audit.reportFingerprint, /^policy-listings-/);
   assert.match(audit.rulesFingerprint, /^policy-rules-/);
@@ -113,7 +117,7 @@ test('control readback keeps exact totals and Block evidence without every listi
   }, preflight);
 
   const compact = policyAudit.compactControlRecord(audit);
-  assert.deepEqual(compact.summary, { total: 3, clear: 1, review: 1, block: 1 });
+  assert.deepEqual(compact.summary, { total: 3, clear: 0, review: 2, block: 1, authenticityReview: 0 });
   assert.equal(compact.totalListings, 3);
   assert.equal(compact.blockListings.length, 1);
   assert.equal(compact.blockListings[0].itemId, '123456789012');
@@ -175,7 +179,7 @@ test('Profile 2 control can run only the complete read-only policy scan', () => 
   assert.doesNotMatch(source, /prepareEbayPolicyListingEndReview|submitEbayPolicyListingEndReview/);
 });
 
-test('policy audit page exposes recovery, exact review, and Block-only safety language', () => {
+test('policy audit page exposes complete recovery and CSV review but guards all listing-ending controls off', () => {
   const ebay = fs.readFileSync(path.join(ROOT, 'extension', 'ebay.js'), 'utf8');
   const background = fs.readFileSync(path.join(ROOT, 'extension', 'background.js'), 'utf8');
   const popup = fs.readFileSync(path.join(ROOT, 'extension', 'popup.html'), 'utf8');
@@ -198,11 +202,27 @@ test('policy audit page exposes recovery, exact review, and Block-only safety la
   assert.match(page, /Start Fresh Complete Scan/);
   assert.match(page, /Resume Scan/);
   assert.match(page, /Pause Safely/);
-  assert.match(page, /Cancel Review &amp; Rescan/);
-  assert.match(page, /Review rows are never endable/);
-  assert.match(page, /APPROVE END POLICY LISTINGS N/);
-  assert.match(pageJs, /listing\.action === "block"/);
-  assert.match(pageJs, /submitEbayPolicyListingEndReview/);
-  assert.match(pageJs, /will not prepare another batch automatically/);
-  assert.match(pageJs, /cancelReviewAndRescan/);
+  assert.match(page, /class="audit-only"/);
+  assert.match(page, /id="selectAllBlock"[^>]+hidden/);
+  assert.match(page, /id="prepareReview"[^>]+hidden/);
+  assert.match(page, /Read-only audit mode/);
+  assert.match(page, /exposes no selection, revision, relisting, or End control/i);
+  assert.match(pageJs, /const AUDIT_ONLY = true/);
+  assert.match(pageJs, /if \(AUDIT_ONLY\)[^]+No eBay End review can be prepared here/);
+  assert.match(pageJs, /if \(AUDIT_ONLY\)[^]+No listing can be ended here/);
+  assert.match(pageJs, /elements\.currentReview\.hidden = AUDIT_ONLY/);
+});
+
+test('policy audit fingerprint changes with source evidence and clearance semantics', () => {
+  const base = policyAudit.rulePackFingerprint(rulePack, preflight);
+  const evidenceChanged = JSON.parse(JSON.stringify(rulePack));
+  evidenceChanged.rules[0].evidenceUrls = ['https://example.test/different-policy'];
+  const profileChanged = JSON.parse(JSON.stringify(rulePack));
+  profileChanged.clearancePolicy = {
+    id: 'profile', version: '2', mode: 'review-unless-generic-allowlist', reviewedAt: '2026-08-30',
+    maxAgeDays: 0, readyPhrases: ['desk organizer'], genericTokens: ['desk', 'organizer'],
+    reviewPhrases: [], genericBrandValues: ['generic'], evidenceUrls: ['https://www.ebay.com/help/policies/prohibited-restricted-items/prohibited-restricted-items?id=4207']
+  };
+  assert.notEqual(policyAudit.rulePackFingerprint(evidenceChanged, preflight), base);
+  assert.notEqual(policyAudit.rulePackFingerprint(profileChanged, preflight), base);
 });

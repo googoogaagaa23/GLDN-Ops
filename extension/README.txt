@@ -1,4 +1,14 @@
-GLDN Ops v3.12.28
+GLDN Ops v3.12.29
+
+v3.12.29 eBay policy and IP safety refresh:
+- Reviews the complete official eBay prohibited-and-restricted hub and every linked policy page, plus the linked intellectual-property and VeRO guidance.
+- Expands the shared source-linked pack to 578 rules: 576 official eBay rules and 2 Discord community Review warnings; Telegram still contributes zero item rules.
+- Publishes exactly 500 versioned generic Product Hunter starting phrases and rejects unknown seeds in the standalone Product Hunter before any Amazon worker tab opens.
+- Ships the standalone GLDN Product Hunter v0.3.0 fail-closed seed, brand/IP, and active-listing guard.
+- Keeps every unknown, branded, model-specific, compatibility, licensing, character, franchise, fan-art, or incomplete product in Needs review.
+- Lets only explicit current official-policy matches create Block; community evidence can create Review only.
+- Makes Existing Listings Policy Audit read-only and keeps every unmatched title/SKU-only listing in Needs review because authenticity, authorization, images, safety, and provenance are not proven.
+- Ready is never eBay approval, and no policy scan, Preflight check, or Product Hunter result changes or submits a marketplace listing.
 
 v3.12.28 live profit progress:
 - Opens one reusable Profit Run Progress tab whenever Historical Poshmark Profit starts or resumes.

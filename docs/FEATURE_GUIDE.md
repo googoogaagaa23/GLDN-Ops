@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.28. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.29. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -792,7 +792,7 @@ The exact ending path is already live-proven in signed-in Profile 2 across 736 p
 
 **Evidence status:** IMPLEMENTED, LIVE REVIEW PENDING
 
-**Purpose:** Read every active eBay listing, classify it with current reviewed policy rules, and allow only exact reviewed Block matches into an approval-gated native eBay End review.
+**Purpose:** Read every active eBay listing, classify it with the current policy and generic/IP risk profile, and make no marketplace changes.
 
 ### Prerequisites
 
@@ -806,33 +806,28 @@ The exact ending path is already live-proven in signed-in Profile 2 across 736 p
 2. Click Start Fresh Complete Scan, or Resume Scan after a saved interruption.
 3. GLDN Ops opens one quiet signed-in eBay tab and verifies every 200-row Active Listings page by exact item number.
 4. Wait for Scanned to equal eBay's reported total; a partial or changing total cannot publish an audit.
-5. Review No rule match, Needs review, and reviewed Block rows. No rule match is not eBay approval, and Needs review rows can never be selected for ending.
-6. Download the full source-linked CSV audit if needed.
-7. Select reviewed Block rows and click Review Selected on eBay. At most 200 exact item numbers enter one native eBay review.
-8. Inspect every visible eBay row, return to the audit page, and type APPROVE END POLICY LISTINGS N only when the exact count and rows are correct.
-9. Wait for eBay's exact success and failure counts. GLDN Ops records the receipt and stops.
-10. Start another batch only as a separate deliberate action after reviewing the remaining Block rows.
+5. Review Needs review and reviewed Block rows. An explicit official prohibition becomes Block for urgent human inspection; every otherwise unmatched title/SKU-only listing remains Needs review because authenticity, authorization, images, item specifics, safety, eligibility, and provenance are not proven.
+6. Use search and filters, open an exact item for manual inspection, and download the full source-linked CSV audit if needed.
+7. Do not treat Block as authorization to end an item and do not treat any no-match or generic-text result as eBay approval.
 
 ### Approval Stop
 
-STOP before every eBay End action. Preparing or opening a review is never approval. The exact phrase APPROVE END POLICY LISTINGS N must match the current reviewed batch.
+This audit is read-only. It exposes no listing selection, revision, relisting, or End control and grants no marketplace approval.
 
 ### Expected Output
 
-A complete resumable exact-ID audit, source-linked classifications, exportable CSV, exact native eBay review, durable End receipt, and remaining reviewed Block rows.
+A complete resumable exact-ID audit, source-linked classifications, and an exportable CSV without any eBay listing change.
 
 ### Failure Recovery
 
-- A missing page range, incomplete row count, duplicate item number, changing total, browser check, or missing rule pack pauses or fails with no eBay listing change.
-- Resume continues from the next unverified page; Start Fresh discards old page checkpoints only after explicit operator action.
-- An audit older than 48 hours, a changed reviewed-rule pack, or a different computer/account blocks End review.
-- Only current reviewed Block rows are selectable. Review and No rule match rows cannot enter the ending path.
-- After an approved submission the workflow stops and never auto-prepares another batch.
-- If eBay reports that a listing item is missing, GLDN Ops records it as unresolved rather than ended. Use Cancel Review & Rescan to clear an abandoned review and immediately start a complete read-only scan.
+- A missing page range, incomplete row count, duplicate item number, changing total, browser check, or missing/invalid rule pack pauses or fails with no eBay listing change.
+- Resume continues from the next unverified page; Start Fresh discards old local page checkpoints only after explicit operator action.
+- A changed reviewed-rule pack changes the audit fingerprint and requires reclassification.
+- If brand, image, category, item-specific, provenance, safety, eligibility, or authorization evidence is missing, keep the listing in Needs review.
 
 ### Evidence
 
-v3.12.14 focused contracts prove full-count reconciliation, source-linked classification, Block-only selection, stale-account and stale-rule rejection, exact approval phrasing, terminal post-submit behavior, missing-listing failure classification, and Cancel Review & Rescan recovery. The prior signed-in Profile 2 scan verified all 7,294 Active Listings; a fresh post-recovery read-only scan remains the current live gate.
+v3.12.29 deterministic contracts prove full-count reconciliation, source-linked classification, fail-closed title-only Review, source/profile fingerprinting, CSV export, and audit-only UI guards. The page cannot prepare or submit an End request. The prior signed-in Profile 2 scan verified all 7,294 Active Listings; a fresh read-only scan remains the current live gate.
 
 
 <a id="move99-recovery"></a>
@@ -938,16 +933,16 @@ Profile 2 previously reconciled seller extraction from 892 to 1,607. Signed-in P
 
 ### Exact Steps
 
-1. Open Product Research Desk and review official eBay, Profile 2 Discord, and Profile 2 Telegram coverage.
-2. Select lower-risk starting words and click Copy Words & Open Product Hunter.
-3. Paste one word per line into EcomSniper Product Hunter and export its Amazon links.
-4. Return to Product Research Desk, paste one Amazon link per line, and click Check Items. The Preflight Bulk Poster Links popup shortcut can load copied links automatically.
-5. Review Ready to copy, Needs review, and Blocked results. A bare ASIN or opaque URL without product-name evidence remains Needs review.
-6. Click Copy Ready and Open Bulk Poster. Only canonical Ready Amazon links reach the clipboard; Review, Blocked, duplicate, and non-Amazon rows remain excluded.
-7. Review the final link set again inside EcomSniper before starting its private listing workflow.
-8. For research refreshes, read approved Discord and Telegram sources in Profile 2, preserve exact source URLs, and record unrelated findings as Ignore.
-9. Exclude dropshipping-policy and fulfillment-source discussions.
-10. Publish community decisions as Review only; a hard Block requires separate official eBay evidence.
+1. Open Product Research Desk and review the complete official eBay policy coverage separately from Profile 2 Discord and Telegram community coverage.
+2. Choose from the exact 500 versioned generic starting phrases. Unknown or branded seeds cannot start the guarded standalone GLDN Product Hunter.
+3. Open the standalone GLDN Product Hunter, scan the complete eBay Active Listings inventory, then run the selected words. It reads each live Amazon product page and applies the shared policy pack before producing Ready links.
+4. Use the manual GLDN Listing Preflight only for structured product-detail exports containing the product name and evidence. A bare Amazon URL or ASIN remains Needs review and is never approved from its address alone.
+5. Review Ready, Needs review, Blocked, Excluded, and Incomplete results. Unknown brands, models, IP cues, conditional-policy items, and incomplete evidence stay Needs review.
+6. Copy only Ready links into Bulk Poster. Review, Blocked, duplicate, already-listed, and incomplete rows remain excluded.
+7. Perform final human review of the exact title, brand, model, images, packaging, provenance, recall status, eligibility, shipping, and generated eBay listing.
+8. For community research refreshes, use only signed-in Chrome Profile 2, preserve exact source URLs, and record unrelated or inconclusive findings as Ignore.
+9. Exclude dropshipping-policy, fulfillment-source, and retail-arbitrage discussions.
+10. Publish community decisions as Review only; a hard Block requires current, exact official eBay evidence.
 
 ### Approval Stop
 
@@ -955,7 +950,7 @@ Rule publication requires human-reviewed decisions. Product Research Desk and Li
 
 ### Expected Output
 
-Selectable Product Hunter words, visible official/Discord/Telegram coverage, a downloadable research output, a reviewer-approved shared rule pack, and separate Ready, Review, and Block results.
+Exactly 500 selectable generic Product Hunter phrases, visible official/Discord/Telegram coverage, a downloadable versioned research output, a source-linked shared rule pack, and separate Ready, Review, and Block results.
 
 ### Failure Recovery
 
@@ -967,7 +962,7 @@ Selectable Product Hunter words, visible official/Discord/Telegram coverage, a d
 
 ### Evidence
 
-The shared pack contains 177 reviewed rules: 175 official eBay rules and 2 Discord-backed Review signals. One Telegram signal was visibly reviewed and correctly produced zero product rules. The signed-in Profile 2 preflight path previously classified controlled Ready, Review, and Block inputs, copied only the canonical Ready Amazon URL, and opened the exact Bulk Poster route without starting it or performing any marketplace action.
+The 2026-08-30 refresh covers every one of the 70 official policy pages linked by the prohibited-and-restricted hub plus supplemental intellectual-property/VeRO guidance. The shared pack contains 578 reviewed rules: 576 official eBay rules and 2 Discord-backed Review warnings. The reviewed Telegram delivery-date signal remains Ignore. Exactly 500 generic phrases are published. Deterministic tests prove atomic fail-closed validation, Ready-only copying, brand/IP review gates, official-only Block authority, guarded Product Hunter seeds, and the read-only existing-listing audit.
 
 
 <a id="product-hunter-listing-guard"></a>

@@ -1,63 +1,82 @@
 # GLDN Listing Preflight
 
-## What It Does
+## What it does
 
-Listing Preflight checks pasted Amazon URLs, ASINs, and product titles against a local pack of human-reviewed rules before EcomSniper listing work. It does not use an eBay API and it does not submit listings.
+Listing Preflight is a local, fail-closed text classifier used before EcomSniper Bulk Poster and by the read-only Existing Listings Policy Audit. It does not use an eBay API and it does not submit, revise, relist, or end listings.
 
-The current shared pack contains 177 reviewed rules: 175 official eBay rules and 2 Discord-backed manual-review signals. Telegram research is also tracked as a separate source type; the reviewed Telegram post produced zero item-policy rules because it was not relevant to listing eligibility. Community research never overrides official policy and can publish Review only, never Block.
+The 2026-08-30 shared pack contains 578 source-linked rules:
 
-The Product Research Desk appears above the link checker. It provides a versioned, selectable set of lower-risk Product Hunter starting words and shows the exact official, Discord, and Telegram coverage behind the current output. See `docs/PRODUCT_RESEARCH_DESK.md` for the complete operator flow.
+- 576 official eBay rules: 380 Block and 196 Review.
+- 2 signed-in Profile 2 Discord Review rules.
+- 0 Telegram rules; the reviewed delivery-date finding remains Ignore.
+- 70 official policy pages from the prohibited/restricted hub plus the supplemental intellectual-property policy in the coverage catalog, with at least one direct source-linked decision for every page.
+- A versioned 500-phrase generic-only clearance profile.
+
+## Two separate layers
+
+1. **Policy rules** classify explicit official prohibitions and conditional/manual-review signals. Official eBay evidence may create Block or Review. Community evidence may create Review only.
+2. **Operational clearance profile** limits Ready to reviewed generic, unbranded text. This is a risk control, not a claim that every excluded brand or category is prohibited.
+
+The full pack is validated atomically. A wrong declared count, malformed rule, duplicate ID/key, unsupported source, missing or mismatched evidence URL, community Block, missing clearance profile, or stale clearance profile fails closed.
 
 ## Results
 
-- **Ready**: no current rule matched. This is not an eBay approval.
-- **Needs review**: a category has legitimate exceptions or needs context, packaging, labeling, jurisdiction, authenticity, or claim review.
-- **Blocked**: an explicit prohibited phrase matched. Blocked rows cannot continue through the Product Hunter handoff.
-- **No rules available**: every row becomes Needs review and nothing is copied.
+- **Ready**: structured live product details report an explicit Generic or Unbranded brand, the title matches a current reviewed generic family, and there is no matched policy rule, model, configured IP/restriction cue, or unreviewed title token. Ready is not eBay approval.
+- **Needs review**: conditional or seller-gated policy; brand, model, character, franchise, celebrity, team, logo, license, fan-art, compatibility, replacement, authenticity, warranty, certification, or provenance cue; incomplete/opaque input; unknown term; community report; or stale/invalid evidence.
+- **Block**: an exact, unambiguous official eBay prohibition signal matched. Block is an urgent stop for human review, not permission to perform an automatic marketplace action.
 
-## Product Hunter Handoff
+Brand rules are field-scoped when structured `Brand:` evidence is available. Compound rules support required, alternative, and excluded phrases so that narrow official prohibitions can avoid broad false positives.
 
-1. Copy the candidate titles or links.
-2. Open GLDN Ops and click **Prepare Product Hunter Handoff**.
-3. Apparel, shoes, costumes, fashion accessories, and exact duplicates are removed first.
-4. The remaining rows run through Listing Preflight.
-5. If every row is Ready, only those rows are copied and Product Hunter opens.
-6. If any row is Review or Blocked, Product Hunter stays closed and Listing Preflight opens with the candidates loaded.
-7. Inspect the matched rule and source links.
-8. Click **Copy Ready & Open Product Hunter** to continue with only Ready rows.
+## Product Hunter handoff
 
-## Bulk Poster Link Handoff
+1. Start in **Product Research Desk** and use one of its exact 500 reviewed phrases.
+2. Run Product Hunter and copy every exact Amazon result.
+3. Click **Preflight Bulk Poster Links** or paste one result per line into Listing Preflight.
+4. A bare title, search result, Amazon URL, or ASIN stays in Needs review. Ready requires structured live product details with an explicit Generic or Unbranded brand value.
+5. Inspect every Needs review and Block row and the linked evidence.
+6. Click **Copy Ready & Open Bulk Poster** only for rows that reached Ready.
+7. Perform final human review inside the exact product and generated listing workflow.
 
-1. Copy the Amazon product links produced by Product Hunter.
-2. In GLDN Ops, click **Preflight Bulk Poster Links**.
-3. GLDN keeps Amazon links and ASINs, removes duplicate and non-Amazon rows, and runs the reviewed rules.
-4. Review every Needs review and Blocked result. They are never copied into the Ready output.
-5. Click **Copy Ready & Open Bulk Poster** to copy only canonical Ready Amazon links and open EcomSniper's Bulk Poster.
-6. Review the links again inside EcomSniper before starting any listing work.
+Structured lines may provide additional local evidence:
 
-A bare ASIN or URL with no product-name evidence stays in Needs review unless a specific reviewed rule matches it. GLDN does not treat an opaque link as safe.
+```text
+Title: stainless steel kitchen drawer organizer | Brand: Generic | Category: drawer organizers | ASIN: B012345678
+```
 
-## Important Limits
+A missing brand or a reported brand other than an approved Generic/Unbranded value remains Needs review. Adding a structured field does not prove the seller's claim.
 
-Keyword preflight cannot prove that a product is permitted. It cannot reliably inspect:
+## Existing Listings Policy Audit
 
-- Product images or copied manufacturer text.
-- Packaging condition, expiration dates, registration numbers, ingredients, or shipping eligibility.
-- Whether a branded product is authentic.
-- Duplicate eBay listings that use different Amazon links or titles.
-- Misleading keyword combinations, health claims, compatibility claims, or variation structure without full listing context.
-- New restrictions that are not yet in the reviewed rule pack.
+The audit performs a complete, resumable, read-only scan of Active Listings and verifies exact row coverage before classification. It shares the same rule pack and fingerprint, including reasons, source types, evidence URLs, policy coverage, and clearance-profile semantics.
 
-Those cases still need manual review and continued official-policy plus read-only Profile 2 Discord and Telegram research.
+Existing-listing evidence is normally title/SKU/decoded-ASIN/price/category only. Therefore:
 
-## Rule Publishing
+- Exact official prohibited-item cues remain Block.
+- Matched conditional or IP/authenticity signals remain Review.
+- Every otherwise unmatched title-only listing remains Review for insufficient evidence; it is not labeled Clear.
+- The audit UI exposes scan, pause/resume, search/filter, item links, and CSV export only. Selection and End controls are hidden and guarded off.
 
-Reviewed decisions live under `evidence/listing-preflight/`. Publish them with:
+No listing is changed by the audit.
+
+## Important limits
+
+Preflight cannot prove:
+
+- Authenticity, authorization, licensing, parallel-import rights, or VeRO safety.
+- Copyright, trademark, patent, design, utility-model, publicity, or warranty compliance from images/packaging.
+- Recall status, seller eligibility, regulator approval, permits, registration numbers, ingredients, expiration, labels, or documentation.
+- Correct category, destination law, origin, hazmat/carrier restrictions, or international shipping legality.
+- That the final generated title, photos, description, item specifics, variations, or compatibility data are accurate and non-manipulative.
+
+Those remain final-human-review obligations. Policies can change before the next refresh.
+
+## Publishing reviewed decisions
+
+The canonical official refresh evidence lives under `evidence/listing-preflight/`. Publishing preserves both the main extension and standalone Product Hunter rule pack:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\listing-preflight\publish-reviewed-rules.ps1 -DecisionFile .\evidence\listing-preflight\official-ebay-reviewed-decisions-2026-08-08.json
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\listing-preflight\publish-reviewed-rules.ps1 -DecisionFile .\evidence\listing-preflight\official-ebay-expanded-decisions-2026-08-08.json
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\listing-preflight\publish-reviewed-rules.ps1 -DecisionFile .\evidence\listing-preflight\official-ebay-policy-hub-decisions-2026-08-30.json
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\listing-preflight\publish-reviewed-rules.ps1 -DecisionFile .\evidence\listing-preflight\community-reviewed-decisions-2026-08-24.json
 ```
 
-Every rule needs a reason, reviewer, review date, source type, and exact source URL. Accepted source types are `official-ebay`, `profile2-discord`, and `profile2-telegram`. Discord and Telegram decisions may publish Review rules only. A hard Block requires official eBay evidence.
+Every rule requires a reason, reviewer, review date, source type, and exact evidence URL. Accepted sources are `official-ebay`, `profile2-discord`, and `profile2-telegram`. Community decisions can publish Review only.

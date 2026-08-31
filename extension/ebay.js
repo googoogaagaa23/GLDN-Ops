@@ -7978,7 +7978,7 @@
       totals: {
         batches: Number(totals.batches || 0) + 1,
         selected: Number(totals.selected || 0) + Number(state.currentBatchSourceCount || sourceIds.length || state.currentBatchCount || 0),
-        categoryApplied: Number(totals.categoryApplied || 0) + Number(state.currentBatchCount || 0),
+        categoryApplied: Number(totals.categoryApplied || 0) + Number(result.live || 0),
         live: Number(totals.live || 0) + Number(result.live || 0),
         failed: Number(totals.failed || 0) + Number(result.failed || 0)
       }
@@ -7986,8 +7986,30 @@
   }
 
   function stopMove99AfterApprovedSubmit(state, result = null) {
-    const recorded = result ? recordMove99SubmittedBatch(state, result) : state;
     const completedAt = new Date().toISOString();
+    if (result?.confirmed !== true) {
+      const expectedCount = Number(result?.expected || state.currentBatchCount || 0);
+      const accounted = Number(result?.accounted || 0);
+      const destination = String(state.destinationCategory || "the destination Store category");
+      return {
+        ...state,
+        active: false,
+        confirmed: true,
+        phase: "manual-reconciliation-required",
+        reviewReady: false,
+        reviewRequested: false,
+        reviewRequestedAt: "",
+        propagationPending: false,
+        terminalAfterSubmit: true,
+        submitResult: result,
+        submitResultUnknown: true,
+        error: result
+          ? `eBay accounted for ${accounted.toLocaleString()} of ${expectedCount.toLocaleString()} submitted listings. The exact batch remains saved and was not marked as moved to ${destination}.`
+          : `eBay did not report an exact result count. The exact batch remains saved and was not marked as moved to ${destination}.`,
+        updatedAt: completedAt
+      };
+    }
+    const recorded = recordMove99SubmittedBatch(state, result);
     const exactBatches = Array.isArray(state.exactBatches) ? state.exactBatches : [];
     const nextIndex = Number(state.applyIndex || 0) + 1;
     const submittedBatchIds = [...new Set((state.currentBatchIds || []).map(String).filter(Boolean))];
@@ -7995,9 +8017,7 @@
       ...recorded,
       active: false,
       confirmed: true,
-      phase: result
-        ? (Number(result.failed || 0) ? "submitted-with-failures" : "submitted")
-        : "submitted-propagation-pending",
+      phase: Number(result.failed || 0) ? "submitted-with-failures" : "submitted",
       reviewReady: false,
       reviewRequested: false,
       reviewRequestedAt: "",
@@ -8013,7 +8033,7 @@
       currentBatchKey: "",
       submitResultUnknown: false,
       completedAt,
-      error: result && Number(result.failed || 0)
+      error: Number(result.failed || 0)
         ? `${Number(result.failed || 0)} listings failed during eBay submission.`
         : "",
       updatedAt: completedAt
@@ -8399,12 +8419,12 @@
         );
       }
 
-      const stopped = stopMove99AfterApprovedSubmit(state, outcome?.result?.confirmed ? outcome.result : null);
+      const stopped = stopMove99AfterApprovedSubmit(state, outcome?.result || null);
       await storageSet({ pendingMove99Run: stopped, lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(stopped) });
       renderStatus(
         outcome?.result?.confirmed
           ? `eBay accepted the approved ${expectedCount.toLocaleString()}-listing batch. The workflow is stopped.`
-          : `The approved ${expectedCount.toLocaleString()}-listing batch was submitted. The workflow is stopped while eBay propagates the category changes.`,
+          : `eBay did not confirm the full ${expectedCount.toLocaleString()}-listing result. The exact batch remains saved and was not marked as moved.`,
         outcome?.result?.failed ? "error" : "completed"
       );
       return true;

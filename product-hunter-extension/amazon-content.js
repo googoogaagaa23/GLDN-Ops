@@ -146,6 +146,29 @@
     return values;
   }
 
+  function buyBoxField(documentRef, label) {
+    const normalizedLabel = normalizeText(label).toLowerCase();
+    const rows = documentRef.querySelectorAll('#tabular-buybox tr, #desktop_buybox tr, #buybox tr');
+    for (const row of rows) {
+      const cells = [...row.querySelectorAll('th, td, .a-column')].map((cell) => normalizeText(cell.textContent)).filter(Boolean);
+      const labelIndex = cells.findIndex((cell) => cell.toLowerCase() === normalizedLabel || cell.toLowerCase().startsWith(`${normalizedLabel} `));
+      if (labelIndex >= 0 && cells[labelIndex + 1]) return cells[labelIndex + 1];
+      const text = normalizeText(row.textContent);
+      const match = text.match(new RegExp(`^${label.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\s+(.+)$`, 'i'));
+      if (match) return normalizeText(match[1]);
+    }
+    return '';
+  }
+
+  function merchantField(merchantInfo, label, stopLabel) {
+    const text = normalizeText(merchantInfo);
+    if (!text) return '';
+    const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedStop = stopLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = text.match(new RegExp(`${escapedLabel}\\s+(.+?)(?=\\s+${escapedStop}\\s+|$)`, 'i'));
+    return normalizeText(match?.[1]);
+  }
+
   function extractProductPage(documentRef, locationHref = '') {
     const signals = pageSignals(documentRef, locationHref);
     if (signals.robot.blocked) return { ok: false, robot: true, error: signals.robot.reason };
@@ -165,6 +188,12 @@
     const availability = firstText(documentRef, ['#availability', '#outOfStock', '#deliveryBlockMessage', '#mir-layout-DELIVERY_BLOCK-slot-PRIMARY_DELIVERY_MESSAGE_LARGE']);
     const rating = firstText(documentRef, ['#acrPopover', '#averageCustomerReviews [title]', '[data-hook="rating-out-of-text"]']);
     const reviewCount = firstText(documentRef, ['#acrCustomerReviewText', '[data-hook="total-review-count"]']);
+    const merchantInfo = firstText(documentRef, ['#merchantInfo', '#tabular-buybox', '#desktop_buybox', '#buybox']);
+    const soldBy = firstText(documentRef, ['#sellerProfileTriggerId', '#merchant-info a[href*="seller"]'])
+      || buyBoxField(documentRef, 'Sold by')
+      || merchantField(merchantInfo, 'Sold by', 'Ships from');
+    const shipsFrom = buyBoxField(documentRef, 'Ships from')
+      || merchantField(merchantInfo, 'Ships from', 'Sold by');
     const categories = collectTexts(documentRef, ['#wayfinding-breadcrumbs_feature_div li a', '#wayfinding-breadcrumbs_container li a'], 20);
     const bullets = collectTexts(documentRef, ['#feature-bullets li span.a-list-item', '#featurebullets_feature_div li span'], 50);
     const detailParts = collectTexts(documentRef, [
@@ -193,6 +222,9 @@
         price,
         rating,
         reviewCount,
+        soldBy,
+        shipsFrom,
+        merchantInfo,
         imageUrl,
         capturedAt: new Date().toISOString()
       },

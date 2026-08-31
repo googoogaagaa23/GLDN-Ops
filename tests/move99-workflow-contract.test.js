@@ -1068,8 +1068,8 @@ test("Move .99 stops after the approved eBay submission instead of advancing or 
   assert.match(resume, /if \(!state\.approvalActionObservedAt\)/);
   assert.match(resume, /stopMove99AfterLostApproval/);
   assert.match(resume, /Waiting for approval before \$\{finalAction\}/);
-  assert.match(resume, /stopMove99AfterApprovedSubmit\(state, outcome\?\.result\?\.confirmed \? outcome\.result : null\)/);
-  assert.match(resume, /workflow is stopped while eBay propagates the category changes/);
+  assert.match(resume, /stopMove99AfterApprovedSubmit\(state, outcome\?\.result \|\| null\)/);
+  assert.match(resume, /exact batch remains saved and was not marked as moved/);
   assert.doesNotMatch(resume, /recoverMove99ThroughVerification/);
   assert.doesNotMatch(resume, /Continuing the next saved batch|nextMove99BatchState|navigateToMove99ScanPage|createMove99BulkWorkspace|runMove99Automation/);
 
@@ -1097,14 +1097,44 @@ test("Move .99 stops after the approved eBay submission instead of advancing or 
     });
     assert.equal(stopped.scanMode, scanMode);
     assert.equal(stopped.active, false);
-    assert.equal(stopped.phase, "submitted-propagation-pending");
-    assert.equal(stopped.propagationPending, true);
+    assert.equal(stopped.phase, "manual-reconciliation-required");
+    assert.equal(stopped.propagationPending, false);
     assert.equal(stopped.terminalAfterSubmit, true);
     assert.equal(stopped.reviewRequested, false);
     assert.equal(stopped.reviewRequestedAt, "");
-    assert.equal(stopped.remainingSavedBatchCount, 1);
-    assert.deepEqual(stopped.currentBatchIds, []);
+    assert.equal(stopped.applyIndex, 0);
+    assert.deepEqual(stopped.currentBatchIds, ["1"]);
+    assert.equal(stopped.currentBatchCount, 1);
+    assert.equal(stopped.totals.categoryApplied, undefined);
   }
+
+  const holdSource = background.slice(
+    background.indexOf("function holdTrustedMove99ForSubmitVerification"),
+    background.indexOf("async function persistTrustedMove99Result")
+  );
+  const holdForVerification = new Function(`${holdSource}\nreturn holdTrustedMove99ForSubmitVerification;`)();
+  const held = holdForVerification({
+    applyIndex: 1,
+    exactBatches: [["1"], ["2", "3"]],
+    currentBatchIds: ["2", "3"],
+    currentBatchCount: 2,
+    currentBatchKey: "second-batch",
+    destinationCategory: "BALK",
+    totals: { batches: 1, categoryApplied: 1 }
+  }, {
+    expectedCount: 2,
+    destinationCategory: "BALK"
+  }, {
+    unchanged: true,
+    observedAt: "2026-08-29T12:00:00.000Z"
+  });
+  assert.equal(held.phase, "manual-reconciliation-required");
+  assert.equal(held.applyIndex, 1);
+  assert.deepEqual(held.currentBatchIds, ["2", "3"]);
+  assert.equal(held.currentBatchCount, 2);
+  assert.equal(held.currentBatchKey, "second-batch");
+  assert.deepEqual(held.totals, { batches: 1, categoryApplied: 1 });
+  assert.match(held.error, /not marked as moved to BALK/);
 });
 
 test("Move .99 hard-locks the final review and only rebinds an exact same-workspace reload", () => {
@@ -1371,9 +1401,10 @@ test("Move .99 Review fees is a second exact, one-shot stage that becomes termin
   assert.match(finalDispatch, /finalReviewActionClickCount: 1/);
   assert.match(finalDispatch, /type: 'mousePressed'/);
   assert.match(finalDispatch, /type: 'mouseReleased'/);
-  assert.match(finalDispatch, /stopTrustedMove99ForPropagation/);
-  assert.match(finalDispatch, /propagationPending: true/);
-  assert.doesNotMatch(finalDispatch, /monitorTrustedMove99SubmitResult|navigateToMove99ScanPage|createMove99BulkWorkspace/);
+  assert.match(finalDispatch, /monitorTrustedMove99SubmitResult/);
+  assert.match(finalDispatch, /holdTrustedMove99ForSubmitVerification/);
+  assert.match(finalDispatch, /phase: recorded\.phase/);
+  assert.doesNotMatch(finalDispatch, /navigateToMove99ScanPage|createMove99BulkWorkspace/);
   assert.doesNotMatch(finalDispatch, /\.click\(/);
 
   const programmaticRecovery = background.slice(

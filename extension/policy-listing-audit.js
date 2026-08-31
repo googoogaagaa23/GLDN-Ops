@@ -9,6 +9,7 @@
   const RESULT_KEY = "lastPolicyListingEndResult";
   const PAGE_SIZE = 100;
   const END_BATCH_LIMIT = 200;
+  const AUDIT_ONLY = true;
   const byId = (id) => document.getElementById(id);
   const elements = {
     freshScan: byId("freshScan"),
@@ -200,7 +201,7 @@
     elements.pageSelection.checked = Boolean(selectableRows.length) && selectableRows.every((listing) => selectedIds.has(String(listing.itemId)));
     elements.pageSelection.indeterminate = selectableRows.some((listing) => selectedIds.has(String(listing.itemId))) && !elements.pageSelection.checked;
 
-    elements.currentReview.hidden = !hasAnyPendingReview;
+    elements.currentReview.hidden = AUDIT_ONLY || !hasAnyPendingReview;
     if (hasAnyPendingReview) {
       const count = Number(pendingReview.requestedCount || 0);
       const token = expectedApprovalToken();
@@ -231,7 +232,7 @@
           <td class="check-cell"><input type="checkbox" data-item-id="${escapeHtml(listing.itemId)}" ${selectedIds.has(String(listing.itemId)) ? "checked" : ""} ${endable ? "" : "disabled"} aria-label="Select ${escapeHtml(listing.itemId)}"></td>
           <td><a href="https://www.ebay.com/itm/${escapeHtml(listing.itemId)}" target="_blank" rel="noreferrer"><strong>${escapeHtml(listing.itemId)}</strong></a><span class="meta">${escapeHtml(listing.category || "Category not shown")}</span></td>
           <td><span class="title">${escapeHtml(listing.title || "Untitled listing")}</span><span class="meta">SKU: ${escapeHtml(listing.sku || "Not reported")} | ASIN: ${escapeHtml(listing.asin || "Not decoded")}</span></td>
-          <td><span class="classification ${escapeHtml(listing.action)}">${escapeHtml(listing.action === "clear" ? "NO MATCH" : listing.status)}</span><span class="meta">${escapeHtml(listing.action === "block" ? "Selectable after review" : listing.action === "review" ? "Never auto-endable" : "Not an approval")}</span></td>
+          <td><span class="classification ${escapeHtml(listing.action)}">${escapeHtml(listing.action === "clear" ? "GENERIC TEXT" : listing.status)}</span><span class="meta">${escapeHtml(listing.action === "block" ? "Urgent human inspection" : listing.action === "review" ? "Insufficient evidence or manual review" : "Still not eBay approval")}</span></td>
           <td><span class="price">${escapeHtml(CORE.formatMoney(listing.price))}</span></td>
           <td><span class="reason">${escapeHtml(listing.reason || "No reason reported")}</span><span class="evidence">${escapeHtml(matches || "No matched reviewed rule")}${evidenceCount ? ` | ${evidenceCount} source link${evidenceCount === 1 ? "" : "s"}` : ""}</span></td>
           <td><span class="row-status ${completed ? "completed" : ""}">${completed ? "Ended" : "Open"}</span></td>
@@ -252,7 +253,7 @@
       } else {
         audit = response.audit;
         selectedIds.clear();
-        setStatus(`Complete: ${Number(response.scannedListings || 0).toLocaleString()} listings classified. ${Number(response.summary?.block || 0).toLocaleString()} reviewed Block matches require inspection before any eBay review.`, "success");
+        setStatus(`Complete: ${Number(response.scannedListings || 0).toLocaleString()} listings classified read-only. ${Number(response.summary?.block || 0).toLocaleString()} official Block matches require urgent human inspection; no listing was changed.`, "success");
       }
     } catch (error) {
       setStatus(error?.message || String(error), "error");
@@ -368,6 +369,10 @@
   });
 
   elements.prepareReview.addEventListener("click", async () => {
+    if (AUDIT_ONLY) {
+      setStatus("This policy desk is read-only. No eBay End review can be prepared here.", "error");
+      return;
+    }
     if (!audit || !selectedIds.size || pendingMatchesAudit() || operationBusy) return;
     operationBusy = true;
     render();
@@ -405,6 +410,10 @@
 
   elements.approvalToken.addEventListener("input", render);
   elements.approveEnd.addEventListener("click", async () => {
+    if (AUDIT_ONLY) {
+      setStatus("This policy desk is read-only. No listing can be ended here.", "error");
+      return;
+    }
     const token = String(elements.approvalToken.value || "").trim();
     if (!pendingMatchesAudit() || token !== expectedApprovalToken() || operationBusy) {
       setStatus(`Type exactly: ${expectedApprovalToken() || "No approval is currently available."}`, "error");

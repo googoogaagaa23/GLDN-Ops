@@ -298,10 +298,35 @@ async function startEbayMonthlyProfitGuarded(options = {}, sender = {}) {
   const reservation = await claimWorkflowStart('ebay-monthly-profit', 'Monthly eBay profit', sender);
   if (!reservation.ok) return reservation;
   try {
-    return await EBAY_PROFIT_BACKGROUND.start(options, sender);
+    const result = await EBAY_PROFIT_BACKGROUND.start(options, sender);
+    return await showEbayProfitProgressForMarketplaceStart(result, sender);
   } finally {
     await releaseWorkflowStart(reservation.token);
   }
+}
+
+async function showEbayProfitProgressForMarketplaceStart(result, sender = {}) {
+  if (!result?.ok) return result;
+  const progressUrl = chrome.runtime.getURL('ebay-profit.html');
+  if (String(sender?.tab?.url || '') === progressUrl) return result;
+  try {
+    const progress = await openOrFocusExtensionPage('ebay-profit.html', true);
+    return {
+      ...result,
+      progressTabId: progress.tabId,
+      progressTabReused: progress.reused
+    };
+  } catch (error) {
+    return {
+      ...result,
+      progressPageWarning: error?.message || String(error)
+    };
+  }
+}
+
+async function resumeEbayMonthlyProfitGuarded(sender = {}) {
+  const result = await EBAY_PROFIT_BACKGROUND.resume(sender);
+  return showEbayProfitProgressForMarketplaceStart(result, sender);
 }
 
 function updateOpenReviews(mutator) {
@@ -3115,7 +3140,7 @@ function recordTrustedMove99SubmittedBatch(state, result) {
     totals: {
       batches: Number(totals.batches || 0) + 1,
       selected: Number(totals.selected || 0) + Number(state.currentBatchSourceCount || sourceIds.length || state.currentBatchCount || 0),
-      categoryApplied: Number(totals.categoryApplied || 0) + Number(state.currentBatchCount || 0),
+      categoryApplied: Number(totals.categoryApplied || 0) + Number(result.live || 0),
       live: Number(totals.live || 0) + Number(result.live || 0),
       failed: Number(totals.failed || 0) + Number(result.failed || 0)
     }
@@ -3154,67 +3179,49 @@ function recordTrustedMove99SubmittedBatch(state, result) {
   };
 }
 
-function stopTrustedMove99ForPropagation(state, approved, submittedAt = new Date().toISOString()) {
-  const sourceIds = [...new Set((state.currentBatchIds || []).map(String).filter(Boolean))];
-  const batchKey = String(state.currentBatchKey || approved.batchKey || '');
-  const submittedBatchKeys = new Set((state.submittedBatchKeys || []).map(String));
-  const alreadyRecorded = batchKey && submittedBatchKeys.has(batchKey);
-  if (batchKey) submittedBatchKeys.add(batchKey);
-  const batchHistory = Array.isArray(state.batchHistory) ? [...state.batchHistory] : [];
-  if (!alreadyRecorded) {
-    batchHistory.push({
-      batchKey,
-      itemIds: sourceIds,
-      admittedIds: sourceIds,
-      expected: Number(approved.expectedCount || state.currentBatchCount || sourceIds.length),
-      live: null,
-      failed: null,
-      confirmed: false,
-      status: 'submitted-propagation-pending',
-      capturedAt: submittedAt
-    });
+function holdTrustedMove99ForSubmitVerification(state, approved = {}, options = {}) {
+  const observedAt = String(options.observedAt || new Date().toISOString());
+  const expectedCount = Number(approved.expectedCount || state.currentBatchCount || 0);
+  const result = options.result || null;
+  const unchanged = options.unchanged === true;
+  const accounted = Number(result?.accounted || 0);
+  const destination = String(approved.destinationCategory || state.destinationCategory || 'the destination Store category');
+  let error;
+  if (result) {
+    error = `eBay accounted for ${accounted.toLocaleString()} of ${expectedCount.toLocaleString()} submitted listings. The exact batch remains saved and was not marked as moved to ${destination}.`;
+  } else if (unchanged) {
+    error = `The eBay Review fees dialog stayed open after Submit. The exact batch remains saved and was not marked as moved to ${destination}.`;
+  } else {
+    error = `eBay changed the Review fees screen but did not report an exact result count. The exact batch remains saved and was not marked as moved to ${destination}.`;
   }
-  const totals = state.totals || {};
-  const exactBatches = Array.isArray(state.exactBatches) ? state.exactBatches : [];
-  const nextIndex = Number(state.applyIndex || 0) + 1;
   return {
     ...state,
     active: false,
     confirmed: true,
-    phase: 'submitted-propagation-pending',
+    phase: 'manual-reconciliation-required',
     reviewReady: false,
     reviewRequested: false,
     reviewRequestedAt: '',
-    propagationPending: true,
-    propagationPendingAt: submittedAt,
+    propagationPending: false,
     terminalAfterSubmit: true,
-    submittedBatchIds: sourceIds,
-    submittedBatchKeys: [...submittedBatchKeys],
-    batchHistory: batchHistory.slice(-100),
-    applyIndex: nextIndex,
-    remainingSavedBatchCount: Math.max(0, exactBatches.length - nextIndex),
-    currentBatchIds: [],
-    currentBatchCount: 0,
-    currentBatchSourceCount: 0,
-    currentBatchKey: '',
-    submitResult: null,
-    submitResultUnknown: false,
-    totals: alreadyRecorded ? totals : {
-      ...totals,
-      batches: Number(totals.batches || 0) + 1,
-      selected: Number(totals.selected || 0) + Number(approved.expectedCount || sourceIds.length),
-      categoryApplied: Number(totals.categoryApplied || 0) + Number(approved.expectedCount || sourceIds.length)
-    },
-    error: '',
-    completedAt: submittedAt,
-    updatedAt: submittedAt
+    submitResult: result,
+    submitResultUnknown: true,
+    finalReviewInitialNoEffect: unchanged,
+    finalReviewResultProbe: options.probe || null,
+    error,
+    updatedAt: observedAt
   };
 }
 
 async function persistTrustedMove99Result(result) {
   const stored = await storageGet(['pendingMove99Run']);
   const pending = stored.pendingMove99Run;
-  const recorded = recordTrustedMove99SubmittedBatch(pending, result);
+  const recorded = result?.confirmed === true
+    ? recordTrustedMove99SubmittedBatch(pending, result)
+    : holdTrustedMove99ForSubmitVerification(pending, {
+      expectedCount: Number(result?.expected || pending?.currentBatchCount || 0),
+      destinationCategory: String(pending?.destinationCategory || '')
+    }, { result });
   await storageSet({
     pendingMove99Run: recorded,
     lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(recorded)
@@ -3290,7 +3297,14 @@ async function dispatchTrustedMove99FinalReview(tab, request, options = {}) {
     const initialProbe = await waitForMove99FinalReviewProbe(target, approved, options.waitForModalMs || 20000);
     if (initialProbe?.stage === 'result' && initialProbe.result) {
       const recorded = await persistTrustedMove99Result(initialProbe.result);
-      return { ok: true, dispatched: false, alreadySubmitted: true, result: initialProbe.result, phase: recorded.phase };
+      return {
+        ok: initialProbe.result.confirmed === true,
+        dispatched: false,
+        alreadySubmitted: true,
+        uncertain: initialProbe.result.confirmed !== true,
+        result: initialProbe.result,
+        phase: recorded.phase
+      };
     }
     if (initialProbe?.stage !== 'review-fees' || initialProbe?.ok !== true) {
       throw new Error(initialProbe?.error || 'The exact eBay Review fees dialog could not be verified.');
@@ -3355,19 +3369,51 @@ async function dispatchTrustedMove99FinalReview(tab, request, options = {}) {
       }
     });
 
+    const result = await monitorTrustedMove99SubmitResult(
+      target,
+      approved,
+      Number(options.resultTimeoutMs || 60000)
+    );
+    if (result) {
+      const recorded = await persistTrustedMove99Result(result);
+      return {
+        ok: result.confirmed === true,
+        dispatched: true,
+        expectedCount: approved.expectedCount,
+        workspaceId: approved.workspaceId,
+        target: { id: targetProbe.targetId, label: targetProbe.safeActionLabel },
+        result,
+        uncertain: result.confirmed !== true,
+        phase: recorded.phase
+      };
+    }
+
+    let finalProbe = null;
+    try {
+      finalProbe = await evaluateMove99FinalReviewProbe(target, approved);
+    } catch (_) {
+      // A navigation can replace the execution context without exposing an exact result count.
+    }
+    const unchanged = finalProbe?.stage === 'review-fees'
+      && finalProbe?.fingerprint === evidence.fingerprint;
     const latest = await storageGet(['pendingMove99Run']);
-    const recorded = stopTrustedMove99ForPropagation(latest.pendingMove99Run || pending, approved, releasedAt);
+    const recorded = holdTrustedMove99ForSubmitVerification(
+      latest.pendingMove99Run || pending,
+      approved,
+      { probe: finalProbe, unchanged, observedAt: new Date().toISOString() }
+    );
     await storageSet({
       pendingMove99Run: recorded,
       lastMove99Scan: FOUNDATION.compactMove99HistoryRecord(recorded)
     });
     return {
-      ok: true,
+      ok: false,
       dispatched: true,
       expectedCount: approved.expectedCount,
       workspaceId: approved.workspaceId,
       target: { id: targetProbe.targetId, label: targetProbe.safeActionLabel },
-      propagationPending: true,
+      uncertain: true,
+      unchanged,
       phase: recorded.phase
     };
   } catch (error) {
@@ -7258,7 +7304,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'resumeEbayMonthlyProfit') {
-    EBAY_PROFIT_BACKGROUND.resume(sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
+    resumeEbayMonthlyProfitGuarded(sender).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
 

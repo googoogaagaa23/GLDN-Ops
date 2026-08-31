@@ -2,6 +2,20 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.29 - 2026-08-30
+
+- Reviewed the complete official eBay prohibited-and-restricted policy hub, all 70 linked policy pages, and supplemental intellectual-property/VeRO guidance.
+- Expanded the source-linked Listing Preflight pack to 578 rules: 576 official eBay rules and 2 Discord-backed Review warnings; the reviewed Telegram delivery-date finding remains Ignore.
+- Added a fail-closed, versioned generic-only clearance profile with exactly 500 Product Hunter starting phrases.
+- Unknown seeds now stop before Product Hunter opens an Amazon worker tab; stale saved hunts cannot resume after the policy profile changes.
+- Released standalone GLDN Product Hunter v0.3.0 with the shipped 500-seed profile as its sole seed authority and no stale static fallback list.
+- Unknown brands, models, characters, franchises, licenses, fan art, compatibility language, and incomplete product evidence remain Needs review.
+- Community evidence is rejected if it attempts to create Block; only exact official eBay evidence can produce a hard Block.
+- Existing Listings Policy Audit is now read-only, exposes no listing-ending control, and keeps unmatched title/SKU-only listings in Needs review.
+- Added atomic schema validation, policy/profile fingerprints, source separation, full-hub coverage metadata, updated operator guidance, and regression coverage.
+- eBay monthly profit launches now open or reuse the visible progress page instead of leaving a background-only run.
+- Move .99 now credits only eBay-confirmed live results; an uncertain or partial submit keeps the exact batch for manual reconciliation instead of claiming it moved.
+
 ## v3.12.28 - 2026-08-26
 
 - Added a dedicated, durable Profit Run Progress page for Historical Poshmark Profit and Amazon cost-resolution runs.

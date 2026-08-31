@@ -10,6 +10,7 @@ test('public release staging rebuilds every distributable before assembly', () =
   assert.match(stageScript, /build-updater-metadata\.ps1/);
   assert.match(stageScript, /build-local-package\.ps1/);
   assert.match(stageScript, /build-installer\.ps1/);
+  assert.match(stageScript, /build-product-hunter-package\.ps1/);
 });
 
 test('public release staging verifies exact updater version URL and checksum', () => {
@@ -27,6 +28,8 @@ test('public release staging preserves publish ordering and recovery artifacts',
   assert.match(stageScript, /bootstrap-install\.ps1/);
   assert.match(stageScript, /install-latest\.ps1/);
   assert.match(stageScript, /release-manifest-v\$Version\.json/);
+  assert.match(stageScript, /GLDN-Product-Hunter-v\$productHunterVersion\.zip/);
+  assert.match(stageScript, /Product Hunter checksum file does not match its package/);
 });
 
 test('release gate assembles and verifies a single public release directory', () => {

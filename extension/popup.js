@@ -1432,7 +1432,8 @@ document.getElementById('prepareProductHunterClipboard').addEventListener('click
 });
 
 document.getElementById('openEcomSniperProductHunter').addEventListener('click', () => {
-  openEcomSniperPage('productHunter', 'Opening EcomSniper Product Hunter...');
+  chrome.tabs.create({ url: chrome.runtime.getURL('listing-preflight.html') });
+  setMessage('Opened the Product Research Desk. Choose reviewed generic words there before Product Hunter.');
 });
 
 document.getElementById('preflightBulkPosterClipboard').addEventListener('click', async () => {

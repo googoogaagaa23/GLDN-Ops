@@ -17,7 +17,7 @@ Copy-Item -LiteralPath (Join-Path $mainExtension 'listing-preflight-rules.json')
 
 $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
 $required = @(
-  'manifest.json', 'background.js', 'hunter-core.js', 'amazon-content.js', 'ebay-content.js', 'policy-core.js', 'policy-rules.json',
+  'manifest.json', 'background.js', 'hunter-core.js', 'amazon-content.js', 'ebay-content.js', 'policy-core.js', 'policy-rules.json', 'risk-profile.js',
   'dashboard.html', 'dashboard.css', 'dashboard.js', 'popup.html', 'popup.css', 'popup.js', 'README.md',
   'icons\icon16.png', 'icons\icon32.png', 'icons\icon48.png', 'icons\icon128.png'
 )
@@ -37,7 +37,24 @@ if ($hostPermissions.Count -ne 2 -or
 }
 
 $rules = Get-Content -Raw -LiteralPath (Join-Path $source 'policy-rules.json') | ConvertFrom-Json
-if ($rules.rules.Count -lt 175 -or $rules.ruleCount -ne $rules.rules.Count) { throw 'Reviewed policy rule pack is incomplete.' }
+if ([int]$rules.schemaVersion -ne 2 -or $rules.ruleCount -ne $rules.rules.Count) {
+  throw 'Reviewed policy rule pack must be a complete schema-2 pack with an exact declared count.'
+}
+$officialRules = @($rules.rules | Where-Object { $_.sourceType -eq 'official-ebay' })
+$communityBlocks = @($rules.rules | Where-Object { $_.sourceType -ne 'official-ebay' -and $_.action -eq 'block' })
+if ($officialRules.Count -lt 575) { throw 'Reviewed official eBay policy coverage is incomplete.' }
+if ($communityBlocks.Count) { throw 'Community evidence cannot create a Product Hunter Block.' }
+if ([int]$rules.policyCoverage.hubPolicyCount -ne 70 -or @($rules.policyCoverage.pages).Count -ne 70 -or @($rules.policyCoverage.supplementalPages).Count -lt 1) {
+  throw 'Product Hunter policy coverage must include all 70 hub policies plus supplemental intellectual-property review.'
+}
+$readyPhrases = @($rules.clearancePolicy.readyPhrases)
+$uniqueReadyPhrases = @($readyPhrases | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { $_ } | Sort-Object -Unique)
+if ($rules.clearancePolicy.mode -ne 'review-unless-generic-allowlist' -or
+    -not $rules.clearancePolicy.version -or
+    $readyPhrases.Count -ne 500 -or
+    $uniqueReadyPhrases.Count -ne 500) {
+  throw 'Product Hunter requires the exact versioned 500-phrase fail-closed clearance profile.'
+}
 
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $baseName = "GLDN-Product-Hunter-v$($manifest.version)"

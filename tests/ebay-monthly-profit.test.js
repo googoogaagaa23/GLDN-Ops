@@ -438,6 +438,20 @@ test("popup and eBay panel settings expose profit audit without cluttering daily
   assert.doesNotMatch(panelKeys, /ebayMonthlyProfit/);
 });
 
+test("marketplace-started eBay profit always opens one reusable live progress page", () => {
+  const background = fs.readFileSync(path.resolve(__dirname, "..", "extension", "background.js"), "utf8");
+  const helper = background.slice(
+    background.indexOf("async function showEbayProfitProgressForMarketplaceStart"),
+    background.indexOf("function updateOpenReviews")
+  );
+  assert.match(background, /showEbayProfitProgressForMarketplaceStart\(result, sender\)/);
+  assert.match(background, /resumeEbayMonthlyProfitGuarded\(sender\)/);
+  assert.match(helper, /chrome\.runtime\.getURL\('ebay-profit\.html'\)/);
+  assert.match(helper, /openOrFocusExtensionPage\('ebay-profit\.html', true\)/);
+  assert.match(helper, /String\(sender\?\.tab\?\.url \|\| ''\) === progressUrl/);
+  assert.match(helper, /progressPageWarning/);
+});
+
 test("profit review labels both methods clearly and never presents missing coverage as zero profit", () => {
   const html = fs.readFileSync(path.resolve(__dirname, "..", "extension", "ebay-profit.html"), "utf8");
   const review = fs.readFileSync(path.resolve(__dirname, "..", "extension", "ebay-profit.js"), "utf8");

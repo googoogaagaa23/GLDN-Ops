@@ -57,6 +57,7 @@ Invoke-CheckedScript (Join-Path $repoRoot "tools\build-extension-package.ps1") @
 Invoke-CheckedScript (Join-Path $repoRoot "tools\build-updater-metadata.ps1") @("-Version", $Version)
 Invoke-CheckedScript (Join-Path $repoRoot "tools\build-local-package.ps1") @("-Version", $Version)
 Invoke-CheckedScript (Join-Path $repoRoot "tools\build-installer.ps1")
+Invoke-CheckedScript (Join-Path $repoRoot "tools\build-product-hunter-package.ps1")
 
 $distRoot = Join-Path $repoRoot "dist"
 $extensionName = "GLDN-Ops-extension-v$Version.zip"
@@ -69,6 +70,14 @@ $metadataPath = Join-Path $distRoot "latest.json"
 $releaseNote = Join-Path $repoRoot "releases\v$Version.md"
 $bootstrap = Join-Path $repoRoot "bootstrap-install.ps1"
 $installLatest = Join-Path $repoRoot "install-latest.ps1"
+$productHunterManifestPath = Join-Path $repoRoot "product-hunter-extension\manifest.json"
+$productHunterManifest = Get-Content -Raw -LiteralPath $productHunterManifestPath | ConvertFrom-Json
+$productHunterVersion = [string]$productHunterManifest.version
+$productHunterName = "GLDN-Product-Hunter-v$productHunterVersion.zip"
+$productHunterHashName = "GLDN-Product-Hunter-v$productHunterVersion.sha256.txt"
+$productHunterZip = Join-Path $distRoot $productHunterName
+$productHunterHashFile = Join-Path $distRoot $productHunterHashName
+$productHunterReleaseNote = Join-Path $repoRoot "releases\GLDN-Product-Hunter-v$productHunterVersion.md"
 
 Assert-File $extensionZip "Versioned extension package"
 Assert-File $localZip "Versioned local bundle"
@@ -78,6 +87,9 @@ Assert-File $metadataPath "Updater metadata"
 Assert-File $releaseNote "Release notes"
 Assert-File $bootstrap "Bootstrap installer"
 Assert-File $installLatest "Latest installer script"
+Assert-File $productHunterZip "Product Hunter package"
+Assert-File $productHunterHashFile "Product Hunter checksum"
+Assert-File $productHunterReleaseNote "Product Hunter release notes"
 
 $metadata = Get-Content -Raw -LiteralPath $metadataPath | ConvertFrom-Json
 $expectedUrl = "https://raw.githubusercontent.com/googoogaagaa23/GLDN-Ops/main/downloads/$extensionName"
@@ -85,6 +97,8 @@ $extensionHash = Get-Sha256 $extensionZip
 $localHash = Get-Sha256 $localZip
 $latestLocalHash = Get-Sha256 $latestLocalZip
 $installerHash = Get-Sha256 $installer
+$productHunterHash = Get-Sha256 $productHunterZip
+$declaredProductHunterHash = ((Get-Content -Raw -LiteralPath $productHunterHashFile).Trim() -split '\s+')[0].ToUpperInvariant()
 if ([string]$metadata.version -ne $Version) {
   throw "Updater metadata version $($metadata.version) does not match $Version."
 }
@@ -97,6 +111,9 @@ if ([string]$metadata.sha256 -ne $extensionHash) {
 if ($localHash -ne $latestLocalHash) {
   throw "GLDN-Ops-latest.zip is not byte-identical to $localName."
 }
+if ($productHunterHash -ne $declaredProductHunterHash) {
+  throw "Product Hunter checksum file does not match its package."
+}
 
 $downloadsRoot = Join-Path $outputFull "downloads"
 $releasesRoot = Join-Path $outputFull "releases"
@@ -108,9 +125,12 @@ Copy-Item -LiteralPath $extensionZip -Destination (Join-Path $downloadsRoot $ext
 Copy-Item -LiteralPath $localZip -Destination (Join-Path $downloadsRoot $localName) -Force
 Copy-Item -LiteralPath $latestLocalZip -Destination (Join-Path $downloadsRoot "GLDN-Ops-latest.zip") -Force
 Copy-Item -LiteralPath $installer -Destination (Join-Path $downloadsRoot "GLDN-Ops-Setup.exe") -Force
+Copy-Item -LiteralPath $productHunterZip -Destination (Join-Path $downloadsRoot $productHunterName) -Force
+Copy-Item -LiteralPath $productHunterHashFile -Destination (Join-Path $downloadsRoot $productHunterHashName) -Force
 Copy-Item -LiteralPath $bootstrap -Destination (Join-Path $outputFull "bootstrap-install.ps1") -Force
 Copy-Item -LiteralPath $installLatest -Destination (Join-Path $outputFull "install-latest.ps1") -Force
 Copy-Item -LiteralPath $releaseNote -Destination (Join-Path $releasesRoot "v$Version.md") -Force
+Copy-Item -LiteralPath $productHunterReleaseNote -Destination (Join-Path $releasesRoot "GLDN-Product-Hunter-v$productHunterVersion.md") -Force
 
 $releaseManifest = [ordered]@{
   schemaVersion = 1
@@ -121,9 +141,12 @@ $releaseManifest = [ordered]@{
     [ordered]@{ path = "downloads/$localName"; sha256 = $localHash }
     [ordered]@{ path = "downloads/GLDN-Ops-latest.zip"; sha256 = $latestLocalHash }
     [ordered]@{ path = "downloads/GLDN-Ops-Setup.exe"; sha256 = $installerHash }
+    [ordered]@{ path = "downloads/$productHunterName"; sha256 = $productHunterHash }
+    [ordered]@{ path = "downloads/$productHunterHashName"; sha256 = (Get-Sha256 $productHunterHashFile) }
     [ordered]@{ path = "bootstrap-install.ps1"; sha256 = (Get-Sha256 $bootstrap) }
     [ordered]@{ path = "install-latest.ps1"; sha256 = (Get-Sha256 $installLatest) }
     [ordered]@{ path = "releases/v$Version.md"; sha256 = (Get-Sha256 $releaseNote) }
+    [ordered]@{ path = "releases/GLDN-Product-Hunter-v$productHunterVersion.md"; sha256 = (Get-Sha256 $productHunterReleaseNote) }
   )
   publishLast = "downloads/latest.json"
 }
@@ -158,6 +181,16 @@ SHA-256: $extensionHash
 
 SHA-256: $localHash
 
+## Standalone Product Hunter
+
+- [Download GLDN Product Hunter v$productHunterVersion](./$productHunterName)
+
+SHA-256: $productHunterHash
+
+Product Hunter is a separate unpacked Chrome extension. It reads Amazon product
+details, applies the same reviewed eBay policy pack, and produces only reviewed
+Ready links. It does not list items or approve products for eBay.
+
 The complete machine-readable file list is in
 [release-manifest-v$Version.json](./release-manifest-v$Version.json).
 "@
@@ -191,6 +224,8 @@ $summary = [ordered]@{
   extensionSha256 = $extensionHash
   localBundleSha256 = $localHash
   installerSha256 = $installerHash
+  productHunterVersion = $productHunterVersion
+  productHunterSha256 = $productHunterHash
   updaterTargetVerified = $true
   latestMetadataStagedLast = $true
   privateConfigIncluded = $false

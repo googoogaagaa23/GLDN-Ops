@@ -1,9 +1,24 @@
 (function (root, factory) {
-  const api = factory();
+  let riskProfile = root.GLDN_PRODUCT_HUNTER_RISK_PROFILE;
+  if (!riskProfile && typeof module === 'object' && module.exports) {
+    try { riskProfile = require('./risk-profile.js'); } catch { /* Fail closed below. */ }
+  }
+  const api = factory(riskProfile);
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.GLDN_PRODUCT_HUNTER_CORE = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (riskProfileInput) {
   'use strict';
+
+  const RISK_PROFILE = Object.freeze(riskProfileInput && Array.isArray(riskProfileInput.approvedSeeds)
+    ? riskProfileInput
+    : {
+        schemaVersion: 0,
+        profileVersion: 'unavailable',
+        approvedSeeds: [],
+        genericBrandLabels: [],
+        ipCuePhrases: [],
+        protectedNameCues: []
+      });
 
   const STATUS = Object.freeze({
     QUEUED: 'queued',
@@ -34,6 +49,7 @@
   const FASHION_RE = /\b(?:apparel|bikini|blouse|boot|boots|boxers?|bra|bras|briefs?|clogs?|clothing|coat|cosplay|costumes?|crossbody|dress|dresses|fashion|handbags?|hoodie|jackets?|jeans|leggings|lingerie|outfits?|pants|purse|purses|sandals?|shirts?|shoes?|shorts?|skirt|slippers?|sneakers?|socks?|sweater|swimsuit|t-?shirt|underwear|wallets?)\b/i;
   const UNAVAILABLE_RE = /\b(?:currently unavailable|temporarily out of stock|out of stock|not available|unavailable)\b/i;
   const AVAILABLE_RE = /\b(?:in stock|available to ship|only \d+ left)\b/i;
+  const AMAZON_RETAILER_RE = /^(?:amazon(?:\.com)?|amazon\.com services llc|amazon services llc|amazon export sales llc)$/i;
 
   function normalizeText(value) {
     return String(value || '')
@@ -89,6 +105,81 @@
       keywords.push(keyword.slice(0, 240));
     }
     return keywords;
+  }
+
+  function seedProfileOptions(options = {}) {
+    const approvedSeeds = Array.isArray(options)
+      ? options
+      : Array.isArray(options?.approvedSeeds)
+        ? options.approvedSeeds
+        : RISK_PROFILE.approvedSeeds;
+    const profileVersion = Array.isArray(options)
+      ? normalizeText(RISK_PROFILE.profileVersion)
+      : normalizeText(options?.profileVersion || RISK_PROFILE.profileVersion);
+    return { approvedSeeds: approvedSeeds || [], profileVersion: profileVersion || 'unavailable' };
+  }
+
+  function assessSeedKeywords(value, options = {}) {
+    const keywords = sanitizeKeywords(value);
+    const seedProfile = seedProfileOptions(options);
+    const allowlist = new Set(seedProfile.approvedSeeds.map(normalizeSearchText).filter(Boolean));
+    const approved = [];
+    const rejected = [];
+    for (const keyword of keywords) {
+      if (allowlist.has(normalizeSearchText(keyword))) approved.push(keyword);
+      else rejected.push(keyword);
+    }
+    return {
+      profileVersion: seedProfile.profileVersion,
+      approved,
+      rejected
+    };
+  }
+
+  function validateSeedKeywords(value, options = {}) {
+    const assessment = assessSeedKeywords(value, options);
+    const seedProfile = seedProfileOptions(options);
+    if (!assessment.approved.length && !assessment.rejected.length) {
+      throw new Error('Enter at least one Product Research Desk starting word.');
+    }
+    if (!seedProfile.approvedSeeds.length || !seedProfile.profileVersion || seedProfile.profileVersion === 'unavailable') {
+      throw new Error('The Product Hunter risk profile is unavailable. No hunt can start.');
+    }
+    if (assessment.rejected.length) {
+      const preview = assessment.rejected.slice(0, 8).join(', ');
+      const remaining = assessment.rejected.length > 8 ? ` (+${assessment.rejected.length - 8} more)` : '';
+      throw new Error(`Only versioned Product Research Desk starting words may run. Not approved: ${preview}${remaining}.`);
+    }
+    if (!assessment.approved.length) {
+      throw new Error('The Product Hunter risk profile is unavailable. No hunt can start.');
+    }
+    return assessment.approved;
+  }
+
+  function riskProfileSummary() {
+    return {
+      schemaVersion: Number(RISK_PROFILE.schemaVersion || 0),
+      profileVersion: normalizeText(RISK_PROFILE.profileVersion) || 'unavailable',
+      approvedSeedCount: Array.isArray(RISK_PROFILE.approvedSeeds) ? RISK_PROFILE.approvedSeeds.length : 0,
+      reviewedAt: normalizeText(RISK_PROFILE.reviewedAt),
+      disclaimer: normalizeText(RISK_PROFILE.disclaimer)
+    };
+  }
+
+  function jobRiskProfileIssue(job, options = {}) {
+    const seedProfile = seedProfileOptions(options);
+    try {
+      validateSeedKeywords(job?.keywords, seedProfile);
+    } catch (error) {
+      return normalizeText(error?.message || error || 'The saved hunt contains an unapproved starting word.');
+    }
+    const currentVersion = seedProfile.profileVersion;
+    const jobVersion = normalizeText(job?.riskProfileVersion);
+    if (!currentVersion || currentVersion === 'unavailable') return 'The Product Hunter risk profile is unavailable.';
+    if (jobVersion !== currentVersion) {
+      return `The saved hunt used risk profile ${jobVersion || 'unknown'} instead of current profile ${currentVersion}. Reset it and start a new hunt.`;
+    }
+    return '';
   }
 
   function extractAsin(value) {
@@ -318,6 +409,9 @@
     const price = parsePrice(input.price);
     const rating = parseRating(input.rating);
     const reviewCount = parseCount(input.reviewCount);
+    const soldBy = normalizeText(input.soldBy);
+    const shipsFrom = normalizeText(input.shipsFrom);
+    const merchantInfo = normalizeText(input.merchantInfo);
     const evidenceText = normalizeText([title, brand, categories.join(' '), bullets.join(' '), details].join(' '));
     return {
       asin,
@@ -331,6 +425,9 @@
       price,
       rating,
       reviewCount,
+      soldBy,
+      shipsFrom,
+      merchantInfo,
       imageUrl: normalizeText(input.imageUrl),
       keyword: normalizeText(input.keyword),
       searchPage: clampInteger(input.searchPage, 0, 1000, 0),
@@ -353,6 +450,30 @@
     return 'unknown';
   }
 
+  function isGenericBrand(value) {
+    const brand = normalizeSearchText(value);
+    return Boolean(brand && (RISK_PROFILE.genericBrandLabels || []).map(normalizeSearchText).includes(brand));
+  }
+
+  function isAmazonRetailer(value) {
+    return AMAZON_RETAILER_RE.test(normalizeText(value));
+  }
+
+  function authenticityReview(productInput) {
+    const product = normalizeProduct(productInput);
+    if (!product.brand) {
+      return 'Amazon did not expose a verifiable brand. Review the product and source before listing.';
+    }
+    if (isGenericBrand(product.brand)) return '';
+    if (!product.soldBy || !product.shipsFrom) {
+      return `Amazon identifies the brand as ${product.brand}, but Sold by and Ships from could not both be verified. Do not list until the seller/source and invoice are confirmed.`;
+    }
+    if (!isAmazonRetailer(product.soldBy) || !isAmazonRetailer(product.shipsFrom)) {
+      return `Amazon identifies the brand as ${product.brand}, but this offer is sold by ${product.soldBy || 'an unknown seller'} and ships from ${product.shipsFrom || 'an unknown source'}. Hold for authenticity and invoice review.`;
+    }
+    return '';
+  }
+
   function recentHistoryMatch(historyEntry, nowValue, reuseDays) {
     if (!historyEntry || reuseDays <= 0) return false;
     const usedAt = Date.parse(historyEntry.usedAt || historyEntry.copiedAt || historyEntry.updatedAt || '');
@@ -361,25 +482,122 @@
     return now - usedAt < reuseDays * 86400000;
   }
 
-  function policyRow(product) {
+  function phraseInText(text, phrase) {
+    const normalizedPhrase = normalizeSearchText(phrase);
+    if (!normalizedPhrase) return false;
+    const escaped = normalizedPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+    return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, 'i').test(normalizeSearchText(text));
+  }
+
+  function seedFamilyToken(keyword) {
+    const tokens = normalizeSearchText(keyword).match(/[a-z0-9]+/g) || [];
+    return tokens[tokens.length - 1] || '';
+  }
+
+  function singularToken(value) {
+    const token = normalizeSearchText(value);
+    if (token.length > 4 && token.endsWith('ies')) return `${token.slice(0, -3)}y`;
+    if (token.length > 4 && token.endsWith('es')) return token.slice(0, -2);
+    if (token.length > 3 && token.endsWith('s')) return token.slice(0, -1);
+    return token;
+  }
+
+  function titleMatchesSeedFamily(title, keyword) {
+    const family = singularToken(seedFamilyToken(keyword));
+    if (!family) return false;
+    const titleTokens = (normalizeSearchText(title).match(/[a-z0-9]+/g) || []).map(singularToken);
+    return titleTokens.includes(family);
+  }
+
+  function firstPhraseMatch(text, phrases) {
+    return (phrases || []).find((phrase) => phraseInText(text, phrase)) || '';
+  }
+
+  function modelCue(text) {
+    const raw = normalizeText(text);
+    const labeled = raw.match(/\b(?:model|model no|model number|part no|part number|mpn|series)\s*[:#-]?\s*[a-z0-9][a-z0-9._/-]{1,}\b/i);
+    if (labeled) return labeled[0];
+    const coded = raw.match(/\b[A-Z]{1,6}[-_]?[0-9]{2,}[A-Z0-9_-]*\b/);
+    return coded?.[0] || '';
+  }
+
+  function assessCandidateRisk(productInput, options = {}) {
+    const product = normalizeProduct(productInput);
+    const phase = options.phase === 'search' ? 'search' : 'detail';
+    const seedAssessment = assessSeedKeywords(product.keyword, options);
+    if (seedAssessment.rejected.length || seedAssessment.approved.length !== 1) {
+      return {
+        review: true,
+        reason: 'This candidate is not tied to exactly one approved Product Research Desk starting word.'
+      };
+    }
+    if (!titleMatchesSeedFamily(product.title, product.keyword)) {
+      return {
+        review: true,
+        reason: `The Amazon title does not confirm the approved "${product.keyword}" product family.`
+      };
+    }
+
+    const evidence = normalizeText([
+      product.title,
+      product.brand,
+      product.categories.join(' '),
+      product.bullets.join(' '),
+      product.details
+    ].join(' '));
+    const ipCue = firstPhraseMatch(evidence, RISK_PROFILE.ipCuePhrases);
+    if (ipCue) {
+      return { review: true, reason: `Brand, IP, licensing, or compatibility cue requires review: "${ipCue}".` };
+    }
+    const protectedName = firstPhraseMatch(evidence, RISK_PROFILE.protectedNameCues);
+    if (protectedName) {
+      return { review: true, reason: `Possible brand, character, or franchise reference requires review: "${protectedName}".` };
+    }
+    const model = modelCue(evidence);
+    if (model) {
+      return { review: true, reason: `Possible model or part-number reference requires review: "${model}".` };
+    }
+
+    const brand = normalizeSearchText(product.brand);
+    if (brand) {
+      const genericBrands = new Set((RISK_PROFILE.genericBrandLabels || []).map(normalizeSearchText));
+      if (!genericBrands.has(brand)) {
+        return { review: true, reason: `Amazon identifies a non-generic brand ("${product.brand}"). Verify authenticity and listing rights.` };
+      }
+    } else if (phase === 'detail') {
+      return { review: true, reason: 'Amazon did not expose a brand. Missing brand evidence cannot become Ready.' };
+    }
+
+    return { review: false, reason: '', profileVersion: normalizeText(RISK_PROFILE.profileVersion) };
+  }
+
+  function policyRow(product, phase = 'detail') {
     const normalized = normalizeProduct(product);
     return {
       index: 1,
       input: normalizeText([normalized.title, normalized.brand, normalized.categories.join(' '), normalized.bullets.join(' '), normalized.details, normalized.url].join(' ')),
       title: normalized.evidenceText,
+      brand: normalized.brand,
+      category: normalized.categories.join(' '),
+      model: '',
+      bullets: normalized.bullets.join(' '),
+      details: normalized.details,
+      clearanceText: normalized.title,
       urls: normalized.url ? [normalized.url] : [],
       amazonUrls: normalized.url ? [normalized.url] : [],
       asins: normalized.asin ? [normalized.asin] : [],
       urlSearchText: '',
+      sourceKind: phase === 'search' ? 'product-hunter-search' : 'product-hunter-detail',
       hasProductEvidence: Boolean(normalized.asin && normalized.title)
     };
   }
 
-  function outcome(status, reason, product, policyResult = null) {
+  function outcome(status, reason, product, policyResult = null, riskProfileVersion = RISK_PROFILE.profileVersion) {
     return {
       ...normalizeProduct(product),
       status,
       reason: normalizeText(reason),
+      riskProfileVersion: normalizeText(riskProfileVersion),
       policyMatches: Array.isArray(policyResult?.matches) ? policyResult.matches : [],
       policyAction: normalizeText(policyResult?.action)
     };
@@ -391,65 +609,88 @@
     const phase = options.phase === 'detail' ? 'detail' : 'search';
     const policyApi = options.policyApi || globalThis.GLDN_LISTING_PREFLIGHT;
     const now = options.now || new Date().toISOString();
+    const seedProfile = {
+      approvedSeeds: Array.isArray(rulePack?.clearancePolicy?.readyPhrases) && rulePack.clearancePolicy.readyPhrases.length
+        ? rulePack.clearancePolicy.readyPhrases
+        : RISK_PROFILE.approvedSeeds,
+      profileVersion: normalizeText(rulePack?.clearancePolicy?.version || RISK_PROFILE.profileVersion)
+    };
+    const finish = (status, reason, policyResult = null) => outcome(
+      status,
+      reason,
+      product,
+      policyResult,
+      seedProfile.profileVersion
+    );
 
-    if (!product.asin) return outcome(STATUS.INCOMPLETE, 'Amazon did not provide a valid ASIN.', product);
-    if (!product.title) return outcome(STATUS.INCOMPLETE, 'Amazon did not provide a product title.', product);
+    if (!product.asin) return finish(STATUS.INCOMPLETE, 'Amazon did not provide a valid ASIN.');
+    if (!product.title) return finish(STATUS.INCOMPLETE, 'Amazon did not provide a product title.');
     if (recentHistoryMatch(historyEntry, now, settings.reuseDays)) {
-      return outcome(STATUS.EXCLUDED, `This ASIN was already copied within the last ${settings.reuseDays} days.`, product);
+      return finish(STATUS.EXCLUDED, `This ASIN was already copied within the last ${settings.reuseDays} days.`);
     }
     if (settings.excludeAlreadyListed) {
       const listingMatch = findAlreadyListedMatch(product, options.ebayIndex);
       const first = listingMatch?.records?.[0];
       if (listingMatch?.type === 'asin') {
         return {
-          ...outcome(STATUS.EXCLUDED, `Already active on eBay as item ${first?.itemId || 'unknown'} (exact SKU/ASIN match).`, product),
+          ...finish(STATUS.EXCLUDED, `Already active on eBay as item ${first?.itemId || 'unknown'} (exact SKU/ASIN match).`),
           ebayListingMatch: listingMatch
         };
       }
       if (listingMatch?.type === 'title') {
         return {
-          ...outcome(STATUS.REVIEW, `Possible eBay duplicate: exact normalized title matches item ${first?.itemId || 'unknown'}. Review before listing.`, product),
+          ...finish(STATUS.REVIEW, `Possible eBay duplicate: exact normalized title matches item ${first?.itemId || 'unknown'}. Review before listing.`),
           ebayListingMatch: listingMatch
         };
       }
     }
     if (settings.excludeFashion && isFashionProduct(product)) {
-      return outcome(STATUS.EXCLUDED, 'Excluded by the clothing, shoes, or fashion filter.', product);
+      return finish(STATUS.EXCLUDED, 'Excluded by the clothing, shoes, or fashion filter.');
     }
     if (settings.excludeSponsored && product.sponsored) {
-      return outcome(STATUS.EXCLUDED, 'Excluded because this is a sponsored Amazon result.', product);
+      return finish(STATUS.EXCLUDED, 'Excluded because this is a sponsored Amazon result.');
     }
     if (product.price !== null && (product.price < settings.minPrice || product.price > settings.maxPrice)) {
-      return outcome(STATUS.EXCLUDED, `Amazon price is outside the configured $${settings.minPrice.toFixed(2)} to $${settings.maxPrice.toFixed(2)} range.`, product);
+      return finish(STATUS.EXCLUDED, `Amazon price is outside the configured $${settings.minPrice.toFixed(2)} to $${settings.maxPrice.toFixed(2)} range.`);
     }
 
     if (!policyApi || typeof policyApi.evaluateRows !== 'function') {
-      return outcome(STATUS.REVIEW, 'The reviewed eBay policy engine is unavailable.', product);
+      return finish(STATUS.REVIEW, 'The reviewed eBay policy engine is unavailable.');
     }
-    const [policyResult] = policyApi.evaluateRows([policyRow(product)], rulePack || { rules: [] });
-    if (policyResult?.action === 'block') return outcome(STATUS.BLOCKED, policyResult.reason, product, policyResult);
-    if (policyResult?.action === 'review') return outcome(STATUS.REVIEW, policyResult.reason, product, policyResult);
+    const [policyResult] = policyApi.evaluateRows([policyRow(product, phase)], rulePack || { rules: [] });
+    if (policyResult?.action === 'block') return finish(STATUS.BLOCKED, policyResult.reason, policyResult);
+    if (policyResult?.action === 'review') return finish(STATUS.REVIEW, policyResult.reason, policyResult);
 
-    if (phase === 'search') return outcome(STATUS.QUEUED, 'Search evidence passed. Full Amazon product details are queued.', product, policyResult);
+    const candidateRisk = assessCandidateRisk(product, { phase, ...seedProfile });
+    if (candidateRisk.review) return finish(STATUS.REVIEW, candidateRisk.reason, policyResult);
 
-    if (product.price === null) return outcome(STATUS.INCOMPLETE, 'Amazon did not expose a usable product price.', product, policyResult);
-    if (settings.minRating > 0 && product.rating === null) return outcome(STATUS.REVIEW, 'Amazon rating could not be verified.', product, policyResult);
+    if (phase === 'search') return finish(STATUS.QUEUED, 'Search evidence passed. Full Amazon product details are queued.', policyResult);
+
+    const authenticityIssue = authenticityReview(product);
+    if (authenticityIssue) return finish(STATUS.REVIEW, authenticityIssue, policyResult);
+
+    if (product.price === null) return finish(STATUS.INCOMPLETE, 'Amazon did not expose a usable product price.', policyResult);
+    if (settings.minRating > 0 && product.rating === null) return finish(STATUS.REVIEW, 'Amazon rating could not be verified.', policyResult);
     if (product.rating !== null && product.rating < settings.minRating) {
-      return outcome(STATUS.EXCLUDED, `Amazon rating ${product.rating.toFixed(1)} is below the configured ${settings.minRating.toFixed(1)} minimum.`, product, policyResult);
+      return finish(STATUS.EXCLUDED, `Amazon rating ${product.rating.toFixed(1)} is below the configured ${settings.minRating.toFixed(1)} minimum.`, policyResult);
     }
-    if (settings.minReviews > 0 && product.reviewCount === null) return outcome(STATUS.REVIEW, 'Amazon review count could not be verified.', product, policyResult);
+    if (settings.minReviews > 0 && product.reviewCount === null) return finish(STATUS.REVIEW, 'Amazon review count could not be verified.', policyResult);
     if (product.reviewCount !== null && product.reviewCount < settings.minReviews) {
-      return outcome(STATUS.EXCLUDED, `Amazon review count ${product.reviewCount} is below the configured ${settings.minReviews} minimum.`, product, policyResult);
+      return finish(STATUS.EXCLUDED, `Amazon review count ${product.reviewCount} is below the configured ${settings.minReviews} minimum.`, policyResult);
     }
     const stockState = availabilityState(product.availability);
-    if (stockState === 'unavailable') return outcome(STATUS.EXCLUDED, 'Amazon reports this product as unavailable.', product, policyResult);
+    if (stockState === 'unavailable') return finish(STATUS.EXCLUDED, 'Amazon reports this product as unavailable.', policyResult);
     if (settings.requireInStock && stockState === 'unknown') {
-      return outcome(STATUS.REVIEW, 'Amazon availability could not be verified as in stock.', product, policyResult);
+      return finish(STATUS.REVIEW, 'Amazon availability could not be verified as in stock.', policyResult);
     }
     if (product.evidenceText.length < 20) {
-      return outcome(STATUS.INCOMPLETE, 'Amazon did not expose enough product evidence for policy screening.', product, policyResult);
+      return finish(STATUS.INCOMPLETE, 'Amazon did not expose enough product evidence for policy screening.', policyResult);
     }
-    return outcome(STATUS.READY, 'No current reviewed rule matched the collected Amazon product evidence. This is not eBay approval.', product, policyResult);
+    return finish(
+      STATUS.READY,
+      `Passed Product Hunter risk profile ${seedProfile.profileVersion}; no current reviewed rule matched the collected generic product evidence. This is not eBay approval.`,
+      policyResult
+    );
   }
 
   function emptyCounts() {
@@ -465,12 +706,13 @@
   }
 
   function createJob(input = {}, now = new Date().toISOString()) {
-    const keywords = sanitizeKeywords(input.keywords);
-    if (!keywords.length) throw new Error('Enter at least one product keyword.');
+    const seedProfile = seedProfileOptions(input.seedProfile || {});
+    const keywords = validateSeedKeywords(input.keywords, seedProfile);
     const settings = normalizeSettings(input.settings);
     const id = normalizeText(input.id) || `hunt-${Date.parse(now) || Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     return {
       schemaVersion: 1,
+      riskProfileVersion: seedProfile.profileVersion,
       id,
       createdAt: now,
       updatedAt: now,
@@ -525,10 +767,15 @@
   }
 
   function buildAuditCsv(products) {
-    const headers = ['Status', 'ASIN', 'Title', 'Brand', 'Amazon Price', 'Rating', 'Review Count', 'Availability', 'Keyword', 'Search Page', 'Reason', 'eBay Listing Match', 'Policy Sources', 'Amazon URL'];
+    const headers = ['Status', 'ASIN', 'Title', 'Brand', 'Sold By', 'Ships From', 'Amazon Price', 'Rating', 'Review Count', 'Availability', 'Keyword', 'Search Page', 'Reason', 'eBay Listing Match', 'Policy Topics', 'Policy Sources', 'Amazon URL'];
     const rows = (products || []).map((product) => {
       const sources = (product.policyMatches || [])
         .flatMap((match) => match.evidenceUrls || [])
+        .filter((value, index, values) => values.indexOf(value) === index)
+        .join(' | ');
+      const topics = (product.policyMatches || [])
+        .map((match) => normalizeText(match.policyTopic))
+        .filter(Boolean)
         .filter((value, index, values) => values.indexOf(value) === index)
         .join(' | ');
       return [
@@ -536,6 +783,8 @@
         product.asin,
         product.title,
         product.brand,
+        product.soldBy,
+        product.shipsFrom,
         product.price === null || product.price === undefined ? '' : Number(product.price).toFixed(2),
         product.rating === null || product.rating === undefined ? '' : Number(product.rating).toFixed(1),
         product.reviewCount === null || product.reviewCount === undefined ? '' : Number(product.reviewCount),
@@ -544,6 +793,7 @@
         product.searchPage,
         product.reason,
         product.ebayListingMatch?.records?.map((record) => record.itemId).filter(Boolean).join(' | ') || '',
+        topics,
         sources,
         canonicalAmazonUrl(product.url, product.asin)
       ].map(csvCell).join(',');
@@ -571,6 +821,10 @@
     normalizeSearchText,
     normalizeSettings,
     sanitizeKeywords,
+    assessSeedKeywords,
+    validateSeedKeywords,
+    riskProfileSummary,
+    jobRiskProfileIssue,
     extractAsin,
     decodeSkuToAsin,
     normalizeListingTitle,
@@ -586,7 +840,11 @@
     normalizeProduct,
     isFashionProduct,
     availabilityState,
+    isGenericBrand,
+    isAmazonRetailer,
+    authenticityReview,
     recentHistoryMatch,
+    assessCandidateRisk,
     policyRow,
     classifyProduct,
     emptyCounts,

@@ -9,21 +9,25 @@ const projectRoot = path.resolve(__dirname, '..');
 const core = require(path.join(projectRoot, 'product-hunter-extension', 'hunter-core.js'));
 const policy = require(path.join(projectRoot, 'product-hunter-extension', 'policy-core.js'));
 const rulePack = JSON.parse(fs.readFileSync(path.join(projectRoot, 'product-hunter-extension', 'policy-rules.json'), 'utf8'));
+const seedProfile = {
+  approvedSeeds: rulePack.clearancePolicy.readyPhrases,
+  profileVersion: rulePack.clearancePolicy.version
+};
 
 function product(overrides = {}) {
   return {
     asin: 'B012345678',
     url: 'https://www.amazon.com/example/dp/B012345678?tag=test',
-    title: 'Stainless Steel Mixing Bowl Set with Lids',
-    brand: 'Kitchen Works',
-    categories: ['Home & Kitchen', 'Kitchen & Dining'],
-    bullets: ['Dishwasher safe durable kitchen bowls'],
-    details: 'Six piece nesting bowl set for food preparation and storage.',
+    title: 'Cabinet Shelf Liner',
+    brand: 'Generic',
+    categories: [],
+    bullets: [],
+    details: 'Cabinet shelf liner',
     availability: 'In Stock',
     price: '$24.99',
     rating: '4.6 out of 5 stars',
     reviewCount: '1,234 ratings',
-    keyword: 'mixing bowls',
+    keyword: 'cabinet shelf liner',
     searchPage: 1,
     sponsored: false,
     ...overrides
@@ -39,12 +43,13 @@ function classify(overrides = {}, settings = {}, historyEntry = null, phase = 'd
 }
 
 test('loads the reviewed official and community policy pack', () => {
-  assert.equal(rulePack.ruleCount, 177);
-  assert.equal(rulePack.rules.length, 177);
-  assert.equal(rulePack.rules.filter((rule) => rule.action === 'block').length, 130);
-  assert.equal(rulePack.rules.filter((rule) => rule.action === 'review').length, 47);
-  assert.equal(rulePack.rules.filter((rule) => rule.sourceType === 'official-ebay').length, 175);
+  assert.equal(rulePack.ruleCount, rulePack.rules.length);
+  assert.ok(rulePack.rules.length >= 177);
+  assert.ok(rulePack.rules.some((rule) => rule.action === 'block'));
+  assert.ok(rulePack.rules.some((rule) => rule.action === 'review'));
+  assert.ok(rulePack.rules.filter((rule) => rule.sourceType === 'official-ebay').length >= 175);
   assert.equal(rulePack.rules.filter((rule) => rule.sourceType === 'profile2-discord').length, 2);
+  assert.ok(rulePack.rules.filter((rule) => rule.sourceType !== 'official-ebay').every((rule) => rule.action === 'review'));
 });
 
 test('normalizes configurable hunt limits', () => {
@@ -77,7 +82,7 @@ test('decodes direct and eComSniper-style encoded ASIN values from eBay SKUs', (
 
 test('builds a verified complete eBay index and detects exact ASIN and title matches', () => {
   const index = core.buildEbayListingIndex([
-    { itemId: '123456789012', title: 'Stainless Steel Mixing Bowl Set with Lids', sku: 'B012345678', price: '$39.99' },
+    { itemId: '123456789012', title: 'Cabinet Shelf Liner', sku: 'B012345678', price: '$39.99' },
     { itemId: '123456789013', title: 'Solar Garden Lights Set', sku: Buffer.from('B087654321').toString('base64'), price: '$24.99' }
   ], { verified: true, totalListings: 2, computerLabel: '0', accountLabel: 'FAK12' });
   assert.equal(index.verified, true);
@@ -94,7 +99,7 @@ test('builds a verified complete eBay index and detects exact ASIN and title mat
 
 test('protects Product Hunter from exact active eBay duplicates', () => {
   const index = core.buildEbayListingIndex([
-    { itemId: '123456789012', title: 'Stainless Steel Mixing Bowl Set with Lids', sku: 'B012345678' }
+    { itemId: '123456789012', title: 'Cabinet Shelf Liner', sku: 'B012345678' }
   ], { verified: true, totalListings: 1, computerLabel: '0' });
   const exact = core.classifyProduct(product(), rulePack, { excludeAlreadyListed: true }, null, {
     phase: 'detail', policyApi: policy, ebayIndex: index, now: '2026-08-09T12:00:00.000Z'
@@ -134,6 +139,7 @@ test('marks a fully evidenced clear product Ready without implying eBay approval
   const result = classify();
   assert.equal(result.status, core.STATUS.READY);
   assert.match(result.reason, /not eBay approval/i);
+  assert.equal(result.riskProfileVersion, rulePack.clearancePolicy.version);
   assert.equal(result.price, 24.99);
   assert.equal(result.rating, 4.6);
   assert.equal(result.reviewCount, 1234);
@@ -171,7 +177,7 @@ test('requires missing rating or review evidence when a minimum is configured', 
 });
 
 test('keeps search-only clear products queued until the full product page is read', () => {
-  const result = classify({ details: '', availability: '' }, {}, null, 'search');
+  const result = classify({ brand: '', details: '', availability: '' }, {}, null, 'search');
   assert.equal(result.status, core.STATUS.QUEUED);
 });
 
@@ -181,12 +187,83 @@ test('excludes ASINs copied inside the configured reuse window', () => {
   assert.match(result.reason, /last 60 days/i);
 });
 
-test('creates resumable jobs and deduplicates keywords', () => {
-  const job = core.createJob({ keywords: 'mixing bowls\nMixing Bowls\nsolar lights', settings: { computerLabel: '2' } }, '2026-08-09T12:00:00.000Z');
-  assert.deepEqual(job.keywords, ['mixing bowls', 'solar lights']);
+test('creates resumable jobs only from the shipped versioned seed profile and deduplicates them', () => {
+  const job = core.createJob({ keywords: 'cabinet shelf liner\nCabinet Shelf Liner\npicture hanging hooks', settings: { computerLabel: '2' }, seedProfile }, '2026-08-09T12:00:00.000Z');
+  assert.deepEqual(job.keywords, ['cabinet shelf liner', 'picture hanging hooks']);
+  assert.equal(job.riskProfileVersion, rulePack.clearancePolicy.version);
   assert.equal(job.status, 'running');
   assert.equal(job.phase, 'search');
   assert.equal(job.settings.computerLabel, '2');
+  assert.equal(core.jobRiskProfileIssue(job, seedProfile), '');
+  assert.match(core.jobRiskProfileIssue({ ...job, riskProfileVersion: 'old' }, seedProfile), /saved hunt used risk profile/i);
+});
+
+test('rejects unknown or mixed seed lists and fails closed without the shipped profile', () => {
+  assert.throws(() => core.createJob({ keywords: 'nike phone case', seedProfile }), /only versioned.*not approved/i);
+  assert.throws(() => core.createJob({ keywords: 'cabinet shelf liner\nrandom trending product', seedProfile }), /random trending product/i);
+  assert.throws(() => core.createJob({ keywords: 'cabinet shelf liner' }), /risk profile is unavailable|not approved/i);
+});
+
+test('routes missing and non-generic Amazon brands to Review', () => {
+  const missing = classify({ brand: '' });
+  assert.equal(missing.status, core.STATUS.REVIEW);
+  assert.match(missing.reason, /brand evidence is missing|did not expose a brand/i);
+
+  const branded = classify({ brand: 'Kitchen Works' });
+  assert.equal(branded.status, core.STATUS.REVIEW);
+  assert.match(branded.reason, /brand|authenticity|listing rights/i);
+});
+
+test('routes IP, character, licensing, compatibility, replacement, and model cues to Review', () => {
+  const fixtures = [
+    { title: 'Nike Cabinet Shelf Liner' },
+    { title: 'Disney Mickey Mouse Cabinet Shelf Liner' },
+    { title: 'Gucci Cabinet Shelf Liner' },
+    { title: 'Apple AirPods Cabinet Shelf Liner' },
+    { title: 'Owala Cabinet Shelf Liner' },
+    { title: 'VEVOR Cabinet Shelf Liner' },
+    { title: 'Licensed Character Cabinet Shelf Liner' },
+    { title: 'Fan Art Cabinet Shelf Liner' },
+    { title: 'Cabinet Shelf Liner Compatible with iPhone' },
+    { title: 'Cabinet Shelf Liner Fits iPhone' },
+    { title: 'Replacement for Apple Cabinet Shelf Liner' },
+    { title: 'Cabinet Shelf Liner Model AB-1234' }
+  ];
+  for (const fixture of fixtures) {
+    const result = classify({ brand: 'Generic', ...fixture });
+    assert.equal(result.status, core.STATUS.REVIEW, fixture.title);
+  }
+});
+
+test('fails closed when the schema-2 clearance profile is missing', () => {
+  const invalidPack = { ...rulePack, clearancePolicy: undefined };
+  const normalized = policy.normalizeRulePack(invalidPack);
+  assert.equal(normalized.valid, false);
+  assert.match(normalized.validationErrors.join(' '), /clearance profile|clearance mode/i);
+  const result = core.classifyProduct(product(), invalidPack, {}, null, {
+    phase: 'detail', policyApi: policy, now: '2026-08-09T12:00:00.000Z'
+  });
+  assert.equal(result.status, core.STATUS.REVIEW);
+  assert.match(result.reason, /invalid|cannot be cleared/i);
+});
+
+test('supports compound official Blocks before brand or IP Review fallbacks', () => {
+  const result = classify({
+    title: 'Fake Nike Cabinet Shelf Liner',
+    brand: 'Nike',
+    details: 'Fake Nike product.'
+  });
+  assert.equal(result.status, core.STATUS.BLOCKED);
+  assert.ok(result.policyMatches.some((match) => match.type === 'compound'));
+});
+
+test('keeps explicit official policy Blocks ahead of conservative Review gates', () => {
+  const result = classify({
+    title: 'Fresh Ackee Fruit Cabinet Shelf Liner Bundle',
+    brand: 'Named Brand',
+    details: 'Includes fresh ackee fruit and a plastic organizer.'
+  });
+  assert.equal(result.status, core.STATUS.BLOCKED);
 });
 
 test('copies only unique Ready links and records auditable decisions', () => {

@@ -7,12 +7,12 @@
   <link rel="stylesheet" href="policy-listing-audit.css">
   <link rel="stylesheet" href="workflow-guide.css">
 </head>
-<body>
+<body class="audit-only">
   <header class="topbar">
     <div>
       <p class="eyebrow">GLDN OPS / EBAY</p>
       <h1>Existing Listings Policy Audit</h1>
-      <p class="subtitle">Read every active listing, apply the current reviewed policy rules, and stop before any listing is ended.</p>
+      <p class="subtitle">Read every active listing, apply the current official-policy and generic/IP risk profile, and make no marketplace changes.</p>
     </div>
     <div class="topbar-actions">
       <button id="freshScan" class="button primary" type="button">Start Fresh Complete Scan</button>
@@ -34,11 +34,11 @@
 
     <section class="metrics" aria-label="Policy audit totals">
       <div><span>Scanned</span><strong id="metricScanned">0</strong></div>
-      <div><span>No rule match</span><strong id="metricClear">0</strong></div>
+      <div><span>Generic text only</span><strong id="metricClear">0</strong></div>
       <div><span>Needs review</span><strong id="metricReview">0</strong></div>
       <div><span>Reviewed Block</span><strong id="metricBlock">0</strong></div>
-      <div><span>Ended</span><strong id="metricEnded">0</strong></div>
-      <div><span>Selected</span><strong id="metricSelected">0</strong></div>
+      <div hidden><span>Ended</span><strong id="metricEnded">0</strong></div>
+      <div hidden><span>Selected</span><strong id="metricSelected">0</strong></div>
     </section>
 
     <section class="toolbar" aria-label="Audit controls">
@@ -50,13 +50,13 @@
         <button class="filter-button active" type="button" data-filter="all">All</button>
         <button class="filter-button" type="button" data-filter="block">Block</button>
         <button class="filter-button" type="button" data-filter="review">Review</button>
-        <button class="filter-button" type="button" data-filter="clear">No match</button>
-        <button class="filter-button" type="button" data-filter="ended">Ended</button>
+        <button class="filter-button" type="button" data-filter="clear">Generic text only</button>
+        <button class="filter-button" type="button" data-filter="ended" hidden>Ended</button>
       </div>
-      <button id="selectAllBlock" class="button secondary" type="button">Select All Block</button>
-      <button id="clearSelection" class="button ghost" type="button">Clear Selection</button>
+      <button id="selectAllBlock" class="button secondary" type="button" hidden>Select All Block</button>
+      <button id="clearSelection" class="button ghost" type="button" hidden>Clear Selection</button>
       <button id="downloadAudit" class="button ghost" type="button">Download Audit CSV</button>
-      <button id="prepareReview" class="button danger" type="button">Review Selected on eBay</button>
+      <button id="prepareReview" class="button danger" type="button" hidden>Review Selected on eBay</button>
     </section>
 
     <div id="status" class="status" role="status" aria-live="polite">Run a complete read-only scan to begin.</div>
@@ -106,8 +106,8 @@
     </nav>
 
     <section class="safety-band">
-      <strong>Ending is approval-gated</strong>
-      <span>Only current reviewed <b>Block</b> matches can be selected. Review rows are never endable. Each native eBay batch is at most 200 exact item numbers and requires <code>APPROVE END POLICY LISTINGS N</code>. After submission, GLDN Ops stops.</span>
+      <strong>Read-only audit mode</strong>
+      <span>This page exposes no selection, revision, relisting, or End control. <b>Block</b> means an exact official prohibition signal requiring urgent human inspection; <b>Review</b> includes brands, VeRO/IP risk, eligibility conditions, stale/unknown evidence, and title-only listings that cannot be proven safe. No result changes an eBay listing.</span>
     </section>
   </main>
 

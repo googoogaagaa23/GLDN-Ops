@@ -75,7 +75,8 @@ test("popup copy reflects the verified local updater model", () => {
   assert.match(js, /latest stable GLDN Ops release/);
   assert.match(js, /Public release feed is behind/);
   assert.match(html, /GLDN Ops opens handoff tabs and reports their tab state/);
-  assert.match(html, /EcomSniper owns Scanner, Product Hunter, Bulk Poster, Extract Sellers, and all listing work/);
+  assert.match(html, /Product Hunter and Bulk Poster must be reached through the Product Research Desk and Listing Preflight/);
+  assert.match(html, /Ready never means eBay approval/);
   assert.match(html, /Handoff monitor/);
   assert.match(js, /Internal EcomSniper progress is unknown/);
   assert.doesNotMatch(html, /Start Bulk Listing Workflow/);

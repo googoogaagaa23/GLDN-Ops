@@ -12,7 +12,7 @@
     <div>
       <div class="kicker">GLDN OPS / RESEARCH</div>
       <h1>Product Research Desk</h1>
-      <p>Choose lower-risk Product Hunter starting words, then preflight the resulting Amazon links before EcomSniper listing work.</p>
+      <p>Choose reviewed generic Product Hunter starting words, then fail-closed preflight every exact Amazon result before EcomSniper listing work.</p>
     </div>
     <div class="rule-status" id="ruleStatus">Loading reviewed rules...</div>
   </header>
@@ -23,7 +23,7 @@
       <div class="section-heading">
         <div>
           <h2 id="researchHeading">Product Hunter research words</h2>
-          <p>Reviewed Discord and Telegram findings inform the warning set. These words are starting points, not approved products.</p>
+          <p>The official eBay policy hub and every linked policy were reviewed separately from Discord and Telegram. These words are starting points, not approved products.</p>
         </div>
         <div class="research-status" id="researchStatus">Loading research output...</div>
       </div>
@@ -51,10 +51,10 @@
     </section>
     <section class="input-band" aria-labelledby="inputHeading">
       <div class="section-heading">
-        <div><h2 id="inputHeading">Product Hunter links to preflight</h2><p>Use one Amazon URL or ASIN per line.</p></div>
+        <div><h2 id="inputHeading">Product Hunter results to preflight</h2><p>Paste collected product-detail exports. A raw Amazon URL or ASIN alone stays in Needs review.</p></div>
         <label class="file-button">Import text or CSV<input id="fileInput" type="file" accept=".txt,.csv,text/plain,text/csv"></label>
       </div>
-      <textarea id="itemInput" spellcheck="false" placeholder="https://www.amazon.com/dp/B012345678&#10;ASIN: B012345678"></textarea>
+      <textarea id="itemInput" spellcheck="false" placeholder="Title: stainless steel kitchen drawer organizer | Brand: Generic | Category: drawer organizers | ASIN: B012345678 | https://www.amazon.com/dp/B012345678"></textarea>
       <div class="actions">
         <button id="runCheck" class="primary" type="button">Check Items</button>
         <button id="clearInput" type="button">Clear</button>
@@ -78,11 +78,11 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Status</th><th>Input</th><th>ASIN</th><th>Matched reviewed rule</th><th>Source</th></tr></thead>
+          <thead><tr><th>Status</th><th>Input</th><th>ASIN</th><th>Classification reason</th><th>Source</th></tr></thead>
           <tbody id="resultsBody"><tr><td colspan="5" class="empty">Paste items above, then run the check.</td></tr></tbody>
         </table>
       </div>
-      <div class="boundary"><strong>Boundary:</strong> Ready to copy means only that the item did not match the current reviewed rules. It does not mean eBay permits the listing. Review items need a person; Block items never continue through the handoff. When no reviewed rules are loaded, every item stays in Needs review. GLDN does not call an eBay API or submit listings from this page.</div>
+      <div class="boundary"><strong>Boundary:</strong> Ready to copy requires live structured product details, an explicit Generic or Unbranded brand value, a current reviewed generic family, no official Block or Review match, and no unreviewed title token or detected model/IP cue. A title, search result, raw URL, or ASIN never becomes Ready by itself. Ready still does not mean eBay permits the listing. This screening cannot prove authenticity, authorization, packaging, image rights, patented design, recall status, seller eligibility, or lawful shipping. Inspect the exact product and generated listing during final human review. Review items need a person; Block items never continue through the handoff. Invalid or stale policy data fails closed to Needs review. GLDN does not call an eBay API or submit listings from this page.</div>
     </section>
   </main>
   <script src="workflow-guide-data.js"></script>

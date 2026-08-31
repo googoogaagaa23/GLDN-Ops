@@ -1,6 +1,6 @@
 'use strict';
 
-importScripts('policy-core.js', 'hunter-core.js');
+importScripts('risk-profile.js', 'policy-core.js', 'hunter-core.js');
 
 const CORE = globalThis.GLDN_PRODUCT_HUNTER_CORE;
 const POLICY = globalThis.GLDN_LISTING_PREFLIGHT;
@@ -168,6 +168,24 @@ async function loadRulePack() {
       });
   }
   return rulePackPromise;
+}
+
+function seedProfileFromRulePack(rulePack) {
+  return {
+    approvedSeeds: Array.isArray(rulePack?.clearancePolicy?.readyPhrases) ? rulePack.clearancePolicy.readyPhrases : [],
+    profileVersion: CORE.normalizeText(rulePack?.clearancePolicy?.version)
+  };
+}
+
+function requireHuntRulePack(rulePack) {
+  const seedProfile = seedProfileFromRulePack(rulePack);
+  if (!rulePack?.valid || !Array.isArray(rulePack.rules) || !rulePack.rules.length) {
+    throw new Error(`Reviewed policy data is invalid. ${CORE.normalizeText(rulePack?.validationErrors?.[0]) || 'No hunt can start.'}`);
+  }
+  if (!seedProfile.approvedSeeds.length || !seedProfile.profileVersion) {
+    throw new Error('The reviewed generic seed profile is missing. No hunt can start.');
+  }
+  return seedProfile;
 }
 
 function searchUrl(keyword, page) {
@@ -349,6 +367,14 @@ async function advanceDetail(job) {
 
 async function advanceJob(job) {
   if (!job || job.status !== 'running') return;
+  let seedProfile;
+  try {
+    seedProfile = requireHuntRulePack(await loadRulePack());
+  } catch (error) {
+    return pauseJob(job, `Product Hunter risk-profile gate: ${error.message || error}`, true);
+  }
+  const riskProfileIssue = CORE.jobRiskProfileIssue(job, seedProfile);
+  if (riskProfileIssue) return pauseJob(job, `Product Hunter risk-profile gate: ${riskProfileIssue}`, true);
   if (job.pendingNavigation) return;
   if (job.phase === 'search') return advanceSearch(job);
   return advanceDetail(job);
@@ -833,6 +859,8 @@ async function startJob(message, sender) {
   if (existing && ['running', 'paused'].includes(existing.status)) {
     throw new Error('A hunt is already active. Resume it or use Stop and Reset before starting another.');
   }
+  const seedProfile = requireHuntRulePack(await loadRulePack());
+  const keywords = CORE.validateSeedKeywords(message.keywords, seedProfile);
   if (existing?.id) await purgeJobProducts(existing.id);
   const settings = CORE.normalizeSettings(message.settings || {});
   if (settings.excludeAlreadyListed) {
@@ -842,7 +870,8 @@ async function startJob(message, sender) {
     }
   }
   const job = CORE.createJob({
-    keywords: message.keywords,
+    keywords,
+    seedProfile,
     settings,
     workerWindowId: sender?.tab?.windowId
   });
@@ -862,6 +891,9 @@ async function resumeJob() {
   if (!job) throw new Error('No saved hunt is available to resume.');
   if (job.status === 'complete') throw new Error('This hunt is already complete. Start a new hunt when ready.');
   if (job.status === 'stopped') throw new Error('This hunt was stopped. Reset it before starting another.');
+  const seedProfile = requireHuntRulePack(await loadRulePack());
+  const riskProfileIssue = CORE.jobRiskProfileIssue(job, seedProfile);
+  if (riskProfileIssue) throw new Error(`This saved hunt cannot resume: ${riskProfileIssue}`);
   job.status = 'running';
   job.pauseReason = '';
   job.lastError = '';
@@ -923,7 +955,13 @@ async function publicState() {
     ebayScan: ebayScanSummary(stored[KEYS.EBAY_SCAN]),
     ebayIndex: ebayIndexSummary(stored[KEYS.EBAY_INDEX]),
     logs: Array.isArray(stored[KEYS.LOGS]) ? stored[KEYS.LOGS].slice(-80) : [],
-    policy: { ruleCount: Number(rulePack.ruleCount || rulePack.rules?.length || 0), generatedAt: rulePack.generatedAt || '' }
+    policy: { ruleCount: Number(rulePack.ruleCount || rulePack.rules?.length || 0), generatedAt: rulePack.generatedAt || '' },
+    riskProfile: {
+      ...CORE.riskProfileSummary(),
+      valid: Boolean(rulePack.valid),
+      profileVersion: CORE.normalizeText(rulePack?.clearancePolicy?.version) || 'unavailable',
+      approvedSeedCount: Number(rulePack?.clearancePolicy?.readyPhrases?.length || 0)
+    }
   };
 }
 

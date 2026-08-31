@@ -66,6 +66,8 @@
       amazonUrls: [],
       asins: asin ? [asin] : [],
       urlSearchText: "",
+      clearanceText: title,
+      sourceKind: "active-listing-title-only",
       hasProductEvidence: Boolean(title || category)
     };
   }
@@ -83,15 +85,35 @@
   function rulePackFingerprint(rulePack = {}, preflight = root.GLDN_LISTING_PREFLIGHT) {
     if (!preflight) throw new Error("Listing Preflight did not load.");
     const pack = preflight.normalizeRulePack(rulePack);
-    const signature = pack.rules.map((rule) => [
-      rule.id,
-      rule.type,
-      rule.value,
-      rule.action,
-      rule.reviewedAt,
-      rule.source
-    ].join("|")).join("\n");
-    return `policy-rules-${fnv1a(`${pack.schemaVersion}|${pack.generatedAt}|${signature}`)}`;
+    const signature = JSON.stringify({
+      schemaVersion: pack.schemaVersion,
+      version: pack.version,
+      generatedAt: pack.generatedAt,
+      sourceGeneratedAt: pack.sourceGeneratedAt,
+      valid: pack.valid,
+      validationErrors: pack.validationErrors,
+      clearancePolicy: pack.clearancePolicy,
+      policyCoverage: pack.policyCoverage,
+      rules: pack.rules.map((rule) => ({
+        id: rule.id,
+        type: rule.type,
+        value: rule.value,
+        allOf: rule.allOf,
+        anyOf: rule.anyOf,
+        noneOf: rule.noneOf,
+        action: rule.action,
+        reason: rule.reason,
+        policyTopic: rule.policyTopic,
+        evidenceKind: rule.evidenceKind,
+        reviewedBy: rule.reviewedBy,
+        reviewedAt: rule.reviewedAt,
+        source: rule.source,
+        sourceType: rule.sourceType,
+        authority: rule.authority,
+        evidenceUrls: rule.evidenceUrls
+      }))
+    });
+    return `policy-rules-${fnv1a(signature)}`;
   }
 
   function buildPolicyAudit(records, rulePack, metadata = {}, preflight = root.GLDN_LISTING_PREFLIGHT) {
@@ -122,8 +144,13 @@
           id: normalizeText(rule.id),
           type: normalizeText(rule.type),
           value: normalizeText(rule.value),
+          allOf: Array.isArray(rule.allOf) ? rule.allOf.map(normalizeText).filter(Boolean) : [],
+          anyOf: Array.isArray(rule.anyOf) ? rule.anyOf.map(normalizeText).filter(Boolean) : [],
+          noneOf: Array.isArray(rule.noneOf) ? rule.noneOf.map(normalizeText).filter(Boolean) : [],
           action: normalizeText(rule.action),
           reason: normalizeText(rule.reason),
+          policyTopic: normalizeText(rule.policyTopic),
+          evidenceKind: normalizeText(rule.evidenceKind),
           source: normalizeText(rule.source),
           sourceType: normalizeText(rule.sourceType),
           authority: normalizeText(rule.authority),
@@ -138,19 +165,25 @@
         || left.itemId.localeCompare(right.itemId);
     });
 
-    const summary = preflight.summarizeResults(results);
+    const baseSummary = preflight.summarizeResults(results);
+    const summary = {
+      ...baseSummary,
+      authenticityReview: results.filter((listing) => listing.action === "review" && listing.matches.some((match) => /counterfeit|intellectual property|authentic/i.test(match.policyTopic))).length
+    };
     const scannedAt = String(metadata.scannedAt || new Date().toISOString());
     const computerLabel = normalizeText(metadata.computerLabel);
     const ebayAccountLabel = normalizeText(metadata.ebayAccountLabel).toUpperCase();
     const rulesFingerprint = rulePackFingerprint(pack, preflight);
     const resultSignature = results.map((listing) => `${listing.itemId}:${listing.action}:${listing.matches.map((match) => match.id || `${match.type}:${match.value}`).join(",")}`).join("|");
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       source: "complete-active-listings-policy-scan",
       reportName: "Existing Listings Policy Audit",
       reportFingerprint: `policy-listings-${fnv1a(`${computerLabel}|${ebayAccountLabel}|${scannedAt}|${resultSignature}`)}`,
       rulesFingerprint,
       rulesGeneratedAt: pack.generatedAt,
+      rulesVersion: pack.version,
+      clearanceProfileVersion: pack.clearancePolicy.version,
       ruleCount: pack.ruleCount,
       scannedAt,
       importedAt: scannedAt,
@@ -226,7 +259,8 @@
         source: normalizeText(match.source),
         evidenceUrls: Array.isArray(match.evidenceUrls)
           ? match.evidenceUrls.map(normalizeText).filter(Boolean)
-          : []
+          : [],
+        policyTopic: normalizeText(match.policyTopic)
       }))
     }));
     return {
@@ -236,6 +270,8 @@
       reportFingerprint: normalizeText(audit.reportFingerprint),
       rulesFingerprint: normalizeText(audit.rulesFingerprint),
       rulesGeneratedAt: String(audit.rulesGeneratedAt || ""),
+      rulesVersion: normalizeText(audit.rulesVersion),
+      clearanceProfileVersion: normalizeText(audit.clearanceProfileVersion),
       ruleCount: Number(audit.ruleCount || 0),
       scannedAt: String(audit.scannedAt || ""),
       computerLabel: normalizeText(audit.computerLabel),
@@ -245,7 +281,8 @@
         total: Number(audit.summary?.total || audit.totalListings || listings.length || 0),
         clear: Number(audit.summary?.clear || 0),
         review: Number(audit.summary?.review || 0),
-        block: Number(audit.summary?.block || 0)
+        block: Number(audit.summary?.block || 0),
+        authenticityReview: Number(audit.summary?.authenticityReview || 0)
       },
       blockListings,
       blockListingsTruncated: allBlocks.length > blockListings.length
@@ -260,7 +297,7 @@
   function auditCsv(audit) {
     const headers = [
       "Item number", "Title", "Custom label (SKU)", "Decoded ASIN", "Current price",
-      "Classification", "Reason", "Matched rules", "Evidence URLs"
+      "Classification", "Policy topic", "Reason", "Matched rules", "Evidence URLs"
     ];
     const body = (audit?.listings || []).map((listing) => [
       listing.itemId,
@@ -269,6 +306,7 @@
       listing.asin,
       Number.isFinite(Number(listing.price)) ? Number(listing.price).toFixed(2) : "",
       listing.action,
+      (listing.matches || []).map((match) => match.policyTopic).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index).join(" | "),
       listing.reason,
       (listing.matches || []).map((match) => `${match.action}:${match.type}:${match.value}`).join(" | "),
       (listing.matches || []).flatMap((match) => match.evidenceUrls || []).filter((url, index, values) => values.indexOf(url) === index).join(" | ")

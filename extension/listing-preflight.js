@@ -2,8 +2,8 @@
   'use strict';
   const core = globalThis.GLDN_LISTING_PREFLIGHT;
   const byId = (id) => document.getElementById(id);
-  let rulePack = { schemaVersion: 1, rules: [] };
-  let researchOutput = { schemaVersion: 1, sourceCoverage: [], searchSeeds: [], workflow: [], avoidCategories: [] };
+  let rulePack = { schemaVersion: 2, rules: [] };
+  let researchOutput = { schemaVersion: 2, sourceCoverage: [], searchSeeds: [], workflow: [], avoidCategories: [] };
   let latestResults = [];
   let copyMode = 'amazon-links';
   let targetPage = 'bulkPoster';
@@ -68,9 +68,9 @@
       if (!response.ok) throw new Error(`Rule file returned ${response.status}.`);
       rulePack = core.normalizeRulePack(await response.json());
       const counts = countRulesBySource(rulePack.rules);
-      byId('ruleStatus').textContent = rulePack.ruleCount
-        ? `${rulePack.ruleCount.toLocaleString()} rules | ${counts.official.toLocaleString()} official | ${counts.discord.toLocaleString()} Discord | ${counts.telegram.toLocaleString()} Telegram${rulePack.generatedAt ? ` | ${formatDate(rulePack.generatedAt)}` : ''}`
-        : 'No reviewed rules are published yet. Every item will stay in Needs review.';
+      byId('ruleStatus').textContent = rulePack.valid
+        ? `${rulePack.ruleCount.toLocaleString()} rules | ${counts.official.toLocaleString()} official | ${counts.discord.toLocaleString()} Discord | ${counts.telegram.toLocaleString()} Telegram | ${rulePack.policyCoverage.length.toLocaleString()} official policies | generic profile ${rulePack.clearancePolicy.version}${rulePack.generatedAt ? ` | ${formatDate(rulePack.generatedAt)}` : ''}`
+        : `Policy data failed closed: ${rulePack.validationErrors.join(' ') || 'No valid reviewed rules are published.'} Every item stays in Needs review.`;
     } catch (error) {
       byId('ruleStatus').textContent = `Reviewed rules could not be loaded: ${error.message}`;
     }
@@ -81,7 +81,7 @@
       const response = await fetch(chrome.runtime.getURL('product-research-output.json'), { cache: 'no-store' });
       if (!response.ok) throw new Error(`Research output returned ${response.status}.`);
       const payload = await response.json();
-      if (Number(payload?.schemaVersion) !== 1 || !Array.isArray(payload?.searchSeeds)) {
+      if (![1, 2].includes(Number(payload?.schemaVersion)) || !Array.isArray(payload?.searchSeeds)) {
         throw new Error('Research output has an unsupported format.');
       }
       researchOutput = payload;
@@ -104,7 +104,11 @@
       title.textContent = source.label;
       const state = document.createElement('span');
       state.className = `source-state ${source.status}`;
-      state.textContent = source.status === 'reviewed-no-actionable-rule' ? 'Reviewed, no product rule' : 'Active';
+      state.textContent = source.status === 'reviewed-no-actionable-rule' || source.status === 'reviewed-ignore'
+        ? 'Reviewed, Ignore'
+        : source.status === 'full-hub-reviewed'
+          ? 'Full hub reviewed'
+          : 'Active';
       const note = document.createElement('p');
       note.textContent = source.note;
       const counts = document.createElement('div');
@@ -298,6 +302,11 @@
     const links = document.createElement('div');
     links.className = 'source-links';
     const sources = uniqueSources(result.matches);
+    if (!sources.length) {
+      for (const [index, url] of (rulePack.clearancePolicy?.evidenceUrls || []).entries()) {
+        sources.push({ url, label: `Official policy profile ${index + 1}` });
+      }
+    }
     if (!sources.length) links.textContent = 'No matched source';
     sources.forEach((source) => {
       const link = document.createElement('a');

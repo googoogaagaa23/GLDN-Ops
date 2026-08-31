@@ -8,6 +8,11 @@ const vm = require('node:vm');
 
 const projectRoot = path.resolve(__dirname, '..');
 const extensionRoot = path.join(projectRoot, 'product-hunter-extension');
+const shippedRulePack = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'policy-rules.json'), 'utf8'));
+const shippedSeedProfile = {
+  approvedSeeds: shippedRulePack.clearancePolicy.readyPhrases,
+  profileVersion: shippedRulePack.clearancePolicy.version
+};
 
 function event() {
   const listeners = [];
@@ -43,7 +48,7 @@ function createHarness() {
 
   const chrome = {
     runtime: {
-      getManifest: () => ({ version: '0.2.0' }),
+      getManifest: () => ({ version: '0.3.0' }),
       getURL: (relative) => `chrome-extension://hunter/${relative}`,
       onMessage: events.message,
       onInstalled: events.installed,
@@ -145,7 +150,7 @@ test('background creates one inactive Amazon worker and persists a resumable hun
   const harness = createHarness();
   const response = await harness.message({
     type: 'hunterStart',
-    keywords: 'mixing bowls',
+    keywords: 'cabinet shelf liner',
     settings: { desiredReady: 1, maxPagesPerKeyword: 1, computerLabel: '0', excludeAlreadyListed: false }
   });
   assert.equal(response.ok, true);
@@ -157,15 +162,58 @@ test('background creates one inactive Amazon worker and persists a resumable hun
   assert.match(harness.calls.updated[0].properties.url, /^https:\/\/www\.amazon\.com\/s\?/);
 });
 
+test('background rejects an unknown seed before opening an Amazon worker tab', async () => {
+  const harness = createHarness();
+  const response = await harness.message({
+    type: 'hunterStart',
+    keywords: 'nike phone case',
+    settings: { desiredReady: 1, maxPagesPerKeyword: 1, excludeAlreadyListed: false }
+  });
+  assert.equal(response.ok, false);
+  assert.match(response.error, /only versioned.*not approved/i);
+  assert.equal(harness.calls.created.length, 0);
+  assert.equal(harness.storage.gldnHunterJob, undefined);
+});
+
+test('background accepts a reviewed seed from the shipped 500-word clearance profile', async () => {
+  const harness = createHarness();
+  const response = await harness.message({
+    type: 'hunterStart',
+    keywords: 'stackable storage bins',
+    settings: { desiredReady: 1, maxPagesPerKeyword: 1, excludeAlreadyListed: false }
+  });
+  assert.equal(response.ok, true);
+  assert.equal(response.job.keywords[0], 'stackable storage bins');
+  assert.equal(response.job.riskProfileVersion, response.riskProfile.profileVersion);
+  assert.ok(response.riskProfile.approvedSeedCount >= 500);
+  assert.equal(harness.calls.created.length, 1);
+});
+
+test('background cannot resume a hunt saved under an old risk profile', async () => {
+  const harness = createHarness();
+  const job = harness.context.GLDN_PRODUCT_HUNTER_CORE.createJob({
+    keywords: 'cabinet shelf liner',
+    settings: { excludeAlreadyListed: false },
+    seedProfile: shippedSeedProfile
+  });
+  job.status = 'paused';
+  job.riskProfileVersion = '2026-01-01.1';
+  await harness.context.saveJob(job);
+  const response = await harness.message({ type: 'hunterResume' });
+  assert.equal(response.ok, false);
+  assert.match(response.error, /cannot resume.*current profile/i);
+  assert.equal(harness.calls.created.length, 0);
+});
+
 test('background completes a search-to-detail run and preserves decision counts', async () => {
   const harness = createHarness();
-  await harness.message({ type: 'hunterStart', keywords: 'mixing bowls', settings: { desiredReady: 1, maxPagesPerKeyword: 1, excludeAlreadyListed: false } });
+  await harness.message({ type: 'hunterStart', keywords: 'cabinet shelf liner', settings: { desiredReady: 1, maxPagesPerKeyword: 1, excludeAlreadyListed: false } });
   const job = await harness.context.getJob();
   harness.setWorkerResponse({
-    ok: true, keyword: 'mixing bowls', searchPage: 1, hasNextPage: false, noResults: false,
+    ok: true, keyword: 'cabinet shelf liner', searchPage: 1, hasNextPage: false, noResults: false,
     products: [
-      { asin: 'B012345678', url: 'https://www.amazon.com/dp/B012345678', title: 'Stainless Steel Mixing Bowl Set', price: '$24.99', sponsored: false },
-      { asin: 'B087654321', url: 'https://www.amazon.com/dp/B087654321', title: 'Silicone Kitchen Organizer', price: '$18.99', sponsored: true }
+      { asin: 'B012345678', url: 'https://www.amazon.com/dp/B012345678', title: 'Cabinet Shelf Liner', keyword: 'cabinet shelf liner', price: '$24.99', sponsored: false },
+      { asin: 'B087654321', url: 'https://www.amazon.com/dp/B087654321', title: 'Cabinet Shelf Liner', keyword: 'cabinet shelf liner', price: '$18.99', sponsored: true }
     ]
   });
   await harness.context.processLoadedPage(job.workerTabId);
@@ -179,9 +227,9 @@ test('background completes a search-to-detail run and preserves decision counts'
   harness.setWorkerResponse({
     ok: true,
     product: {
-      asin: 'B012345678', url: 'https://www.amazon.com/dp/B012345678', title: 'Stainless Steel Mixing Bowl Set',
-      brand: 'Kitchen Works', categories: ['Home & Kitchen'], bullets: ['Dishwasher safe bowls'],
-      details: 'Six piece nesting bowl set with lids for food storage.', availability: 'In Stock', price: '$24.99',
+      asin: 'B012345678', url: 'https://www.amazon.com/dp/B012345678', title: 'Cabinet Shelf Liner',
+      brand: 'Generic', categories: [], bullets: [],
+      details: 'Cabinet shelf liner', availability: 'In Stock', price: '$24.99',
       rating: '4.6 out of 5 stars', reviewCount: '1,234 ratings'
     }
   });
@@ -197,7 +245,7 @@ test('background completes a search-to-detail run and preserves decision counts'
 
 test('background retries the same Amazon page instead of skipping a failed candidate', async () => {
   const harness = createHarness();
-  await harness.message({ type: 'hunterStart', keywords: 'solar lights', settings: { desiredReady: 1, maxPagesPerKeyword: 1, excludeAlreadyListed: false } });
+  await harness.message({ type: 'hunterStart', keywords: 'cabinet shelf liner', settings: { desiredReady: 1, maxPagesPerKeyword: 1, excludeAlreadyListed: false } });
   const before = await harness.context.getJob();
   const pendingUrl = before.pendingNavigation.url;
   await harness.context.retryPendingNavigation(before, 'No receiver in worker tab');
@@ -211,7 +259,7 @@ test('background retries the same Amazon page instead of skipping a failed candi
 
 test('unrelated completed tabs cannot replace the worker completion timer', async () => {
   const harness = createHarness();
-  await harness.message({ type: 'hunterStart', keywords: 'desk organizer', settings: { desiredReady: 1, excludeAlreadyListed: false } });
+  await harness.message({ type: 'hunterStart', keywords: 'cabinet shelf liner', settings: { desiredReady: 1, excludeAlreadyListed: false } });
   const job = await harness.context.getJob();
   harness.events.tabUpdated.emit(999, { status: 'complete' });
   await new Promise((resolve) => setImmediate(resolve));
@@ -225,7 +273,7 @@ test('protected hunts require a verified Active Listings index for the selected 
   const harness = createHarness();
   const response = await harness.message({
     type: 'hunterStart',
-    keywords: 'mixing bowls',
+    keywords: 'cabinet shelf liner',
     settings: { desiredReady: 1, computerLabel: '0', excludeAlreadyListed: true }
   });
   assert.equal(response.ok, false);
@@ -251,7 +299,7 @@ test('a verified index from another eBay computer cannot protect the hunt', asyn
   });
   const response = await harness.message({
     type: 'hunterStart',
-    keywords: 'mixing bowls',
+    keywords: 'cabinet shelf liner',
     settings: { desiredReady: 1, computerLabel: '0', excludeAlreadyListed: true }
   });
   assert.equal(response.ok, false);
