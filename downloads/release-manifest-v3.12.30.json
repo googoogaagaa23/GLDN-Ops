@@ -1,7 +1,7 @@
 {
     "schemaVersion":  1,
     "version":  "3.12.30",
-    "generatedAt":  "2026-09-01T04:13:41.0798007Z",
+    "generatedAt":  "2026-09-01T04:18:56.8876830Z",
     "files":  [
                   {
                       "path":  "downloads/GLDN-Ops-extension-v3.12.30.zip",
@@ -9,15 +9,15 @@
                   },
                   {
                       "path":  "downloads/GLDN-Ops-local-v3.12.30.zip",
-                      "sha256":  "7525B265D14CB827563BE5C1E76B323C2D7E6F7F29523AA6A3EC2F0E41E70A96"
+                      "sha256":  "70A85FF66B1586B3EE9172C821513A4D4F9893BB26248A21155D72AD7BE8A029"
                   },
                   {
                       "path":  "downloads/GLDN-Ops-latest.zip",
-                      "sha256":  "7525B265D14CB827563BE5C1E76B323C2D7E6F7F29523AA6A3EC2F0E41E70A96"
+                      "sha256":  "70A85FF66B1586B3EE9172C821513A4D4F9893BB26248A21155D72AD7BE8A029"
                   },
                   {
                       "path":  "downloads/GLDN-Ops-Setup.exe",
-                      "sha256":  "0341872654D0877CCDBAC8B0B2BB6A974D19DF0059A397C5B355D66746B539A9"
+                      "sha256":  "910FC93671DBF9DCC8D92A54043F6A64EAA445A65A17D3BF78BD97A5C1C0CE82"
                   },
                   {
                       "path":  "downloads/GLDN-Product-Hunter-v0.3.1.zip",
@@ -25,15 +25,15 @@
                   },
                   {
                       "path":  "downloads/GLDN-Product-Hunter-v0.3.1.sha256.txt",
-                      "sha256":  "0E43AF7D5AE0A74B26D94E0EAE7EDD55685FDFDAE8DCC43E4B53078C536FED10"
+                      "sha256":  "5D3CD1155D24B2E6E52E0EF083D8B902E8082836A0811330583D012FAE77E149"
                   },
                   {
                       "path":  "bootstrap-install.ps1",
-                      "sha256":  "92AF6AFC943D39F60B33216B1EE668943EAC1DEE1C6E1C4F8008E374E5D68CA4"
+                      "sha256":  "4E45C22D0A63325CCCD14D64F2E0FA1A00BE994EF23ABC1BD74A1C3F3CF4A7B1"
                   },
                   {
                       "path":  "install-latest.ps1",
-                      "sha256":  "8A7E7F40935349A4C32D3D21462731734A41C3D3EEDA411235E36BD67F55644E"
+                      "sha256":  "E7899ED5086051CE26ADE83933841C2689EB1FB572A917C8C31BDBD253F5E73F"
                   },
                   {
                       "path":  "releases/v3.12.30.md",

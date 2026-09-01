@@ -23,6 +23,24 @@ function Get-Sha256([string]$Path) {
   return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToUpperInvariant()
 }
 
+function Get-PublishedSha256([string]$Path) {
+  $extension = [System.IO.Path]::GetExtension($Path).ToLowerInvariant()
+  if ($extension -notin @('.md', '.ps1', '.txt')) {
+    return Get-Sha256 $Path
+  }
+
+  # GitHub serves tracked text with LF line endings even when a Windows checkout
+  # uses CRLF. Hash the canonical published bytes for machine-readable manifests.
+  $text = [System.IO.File]::ReadAllText($Path).Replace("`r`n", "`n").Replace("`r", "`n")
+  $bytes = [System.Text.UTF8Encoding]::new($false).GetBytes($text)
+  $sha = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    return ([System.BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '')
+  } finally {
+    $sha.Dispose()
+  }
+}
+
 function Invoke-CheckedScript([string]$Path, [string[]]$Arguments = @()) {
   & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $Path @Arguments
   if ($LASTEXITCODE -ne 0) {
@@ -142,11 +160,11 @@ $releaseManifest = [ordered]@{
     [ordered]@{ path = "downloads/GLDN-Ops-latest.zip"; sha256 = $latestLocalHash }
     [ordered]@{ path = "downloads/GLDN-Ops-Setup.exe"; sha256 = $installerHash }
     [ordered]@{ path = "downloads/$productHunterName"; sha256 = $productHunterHash }
-    [ordered]@{ path = "downloads/$productHunterHashName"; sha256 = (Get-Sha256 $productHunterHashFile) }
-    [ordered]@{ path = "bootstrap-install.ps1"; sha256 = (Get-Sha256 $bootstrap) }
-    [ordered]@{ path = "install-latest.ps1"; sha256 = (Get-Sha256 $installLatest) }
-    [ordered]@{ path = "releases/v$Version.md"; sha256 = (Get-Sha256 $releaseNote) }
-    [ordered]@{ path = "releases/GLDN-Product-Hunter-v$productHunterVersion.md"; sha256 = (Get-Sha256 $productHunterReleaseNote) }
+    [ordered]@{ path = "downloads/$productHunterHashName"; sha256 = (Get-PublishedSha256 $productHunterHashFile) }
+    [ordered]@{ path = "bootstrap-install.ps1"; sha256 = (Get-PublishedSha256 $bootstrap) }
+    [ordered]@{ path = "install-latest.ps1"; sha256 = (Get-PublishedSha256 $installLatest) }
+    [ordered]@{ path = "releases/v$Version.md"; sha256 = (Get-PublishedSha256 $releaseNote) }
+    [ordered]@{ path = "releases/GLDN-Product-Hunter-v$productHunterVersion.md"; sha256 = (Get-PublishedSha256 $productHunterReleaseNote) }
   )
   publishLast = "downloads/latest.json"
 }
@@ -215,7 +233,7 @@ if ((Get-Sha256 $stagedExtension) -ne [string]$stagedMetadata.sha256) {
 foreach ($entry in $releaseManifest.files) {
   $path = Join-Path $outputFull ([string]$entry.path).Replace('/', '\')
   Assert-File $path "Staged release file"
-  if ((Get-Sha256 $path) -ne [string]$entry.sha256) {
+  if ((Get-PublishedSha256 $path) -ne [string]$entry.sha256) {
     throw "Staged release file hash changed: $($entry.path)"
   }
 }
