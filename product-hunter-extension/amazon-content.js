@@ -169,6 +169,39 @@
     return normalizeText(match?.[1]);
   }
 
+  function productDetailValues(documentRef, label) {
+    const wanted = normalizeText(label).toLowerCase();
+    const values = [];
+    for (const row of documentRef.querySelectorAll('#productOverview_feature_div tr, #productDetails_feature_div tr, #detailBullets_feature_div li')) {
+      const cells = [...row.querySelectorAll('th, td, span')].map((cell) => normalizeText(cell.textContent)).filter(Boolean);
+      const labelIndex = cells.findIndex((cell) => cell.toLowerCase() === wanted || cell.toLowerCase() === `${wanted}:`);
+      if (labelIndex >= 0 && cells[labelIndex + 1]) values.push(cells[labelIndex + 1]);
+      const text = normalizeText(row.textContent);
+      const match = text.match(new RegExp(`^${label.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\s*:?\\s+(.+)$`, 'i'));
+      if (match) values.push(match[1]);
+    }
+    return [...new Set(values.map(cleanBrand).filter(Boolean))];
+  }
+
+  function collectProductImages(documentRef, limit = 30) {
+    const images = [];
+    const seen = new Set();
+    const selectors = ['#landingImage', '#imgBlkFront', '#main-image', '#altImages img', '#imageBlock img', '#imageBlock_feature_div img'];
+    for (const element of documentRef.querySelectorAll(selectors.join(','))) {
+      const candidates = [element.getAttribute('data-old-hires'), element.getAttribute('src')];
+      const dynamic = element.getAttribute('data-a-dynamic-image');
+      if (dynamic) {
+        try { candidates.unshift(...Object.keys(JSON.parse(dynamic))); } catch {}
+      }
+      const url = candidates.map(normalizeText).find((candidate) => /^https?:\/\//i.test(candidate));
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      images.push({ url, alt: normalizeText(element.getAttribute('alt')) });
+      if (images.length >= limit) break;
+    }
+    return images;
+  }
+
   function extractProductPage(documentRef, locationHref = '') {
     const signals = pageSignals(documentRef, locationHref);
     if (signals.robot.blocked) return { ok: false, robot: true, error: signals.robot.reason };
@@ -176,7 +209,14 @@
     const urlAsin = core?.extractAsin?.(signals.url) || '';
     const asin = normalizeText(documentRef.querySelector('#ASIN')?.value || documentRef.querySelector('[data-asin]')?.getAttribute('data-asin') || urlAsin).toUpperCase();
     const title = firstText(documentRef, ['#productTitle', '#title', 'h1.a-size-large']);
-    const brand = cleanBrand(firstText(documentRef, ['#bylineInfo', '#brand', 'tr.po-brand td.a-span9', '#productOverview_feature_div tr.a-spacing-small:first-child td:last-child']));
+    const brandCandidates = [...new Set([
+      cleanBrand(firstText(documentRef, ['#bylineInfo', '#brand'])),
+      ...productDetailValues(documentRef, 'Brand')
+    ].filter(Boolean))];
+    const manufacturerCandidates = productDetailValues(documentRef, 'Manufacturer');
+    const brand = brandCandidates[0] || '';
+    const manufacturer = manufacturerCandidates[0] || '';
+    const brandConflict = brandCandidates.some((value) => value.toLowerCase() !== brand.toLowerCase());
     const price = firstText(documentRef, [
       '#corePrice_feature_div .a-price .a-offscreen',
       '#corePriceDisplay_desktop_feature_div .a-price .a-offscreen',
@@ -205,7 +245,9 @@
       '#variation_style_name',
       '#twister_feature_div'
     ], 120);
-    const imageUrl = firstAttribute(documentRef, ['#landingImage', '#imgBlkFront', '#main-image'], 'src');
+    const images = collectProductImages(documentRef);
+    const imageUrls = images.map((image) => image.url);
+    const imageText = images.map((image) => image.alt).filter(Boolean).join(' | ');
 
     return {
       ok: Boolean(asin && title),
@@ -215,6 +257,8 @@
         url: core?.canonicalAmazonUrl?.(signals.url, asin) || signals.url,
         title,
         brand,
+        manufacturer,
+        brandConflict,
         categories,
         bullets,
         details: detailParts.join(' | '),
@@ -225,7 +269,9 @@
         soldBy,
         shipsFrom,
         merchantInfo,
-        imageUrl,
+        imageUrl: imageUrls[0] || '',
+        imageUrls,
+        imageText,
         capturedAt: new Date().toISOString()
       },
       error: asin && title ? '' : 'Amazon product details did not include both an ASIN and title.'

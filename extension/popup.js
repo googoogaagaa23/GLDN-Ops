@@ -1432,37 +1432,12 @@ document.getElementById('prepareProductHunterClipboard').addEventListener('click
 });
 
 document.getElementById('openEcomSniperProductHunter').addEventListener('click', () => {
-  chrome.tabs.create({ url: chrome.runtime.getURL('listing-preflight.html') });
-  setMessage('Opened the Product Research Desk. Choose reviewed generic words there before Product Hunter.');
+  openEcomSniperPage('productHunter', 'Opening EcomSniper Product Hunter...');
 });
 
-document.getElementById('preflightBulkPosterClipboard').addEventListener('click', async () => {
-  setMessage('Loading copied Amazon links into Listing Preflight...');
-  try {
-    if (!LISTING_PREFLIGHT) throw new Error('Listing Preflight did not load. No links were changed.');
-    const copied = await navigator.clipboard.readText();
-    const rows = LISTING_PREFLIGHT.parseInputRows(copied);
-    const candidates = rows.filter((row) => row.amazonUrls.length || row.asins.length);
-    if (!rows.length) throw new Error('Copy Product Hunter Amazon links first. The clipboard is empty.');
-    if (!candidates.length) throw new Error('The clipboard does not contain any Amazon product links or ASINs.');
-    await storageSet({
-      pendingListingPreflightInput: {
-        input: candidates.map((row) => row.input).join('\n'),
-        originalCount: rows.length,
-        candidateCount: candidates.length,
-        rejectedCount: rows.length - candidates.length,
-        preparedAt: new Date().toISOString(),
-        source: 'bulk-poster-clipboard',
-        copyMode: 'amazon-links',
-        targetPage: 'bulkPoster'
-      }
-    });
-    chrome.tabs.create({ url: chrome.runtime.getURL('listing-preflight.html') });
-    setMessage(`Opened preflight for ${candidates.length} Amazon link${candidates.length === 1 ? '' : 's'}. Review and Block rows will not be copied to Bulk Poster.`);
-  } catch (error) {
-    recordPopupLog(error.message || 'Could not preflight Bulk Poster links.', error.stack || '');
-    setMessage(error.message || 'Could not preflight Bulk Poster links.', true);
-  }
+document.getElementById('preflightBulkPosterClipboard').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('listing-preflight.html') });
+  setMessage('Opened Listing Policy Check. Paste products directly; no clipboard handoff is required.');
 });
 
 document.getElementById('openPoshmarkStats').addEventListener('click', () => {

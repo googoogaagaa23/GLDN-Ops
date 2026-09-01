@@ -1,68 +1,55 @@
 # GLDN Product Hunter
 
-Current package: v0.3.0
+Current package: v0.3.1
 
-GLDN Product Hunter is a separate Chrome extension for finding Amazon products before EcomSniper lists them. It searches Amazon in a normal signed-in Chrome session, opens each candidate product page, applies the reviewed GLDN eBay listing-policy rules, and prepares a clean list of Ready Amazon links.
+GLDN Product Hunter is a separate Chrome extension for finding Amazon products before EcomSniper listing work. It accepts the operator's own search words, reads exact Amazon product pages in one inactive tab, and checks the collected product text against GLDN's reviewed eBay prohibited and restricted item rules.
 
-It does not replace EcomSniper. It does not use an eBay API, edit eBay, control EcomSniper's private extension pages, or submit listings.
+Brand names do not cause Review by themselves. A matched prohibited-item rule becomes Blocked, a conditional or ambiguous restricted-item rule becomes Review, and a readable no-match product becomes a Preflight candidate. Pesticides and spray cans are always Blocked by GLDN's explicit no-list rules.
+
+Product Hunter does not use an eBay API, edit eBay, control EcomSniper's private extension pages, or submit listings. A Preflight candidate is not eBay approval.
 
 ## Filters
 
-- Exact, versioned Product Research Desk starting-word allowlist; unknown words cannot start a hunt.
-- Reviewed official eBay listing-policy rules: Block or Review. Official Blocks keep priority.
-- Missing or non-generic brands and brand, character, franchise, licensing, fan-art, compatibility, replacement, and model cues require Review.
-- Live Amazon Sold by and Ships from evidence is retained in the audit; branded offers never become Ready, even when Amazon is the retailer.
-- Clothing, shoes, and fashion exclusion.
-- Sponsored Amazon result exclusion.
-- Configurable Amazon price range.
-- Configurable minimum rating and review count.
-- Visible in-stock evidence.
-- ASIN deduplication within the hunt.
-- Complete read-only eBay Active Listings indexing before protected hunts.
-- Exact eComSniper SKU/ASIN duplicates are excluded; exact title matches require review.
-- Configurable 60-day reuse protection after Ready links are copied.
-- CAPTCHA/robot-check pause instead of repeated requests.
-- Candidate and page caps with a fixed delay between product pages.
+- Any nonempty operator search words, one per line.
+- Reviewed prohibited and restricted item keyword rules.
+- Clothing, shoes, fashion, and sponsored-result exclusions.
+- Configurable price, rating, review-count, and stock filters.
+- Complete read-only eBay Active Listings indexing for duplicate protection.
+- Exact SKU/ASIN duplicates are Excluded; exact title duplicates require Review.
+- Configurable reuse protection for previously copied ASINs.
+- One inactive Amazon worker tab with pause, resume, stop, reset, saved progress, and CAPTCHA handling.
 
 ## Install
 
-1. Open `chrome://extensions` in the Chrome profile used for Amazon.
-2. Turn on **Developer mode**.
-3. Select **Load unpacked**.
-4. Choose the `product-hunter-extension` folder.
-5. Pin **GLDN Product Hunter**.
-
-The packaged ZIP must be extracted before using **Load unpacked**.
+1. Extract the current GLDN Product Hunter package.
+2. Open `chrome://extensions` in the intended Chrome profile.
+3. Turn on **Developer mode** and select **Load unpacked**.
+4. Choose the extracted `product-hunter-extension` folder and pin **GLDN Product Hunter**.
+5. Repeat this per Chrome profile and computer that needs the tool.
 
 ## Run
 
-1. Open GLDN Product Hunter and select **Open Product Hunter**.
-2. Choose the computer used by the signed-in eBay account.
-3. Select **Scan Active Listings**. The extension reads every Active Listings page in one inactive eBay tab and verifies the final unique-item count before replacing the prior index.
-4. If live scanning is unavailable, download eBay's **All active listings** CSV and use **Import Active Listings CSV**.
-5. Enter one approved Product Research Desk starting word per line and choose the filters. The hunt will not start if any word is outside the versioned allowlist.
-6. Leave **Exclude products already active on eBay** enabled, then select **Start Hunt**.
-7. Leave the inactive Amazon worker tab open. If Amazon presents a CAPTCHA, solve it in that tab and select **Resume**.
-8. Review the Ready, Review, Blocked, Excluded, and Incomplete rows. Exact active ASIN/SKU matches are Excluded; exact title matches are Review.
-9. Select **Copy Ready Links**. Only Ready links are copied. Their ASINs then enter the reuse history.
-10. Open EcomSniper Bulk Poster and paste the copied links into its normal workflow.
-11. Download the audit CSV when a record of all decisions is needed.
+1. Open Product Hunter and choose the computer used by the signed-in eBay account.
+2. Select **Scan Active Listings**. The extension accepts the index only after the exact unique count matches eBay's reported total. Use eBay's **All active listings** CSV import if live scanning is unavailable.
+3. Enter any useful search words, one per line, choose the filters, and start the hunt.
+4. Leave the inactive Amazon worker available. If Amazon displays a CAPTCHA, solve it there and select **Resume**.
+5. Review Preflight candidate, Review, Blocked, Excluded, and Incomplete rows.
+6. Select **Copy Evidence for Listing Preflight**, paste into GLDN's **Listing Policy Check**, and run the check.
+7. Copy only Ready links from Listing Policy Check into Bulk Poster. Review and Blocked products are excluded.
+8. Inspect the exact generated listing before any listing action and download the audit CSV when a record is needed.
 
 ## Status meanings
 
-- **Ready:** Full Amazon evidence passed the versioned generic risk profile and no reviewed policy rule matched. This is not eBay approval or a guarantee.
-- **Review:** Evidence is ambiguous or a reviewed restricted-item rule requires a person to inspect it.
-- **Blocked:** A reviewed prohibited-item rule matched.
-- **Excluded:** A non-policy filter removed the product, such as fashion, sponsored, price, rating, reviews, stock, or recent reuse.
+- **Preflight candidate:** The exact product was readable and no reviewed prohibited or restricted keyword matched. This is not eBay approval.
+- **Review:** A conditional rule, possible duplicate, missing configured evidence, or unreadable page needs a person.
+- **Blocked:** A reviewed prohibited-item rule or GLDN no-list rule matched.
+- **Excluded:** A non-policy filter removed the result.
 - **Incomplete:** Amazon did not expose enough product data.
-- **Queued:** Search-page evidence passed and the full product page is still waiting to be checked.
+- **Queued:** The search result is waiting for its full product-page read.
 
-## Safety boundaries
+## Boundaries
 
-- Amazon product pages and eBay Active Listings are the only website permissions.
-- eBay access is read-only: the scanner reads rows and never clicks, edits, selects, or submits a listing.
-- No `debugger`, broad all-sites, native-helper, or EcomSniper permission.
-- The worker runs in one inactive Amazon tab and stops when the target is reached.
-- Pause, Resume, Stop, Reset, run log, and alarm recovery are built in.
-- Copying Ready links is the explicit handoff. No listing is created automatically.
-- Any uncertainty about authenticity, authorization, seller source, packaging, images, or product identity remains Review.
+- The eBay inventory scan is read-only and never selects, revises, ends, or submits a listing.
+- Product Hunter has no debugger, broad all-sites, native-helper, or EcomSniper permission.
+- A no-match cannot prove authenticity, intellectual-property permission, recall status, shipping legality, eBay approval, or continued selling privileges.
+- Never use another computer, profile, or account to bypass an eBay restriction. Use eBay's official support or appeal process unless and until selling permission is restored.

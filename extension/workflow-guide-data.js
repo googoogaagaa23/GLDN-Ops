@@ -1,5 +1,5 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.29",
+  "version": "3.12.30",
   "updated": "2026-08-30",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -514,7 +514,7 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
       "matrix": "E-12",
       "title": "Existing Listings Policy Audit",
       "status": "IMPLEMENTED, LIVE REVIEW PENDING",
-      "summary": "Read every active eBay listing, classify it with the current policy and generic/IP risk profile, and make no marketplace changes.",
+      "summary": "Read every active eBay listing, classify its visible product words with the current item-policy rules, and make no marketplace changes.",
       "prerequisites": [
         "The intended eBay account is signed in in this Chrome profile and its computer identity is saved.",
         "No other GLDN Ops scan or marketplace review is active.",
@@ -525,9 +525,9 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "Click Start Fresh Complete Scan, or Resume Scan after a saved interruption.",
         "GLDN Ops opens one quiet signed-in eBay tab and verifies every 200-row Active Listings page by exact item number.",
         "Wait for Scanned to equal eBay's reported total; a partial or changing total cannot publish an audit.",
-        "Review Needs review and reviewed Block rows. An explicit official prohibition becomes Block for urgent human inspection; every otherwise unmatched title/SKU-only listing remains Needs review because authenticity, authorization, images, item specifics, safety, eligibility, and provenance are not proven.",
+        "Review Needs review and Blocked rows. A readable title with no matched item-policy word is Clear; a conditional match is Review; a prohibited match or GLDN pesticide/spray-can rule is Blocked.",
         "Use search and filters, open an exact item for manual inspection, and download the full source-linked CSV audit if needed.",
-        "Do not treat Block as authorization to end an item and do not treat any no-match or generic-text result as eBay approval."
+        "Do not treat Clear as eBay approval or Blocked as authorization to end an item."
       ],
       "approvalStop": "This audit is read-only. It exposes no listing selection, revision, relisting, or End control and grants no marketplace approval.",
       "output": "A complete resumable exact-ID audit, source-linked classifications, and an exportable CSV without any eBay listing change.",
@@ -535,9 +535,9 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "A missing page range, incomplete row count, duplicate item number, changing total, browser check, or missing/invalid rule pack pauses or fails with no eBay listing change.",
         "Resume continues from the next unverified page; Start Fresh discards old local page checkpoints only after explicit operator action.",
         "A changed reviewed-rule pack changes the audit fingerprint and requires reclassification.",
-        "If brand, image, category, item-specific, provenance, safety, eligibility, or authorization evidence is missing, keep the listing in Needs review."
+        "An unreadable or incomplete row stays Needs review; a brand name alone does not create Review."
       ],
-      "evidence": "v3.12.29 deterministic contracts prove full-count reconciliation, source-linked classification, fail-closed title-only Review, source/profile fingerprinting, CSV export, and audit-only UI guards. The page cannot prepare or submit an End request. The prior signed-in Profile 2 scan verified all 7,294 Active Listings; a fresh read-only scan remains the current live gate."
+      "evidence": "v3.12.30 deterministic contracts prove full-count reconciliation, source-linked keyword classification, pesticide and spray-can Blocks, source/profile fingerprinting, CSV export, and audit-only UI guards. The page cannot prepare or submit an End request. The prior signed-in Profile 2 scan verified all 7,294 Active Listings; a fresh read-only scan remains the current live gate."
     },
     {
       "id": "move99-recovery",
@@ -598,36 +598,32 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
     {
       "id": "listing-preflight",
       "matrix": "C-05",
-      "title": "Product Research Desk and Listing Preflight",
-      "status": "LIVE PASS WITH BOUNDARY",
-      "summary": "Use a versioned set of lower-risk Product Hunter starting words, then check resulting Amazon links against reviewed official eBay policy plus source-linked Discord and Telegram research without using an eBay API.",
+      "title": "Listing Policy Check",
+      "status": "IMPLEMENTED, LIVE REVIEW PENDING",
+      "summary": "Paste product titles or Amazon links, read exact product text automatically, and keep known prohibited or restricted items out of Bulk Poster.",
       "prerequisites": [
-        "Open Product Research Desk from GLDN Ops.",
-        "Use signed-in Chrome Profile 2 only when refreshing Discord or Telegram research; ordinary operators use the published output without opening community chats.",
-        "Do not use a bot, user token, self-bot, or hidden account access."
+        "Open Listing Policy Check from Workflows > Research.",
+        "Be signed into Amazon in this Chrome profile when raw Amazon links need to be read.",
+        "Use signed-in Profile 2 only for a separate approved Discord or Telegram research refresh."
       ],
       "steps": [
-        "Open Product Research Desk and review the complete official eBay policy coverage separately from Profile 2 Discord and Telegram community coverage.",
-        "Choose from the exact 500 versioned generic starting phrases. Unknown or branded seeds cannot start the guarded standalone GLDN Product Hunter.",
-        "Open the standalone GLDN Product Hunter, scan the complete eBay Active Listings inventory, then run the selected words. It reads each live Amazon product page and applies the shared policy pack before producing Ready links.",
-        "Use the manual GLDN Listing Preflight only for structured product-detail exports containing the product name and evidence. A bare Amazon URL or ASIN remains Needs review and is never approved from its address alone.",
-        "Review Ready, Needs review, Blocked, Excluded, and Incomplete results. Unknown brands, models, IP cues, conditional-policy items, and incomplete evidence stay Needs review.",
-        "Copy only Ready links into Bulk Poster. Review, Blocked, duplicate, already-listed, and incomplete rows remain excluded.",
-        "Perform final human review of the exact title, brand, model, images, packaging, provenance, recall status, eligibility, shipping, and generated eBay listing.",
-        "For community research refreshes, use only signed-in Chrome Profile 2, preserve exact source URLs, and record unrelated or inconclusive findings as Ignore.",
-        "Exclude dropshipping-policy, fulfillment-source, and retail-arbitrage discussions.",
-        "Publish community decisions as Review only; a hard Block requires current, exact official eBay evidence."
+        "Open Listing Policy Check; no copied links are required for the page to open.",
+        "Paste one Amazon link, product title, ASIN with title, or CSV row per line.",
+        "Select Check Items. Raw Amazon links are read sequentially in one inactive Amazon tab and cached for safe resume.",
+        "If Amazon displays a CAPTCHA, complete it in the preserved worker tab and select Check Items again.",
+        "Review Needs review and Blocked rows. Pesticides and spray cans always Block; brand names alone do not stop products.",
+        "Copy Ready Links or Copy Ready & Open Bulk Poster. Review and Blocked rows are excluded.",
+        "Perform final human review of the exact generated listing before any listing action."
       ],
-      "approvalStop": "Rule publication requires human-reviewed decisions. Product Research Desk and Listing Preflight are read-only and never authorize or submit an eBay listing.",
-      "output": "Exactly 500 selectable generic Product Hunter phrases, visible official/Discord/Telegram coverage, a downloadable versioned research output, a source-linked shared rule pack, and separate Ready, Review, and Block results.",
+      "approvalStop": "Listing Policy Check is read-only and never authorizes or submits an eBay listing.",
+      "output": "A simple Ready, Needs review, and Blocked table plus a copyable Ready-only Amazon-link list.",
       "recovery": [
-        "If a Discord or Telegram source cannot be verified visibly in Profile 2, do not publish the rule.",
-        "If the rule pack is empty or unavailable, every input stays in Needs review and no ready list is produced.",
-        "A Ready result does not mean eBay permits the item.",
-        "Do not add dropshipping-policy or fulfillment-source discussion to this research set.",
-        "A community report may require Review but can never create a hard Block without official eBay evidence."
+        "If the policy pack is empty, stale, invalid, or unavailable, every input stays in Needs review.",
+        "If Amazon shows a robot or CAPTCHA page, solve it in the saved worker tab and resume.",
+        "Completed product reads are cached for seven days so a paused or interrupted list can continue.",
+        "A Ready result means no published item-policy keyword matched; it is not eBay approval."
       ],
-      "evidence": "The 2026-08-30 refresh covers every one of the 70 official policy pages linked by the prohibited-and-restricted hub plus supplemental intellectual-property/VeRO guidance. The shared pack contains 578 reviewed rules: 576 official eBay rules and 2 Discord-backed Review warnings. The reviewed Telegram delivery-date signal remains Ignore. Exactly 500 generic phrases are published. Deterministic tests prove atomic fail-closed validation, Ready-only copying, brand/IP review gates, official-only Block authority, guarded Product Hunter seeds, and the read-only existing-listing audit."
+      "evidence": "The 2026-08-31 shared pack contains 580 rules: 576 official eBay rules, 2 GLDN operator Blocks for pesticides and spray cans, and 2 Discord-backed Review warnings. Deterministic tests prove keyword-only no-match clearance, arbitrary brands and search words, inactive-tab product reading, fail-closed invalid data, Ready-only copying, and read-only existing-listing classification."
     },
     {
       "id": "product-hunter-listing-guard",
@@ -645,12 +641,12 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "Click Scan Active Listings and leave the inactive eBay worker tab available until every 200-row page and the final count are verified.",
         "If eBay live scanning is unavailable, download its current All active listings CSV and choose Import Active Listings CSV.",
         "Confirm the indexed listing count, decoded ASIN count, account label, and Last verified time.",
-        "Leave Exclude products already active on eBay enabled and start the Amazon hunt.",
-        "Review Excluded rows for exact active SKU/ASIN matches and Review rows for exact normalized-title matches.",
-        "Copy only Ready links and continue through EcomSniper manually."
+        "Enter any useful search words, leave Exclude products already active on eBay enabled, and start the Amazon hunt.",
+        "Review Excluded rows for exact active SKU/ASIN matches and Review rows for exact normalized-title duplicates, conditional policies, or unreadable evidence.",
+        "Copy evidence for Preflight candidates and run it through Listing Policy Check before Bulk Poster."
       ],
       "approvalStop": "The guard never edits eBay and requires no marketplace approval. Any later EcomSniper listing action retains its own explicit approval boundary.",
-      "output": "A computer-bound verified Active Listings index, duplicate decisions in the audit CSV, and a Ready-link set with known active duplicates removed.",
+      "output": "A computer-bound verified Active Listings index, duplicate decisions in the audit CSV, and integrity-checked evidence bundles for eligible Preflight candidates.",
       "recovery": [
         "A partial scan never replaces the prior verified index.",
         "If eBay displays a browser check, complete it in the saved worker tab and click Resume Scan.",

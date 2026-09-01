@@ -2,6 +2,19 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.30 - 2026-08-31
+
+- Replaced the visible Product Research Desk with a paste-first Listing Policy Check that opens without clipboard content.
+- Removed the 500-word allowlist, generic-brand requirement, and five-attestation gate from classification. Brand names alone no longer create Review.
+- Added sequential raw-Amazon-link reading in one inactive tab, a seven-day local product cache, safe pause/resume, and CAPTCHA recovery.
+- Uses reviewed prohibited and restricted item words for decisions: readable no-match products become Ready, conditional rules stay Review, and prohibited rules Block.
+- Added explicit GLDN Blocks for every pesticide and every spray can; these two operator rules are deliberately stricter than eBay's conditional pesticide and hazardous-material policies.
+- Simplified the operator table to Status, Product, ASIN, and Result and removed visible lower-risk words and policy/community source cards.
+- Released GLDN Product Hunter v0.3.1 with arbitrary operator search words and the same keyword policy pack.
+- Keeps Existing Listings Policy Audit read-only while applying the same keyword decisions to active listing titles.
+- Clarifies that no keyword no-match or Ready result guarantees authenticity, intellectual-property permission, VeRO safety, eBay approval, or continued selling privileges.
+- Requires a manual unpacked-extension load and pin on each computer/profile and explicitly forbids using another computer, profile, or account to evade an eBay selling restriction.
+
 ## v3.12.29 - 2026-08-30
 
 - Reviewed the complete official eBay prohibited-and-restricted policy hub, all 70 linked policy pages, and supplemental intellectual-property/VeRO guidance.

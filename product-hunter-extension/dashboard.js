@@ -19,7 +19,7 @@
     'start-button', 'pause-button', 'resume-button', 'stop-button', 'reset-button', 'worker-button', 'notice',
     'metric-discovered', 'metric-queued', 'metric-ready', 'metric-review', 'metric-blocked', 'metric-excluded',
     'metric-incomplete', 'results-summary', 'result-search', 'status-filter', 'copy-ready-button', 'audit-button',
-    'bulk-poster-button', 'results-body', 'page-summary', 'page-number', 'previous-page', 'next-page', 'log-list'
+    'results-body', 'page-summary', 'page-number', 'previous-page', 'next-page', 'log-list'
   ];
 
   function byId(id) { return document.getElementById(id); }
@@ -270,7 +270,7 @@
 
     if (job) {
       const keywordPosition = Math.min(job.keywordIndex + 1, job.keywords.length);
-      elements['results-summary'].textContent = `${job.productAsins.length.toLocaleString()} unique candidates | ${counts.ready.toLocaleString()} Ready | ${job.phase} phase | keyword ${keywordPosition} of ${job.keywords.length}`;
+      elements['results-summary'].textContent = `${job.productAsins.length.toLocaleString()} unique candidates | ${counts.ready.toLocaleString()} Preflight candidates | ${job.phase} phase | keyword ${keywordPosition} of ${job.keywords.length}`;
       if (job.status === 'paused') setNotice(job.pauseReason || 'Paused.', job.lastError ? 'error' : '');
       else if (job.status === 'complete') setNotice(job.completionReason || 'Hunt complete.', 'success');
       else if (job.status === 'stopped') setNotice('Stopped safely. Reset before starting a new hunt.');
@@ -307,10 +307,10 @@
 
   async function copyReady() {
     const response = await send({ type: 'hunterReadyPayload' });
-    if (!response.links.length) throw new Error('No Ready Amazon links are available to copy.');
-    await navigator.clipboard.writeText(response.links.join('\n'));
-    await send({ type: 'hunterCommitReadyHistory', asins: response.products.map((product) => product.asin) });
-    setNotice(`${response.links.length.toLocaleString()} Ready Amazon links copied. Their ASINs are now protected from reuse for the configured period.`, 'success');
+    if (!response.bundles?.length) throw new Error('No integrity-checked Product Hunter evidence bundles are available to copy.');
+    await navigator.clipboard.writeText(response.bundles.join('\n'));
+    await send({ type: 'hunterCommitReadyHistory', asins: response.asins || [] });
+    setNotice(`${response.bundles.length.toLocaleString()} Product Hunter evidence bundle${response.bundles.length === 1 ? '' : 's'} copied for Listing Preflight. No link was sent to Bulk Poster.`, 'success');
   }
 
   function downloadAudit() {
@@ -362,7 +362,6 @@
       page = 1;
     }, 'Hunt results reset. Duplicate history was preserved.'));
     elements['worker-button'].addEventListener('click', () => runAction(elements['worker-button'], 'Opening...', () => send({ type: 'hunterOpenWorker' })));
-    elements['bulk-poster-button'].addEventListener('click', () => runAction(elements['bulk-poster-button'], 'Opening...', () => send({ type: 'hunterOpenBulkPoster' })));
     elements['copy-ready-button'].addEventListener('click', () => runAction(elements['copy-ready-button'], 'Copying...', copyReady));
     elements['audit-button'].addEventListener('click', downloadAudit);
     elements['result-search'].addEventListener('input', () => { page = 1; renderTable(); });

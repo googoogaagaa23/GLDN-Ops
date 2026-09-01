@@ -3,58 +3,29 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>GLDN Product Research Desk</title>
+  <title>eBay Listing Policy Check - GLDN Ops</title>
   <link rel="stylesheet" href="listing-preflight.css">
   <link rel="stylesheet" href="workflow-guide.css">
 </head>
 <body>
   <header class="topbar">
     <div>
-      <div class="kicker">GLDN OPS / RESEARCH</div>
-      <h1>Product Research Desk</h1>
-      <p>Choose reviewed generic Product Hunter starting words, then fail-closed preflight every exact Amazon result before EcomSniper listing work.</p>
+      <div class="kicker">GLDN OPS / EBAY</div>
+      <h1>Listing Policy Check</h1>
+      <p>Paste product titles or Amazon links. GLDN checks the supplied product words for prohibited and restricted items before listing.</p>
     </div>
     <div class="rule-status" id="ruleStatus">Loading reviewed rules...</div>
   </header>
 
   <main>
     <div class="gldn-inline-guide-host" data-gldn-inline-guide="listing-preflight"></div>
-    <section class="research-band" aria-labelledby="researchHeading">
-      <div class="section-heading">
-        <div>
-          <h2 id="researchHeading">Product Hunter research words</h2>
-          <p>The official eBay policy hub and every linked policy were reviewed separately from Discord and Telegram. These words are starting points, not approved products.</p>
-        </div>
-        <div class="research-status" id="researchStatus">Loading research output...</div>
-      </div>
-      <div class="source-coverage" id="sourceCoverage" aria-label="Research source coverage"></div>
-      <div class="research-flow" id="researchFlow" aria-label="Research workflow"></div>
-      <div class="seed-toolbar">
-        <strong>Current lower-risk starting words</strong>
-        <div class="seed-controls">
-          <button id="selectAllResearch" type="button">Select All</button>
-          <button id="clearResearch" type="button">Clear</button>
-        </div>
-      </div>
-      <div class="research-words" id="researchWords"></div>
-      <div class="actions">
-        <button id="copyResearchWords" class="ready-action" type="button" disabled>Copy Selected Words</button>
-        <button id="copyAndOpenResearchWords" class="primary" type="button" disabled>Copy Words &amp; Open Product Hunter</button>
-        <button id="continueToPreflight" type="button">Continue to Link Preflight</button>
-        <button id="downloadResearchOutput" type="button" disabled>Download Research Output</button>
-      </div>
-      <div class="copy-status" id="researchCopyStatus" aria-live="polite"></div>
-      <details class="avoid-list">
-        <summary>Categories to avoid during Product Hunter research</summary>
-        <ul id="avoidCategories"></ul>
-      </details>
-    </section>
     <section class="input-band" aria-labelledby="inputHeading">
       <div class="section-heading">
-        <div><h2 id="inputHeading">Product Hunter results to preflight</h2><p>Paste collected product-detail exports. A raw Amazon URL or ASIN alone stays in Needs review.</p></div>
+        <div><h2 id="inputHeading">Paste products to check</h2><p>Use one product title, Amazon link, ASIN with title, or CSV row per line. No copied handoff is required to open or use this page.</p></div>
         <label class="file-button">Import text or CSV<input id="fileInput" type="file" accept=".txt,.csv,text/plain,text/csv"></label>
       </div>
-      <textarea id="itemInput" spellcheck="false" placeholder="Title: stainless steel kitchen drawer organizer | Brand: Generic | Category: drawer organizers | ASIN: B012345678 | https://www.amazon.com/dp/B012345678"></textarea>
+      <div class="boundary"><strong>Automatic stops:</strong> pesticides and aerosol or pressurized spray cans are always Blocked. Other reviewed prohibited-item phrases Block; conditionally restricted item phrases stay in Needs review. A brand name alone does not stop a product.</div>
+      <textarea id="itemInput" spellcheck="false" autofocus placeholder="https://www.amazon.com/product-name/dp/B012345678&#10;Product title | ASIN: B012345678&#10;Paste as many rows as needed"></textarea>
       <div class="actions">
         <button id="runCheck" class="primary" type="button">Check Items</button>
         <button id="clearInput" type="button">Clear</button>
@@ -78,11 +49,11 @@
       </div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Status</th><th>Input</th><th>ASIN</th><th>Classification reason</th><th>Source</th></tr></thead>
-          <tbody id="resultsBody"><tr><td colspan="5" class="empty">Paste items above, then run the check.</td></tr></tbody>
+          <thead><tr><th>Status</th><th>Product</th><th>ASIN</th><th>Result</th></tr></thead>
+          <tbody id="resultsBody"><tr><td colspan="4" class="empty">Paste items above, then run the check.</td></tr></tbody>
         </table>
       </div>
-      <div class="boundary"><strong>Boundary:</strong> Ready to copy requires live structured product details, an explicit Generic or Unbranded brand value, a current reviewed generic family, no official Block or Review match, and no unreviewed title token or detected model/IP cue. A title, search result, raw URL, or ASIN never becomes Ready by itself. Ready still does not mean eBay permits the listing. This screening cannot prove authenticity, authorization, packaging, image rights, patented design, recall status, seller eligibility, or lawful shipping. Inspect the exact product and generated listing during final human review. Review items need a person; Block items never continue through the handoff. Invalid or stale policy data fails closed to Needs review. GLDN does not call an eBay API or submit listings from this page.</div>
+      <div class="boundary"><strong>Meaning:</strong> Ready means no published prohibited or restricted keyword matched the product words GLDN could read. It is not eBay approval. An opaque URL or bare ASIN stays in Needs review until product text is available. Blocked items are excluded from every copy action. GLDN does not call an eBay API or submit listings from this page.</div>
     </section>
   </main>
   <script src="workflow-guide-data.js"></script>

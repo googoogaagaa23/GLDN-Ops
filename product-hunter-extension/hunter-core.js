@@ -14,10 +14,7 @@
     : {
         schemaVersion: 0,
         profileVersion: 'unavailable',
-        approvedSeeds: [],
-        genericBrandLabels: [],
-        ipCuePhrases: [],
-        protectedNameCues: []
+        approvedSeeds: []
       });
 
   const STATUS = Object.freeze({
@@ -49,7 +46,6 @@
   const FASHION_RE = /\b(?:apparel|bikini|blouse|boot|boots|boxers?|bra|bras|briefs?|clogs?|clothing|coat|cosplay|costumes?|crossbody|dress|dresses|fashion|handbags?|hoodie|jackets?|jeans|leggings|lingerie|outfits?|pants|purse|purses|sandals?|shirts?|shoes?|shorts?|skirt|slippers?|sneakers?|socks?|sweater|swimsuit|t-?shirt|underwear|wallets?)\b/i;
   const UNAVAILABLE_RE = /\b(?:currently unavailable|temporarily out of stock|out of stock|not available|unavailable)\b/i;
   const AVAILABLE_RE = /\b(?:in stock|available to ship|only \d+ left)\b/i;
-  const AMAZON_RETAILER_RE = /^(?:amazon(?:\.com)?|amazon\.com services llc|amazon services llc|amazon export sales llc)$/i;
 
   function normalizeText(value) {
     return String(value || '')
@@ -122,17 +118,10 @@
   function assessSeedKeywords(value, options = {}) {
     const keywords = sanitizeKeywords(value);
     const seedProfile = seedProfileOptions(options);
-    const allowlist = new Set(seedProfile.approvedSeeds.map(normalizeSearchText).filter(Boolean));
-    const approved = [];
-    const rejected = [];
-    for (const keyword of keywords) {
-      if (allowlist.has(normalizeSearchText(keyword))) approved.push(keyword);
-      else rejected.push(keyword);
-    }
     return {
       profileVersion: seedProfile.profileVersion,
-      approved,
-      rejected
+      approved: keywords,
+      rejected: []
     };
   }
 
@@ -140,18 +129,10 @@
     const assessment = assessSeedKeywords(value, options);
     const seedProfile = seedProfileOptions(options);
     if (!assessment.approved.length && !assessment.rejected.length) {
-      throw new Error('Enter at least one Product Research Desk starting word.');
-    }
-    if (!seedProfile.approvedSeeds.length || !seedProfile.profileVersion || seedProfile.profileVersion === 'unavailable') {
-      throw new Error('The Product Hunter risk profile is unavailable. No hunt can start.');
-    }
-    if (assessment.rejected.length) {
-      const preview = assessment.rejected.slice(0, 8).join(', ');
-      const remaining = assessment.rejected.length > 8 ? ` (+${assessment.rejected.length - 8} more)` : '';
-      throw new Error(`Only versioned Product Research Desk starting words may run. Not approved: ${preview}${remaining}.`);
+      throw new Error('Enter at least one Product Hunter keyword.');
     }
     if (!assessment.approved.length) {
-      throw new Error('The Product Hunter risk profile is unavailable. No hunt can start.');
+      throw new Error('Enter at least one Product Hunter keyword.');
     }
     return assessment.approved;
   }
@@ -398,6 +379,7 @@
     const url = canonicalAmazonUrl(input.url, asin);
     const title = normalizeText(input.title);
     const brand = normalizeText(input.brand);
+    const manufacturer = normalizeText(input.manufacturer);
     const categories = Array.isArray(input.categories)
       ? input.categories.map(normalizeText).filter(Boolean)
       : [normalizeText(input.categories)].filter(Boolean);
@@ -412,12 +394,18 @@
     const soldBy = normalizeText(input.soldBy);
     const shipsFrom = normalizeText(input.shipsFrom);
     const merchantInfo = normalizeText(input.merchantInfo);
-    const evidenceText = normalizeText([title, brand, categories.join(' '), bullets.join(' '), details].join(' '));
+    const imageUrls = [...new Set((Array.isArray(input.imageUrls) ? input.imageUrls : [input.imageUrl])
+      .map(normalizeText)
+      .filter((value) => /^https?:\/\//i.test(value)))];
+    const imageText = normalizeText(input.imageText);
+    const evidenceText = normalizeText([title, brand, manufacturer, categories.join(' '), bullets.join(' '), details, imageText].join(' '));
     return {
       asin,
       url,
       title,
       brand,
+      manufacturer,
+      brandConflict: Boolean(input.brandConflict),
       categories,
       bullets,
       details,
@@ -428,7 +416,9 @@
       soldBy,
       shipsFrom,
       merchantInfo,
-      imageUrl: normalizeText(input.imageUrl),
+      imageUrl: imageUrls[0] || '',
+      imageUrls,
+      imageText,
       keyword: normalizeText(input.keyword),
       searchPage: clampInteger(input.searchPage, 0, 1000, 0),
       sponsored: Boolean(input.sponsored),
@@ -450,43 +440,12 @@
     return 'unknown';
   }
 
-  function isGenericBrand(value) {
-    const brand = normalizeSearchText(value);
-    return Boolean(brand && (RISK_PROFILE.genericBrandLabels || []).map(normalizeSearchText).includes(brand));
-  }
-
-  function isAmazonRetailer(value) {
-    return AMAZON_RETAILER_RE.test(normalizeText(value));
-  }
-
-  function authenticityReview(productInput) {
-    const product = normalizeProduct(productInput);
-    if (!product.brand) {
-      return 'Amazon did not expose a verifiable brand. Review the product and source before listing.';
-    }
-    if (isGenericBrand(product.brand)) return '';
-    if (!product.soldBy || !product.shipsFrom) {
-      return `Amazon identifies the brand as ${product.brand}, but Sold by and Ships from could not both be verified. Do not list until the seller/source and invoice are confirmed.`;
-    }
-    if (!isAmazonRetailer(product.soldBy) || !isAmazonRetailer(product.shipsFrom)) {
-      return `Amazon identifies the brand as ${product.brand}, but this offer is sold by ${product.soldBy || 'an unknown seller'} and ships from ${product.shipsFrom || 'an unknown source'}. Hold for authenticity and invoice review.`;
-    }
-    return '';
-  }
-
   function recentHistoryMatch(historyEntry, nowValue, reuseDays) {
     if (!historyEntry || reuseDays <= 0) return false;
     const usedAt = Date.parse(historyEntry.usedAt || historyEntry.copiedAt || historyEntry.updatedAt || '');
     const now = Date.parse(nowValue || new Date().toISOString());
     if (!Number.isFinite(usedAt) || !Number.isFinite(now)) return false;
     return now - usedAt < reuseDays * 86400000;
-  }
-
-  function phraseInText(text, phrase) {
-    const normalizedPhrase = normalizeSearchText(phrase);
-    if (!normalizedPhrase) return false;
-    const escaped = normalizedPhrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-    return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, 'i').test(normalizeSearchText(text));
   }
 
   function seedFamilyToken(keyword) {
@@ -509,65 +468,22 @@
     return titleTokens.includes(family);
   }
 
-  function firstPhraseMatch(text, phrases) {
-    return (phrases || []).find((phrase) => phraseInText(text, phrase)) || '';
-  }
-
-  function modelCue(text) {
-    const raw = normalizeText(text);
-    const labeled = raw.match(/\b(?:model|model no|model number|part no|part number|mpn|series)\s*[:#-]?\s*[a-z0-9][a-z0-9._/-]{1,}\b/i);
-    if (labeled) return labeled[0];
-    const coded = raw.match(/\b[A-Z]{1,6}[-_]?[0-9]{2,}[A-Z0-9_-]*\b/);
-    return coded?.[0] || '';
-  }
-
   function assessCandidateRisk(productInput, options = {}) {
     const product = normalizeProduct(productInput);
     const phase = options.phase === 'search' ? 'search' : 'detail';
     const seedAssessment = assessSeedKeywords(product.keyword, options);
-    if (seedAssessment.rejected.length || seedAssessment.approved.length !== 1) {
+    if (seedAssessment.approved.length !== 1) {
       return {
         review: true,
-        reason: 'This candidate is not tied to exactly one approved Product Research Desk starting word.'
+        reason: 'This candidate is not tied to exactly one Product Hunter keyword.'
       };
     }
     if (!titleMatchesSeedFamily(product.title, product.keyword)) {
       return {
         review: true,
-        reason: `The Amazon title does not confirm the approved "${product.keyword}" product family.`
+        reason: `The Amazon title does not confirm the "${product.keyword}" product family.`
       };
     }
-
-    const evidence = normalizeText([
-      product.title,
-      product.brand,
-      product.categories.join(' '),
-      product.bullets.join(' '),
-      product.details
-    ].join(' '));
-    const ipCue = firstPhraseMatch(evidence, RISK_PROFILE.ipCuePhrases);
-    if (ipCue) {
-      return { review: true, reason: `Brand, IP, licensing, or compatibility cue requires review: "${ipCue}".` };
-    }
-    const protectedName = firstPhraseMatch(evidence, RISK_PROFILE.protectedNameCues);
-    if (protectedName) {
-      return { review: true, reason: `Possible brand, character, or franchise reference requires review: "${protectedName}".` };
-    }
-    const model = modelCue(evidence);
-    if (model) {
-      return { review: true, reason: `Possible model or part-number reference requires review: "${model}".` };
-    }
-
-    const brand = normalizeSearchText(product.brand);
-    if (brand) {
-      const genericBrands = new Set((RISK_PROFILE.genericBrandLabels || []).map(normalizeSearchText));
-      if (!genericBrands.has(brand)) {
-        return { review: true, reason: `Amazon identifies a non-generic brand ("${product.brand}"). Verify authenticity and listing rights.` };
-      }
-    } else if (phase === 'detail') {
-      return { review: true, reason: 'Amazon did not expose a brand. Missing brand evidence cannot become Ready.' };
-    }
-
     return { review: false, reason: '', profileVersion: normalizeText(RISK_PROFILE.profileVersion) };
   }
 
@@ -575,13 +491,19 @@
     const normalized = normalizeProduct(product);
     return {
       index: 1,
-      input: normalizeText([normalized.title, normalized.brand, normalized.categories.join(' '), normalized.bullets.join(' '), normalized.details, normalized.url].join(' ')),
+      input: normalizeText([normalized.title, normalized.brand, normalized.manufacturer, normalized.categories.join(' '), normalized.bullets.join(' '), normalized.details, normalized.imageText, normalized.url].join(' ')),
       title: normalized.evidenceText,
       brand: normalized.brand,
+      manufacturer: normalized.manufacturer,
+      brandConflict: normalized.brandConflict,
       category: normalized.categories.join(' '),
       model: '',
       bullets: normalized.bullets.join(' '),
       details: normalized.details,
+      imageUrls: normalized.imageUrls,
+      imageText: normalized.imageText,
+      soldBy: normalized.soldBy,
+      shipsFrom: normalized.shipsFrom,
       clearanceText: normalized.title,
       urls: normalized.url ? [normalized.url] : [],
       amazonUrls: normalized.url ? [normalized.url] : [],
@@ -666,9 +588,6 @@
 
     if (phase === 'search') return finish(STATUS.QUEUED, 'Search evidence passed. Full Amazon product details are queued.', policyResult);
 
-    const authenticityIssue = authenticityReview(product);
-    if (authenticityIssue) return finish(STATUS.REVIEW, authenticityIssue, policyResult);
-
     if (product.price === null) return finish(STATUS.INCOMPLETE, 'Amazon did not expose a usable product price.', policyResult);
     if (settings.minRating > 0 && product.rating === null) return finish(STATUS.REVIEW, 'Amazon rating could not be verified.', policyResult);
     if (product.rating !== null && product.rating < settings.minRating) {
@@ -688,7 +607,7 @@
     }
     return finish(
       STATUS.READY,
-      `Passed Product Hunter risk profile ${seedProfile.profileVersion}; no current reviewed rule matched the collected generic product evidence. This is not eBay approval.`,
+      `No reviewed prohibited-item or restricted-item keyword matched the collected product evidence under policy profile ${seedProfile.profileVersion}. This is not eBay approval.`,
       policyResult
     );
   }
@@ -840,9 +759,6 @@
     normalizeProduct,
     isFashionProduct,
     availabilityState,
-    isGenericBrand,
-    isAmazonRetailer,
-    authenticityReview,
     recentHistoryMatch,
     assessCandidateRisk,
     policyRow,

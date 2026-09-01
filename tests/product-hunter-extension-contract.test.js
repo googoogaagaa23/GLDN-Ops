@@ -53,6 +53,27 @@ test('background queue contains stop, pause, resume, recovery, and CAPTCHA gates
   assert.doesNotMatch(background, /chrome\.debugger/);
 });
 
+test('Product Hunter captures product text and hands results through Listing Preflight', () => {
+  const content = read('amazon-content.js');
+  const core = read('hunter-core.js');
+  const background = read('background.js');
+  const dashboard = read('dashboard.html');
+  const dashboardJs = read('dashboard.js');
+
+  assert.match(content, /productDetailValues\(documentRef, 'Brand'\)/);
+  assert.match(content, /productDetailValues\(documentRef, 'Manufacturer'\)/);
+  assert.match(content, /collectProductImages/);
+  assert.match(content, /imageText/);
+  assert.match(content, /soldBy/);
+  assert.match(content, /shipsFrom/);
+  assert.match(core, /No reviewed prohibited-item or restricted-item keyword matched/i);
+  assert.match(background, /buildProductHunterEvidenceBundle/);
+  assert.match(dashboard, /Copy Evidence for Listing Preflight/);
+  assert.match(dashboard, /cannot go directly to Bulk Poster/i);
+  assert.match(dashboardJs, /response\.bundles\.join\(['"]\\n['"]\)/);
+  assert.doesNotMatch(dashboardJs, /navigator\.clipboard\.writeText\(response\.links/);
+});
+
 test('eBay listing guard is read-only, resumable, and required before protected hunts', () => {
   const background = read('background.js');
   const ebayContent = read('ebay-content.js');
@@ -75,18 +96,18 @@ test('policy data ships as a nonempty reviewed rule set', () => {
   assert.equal(rules.ruleCount, rules.rules.length);
   assert.ok(rules.rules.length >= 177);
   assert.ok(rules.rules.every((rule) => ['block', 'review'].includes(rule.action)));
-  assert.ok(rules.rules.every((rule) => ['official-ebay', 'profile2-discord', 'profile2-telegram'].includes(rule.sourceType)));
+  assert.ok(rules.rules.every((rule) => ['official-ebay', 'gldn-operator', 'profile2-discord', 'profile2-telegram'].includes(rule.sourceType)));
   assert.ok(rules.rules.filter((rule) => rule.sourceType === 'official-ebay').length >= 175);
+  assert.equal(rules.rules.filter((rule) => rule.sourceType === 'gldn-operator').length, 2);
   assert.equal(rules.rules.filter((rule) => rule.sourceType === 'profile2-discord').length, 2);
-  assert.ok(rules.rules.filter((rule) => rule.sourceType !== 'official-ebay').every((rule) => rule.action === 'review'));
+  assert.ok(rules.rules.filter((rule) => ['profile2-discord', 'profile2-telegram'].includes(rule.sourceType)).every((rule) => rule.action === 'review'));
 });
 
-test('a versioned fail-closed Product Hunter risk profile ships with the extension', () => {
+test('a versioned keyword-policy profile ships with the extension', () => {
   const profile = require(path.join(root, 'risk-profile.js'));
   assert.equal(profile.schemaVersion, 1);
   assert.match(profile.profileVersion, /^\d{4}-\d{2}-\d{2}\./);
   assert.deepEqual(profile.approvedSeeds, []);
-  assert.match(profile.disclaimer, /seed authority comes from the versioned policy-rules clearance profile/i);
-  assert.ok(profile.genericBrandLabels.includes('generic'));
-  assert.ok(profile.ipCuePhrases.includes('compatible with'));
+  assert.match(profile.disclaimer, /arbitrary search words/i);
+  assert.match(profile.disclaimer, /never eBay approval/i);
 });

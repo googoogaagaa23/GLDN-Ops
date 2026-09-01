@@ -19,8 +19,6 @@ const TICK_ALARM = 'gldn-product-hunter-tick';
 const EBAY_SCAN_ALARM = 'gldn-product-hunter-ebay-scan-tick';
 const EBAY_PAGE_SIZE = 200;
 const EBAY_NAVIGATION_DELAY_MS = 900;
-const ECOMSNIPER_ID = 'eohieelgcgopcnjjjanjgfjdaifolokm';
-const BULK_POSTER_URL = `chrome-extension://${ECOMSNIPER_ID}/bb148b3c/bulk_post_settings.html`;
 const MAX_NAVIGATION_FAILURES = 3;
 let rulePackPromise = null;
 let loadedPageTimer = null;
@@ -182,8 +180,8 @@ function requireHuntRulePack(rulePack) {
   if (!rulePack?.valid || !Array.isArray(rulePack.rules) || !rulePack.rules.length) {
     throw new Error(`Reviewed policy data is invalid. ${CORE.normalizeText(rulePack?.validationErrors?.[0]) || 'No hunt can start.'}`);
   }
-  if (!seedProfile.approvedSeeds.length || !seedProfile.profileVersion) {
-    throw new Error('The reviewed generic seed profile is missing. No hunt can start.');
+  if (!seedProfile.profileVersion) {
+    throw new Error('The reviewed policy profile is missing. No hunt can start.');
   }
   return seedProfile;
 }
@@ -350,7 +348,7 @@ async function advanceSearch(job) {
 
 async function advanceDetail(job) {
   if ((job.counts?.ready || 0) >= job.settings.desiredReady) {
-    return completeJob(job, `Ready target reached with ${job.counts.ready} products.`);
+    return completeJob(job, `Preflight-candidate target reached with ${job.counts.ready} products.`);
   }
 
   while (job.detailIndex < job.productAsins.length) {
@@ -967,10 +965,13 @@ async function publicState() {
 
 async function readyPayload() {
   const job = await getJob();
-  if (!job) return { ok: true, links: [], products: [] };
+  if (!job) return { ok: true, bundles: [], asins: [] };
   const products = await getProducts(job);
   const ready = products.filter((product) => product.status === CORE.STATUS.READY);
-  return { ok: true, links: CORE.readyLinks(ready), products: ready };
+  const rulePack = await loadRulePack();
+  const policyVersion = CORE.normalizeText(rulePack?.clearancePolicy?.version);
+  const bundles = ready.map((product) => POLICY.buildProductHunterEvidenceBundle(product, policyVersion));
+  return { ok: true, bundles, asins: ready.map((product) => product.asin) };
 }
 
 async function commitReadyHistory(asins) {
@@ -984,7 +985,7 @@ async function commitReadyHistory(asins) {
     computerLabel: job.settings.computerLabel
   }));
   await storageSet({ [KEYS.HISTORY]: history });
-  await logEvent('info', 'Committed copied Ready products to duplicate history.', { count: products.length });
+  await logEvent('info', 'Committed copied Preflight candidates to duplicate history.', { count: products.length });
   return { ok: true, count: products.length, historyCount: Object.keys(history).length };
 }
 
@@ -1039,15 +1040,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const focused = await chrome.tabs.update(tab.id, { active: true });
         await chrome.windows.update(focused.windowId, { focused: true });
         return { ok: true };
-      }
-      case 'hunterOpenBulkPoster': {
-        const openTabs = await chrome.tabs.query({});
-        const existing = openTabs.find((tab) => String(tab.url || '').startsWith(`chrome-extension://${ECOMSNIPER_ID}/`) && /bulk_post_settings\.html/i.test(tab.url || ''));
-        const tab = existing?.id
-          ? await chrome.tabs.update(existing.id, { active: true })
-          : await chrome.tabs.create({ url: BULK_POSTER_URL, active: true });
-        if (Number.isInteger(tab.windowId)) await chrome.windows.update(tab.windowId, { focused: true });
-        return { ok: true, tabId: tab.id };
       }
       default: return { ok: false, error: 'Unknown Product Hunter request.' };
     }

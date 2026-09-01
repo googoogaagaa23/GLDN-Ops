@@ -2,43 +2,40 @@
 
 ## Purpose
 
-Use GLDN Product Hunter to turn broad Amazon keywords into a smaller, auditable group of links that are safer to hand to EcomSniper. EcomSniper remains responsible for Bulk Poster and listing work.
+Use GLDN Product Hunter to search Amazon with the words you choose, inspect exact product pages, remove known policy risks, and create a smaller set of candidates for GLDN Listing Policy Check. Product Hunter does not list products or control EcomSniper Bulk Poster.
 
 ## Daily workflow
 
-1. Start in the Chrome profile signed into the matching eBay account and the Amazon account you want to use.
-2. Open the Product Hunter dashboard and choose the computer.
-3. Select **Scan Active Listings**. Product Hunter reads all eBay Active Listings pages in one inactive tab and accepts the index only when the final unique item count equals eBay's total.
-4. If live scanning is unavailable, download eBay's **All active listings** CSV and import it instead.
-5. Paste one keyword per line and set the Ready target and filters.
-6. Keep **Exclude products already active on eBay** enabled and start the hunt.
-7. Inspect Review and Blocked rows while Ready products accumulate. Exact active SKU/ASIN matches are Excluded; exact normalized-title matches are Review.
-8. Copy Ready links and paste them into EcomSniper Bulk Poster.
-9. Download the audit CSV for the run.
+1. Use the Chrome profile signed into the intended Amazon and eBay accounts.
+2. Open Product Hunter and choose the matching computer.
+3. Select **Scan Active Listings**. Product Hunter accepts the read-only index only when every unique listing reconciles with eBay's total. Import eBay's complete Active Listings CSV if live scanning is unavailable.
+4. Enter any useful Product Hunter search words, one per line, and choose the filters.
+5. Keep **Exclude products already active on eBay** enabled and start the hunt.
+6. Leave the inactive Amazon worker tab available. Complete any Amazon CAPTCHA there, then select **Resume**.
+7. Review Preflight candidate, Review, Blocked, Excluded, and Incomplete rows. Exact active ASIN/SKU matches are Excluded; exact title matches are Review.
+8. Select **Copy Evidence for Listing Preflight**, paste it into GLDN Listing Policy Check, and run the check.
+9. Copy only Ready links into EcomSniper Bulk Poster. Review and Blocked rows remain excluded.
+10. Download the audit CSV when needed and inspect the final generated listing before any listing action.
 
-## Filter order
+## Decision order
 
-1. Validate ASIN and title.
-2. Exclude exact ASIN/SKU matches from the verified Active Listings index and hold exact-title matches for Review.
-3. Exclude ASINs copied inside the reuse period.
-4. Exclude fashion and sponsored results when enabled.
-5. Enforce the price range.
-6. Apply reviewed official eBay policy rules.
-7. Read the full Amazon product page.
-8. Enforce rating, review-count, and stock settings.
-9. Mark the product Ready only after full evidence passes.
+1. Require a valid ASIN and product title.
+2. Exclude exact active-listing and recent-reuse duplicates.
+3. Apply optional fashion, sponsored, price, rating, review-count, and stock filters.
+4. Apply current prohibited and restricted item rules to the exact product text.
+5. Block pesticides and spray cans under GLDN's explicit no-list rules.
+6. Mark a readable no-match product as a Preflight candidate. Brand names alone do not cause Review.
 
 ## Recovery
 
-- **Paused by operator:** Select Resume.
-- **CAPTCHA or robot check:** Open the worker, complete Amazon's check, then Resume.
-- **Worker tab closed:** Resume creates a new inactive worker tab.
-- **Chrome restarted:** The alarm-backed queue resumes from saved job state.
-- **Wrong settings or keywords:** Stop, Reset, then start a new hunt. Duplicate history is preserved.
-- **eBay browser check:** Open the saved eBay worker, complete the visible check, then Resume Scan.
-- **Active listing total changes mid-scan:** Let eBay settle and start a new scan. The previous verified index remains intact.
-- **Large account or live-page issue:** Import eBay's complete Active Listings CSV; string splitting is not used.
+- **Paused:** Select Resume.
+- **Amazon CAPTCHA:** Complete it in the saved worker tab, then Resume.
+- **Worker closed:** Resume creates another inactive worker tab.
+- **Chrome restarted:** The alarm-backed queue resumes from saved state.
+- **Wrong settings or words:** Stop, Reset, and start a new hunt.
+- **eBay browser check:** Complete it in the saved eBay worker and Resume Scan.
+- **Active listing total changed:** Let eBay settle and start a fresh scan; the previous verified index remains intact.
 
-## Important limits
+## Limits
 
-The eBay scan is read-only and never selects, edits, or submits a listing. The rule engine reduces known listing risk but cannot promise that eBay will permit an item. eBay changes policies and may evaluate context not visible on Amazon. Review rows require a person. Blocked and already-listed rows never enter the copied payload.
+The eBay inventory scan is read-only. A keyword no-match does not prove authenticity, intellectual-property permission, recall status, shipping legality, eBay approval, or continued selling privileges. Product Hunter never selects, edits, ends, or submits an eBay listing.

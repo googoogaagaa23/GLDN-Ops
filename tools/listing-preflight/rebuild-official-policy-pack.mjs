@@ -7,9 +7,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..', '..');
 const extensionRulesPath = path.join(root, 'extension', 'listing-preflight-rules.json');
 const hunterRulesPath = path.join(root, 'product-hunter-extension', 'policy-rules.json');
-const evidencePath = path.join(root, 'evidence', 'listing-preflight', 'official-ebay-policy-hub-decisions-2026-08-30.json');
+const evidencePath = path.join(root, 'evidence', 'listing-preflight', 'official-ebay-policy-hub-decisions-2026-08-31.json');
 const researchPath = path.join(root, 'extension', 'product-research-output.json');
-const reviewedAt = '2026-08-30';
+const reviewedAt = '2026-08-31';
 const hubUrl = 'https://www.ebay.com/help/policies/prohibited-restricted-items/prohibited-restricted-items?id=4207';
 
 const pages = [
@@ -110,6 +110,25 @@ function addRule({ value, action, topic, url, reason, type = 'keyword', allOf = 
 
 function addKeywords(topic, url, action, values, reason) {
   for (const value of values) addRule({ value, action, topic, url, reason });
+}
+
+function addOperatorRule({ operatorRuleId, value, anyOf, url, reason }) {
+  decisions.push({
+    type: 'compound',
+    value,
+    anyOf,
+    decision: 'block',
+    reason,
+    policyTopic: 'GLDN no-list rule',
+    evidenceKind: 'operator-no-list',
+    reviewedBy: 'GLDN operations policy',
+    reviewedAt,
+    source: 'gldn-operator-reviewed',
+    sourceType: 'gldn-operator',
+    authority: 'GLDN Ops operator rule',
+    operatorRuleId,
+    evidenceUrls: Array.isArray(url) ? url : [url]
+  });
 }
 
 const highRiskBrands = [
@@ -239,6 +258,21 @@ addKeywords('Event tickets policy', urlFor('Event tickets policy'), 'review', [
 addKeywords('Fertilizer and pesticides policy', urlFor('Fertilizer and pesticides policy'), 'review', [
   'pool chlorine', 'pool shock', 'disinfectant concentrate', 'insect repellent', 'flea collar', 'plant growth regulator'
 ], 'Pesticide-related products require EPA registration, intact branded packaging, US location, and sometimes seller pre-approval.');
+addOperatorRule({
+  operatorRuleId: 'GLDN-NO-PESTICIDES',
+  value: 'all pesticide products',
+  anyOf: [
+    'pesticide', 'insecticide', 'herbicide', 'fungicide', 'rodenticide', 'miticide', 'molluscicide',
+    'algaecide', 'biocide', 'germicide', 'weed killer', 'weed preventer', 'insect killer', 'bug killer',
+    'ant killer', 'roach killer', 'wasp killer', 'hornet killer', 'mosquito killer', 'rat poison',
+    'mouse poison', 'rodent poison', 'ant bait', 'roach bait', 'flea collar', 'flea and tick',
+    'flea & tick', 'tick repellent', 'insect repellent', 'mosquito repellent', 'plant growth regulator',
+    'pool chlorine', 'pool shock', 'pool algaecide', 'pool bromine', 'water purification tablet',
+    'disinfectant', 'disinfecting', 'sanitizer', 'sanitizing', 'pest control spray', 'pest fogger', 'bug bomb'
+  ],
+  url: urlFor('Fertilizer and pesticides policy'),
+  reason: 'GLDN Ops does not permit any pesticide product to be posted to eBay. This operator rule is stricter than eBay\'s conditional pesticide policy and intentionally blocks registered products too.'
+});
 addKeywords('Firearms and accessories policy', urlFor('Firearms and accessories policy'), 'block', [
   'complete firearm', 'handgun for sale', 'rifle for sale', 'shotgun for sale', 'firearm frame', 'firearm lower receiver',
   'silencer baffle', 'suppressor baffle', 'machine gun conversion', 'glock switch', 'large capacity magazine'
@@ -260,6 +294,19 @@ addKeywords('Hazardous materials policy', urlFor('Hazardous materials policy'), 
   'black powder explosive', 'thermite powder', 'firework mortar shell', 'road flare bundle', 'radioactive sample',
   'mercury switch', 'ozone depleting refrigerant'
 ], 'eBay generally prohibits explosives, explosive precursors, radioactive materials, corrosives, poisons, and other hazardous materials.');
+addOperatorRule({
+  operatorRuleId: 'GLDN-NO-AEROSOL-SPRAY-CANS',
+  value: 'all aerosol and pressurized spray cans',
+  anyOf: [
+    'aerosol', 'spray can', 'spray cans', 'pressurized spray', 'canned air', 'compressed air can',
+    'air duster', 'compressed gas duster', 'spray paint', 'spray enamel', 'spray primer', 'spray lacquer',
+    'spray varnish', 'spray adhesive', 'spray lubricant', 'spray grease', 'spray foam', 'cooking spray',
+    'hair spray', 'hairspray', 'spray deodorant', 'spray sunscreen', 'spray starch',
+    'spray air freshener', 'body spray can'
+  ],
+  url: urlFor('Hazardous materials policy'),
+  reason: 'GLDN Ops does not permit any aerosol or pressurized spray can to be posted to eBay. This operator rule is stricter than eBay\'s carrier-dependent hazardous-material policy.'
+});
 addKeywords('Human body parts policy', urlFor('Human body parts policy'), 'block', [
   'human skull', 'human bone', 'human organ', 'human blood', 'human tissue specimen'
 ], 'eBay prohibits human body parts and products made from the human body, except scalp hair.');
@@ -413,7 +460,9 @@ function inferTopic(rule) {
       // Keep looking for another exact evidence URL.
     }
   }
-  return rule.sourceType === 'official-ebay' ? 'Official eBay listing policy' : 'Community restriction report';
+  if (rule.sourceType === 'official-ebay') return 'Official eBay listing policy';
+  if (rule.sourceType === 'gldn-operator') return 'GLDN no-list rule';
+  return 'Community restriction report';
 }
 
 function normalizeRule(rule) {
@@ -437,9 +486,10 @@ function normalizeRule(rule) {
     evidenceKind: String(rule.evidenceKind || (rule.action === 'block' || rule.decision === 'block' ? 'explicit-prohibition' : 'conditional-review')).trim(),
     reviewedBy: String(rule.reviewedBy || 'GLDN official eBay policy review').trim(),
     reviewedAt: String(rule.reviewedAt || reviewedAt).trim(),
-    source: String(rule.source || (sourceType === 'official-ebay' ? 'official-ebay-policy-reviewed' : sourceType === 'profile2-discord' ? 'profile2-discord-reviewed' : 'profile2-telegram-reviewed')).trim(),
+    source: String(rule.source || (sourceType === 'official-ebay' ? 'official-ebay-policy-reviewed' : sourceType === 'gldn-operator' ? 'gldn-operator-reviewed' : sourceType === 'profile2-discord' ? 'profile2-discord-reviewed' : 'profile2-telegram-reviewed')).trim(),
     sourceType,
-    authority: String(rule.authority || (sourceType === 'official-ebay' ? 'eBay' : sourceType === 'profile2-discord' ? 'EcomSniper Discord community report' : 'EcomSniper Telegram community report')).trim(),
+    authority: String(rule.authority || (sourceType === 'official-ebay' ? 'eBay' : sourceType === 'gldn-operator' ? 'GLDN Ops operator rule' : sourceType === 'profile2-discord' ? 'EcomSniper Discord community report' : 'EcomSniper Telegram community report')).trim(),
+    ...(rule.operatorRuleId ? { operatorRuleId: String(rule.operatorRuleId).trim().toUpperCase() } : {}),
     evidenceUrls: canonicalEvidenceUrls(rule.evidenceUrls)
   };
 }
@@ -468,43 +518,18 @@ for (const rule of rules) {
 const uncoveredPages = [...coverageHits.entries()].filter(([, count]) => count === 0).map(([url]) => url);
 if (uncoveredPages.length) throw new Error(`Every reviewed policy page must have at least one direct decision: ${uncoveredPages.join(', ')}`);
 const generatedAt = new Date().toISOString();
-const readyPhrases = [...new Set((research.searchSeeds || []).map((seed) => String(seed.term || '').trim().toLowerCase()).filter(Boolean))];
-const genericWords = [
-  'a', 'an', 'and', 'for', 'of', 'the', 'to', 'with', 'without', 'home', 'household', 'indoor', 'outdoor',
-  'new', 'plain', 'generic', 'unbranded', 'manual', 'reusable', 'washable', 'durable', 'lightweight', 'portable',
-  'compact', 'small', 'medium', 'large', 'extra', 'wide', 'narrow', 'deep', 'shallow', 'tall', 'short', 'heavy', 'duty',
-  'adjustable', 'expandable', 'extendable', 'collapsible', 'folding', 'stackable', 'nesting', 'rolling', 'rotating',
-  'freestanding', 'hanging', 'mounted', 'wall', 'desktop', 'tabletop', 'countertop', 'under', 'over', 'corner',
-  'clear', 'mesh', 'wooden', 'wood', 'acrylic', 'plastic', 'silicone', 'metal', 'steel', 'stainless', 'microfiber',
-  'non', 'slip', 'soft', 'hard', 'set', 'pack', 'piece', 'pieces', 'count', 'ct', 'pc', 'pcs', 'pair', 'single', 'double',
-  'triple', 'tier', 'tiered', 'inch', 'inches', 'mm', 'cm', 'ft', 'feet', 'oz', 'lb', 'lbs', 'g', 'kg', 'ml', 'l', 'qt', 'gal'
-];
-const genericTokens = [...new Set([
-  ...readyPhrases.flatMap((phrase) => phrase.match(/[a-z0-9]+(?:-[a-z0-9]+)*/g) || []),
-  ...genericWords
-])].sort();
 const clearancePolicy = {
-  id: 'gldn-generic-only-clearance',
-  version: '2026-08-30.2',
-  mode: 'review-unless-generic-allowlist',
+  id: 'gldn-keyword-policy-check',
+  version: '2026-08-31.1',
+  mode: 'keyword-blocklist',
   reviewedAt,
   maxAgeDays: 45,
-  reason: 'Operational risk control: only reviewed generic, unbranded text may reach Ready; this is not an eBay approval or a determination that a brand is prohibited.',
-  readyPhrases,
-  genericTokens,
-  reviewPhrases: [
-    'authentic', 'authorized', 'brand new', 'branded', 'celebrity', 'character', 'collectible', 'compatible with',
-    'copyright', 'designer', 'fan art', 'fits', 'franchise', 'genuine', 'in the style of', 'inspired by', 'licensed',
-    'logo', 'model', 'official', 'original', 'patented', 'replacement for', 'replica', 'team logo', 'trademark', 'vero',
-    'warranty', 'limited edition', 'signed', 'autographed', 'certificate of authenticity', 'coa', 'dupe',
-    'ce certified', 'ukca certified', 'ul certified', 'fcc approved', 'epa registered', 'fda approved'
-  ],
-  genericBrandValues: ['generic', 'unbranded', 'does not apply', 'not applicable', 'n/a', 'none'],
+  reason: 'Classify supplied product text by reviewed prohibited-item and restricted-item keywords. A brand name alone does not stop an item, and a no-match result is not eBay approval.',
   evidenceUrls: [hubUrl, counterfeitUrl, ipUrl, urlFor('Product safety policy')]
 };
 const pack = {
   schemaVersion: 2,
-  version: '2026-08-30.2',
+  version: '2026-08-31.1',
   generatedAt,
   sourceGeneratedAt: reviewedAt,
   ruleCount: rules.length,

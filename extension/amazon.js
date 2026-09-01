@@ -3142,9 +3142,65 @@
   chrome.storage.onChanged.addListener(amazonStorageListener);
   U.registerExtensionCleanup?.(() => chrome.storage.onChanged.removeListener(amazonStorageListener));
 
+  function collectListingPolicyProduct() {
+    const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+    const first = (selectors) => {
+      for (const selector of selectors) {
+        const value = clean(document.querySelector(selector)?.textContent);
+        if (value) return value;
+      }
+      return "";
+    };
+    const collect = (selectors, limit = 80) => {
+      const values = [];
+      for (const selector of selectors) {
+        for (const node of document.querySelectorAll(selector)) {
+          const value = clean(node.textContent);
+          if (!value || values.includes(value)) continue;
+          values.push(value);
+          if (values.length >= limit) return values;
+        }
+      }
+      return values;
+    };
+    const pageText = clean(document.body?.innerText).slice(0, 6000);
+    const robot = Boolean(document.querySelector('form[action*="validateCaptcha"], #captchacharacters, img[src*="captcha"]'))
+      || /robot check|enter the characters you see|sorry, we just need to make sure you(?:'|’)re not a robot/i.test(`${document.title} ${pageText}`);
+    if (robot) return { ok: false, robot: true, error: "Amazon displayed a robot or CAPTCHA check." };
+    const asin = clean(document.querySelector('#ASIN')?.value || location.pathname.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i)?.[1]).toUpperCase();
+    const title = first(['#productTitle', '#title', 'h1.a-size-large']);
+    const brand = first(['#bylineInfo', '#brand']);
+    const category = collect(['#wayfinding-breadcrumbs_feature_div li a', '#wayfinding-breadcrumbs_container li a'], 20).join(' | ');
+    const bullets = collect(['#feature-bullets li span.a-list-item', '#featurebullets_feature_div li span'], 60).join(' | ');
+    const details = collect([
+      '#productOverview_feature_div tr',
+      '#productDetails_feature_div tr',
+      '#detailBullets_feature_div li',
+      '#variation_color_name',
+      '#variation_size_name',
+      '#variation_style_name'
+    ], 120).join(' | ').slice(0, 24000);
+    const imageText = [...document.querySelectorAll('#landingImage, #imgBlkFront, #main-image, #altImages img, #imageBlock img')]
+      .map((image) => clean(image.getAttribute('alt')))
+      .filter(Boolean)
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .slice(0, 30)
+      .join(' | ');
+    if (!asin || !title) return { ok: false, robot: false, error: "Amazon did not expose a product title and ASIN on this page." };
+    return {
+      ok: true,
+      robot: false,
+      product: { asin, url: location.href, title, brand, category, bullets, details, imageText }
+    };
+  }
+
   const amazonMessageListener = (message, sender, sendResponse) => {
     if (sender?.id && sender.id !== chrome.runtime.id) {
       sendResponse({ ok: false, error: "Message sender is not GLDN Ops." });
+      return false;
+    }
+    if (message?.type === "collectListingPolicyProduct") {
+      sendResponse(collectListingPolicyProduct());
       return false;
     }
     if (message?.type === "runAmazonPageAction") {

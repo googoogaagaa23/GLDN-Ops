@@ -41,19 +41,19 @@ if ([int]$rules.schemaVersion -ne 2 -or $rules.ruleCount -ne $rules.rules.Count)
   throw 'Reviewed policy rule pack must be a complete schema-2 pack with an exact declared count.'
 }
 $officialRules = @($rules.rules | Where-Object { $_.sourceType -eq 'official-ebay' })
-$communityBlocks = @($rules.rules | Where-Object { $_.sourceType -ne 'official-ebay' -and $_.action -eq 'block' })
+$operatorBlocks = @($rules.rules | Where-Object { $_.sourceType -eq 'gldn-operator' -and $_.action -eq 'block' })
+$communityBlocks = @($rules.rules | Where-Object { $_.sourceType -in @('profile2-discord', 'profile2-telegram') -and $_.action -eq 'block' })
 if ($officialRules.Count -lt 575) { throw 'Reviewed official eBay policy coverage is incomplete.' }
+if ($operatorBlocks.Count -ne 2 -or @($operatorBlocks.operatorRuleId | Sort-Object -Unique).Count -ne 2) { throw 'Product Hunter requires both approved GLDN no-list Blocks.' }
 if ($communityBlocks.Count) { throw 'Community evidence cannot create a Product Hunter Block.' }
 if ([int]$rules.policyCoverage.hubPolicyCount -ne 70 -or @($rules.policyCoverage.pages).Count -ne 70 -or @($rules.policyCoverage.supplementalPages).Count -lt 1) {
   throw 'Product Hunter policy coverage must include all 70 hub policies plus supplemental intellectual-property review.'
 }
 $readyPhrases = @($rules.clearancePolicy.readyPhrases)
 $uniqueReadyPhrases = @($readyPhrases | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { $_ } | Sort-Object -Unique)
-if ($rules.clearancePolicy.mode -ne 'review-unless-generic-allowlist' -or
-    -not $rules.clearancePolicy.version -or
-    $readyPhrases.Count -ne 500 -or
-    $uniqueReadyPhrases.Count -ne 500) {
-  throw 'Product Hunter requires the exact versioned 500-phrase fail-closed clearance profile.'
+if ($rules.clearancePolicy.mode -ne 'keyword-blocklist' -or
+    -not $rules.clearancePolicy.version) {
+  throw 'Product Hunter requires the versioned forbidden-item keyword profile.'
 }
 
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null

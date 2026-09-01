@@ -74,9 +74,9 @@ test("popup copy reflects the verified local updater model", () => {
   assert.match(html, /Reload Current Files/);
   assert.match(js, /latest stable GLDN Ops release/);
   assert.match(js, /Public release feed is behind/);
-  assert.match(html, /GLDN Ops opens handoff tabs and reports their tab state/);
-  assert.match(html, /Product Hunter and Bulk Poster must be reached through the Product Research Desk and Listing Preflight/);
-  assert.match(html, /Ready never means eBay approval/);
+  assert.match(html, /GLDN Ops opens the EcomSniper handoff tabs and the separate paste-first Listing Policy Check/);
+  assert.match(html, /Paste product titles or Amazon links and check them against prohibited and restricted item keywords/);
+  assert.match(html, /Ready means no reviewed keyword matched[^<]+not eBay approval/);
   assert.match(html, /Handoff monitor/);
   assert.match(js, /Internal EcomSniper progress is unknown/);
   assert.doesNotMatch(html, /Start Bulk Listing Workflow/);

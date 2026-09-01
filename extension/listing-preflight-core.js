@@ -9,12 +9,37 @@
   const RULE_TYPES = Object.freeze(['asin', 'brand', 'keyword', 'compound']);
   const RULE_ACTIONS = Object.freeze(['review', 'block']);
   const COMMUNITY_SOURCE_TYPES = Object.freeze(['profile2-discord', 'profile2-telegram']);
+  const OPERATOR_SOURCE_TYPE = 'gldn-operator';
+  const OPERATOR_SOURCE = 'gldn-operator-reviewed';
+  const OPERATOR_AUTHORITY = 'GLDN Ops operator rule';
+  const OPERATOR_RULE_IDS = Object.freeze(new Set([
+    'GLDN-NO-PESTICIDES',
+    'GLDN-NO-AEROSOL-SPRAY-CANS'
+  ]));
   const OFFICIAL_EBAY_URL_RE = /^https:\/\/(?:www\.)?ebay\.com\/(?:help\/|sellercenter\/)|^https:\/\/ocsnext\.ebay\.com\/help\//i;
   const DISCORD_URL_RE = /^https:\/\/discord\.com\/channels\/\d{15,22}\/\d{15,22}\/\d{15,22}$/i;
   const TELEGRAM_URL_RE = /^https:\/\/t\.me\/(?:s\/)?[A-Za-z0-9_]{5,}\/\d+$/i;
   const SAFE_UNIT_TOKEN_RE = /^\d+(?:x\d+)*(?:mm|cm|m|in|inch|inches|ft|feet|oz|lb|lbs|g|kg|ml|l|qt|gal|pc|pcs|piece|pieces|pk|pack|count|ct|set)?$/i;
   const MODEL_TOKEN_RE = /^(?=.{4,}$)(?=.*[a-z])(?=.*\d)[a-z0-9]+(?:-[a-z0-9]+)*$/i;
   const BUILTIN_IP_REVIEW_RE = /(?:[®™©]|\b(?:authentic|authorized|brand|branded|celebrity|character|collectible|copyright|counterfeit|designer|fan\s*art|franchise|genuine|in\s+the\s+style\s+of|inspired\s+by|licensed|logo|model|official|original|patent(?:ed)?|replica|team|trademark|vero|warranty)\b|\b(?:compatible\s+with|fits?|replacement\s+(?:for|part))\s+[a-z0-9])/i;
+  const EVIDENCE_BUNDLE_PREFIX = 'GLDNPH1';
+  const EVIDENCE_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+  const STRICT_GENERIC_BRAND_VALUES = Object.freeze(new Set(['generic', 'unbranded']));
+  const UNIVERSAL_CLEARANCE_TOKENS = Object.freeze(new Set([
+    'a', 'an', 'and', 'for', 'in', 'of', 'the', 'to', 'with', 'without',
+    'generic', 'unbranded', 'plain', 'new',
+    'acrylic', 'bamboo', 'cardboard', 'fabric', 'felt', 'foam', 'glass',
+    'metal', 'microfiber', 'paper', 'plastic', 'silicone', 'stainless',
+    'steel', 'vinyl', 'wood', 'wooden', 'woven',
+    'beige', 'black', 'blue', 'brown', 'clear', 'gray', 'green', 'grey',
+    'orange', 'pink', 'purple', 'red', 'white', 'yellow',
+    'adjustable', 'collapsible', 'compact', 'double', 'durable', 'expandable',
+    'extra', 'folding', 'freestanding', 'hanging', 'heavy', 'large',
+    'lightweight', 'medium', 'mounted', 'narrow', 'portable', 'reusable',
+    'single', 'small', 'stackable', 'tall', 'tier', 'tiered', 'triple',
+    'vertical', 'washable', 'wide', 'count', 'ct', 'pack', 'pc', 'pcs',
+    'piece', 'pieces', 'set'
+  ]));
 
   function normalizeText(value) {
     return String(value || '')
@@ -84,8 +109,107 @@
 
   function stripLabelledFields(value) {
     return normalizeText(String(value || '')
-      .replace(/(?:^|\|)\s*(?:title|brand|manufacturer|category|model|bullets?|details?)\s*:\s*[^|]+/gi, ' ')
+      .replace(/(?:^|\|)\s*(?:title|brand|manufacturer|category|model|bullets?|details?|sold by|ships from|image text|visual review|image rights|description rights|packaging review|source proof)\s*:\s*[^|]+/gi, ' ')
       .replace(/\|+/g, ' '));
+  }
+
+  function evidenceDigest(value) {
+    const text = normalizeText(value);
+    let left = 0x811c9dc5;
+    let right = 0x9e3779b9;
+    for (let index = 0; index < text.length; index += 1) {
+      const code = text.charCodeAt(index);
+      left = Math.imul(left ^ code, 0x01000193) >>> 0;
+      right = Math.imul(right ^ (code + index), 0x85ebca6b) >>> 0;
+    }
+    return `${left.toString(16).padStart(8, '0')}${right.toString(16).padStart(8, '0')}`;
+  }
+
+  function encodeBase64Url(value) {
+    const text = String(value || '');
+    if (typeof Buffer !== 'undefined') return Buffer.from(text, 'utf8').toString('base64url');
+    const bytes = new TextEncoder().encode(text);
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  }
+
+  function decodeBase64Url(value) {
+    const encoded = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+    const padded = encoded.padEnd(Math.ceil(encoded.length / 4) * 4, '=');
+    if (typeof Buffer !== 'undefined') return Buffer.from(padded, 'base64').toString('utf8');
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+
+  function normalizeEvidencePayload(input = {}) {
+    const asin = normalizeText(input.asin).toUpperCase();
+    const imageUrls = uniqueNormalizedStrings(
+      Array.isArray(input.imageUrls) ? input.imageUrls : [input.imageUrl]
+    ).filter((url) => /^https?:\/\//i.test(url));
+    return {
+      schemaVersion: 1,
+      source: 'gldn-product-hunter',
+      policyVersion: normalizeText(input.policyVersion),
+      capturedAt: normalizeText(input.capturedAt),
+      asin,
+      url: normalizeText(input.url),
+      title: normalizeText(input.title),
+      brand: normalizeText(input.brand),
+      manufacturer: normalizeText(input.manufacturer),
+      brandConflict: Boolean(input.brandConflict),
+      categories: uniqueNormalizedStrings(input.categories),
+      model: normalizeText(input.model),
+      bullets: uniqueNormalizedStrings(input.bullets),
+      details: normalizeText(input.details).slice(0, 24000),
+      soldBy: normalizeText(input.soldBy),
+      shipsFrom: normalizeText(input.shipsFrom),
+      imageUrls,
+      imageText: normalizeText(input.imageText).slice(0, 12000)
+    };
+  }
+
+  function buildProductHunterEvidenceBundle(product, policyVersion) {
+    const payload = normalizeEvidencePayload({ ...product, policyVersion });
+    const serialized = JSON.stringify(payload);
+    return `${EVIDENCE_BUNDLE_PREFIX}.${encodeBase64Url(serialized)}.${evidenceDigest(serialized)}`;
+  }
+
+  function parseProductHunterEvidenceBundle(value) {
+    const input = normalizeText(value);
+    const match = input.match(new RegExp(`^${EVIDENCE_BUNDLE_PREFIX}\\.([A-Za-z0-9_-]+)\\.([a-f0-9]{16})(?:\\s*\\|.*)?$`, 'i'));
+    if (!match) return null;
+    try {
+      const serialized = decodeBase64Url(match[1]);
+      if (evidenceDigest(serialized) !== match[2].toLowerCase()) {
+        return { valid: false, error: 'The Product Hunter evidence checksum does not match.' };
+      }
+      const decoded = JSON.parse(serialized);
+      const declaredSchemaVersion = Number(decoded?.schemaVersion);
+      const declaredSource = normalizeSearchText(decoded?.source);
+      const payload = normalizeEvidencePayload(decoded);
+      const asinMatchesUrl = isAmazonUrl(payload.url) && extractAmazonAsins(payload.url).includes(payload.asin);
+      const valid = declaredSchemaVersion === 1
+        && declaredSource === 'gldn-product-hunter'
+        && /^[A-Z0-9]{10}$/.test(payload.asin)
+        && Boolean(payload.title && payload.policyVersion && payload.capturedAt)
+        && asinMatchesUrl;
+      return {
+        valid,
+        error: valid ? '' : 'The Product Hunter evidence bundle is incomplete or does not match its Amazon ASIN.',
+        payload,
+        attestations: {
+          visualReview: normalizeSearchText(labelledField(input, 'visual review')),
+          imageRights: normalizeSearchText(labelledField(input, 'image rights')),
+          descriptionRights: normalizeSearchText(labelledField(input, 'description rights')),
+          packagingReview: normalizeSearchText(labelledField(input, 'packaging review')),
+          sourceProof: normalizeSearchText(labelledField(input, 'source proof'))
+        }
+      };
+    } catch {
+      return { valid: false, error: 'The Product Hunter evidence bundle could not be decoded.' };
+    }
   }
 
   function parseInputRows(value) {
@@ -94,11 +218,48 @@
     for (const rawLine of String(value || '').split(/\r?\n/)) {
       const input = normalizeText(rawLine);
       if (!input) continue;
+      const bundle = parseProductHunterEvidenceBundle(input);
+      if (bundle) {
+        const payload = bundle.payload || {};
+        const key = normalizeSearchText(input);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rows.push({
+          index: rows.length + 1,
+          input,
+          title: payload.title || '',
+          brand: payload.brand || '',
+          manufacturer: payload.manufacturer || '',
+          brandConflict: Boolean(payload.brandConflict),
+          category: (payload.categories || []).join(' '),
+          model: payload.model || '',
+          bullets: (payload.bullets || []).join(' '),
+          details: payload.details || '',
+          soldBy: payload.soldBy || '',
+          shipsFrom: payload.shipsFrom || '',
+          imageUrls: payload.imageUrls || [],
+          imageText: payload.imageText || '',
+          clearanceText: payload.title || '',
+          urls: payload.url ? [payload.url] : [],
+          amazonUrls: payload.url ? [payload.url] : [],
+          asins: payload.asin ? [payload.asin] : [],
+          urlSearchText: '',
+          sourceKind: bundle.valid ? 'product-hunter-bundle' : 'invalid-product-hunter-bundle',
+          evidenceBundleValid: Boolean(bundle.valid),
+          evidenceBundleError: bundle.error || '',
+          bundlePolicyVersion: payload.policyVersion || '',
+          capturedAt: payload.capturedAt || '',
+          humanEvidence: bundle.attestations || {},
+          hasProductEvidence: Boolean(bundle.valid && payload.title && payload.asin && payload.url)
+        });
+        continue;
+      }
       const urls = input.match(/https?:\/\/[^\s,"']+/gi) || [];
       const amazonUrls = urls.filter(isAmazonUrl);
       const asins = extractAmazonAsins(input);
       const explicitTitle = labelledField(input, 'title');
       const brand = labelledField(input, 'brand') || labelledField(input, 'manufacturer');
+      const manufacturer = labelledField(input, 'manufacturer');
       const category = labelledField(input, 'category');
       const model = labelledField(input, 'model');
       const bullets = labelledField(input, 'bullet') || labelledField(input, 'bullets');
@@ -116,15 +277,32 @@
         input,
         title,
         brand,
+        manufacturer,
         category,
         model,
         bullets,
         details,
+        soldBy: labelledField(input, 'sold by'),
+        shipsFrom: labelledField(input, 'ships from'),
+        imageUrls: [],
+        imageText: labelledField(input, 'image text'),
         clearanceText: title,
         urls,
         amazonUrls,
         asins,
         urlSearchText,
+        sourceKind: 'manual-input',
+        evidenceBundleValid: false,
+        evidenceBundleError: 'This row was not produced by the verified Product Hunter evidence handoff.',
+        bundlePolicyVersion: '',
+        capturedAt: '',
+        humanEvidence: {
+          visualReview: normalizeSearchText(labelledField(input, 'visual review')),
+          imageRights: normalizeSearchText(labelledField(input, 'image rights')),
+          descriptionRights: normalizeSearchText(labelledField(input, 'description rights')),
+          packagingReview: normalizeSearchText(labelledField(input, 'packaging review')),
+          sourceProof: normalizeSearchText(labelledField(input, 'source proof'))
+        },
         hasProductEvidence: Boolean(title || urlSearchText)
       });
     }
@@ -157,6 +335,7 @@
       source: normalizeText(rule?.source),
       sourceType: normalizeSearchText(rule?.sourceType) || 'reviewed-source',
       authority: normalizeText(rule?.authority),
+      operatorRuleId: normalizeText(rule?.operatorRuleId).toUpperCase(),
       evidenceUrls: uniqueNormalizedStrings(rule?.evidenceUrls)
     };
     if (type === 'compound' && !normalized.allOf.length && !normalized.anyOf.length) return null;
@@ -185,7 +364,7 @@
   }
 
   function evidenceUrlMatches(sourceType, url) {
-    if (sourceType === 'official-ebay') return OFFICIAL_EBAY_URL_RE.test(url);
+    if (sourceType === 'official-ebay' || sourceType === OPERATOR_SOURCE_TYPE) return OFFICIAL_EBAY_URL_RE.test(url);
     if (sourceType === 'profile2-discord') return DISCORD_URL_RE.test(url);
     if (sourceType === 'profile2-telegram') return TELEGRAM_URL_RE.test(url);
     return false;
@@ -202,11 +381,19 @@
       if (!rule.id || !rule.reason || !rule.reviewedBy || !/^\d{4}-\d{2}-\d{2}/.test(rule.reviewedAt)) {
         errors.push(`Rule '${rule.value}' is missing required review metadata.`);
       }
-      if (!['official-ebay', ...COMMUNITY_SOURCE_TYPES].includes(rule.sourceType)) {
+      if (!['official-ebay', OPERATOR_SOURCE_TYPE, ...COMMUNITY_SOURCE_TYPES].includes(rule.sourceType)) {
         errors.push(`Rule '${rule.value}' has an unsupported source type.`);
       }
       if (COMMUNITY_SOURCE_TYPES.includes(rule.sourceType) && rule.action === 'block') {
         errors.push(`Community rule '${rule.value}' cannot create a Block.`);
+      }
+      if (rule.sourceType === OPERATOR_SOURCE_TYPE && (
+        rule.action !== 'block'
+        || rule.source !== OPERATOR_SOURCE
+        || rule.authority !== OPERATOR_AUTHORITY
+        || !OPERATOR_RULE_IDS.has(rule.operatorRuleId)
+      )) {
+        errors.push(`GLDN operator rule '${rule.value}' is not an approved no-list rule.`);
       }
       if (!rule.evidenceUrls.length || rule.evidenceUrls.some((url) => !evidenceUrlMatches(rule.sourceType, url))) {
         errors.push(`Rule '${rule.value}' has missing or mismatched source evidence.`);
@@ -224,14 +411,11 @@
       ids.add(rule.id);
       keys.add(key);
     }
-    if (clearancePolicy.mode !== 'review-unless-generic-allowlist') {
-      errors.push('The rule pack does not contain the supported fail-closed clearance mode.');
+    if (clearancePolicy.mode !== 'keyword-blocklist') {
+      errors.push('The rule pack does not contain the supported keyword policy-check mode.');
     }
     if (!clearancePolicy.id || !clearancePolicy.version || !/^\d{4}-\d{2}-\d{2}/.test(clearancePolicy.reviewedAt)) {
       errors.push('The clearance profile is missing versioned review metadata.');
-    }
-    if (!clearancePolicy.readyPhrases.length || !clearancePolicy.genericTokens.length) {
-      errors.push('The clearance profile has no reviewed generic allowlist.');
     }
     if (!clearancePolicy.evidenceUrls.length || clearancePolicy.evidenceUrls.some((url) => !OFFICIAL_EBAY_URL_RE.test(url))) {
       errors.push('The clearance profile needs exact official eBay evidence URLs.');
@@ -296,15 +480,18 @@
   }
 
   function evaluateRow(row, rules, clearancePolicy = {}) {
+    const sourceKind = normalizeSearchText(row?.sourceKind);
     const fields = {
-      input: normalizeText(row?.input),
+      input: sourceKind === 'product-hunter-bundle' ? '' : normalizeText(row?.input),
       title: normalizeText(row?.title),
       urlSearchText: normalizeText(row?.urlSearchText),
       brand: normalizeText(row?.brand),
+      manufacturer: normalizeText(row?.manufacturer),
       category: normalizeText(row?.category),
       model: normalizeText(row?.model),
       bullets: normalizeText(row?.bullets),
-      details: normalizeText(row?.details)
+      details: normalizeText(row?.details),
+      imageText: normalizeText(row?.imageText)
     };
     const haystack = normalizeSearchText(Object.values(fields).join(' '));
     const asinSet = new Set((row?.asins || []).map((asin) => String(asin).toUpperCase()));
@@ -346,68 +533,36 @@
 
   function clearanceDecision(row, rawPolicy) {
     const policy = normalizeClearancePolicy(rawPolicy);
-    if (policy.mode !== 'review-unless-generic-allowlist' || !policy.readyPhrases.length || !policy.genericTokens.length) {
-      return { action: 'review', reason: 'No valid generic-only clearance profile is loaded. This item needs manual review.' };
+    if (policy.mode !== 'keyword-blocklist') {
+      return { action: 'review', reason: 'No valid forbidden-item keyword profile is loaded. This item needs manual review.' };
     }
     if (policyProfileIsStale(policy)) {
-      return { action: 'review', reason: 'The official-policy clearance profile is stale. Refresh policy research before treating this item as Ready.' };
-    }
-    if (row?.hasProductEvidence === false) {
-      return { action: 'review', reason: 'The Amazon URL or ASIN does not include a product name. Open or export product details before treating it as Ready.' };
-    }
-    if (normalizeSearchText(row?.sourceKind) === 'active-listing-title-only') {
-      return { action: 'review', reason: 'Existing-listing evidence is limited to title, SKU/ASIN, category when visible, and price. Authenticity, authorization, brand, images, item specifics, description, product safety, eligibility, and provenance still require human review.' };
+      return { action: 'review', reason: 'The forbidden-item keyword profile is stale. Refresh the policy rules before using a no-match result.' };
     }
     const sourceKind = normalizeSearchText(row?.sourceKind);
-    const brand = normalizeSearchText(row?.brand);
-    if (!brand && sourceKind !== 'product-hunter-search') {
-      return { action: 'review', reason: 'Explicit product-page brand evidence is missing. A title, search result, Amazon URL, or ASIN alone cannot become Ready; collect full product details and confirm the reported brand is Generic or Unbranded.' };
+    if (sourceKind === 'invalid-product-hunter-bundle' || (sourceKind === 'product-hunter-bundle' && !row?.evidenceBundleValid)) {
+      return { action: 'review', reason: normalizeText(row?.evidenceBundleError) || 'The Product Hunter evidence bundle is invalid.' };
     }
-    if (brand && !policy.genericBrandValues.includes(brand)) {
-      return { action: 'review', reason: `Reported brand '${normalizeText(row.brand)}' requires authenticity, authorization, VeRO, and intellectual-property review.` };
+    if (row?.scanError) {
+      return { action: 'review', reason: `Product details could not be read: ${normalizeText(row.scanError)}` };
     }
-    if (normalizeText(row?.model)) {
-      return { action: 'review', reason: 'A reported model or product-line value requires brand, compatibility, and intellectual-property review.' };
-    }
-    const productText = normalizeSearchText(row?.clearanceText || [
+    const productText = normalizeSearchText([
       row?.title,
       row?.urlSearchText,
       row?.category,
       row?.brand,
-      row?.model
+      row?.manufacturer,
+      row?.model,
+      row?.bullets,
+      row?.details,
+      row?.imageText
     ].join(' '));
-    const reviewPhrase = policy.reviewPhrases.find((phrase) => includesReviewedPhrase(productText, phrase));
-    if (reviewPhrase) {
-      return { action: 'review', reason: `The phrase '${reviewPhrase}' requires restricted-item, authenticity, VeRO, or intellectual-property review.` };
-    }
-    if (BUILTIN_IP_REVIEW_RE.test(productText)) {
-      return { action: 'review', reason: 'The product text contains a brand, model, licensing, compatibility, authenticity, or other intellectual-property cue.' };
-    }
-    const clearancePhrase = policy.readyPhrases.find((phrase) => includesReviewedPhrase(productText, phrase));
-    if (!clearancePhrase) {
-      return { action: 'review', reason: 'The product does not match a reviewed generic-only research family. Unknown items stay in Needs review.' };
-    }
-    const allowedTokens = new Set(policy.genericTokens);
-    for (const phrase of policy.readyPhrases) tokenize(phrase).forEach((token) => allowedTokens.add(token));
-    const unknownTokens = tokenize(productText).filter((token) => {
-      if (allowedTokens.has(token) || SAFE_UNIT_TOKEN_RE.test(token)) return false;
-      return token.length > 1;
-    });
-    const uniqueUnknown = [...new Set(unknownTokens)];
-    if (uniqueUnknown.length) {
-      const modelToken = uniqueUnknown.find((token) => MODEL_TOKEN_RE.test(token));
-      return {
-        action: 'review',
-        reason: modelToken
-          ? `Unreviewed model-like term '${modelToken}' requires brand and compatibility review.`
-          : `Unreviewed title term${uniqueUnknown.length === 1 ? '' : 's'} (${uniqueUnknown.slice(0, 5).join(', ')}) may be a brand, model, character, claim, or restricted detail.`,
-        unknownTokens: uniqueUnknown
-      };
+    if (row?.hasProductEvidence === false || tokenize(productText).length < 2) {
+      return { action: 'review', reason: 'Insufficient product text. A bare ASIN or opaque URL cannot be checked for forbidden keywords until its product title or details are read.' };
     }
     return {
       action: 'clear',
-      reason: `Matches the reviewed generic-only family '${clearancePhrase}' with no detected extra brand, model, IP, or restricted-policy term. Ready is not eBay approval; inspect the exact product, images, packaging, provenance, recalls, and final listing.`,
-      clearancePhrase
+      reason: 'No reviewed prohibited-item or restricted-item keyword matched the supplied product text. This is a keyword check, not eBay approval.'
     };
   }
 
@@ -481,6 +636,9 @@
     extractAmazonAsins,
     isAmazonUrl,
     amazonUrlSearchText,
+    evidenceDigest,
+    buildProductHunterEvidenceBundle,
+    parseProductHunterEvidenceBundle,
     parseInputRows,
     normalizeRule,
     normalizeClearancePolicy,

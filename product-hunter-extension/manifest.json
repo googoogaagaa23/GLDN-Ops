@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GLDN Product Hunter",
-  "version": "0.3.0",
-  "description": "Uses approved generic research seeds, conservative IP review, and reviewed eBay policy rules before preparing EcomSniper links.",
+  "version": "0.3.1",
+  "description": "Searches Amazon with operator keywords and checks exact products against reviewed eBay item-policy rules.",
   "permissions": [
     "storage",
     "unlimitedStorage",

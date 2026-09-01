@@ -56,7 +56,7 @@
       <div class="section-heading">
         <div>
           <h2 id="hunt-heading">New Hunt</h2>
-          <p>One approved Product Research Desk starting word per line. Unknown words cannot start a hunt. The worker checks each product page before anything is marked Ready.</p>
+          <p>Enter any useful Product Hunter search words, one per line. The worker checks each exact Amazon product against the current prohibited and restricted item rules.</p>
         </div>
         <span class="run-state" id="run-state">Idle</span>
       </div>
@@ -79,7 +79,7 @@
             </select>
           </label>
           <label>
-            <span>Ready target</span>
+            <span>Preflight-candidate target</span>
             <input id="desired-ready" type="number" min="1" max="2000" step="1" value="100">
           </label>
           <label>
@@ -129,13 +129,13 @@
         <button id="reset-button" type="button">Reset</button>
         <button id="worker-button" type="button">Open Amazon Worker</button>
       </div>
-      <div id="notice" class="notice" role="status" aria-live="polite">Ready.</div>
+      <div id="notice" class="notice" role="status" aria-live="polite">Idle.</div>
     </section>
 
     <section class="metrics-band" aria-label="Hunt totals">
       <div><span>Discovered</span><strong id="metric-discovered">0</strong></div>
       <div><span>Queued</span><strong id="metric-queued">0</strong></div>
-      <div class="ready"><span>Ready</span><strong id="metric-ready">0</strong></div>
+      <div class="ready"><span>Preflight candidates</span><strong id="metric-ready">0</strong></div>
       <div class="review"><span>Review</span><strong id="metric-review">0</strong></div>
       <div class="blocked"><span>Blocked</span><strong id="metric-blocked">0</strong></div>
       <div><span>Excluded</span><strong id="metric-excluded">0</strong></div>
@@ -152,18 +152,18 @@
           <input id="result-search" type="search" placeholder="Search title, ASIN, keyword">
           <select id="status-filter" aria-label="Filter products by status">
             <option value="all">All statuses</option>
-            <option value="ready">Ready</option>
+            <option value="ready">Preflight candidate</option>
             <option value="review">Review</option>
             <option value="blocked">Blocked</option>
             <option value="excluded">Excluded</option>
             <option value="incomplete">Incomplete</option>
             <option value="queued">Queued</option>
           </select>
-          <button class="ready-button" id="copy-ready-button" type="button">Copy Ready Links</button>
+          <button class="ready-button" id="copy-ready-button" type="button">Copy Evidence for Listing Preflight</button>
           <button id="audit-button" type="button">Download Audit CSV</button>
-          <button id="bulk-poster-button" type="button">Open EcomSniper Bulk Poster</button>
         </div>
       </div>
+      <p class="notice">Paste Product Hunter results into GLDN Listing Policy Check. Results cannot go directly to Bulk Poster. Brand names alone do not stop a product; matched prohibited items Block and conditional restrictions stay in Review.</p>
 
       <div class="table-wrap">
         <table>

@@ -3,16 +3,21 @@
   const core = globalThis.GLDN_LISTING_PREFLIGHT;
   const byId = (id) => document.getElementById(id);
   let rulePack = { schemaVersion: 2, rules: [] };
-  let researchOutput = { schemaVersion: 2, sourceCoverage: [], searchSeeds: [], workflow: [], avoidCategories: [] };
   let latestResults = [];
   let copyMode = 'amazon-links';
   let targetPage = 'bulkPoster';
   let targetLabel = 'Bulk Poster';
+  let scanRunning = false;
+  let pauseRequested = false;
+  let workerTabId = 0;
+  const PRODUCT_CACHE_KEY = 'gldnListingPolicyProductCacheV1';
+  const LAST_INPUT_KEY = 'gldnListingPolicyLastInputV1';
+  const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
   const currentTabIdPromise = new Promise((resolve) => {
     chrome.tabs.getCurrent((tab) => resolve(Number(tab?.id || 0)));
   });
 
-  await Promise.all([loadRulePack(), loadResearchOutput()]);
+  await loadRulePack();
 
   byId('runCheck').addEventListener('click', runCheck);
   byId('clearInput').addEventListener('click', () => {
@@ -25,16 +30,6 @@
   byId('copyAndOpenProductHunter').addEventListener('click', copyAndOpenProductHunter);
   byId('downloadReady').addEventListener('click', downloadReadyLinks);
   byId('downloadResults').addEventListener('click', downloadResults);
-  byId('selectAllResearch').addEventListener('click', () => setResearchSelection(true));
-  byId('clearResearch').addEventListener('click', () => setResearchSelection(false));
-  byId('copyResearchWords').addEventListener('click', copyResearchWords);
-  byId('copyAndOpenResearchWords').addEventListener('click', copyResearchWordsAndOpen);
-  byId('downloadResearchOutput').addEventListener('click', downloadResearchOutput);
-  byId('continueToPreflight').addEventListener('click', () => {
-    byId('inputHeading').scrollIntoView({ behavior: 'smooth', block: 'start' });
-    byId('itemInput').focus();
-  });
-  byId('researchWords').addEventListener('change', updateResearchActionState);
   byId('fileInput').addEventListener('change', async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -60,189 +55,187 @@
     return true;
   });
 
-  await loadPendingHandoff();
+  const handoffLoaded = await loadPendingHandoff();
+  if (!handoffLoaded) {
+    const saved = await storageGetLocal([LAST_INPUT_KEY]);
+    if (saved[LAST_INPUT_KEY]) {
+      byId('itemInput').value = String(saved[LAST_INPUT_KEY]);
+      byId('copyStatus').textContent = 'Restored your last pasted list. Click Check Items to continue or replace it with a new list.';
+    }
+  }
 
   async function loadRulePack() {
     try {
       const response = await fetch(chrome.runtime.getURL('listing-preflight-rules.json'), { cache: 'no-store' });
       if (!response.ok) throw new Error(`Rule file returned ${response.status}.`);
       rulePack = core.normalizeRulePack(await response.json());
-      const counts = countRulesBySource(rulePack.rules);
       byId('ruleStatus').textContent = rulePack.valid
-        ? `${rulePack.ruleCount.toLocaleString()} rules | ${counts.official.toLocaleString()} official | ${counts.discord.toLocaleString()} Discord | ${counts.telegram.toLocaleString()} Telegram | ${rulePack.policyCoverage.length.toLocaleString()} official policies | generic profile ${rulePack.clearancePolicy.version}${rulePack.generatedAt ? ` | ${formatDate(rulePack.generatedAt)}` : ''}`
+        ? `${rulePack.ruleCount.toLocaleString()} forbidden and restricted item rules loaded${rulePack.generatedAt ? ` | updated ${formatDate(rulePack.generatedAt)}` : ''}`
         : `Policy data failed closed: ${rulePack.validationErrors.join(' ') || 'No valid reviewed rules are published.'} Every item stays in Needs review.`;
     } catch (error) {
       byId('ruleStatus').textContent = `Reviewed rules could not be loaded: ${error.message}`;
     }
   }
 
-  async function loadResearchOutput() {
-    try {
-      const response = await fetch(chrome.runtime.getURL('product-research-output.json'), { cache: 'no-store' });
-      if (!response.ok) throw new Error(`Research output returned ${response.status}.`);
-      const payload = await response.json();
-      if (![1, 2].includes(Number(payload?.schemaVersion)) || !Array.isArray(payload?.searchSeeds)) {
-        throw new Error('Research output has an unsupported format.');
+  async function runCheck() {
+    if (scanRunning) {
+      pauseRequested = true;
+      byId('copyStatus').textContent = 'Pausing safely after the current Amazon product...';
+      return;
+    }
+    const input = byId('itemInput').value;
+    let rows = core.parseInputRows(input);
+    await storageSetLocal({ [LAST_INPUT_KEY]: input });
+    const linksToRead = rows.filter((row) => row.amazonUrls?.length && row.sourceKind !== 'product-hunter-bundle').length;
+    if (linksToRead) {
+      scanRunning = true;
+      pauseRequested = false;
+      byId('runCheck').textContent = 'Pause Safely';
+      byId('copyReady').disabled = true;
+      byId('copyAndOpenProductHunter').disabled = true;
+      byId('downloadReady').disabled = true;
+      try {
+        rows = await readAmazonProductRows(rows, linksToRead);
+      } finally {
+        scanRunning = false;
+        byId('runCheck').textContent = 'Check Items';
       }
-      researchOutput = payload;
-      renderResearchOutput();
-      byId('researchStatus').textContent = `${researchOutput.searchSeeds.length.toLocaleString()} starting words | updated ${formatDate(researchOutput.generatedAt)}`;
-      byId('downloadResearchOutput').disabled = false;
-    } catch (error) {
-      byId('researchStatus').textContent = `Research output could not be loaded: ${error.message}`;
-      byId('researchWords').textContent = 'No research words are available.';
     }
-  }
-
-  function renderResearchOutput() {
-    const coverage = byId('sourceCoverage');
-    coverage.replaceChildren();
-    for (const source of researchOutput.sourceCoverage || []) {
-      const card = document.createElement('article');
-      card.className = 'source-card';
-      const title = document.createElement('h3');
-      title.textContent = source.label;
-      const state = document.createElement('span');
-      state.className = `source-state ${source.status}`;
-      state.textContent = source.status === 'reviewed-no-actionable-rule' || source.status === 'reviewed-ignore'
-        ? 'Reviewed, Ignore'
-        : source.status === 'full-hub-reviewed'
-          ? 'Full hub reviewed'
-          : 'Active';
-      const note = document.createElement('p');
-      note.textContent = source.note;
-      const counts = document.createElement('div');
-      counts.className = 'source-counts';
-      counts.appendChild(metric(source.reviewedSignals, 'Signals reviewed'));
-      counts.appendChild(metric(source.publishedRules, 'Rules published'));
-      const links = document.createElement('div');
-      links.className = 'source-links';
-      for (const [index, url] of (source.links || []).entries()) {
-        const link = document.createElement('a');
-        link.href = url;
-        link.target = '_blank';
-        link.rel = 'noreferrer';
-        link.textContent = `Open source ${index + 1}`;
-        links.appendChild(link);
-      }
-      card.append(title, state, note, counts, links);
-      coverage.appendChild(card);
-    }
-
-    const flow = byId('researchFlow');
-    flow.replaceChildren();
-    for (const item of researchOutput.workflow || []) {
-      const step = document.createElement('div');
-      step.className = 'flow-step';
-      const number = document.createElement('span');
-      number.className = 'number';
-      number.textContent = item.step;
-      const title = document.createElement('strong');
-      title.textContent = item.title;
-      const instruction = document.createElement('p');
-      instruction.textContent = item.instruction;
-      step.append(number, title, instruction);
-      flow.appendChild(step);
-    }
-
-    const words = byId('researchWords');
-    words.replaceChildren();
-    for (const seed of researchOutput.searchSeeds || []) {
-      const label = document.createElement('label');
-      label.className = 'research-word';
-      label.title = seed.reason || '';
-      const checkbox = document.createElement('input');
-      checkbox.type = 'checkbox';
-      checkbox.name = 'researchSeed';
-      checkbox.value = seed.term;
-      checkbox.checked = true;
-      const text = document.createElement('span');
-      text.textContent = seed.term;
-      label.append(checkbox, text);
-      words.appendChild(label);
-    }
-
-    const avoid = byId('avoidCategories');
-    avoid.replaceChildren();
-    for (const category of researchOutput.avoidCategories || []) {
-      const item = document.createElement('li');
-      item.textContent = category;
-      avoid.appendChild(item);
-    }
-    updateResearchActionState();
-  }
-
-  function metric(value, label) {
-    const wrap = document.createElement('div');
-    const count = document.createElement('strong');
-    count.textContent = Number(value || 0).toLocaleString();
-    const text = document.createElement('span');
-    text.textContent = label;
-    wrap.append(count, text);
-    return wrap;
-  }
-
-  function selectedResearchTerms() {
-    return [...document.querySelectorAll('input[name="researchSeed"]:checked')]
-      .map((input) => String(input.value || '').trim())
-      .filter(Boolean);
-  }
-
-  function setResearchSelection(checked) {
-    for (const input of document.querySelectorAll('input[name="researchSeed"]')) input.checked = checked;
-    updateResearchActionState();
-  }
-
-  function updateResearchActionState() {
-    const selected = selectedResearchTerms().length;
-    byId('copyResearchWords').disabled = !selected;
-    byId('copyAndOpenResearchWords').disabled = !selected;
-    byId('researchCopyStatus').textContent = selected
-      ? `${selected.toLocaleString()} word${selected === 1 ? '' : 's'} selected.`
-      : 'Select at least one starting word.';
-  }
-
-  async function copyResearchWords() {
-    const terms = selectedResearchTerms();
-    if (!terms.length) return;
-    try {
-      await navigator.clipboard.writeText(terms.join('\n'));
-      byId('researchCopyStatus').textContent = `Copied ${terms.length.toLocaleString()} Product Hunter word${terms.length === 1 ? '' : 's'}, one per line.`;
-    } catch (error) {
-      byId('researchCopyStatus').textContent = `Copy failed: ${error.message}`;
-    }
-  }
-
-  async function copyResearchWordsAndOpen() {
-    const terms = selectedResearchTerms();
-    if (!terms.length) return;
-    try {
-      await navigator.clipboard.writeText(terms.join('\n'));
-      const response = await chrome.runtime.sendMessage({ type: 'openEcomSniperPage', page: 'productHunter' });
-      if (!response?.ok) throw new Error(response?.error || 'Product Hunter could not open.');
-      byId('researchCopyStatus').textContent = `Copied ${terms.length.toLocaleString()} word${terms.length === 1 ? '' : 's'} and opened EcomSniper Product Hunter.`;
-    } catch (error) {
-      byId('researchCopyStatus').textContent = `Product Hunter handoff failed: ${error.message}`;
-    }
-  }
-
-  function downloadResearchOutput() {
-    downloadText(`${JSON.stringify(researchOutput, null, 2)}\n`, `gldn-product-research-output-${new Date().toISOString().slice(0, 10)}.json`, 'application/json');
-  }
-
-  function countRulesBySource(rules) {
-    return (rules || []).reduce((counts, rule) => {
-      if (rule.sourceType === 'official-ebay') counts.official += 1;
-      else if (rule.sourceType === 'profile2-discord') counts.discord += 1;
-      else if (rule.sourceType === 'profile2-telegram') counts.telegram += 1;
-      return counts;
-    }, { official: 0, discord: 0, telegram: 0 });
-  }
-
-  function runCheck() {
-    const rows = core.parseInputRows(byId('itemInput').value);
     latestResults = core.evaluateRows(rows, rulePack);
     renderResults(latestResults);
+    if (!pauseRequested && latestResults.length) {
+      const summary = core.summarizeResults(latestResults);
+      byId('copyStatus').textContent = `Finished ${latestResults.length.toLocaleString()} item${latestResults.length === 1 ? '' : 's'}: ${summary.clear.toLocaleString()} ready, ${summary.review.toLocaleString()} need review, ${summary.block.toLocaleString()} blocked.`;
+    }
+  }
+
+  async function readAmazonProductRows(rows, total) {
+    const stored = await storageGetLocal([PRODUCT_CACHE_KEY]);
+    const cache = stored[PRODUCT_CACHE_KEY] && typeof stored[PRODUCT_CACHE_KEY] === 'object'
+      ? stored[PRODUCT_CACHE_KEY]
+      : {};
+    let completed = 0;
+    let robotStopped = false;
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index];
+      const url = row.amazonUrls?.[0];
+      if (!url || row.sourceKind === 'product-hunter-bundle') continue;
+      if (pauseRequested) break;
+      completed += 1;
+      byId('copyStatus').textContent = `Reading Amazon product ${completed.toLocaleString()} of ${total.toLocaleString()} in one inactive tab...`;
+      const cacheKey = String(row.asins?.[0] || url).toUpperCase();
+      const cached = cache[cacheKey];
+      if (cached?.capturedAt && Date.now() - Date.parse(cached.capturedAt) <= CACHE_MAX_AGE_MS && cached.product?.title) {
+        rows[index] = mergeScannedProduct(row, cached.product);
+        continue;
+      }
+      const result = await inspectAmazonProduct(url);
+      if (result?.ok && result.product) {
+        rows[index] = mergeScannedProduct(row, result.product);
+        cache[cacheKey] = { capturedAt: new Date().toISOString(), product: result.product };
+        if (completed % 10 === 0) await storageSetLocal({ [PRODUCT_CACHE_KEY]: trimProductCache(cache) });
+      } else {
+        rows[index] = { ...row, sourceKind: 'amazon-product-scan-failed', hasProductEvidence: false, scanError: result?.error || 'Amazon product details were unavailable.' };
+        if (result?.robot) {
+          robotStopped = true;
+          pauseRequested = true;
+          byId('copyStatus').textContent = `Paused at ${completed.toLocaleString()} of ${total.toLocaleString()}. Amazon needs its visible robot check completed in the inactive worker tab, then click Check Items again.`;
+          break;
+        }
+      }
+      await wait(900);
+    }
+    await storageSetLocal({ [PRODUCT_CACHE_KEY]: trimProductCache(cache) });
+    if (!robotStopped) await closeWorkerTab();
+    if (pauseRequested && !robotStopped) {
+      byId('copyStatus').textContent = `Paused safely after ${completed.toLocaleString()} of ${total.toLocaleString()} Amazon products. Click Check Items to resume; completed products are cached.`;
+    }
+    return rows;
+  }
+
+  function mergeScannedProduct(row, product) {
+    return {
+      ...row,
+      title: core.normalizeText(product.title) || row.title,
+      brand: core.normalizeText(product.brand) || row.brand,
+      category: core.normalizeText(product.category) || row.category,
+      bullets: core.normalizeText(product.bullets) || row.bullets,
+      details: core.normalizeText(product.details) || row.details,
+      imageText: core.normalizeText(product.imageText) || row.imageText,
+      asins: product.asin ? [String(product.asin).toUpperCase()] : row.asins,
+      sourceKind: 'amazon-product-scan',
+      hasProductEvidence: Boolean(product.title),
+      scanError: ''
+    };
+  }
+
+  async function inspectAmazonProduct(url) {
+    try {
+      if (workerTabId) {
+        try {
+          await chrome.tabs.update(workerTabId, { url, active: false });
+        } catch {
+          workerTabId = 0;
+        }
+      }
+      if (!workerTabId) {
+        const tab = await chrome.tabs.create({ url, active: false });
+        workerTabId = Number(tab?.id || 0);
+      }
+      if (!workerTabId) return { ok: false, error: 'The inactive Amazon worker tab could not be created.' };
+      await waitForTabComplete(workerTabId, 45000);
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        try {
+          const response = await chrome.tabs.sendMessage(workerTabId, { type: 'collectListingPolicyProduct' });
+          if (response) return response;
+        } catch {
+          await wait(500);
+        }
+      }
+      return { ok: false, error: 'GLDN could not read the loaded Amazon product page.' };
+    } catch (error) {
+      return { ok: false, error: error?.message || String(error) };
+    }
+  }
+
+  async function waitForTabComplete(tabId, timeoutMs) {
+    const started = Date.now();
+    while (Date.now() - started < timeoutMs) {
+      const tab = await chrome.tabs.get(tabId);
+      if (tab?.status === 'complete') {
+        await wait(700);
+        return;
+      }
+      await wait(250);
+    }
+    throw new Error('Amazon product loading timed out.');
+  }
+
+  async function closeWorkerTab() {
+    if (!workerTabId) return;
+    const tabId = workerTabId;
+    workerTabId = 0;
+    try { await chrome.tabs.remove(tabId); } catch {}
+  }
+
+  function trimProductCache(cache) {
+    const entries = Object.entries(cache)
+      .filter(([, value]) => value?.capturedAt && Date.now() - Date.parse(value.capturedAt) <= CACHE_MAX_AGE_MS)
+      .sort((left, right) => Date.parse(right[1].capturedAt) - Date.parse(left[1].capturedAt))
+      .slice(0, 10000);
+    return Object.fromEntries(entries);
+  }
+
+  function storageGetLocal(keys) {
+    return new Promise((resolve) => chrome.storage.local.get(keys, resolve));
+  }
+
+  function storageSetLocal(values) {
+    return new Promise((resolve) => chrome.storage.local.set(values, resolve));
+  }
+
+  function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   function renderResults(results) {
@@ -263,7 +256,7 @@
     if (!results.length) {
       const row = document.createElement('tr');
       const cell = document.createElement('td');
-      cell.colSpan = 5;
+      cell.colSpan = 4;
       cell.className = 'empty';
       cell.textContent = 'Paste items above, then run the check.';
       row.appendChild(cell);
@@ -282,8 +275,6 @@
       block: Number(byId('countBlock')?.textContent || 0),
       note: String(byId('resultNote')?.textContent || '').trim(),
       copyStatus: String(byId('copyStatus')?.textContent || '').trim(),
-      researchStatus: String(byId('researchStatus')?.textContent || '').trim(),
-      selectedResearchWords: selectedResearchTerms().length,
       handoffLabel: String(byId('copyAndOpenProductHunter')?.textContent || '').trim(),
       handoffEnabled: byId('copyAndOpenProductHunter')?.disabled === false,
       statuses: [...document.querySelectorAll('#resultsBody .status')].map((node) => String(node.textContent || '').trim())
@@ -296,28 +287,28 @@
     status.className = `status ${result.action}`;
     status.textContent = result.status === 'CLEAR' ? 'READY' : result.status;
     addCell(row, status);
-    addCell(row, result.input);
+    addCell(row, productCell(result));
     addCell(row, result.asins.join(', ') || 'Not detected');
     addCell(row, result.reason);
-    const links = document.createElement('div');
-    links.className = 'source-links';
-    const sources = uniqueSources(result.matches);
-    if (!sources.length) {
-      for (const [index, url] of (rulePack.clearancePolicy?.evidenceUrls || []).entries()) {
-        sources.push({ url, label: `Official policy profile ${index + 1}` });
-      }
-    }
-    if (!sources.length) links.textContent = 'No matched source';
-    sources.forEach((source) => {
+    return row;
+  }
+
+  function productCell(result) {
+    const container = document.createElement('div');
+    container.className = 'product-cell';
+    const title = document.createElement('strong');
+    title.textContent = result.title || (result.sourceKind === 'product-hunter-bundle' ? 'Product Hunter evidence bundle' : result.input);
+    container.appendChild(title);
+    const url = result.amazonUrls?.[0];
+    if (url) {
       const link = document.createElement('a');
-      link.href = source.url;
+      link.href = url;
       link.target = '_blank';
       link.rel = 'noreferrer';
-      link.textContent = source.label;
-      links.appendChild(link);
-    });
-    addCell(row, links);
-    return row;
+      link.textContent = 'Open exact Amazon product';
+      container.appendChild(link);
+    }
+    return container;
   }
 
   function addCell(row, value) {
@@ -381,13 +372,8 @@
   async function loadPendingHandoff() {
     const stored = await new Promise((resolve) => chrome.storage.local.get(['pendingListingPreflightInput'], resolve));
     const pending = stored?.pendingListingPreflightInput;
-    if (!pending?.input) return;
-    if (pending.source === 'product-hunter-clipboard') {
-      copyMode = 'original-input';
-      targetPage = 'productHunter';
-      targetLabel = 'Product Hunter';
-      byId('copyAndOpenProductHunter').textContent = 'Copy Ready & Open Product Hunter';
-    } else if (pending.source === 'bulk-poster-clipboard') {
+    if (!pending?.input) return false;
+    if (pending.source === 'product-hunter-clipboard' || pending.source === 'bulk-poster-clipboard') {
       copyMode = 'amazon-links';
       targetPage = 'bulkPoster';
       targetLabel = 'Bulk Poster';
@@ -399,7 +385,8 @@
     const sourceCount = Number(pending.candidateCount || pending.originalCount || latestResults.length);
     const rejectedCount = Number(pending.rejectedCount || 0);
     const sourceLabel = pending.source === 'bulk-poster-clipboard' ? 'Bulk Poster link' : 'Product Hunter candidate';
-    byId('copyStatus').textContent = `Loaded ${sourceCount.toLocaleString()} ${sourceLabel}${sourceCount === 1 ? '' : 's'} from the clipboard handoff.${rejectedCount ? ` Ignored ${rejectedCount.toLocaleString()} non-Amazon row${rejectedCount === 1 ? '' : 's'}.` : ''} Only Ready items can continue.`;
+    byId('copyStatus').textContent = `Loaded ${sourceCount.toLocaleString()} ${sourceLabel}${sourceCount === 1 ? '' : 's'} from the optional clipboard handoff.${rejectedCount ? ` Ignored ${rejectedCount.toLocaleString()} non-Amazon row${rejectedCount === 1 ? '' : 's'}.` : ''} You can also paste directly at any time. Only Ready items can continue.`;
+    return true;
   }
 
   function uniqueSources(matches) {
@@ -409,11 +396,13 @@
     for (const rule of matches || []) {
       const baseLabel = rule.sourceType === 'official-ebay'
         ? 'Official eBay policy'
-        : rule.sourceType === 'profile2-discord'
-          ? 'Discord report'
-          : rule.sourceType === 'profile2-telegram'
-            ? 'Telegram report'
-            : 'Reviewed source';
+        : rule.sourceType === 'gldn-operator'
+          ? 'GLDN no-list rule'
+          : rule.sourceType === 'profile2-discord'
+            ? 'Discord report'
+            : rule.sourceType === 'profile2-telegram'
+              ? 'Telegram report'
+              : 'Reviewed source';
       for (const url of rule.evidenceUrls || []) {
         if (seen.has(url)) continue;
         seen.add(url);

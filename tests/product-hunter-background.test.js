@@ -8,6 +8,7 @@ const vm = require('node:vm');
 
 const projectRoot = path.resolve(__dirname, '..');
 const extensionRoot = path.join(projectRoot, 'product-hunter-extension');
+const listingPreflight = require(path.join(projectRoot, 'extension', 'listing-preflight-core.js'));
 const shippedRulePack = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'policy-rules.json'), 'utf8'));
 const shippedSeedProfile = {
   approvedSeeds: shippedRulePack.clearancePolicy.readyPhrases,
@@ -121,6 +122,9 @@ function createHarness() {
     JSON,
     console,
     atob: globalThis.atob,
+    btoa: globalThis.btoa,
+    TextEncoder,
+    TextDecoder,
     setTimeout(callback) { scheduled.push(callback); return scheduled.length; },
     clearTimeout() {},
     fetch: async () => ({
@@ -162,20 +166,20 @@ test('background creates one inactive Amazon worker and persists a resumable hun
   assert.match(harness.calls.updated[0].properties.url, /^https:\/\/www\.amazon\.com\/s\?/);
 });
 
-test('background rejects an unknown seed before opening an Amazon worker tab', async () => {
+test('background accepts an arbitrary operator keyword and opens one inactive Amazon worker', async () => {
   const harness = createHarness();
   const response = await harness.message({
     type: 'hunterStart',
-    keywords: 'nike phone case',
+    keywords: 'phone case',
     settings: { desiredReady: 1, maxPagesPerKeyword: 1, excludeAlreadyListed: false }
   });
-  assert.equal(response.ok, false);
-  assert.match(response.error, /only versioned.*not approved/i);
-  assert.equal(harness.calls.created.length, 0);
-  assert.equal(harness.storage.gldnHunterJob, undefined);
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.job.keywords, ['phone case']);
+  assert.equal(harness.calls.created.length, 1);
+  assert.equal(harness.calls.created[0].active, false);
 });
 
-test('background accepts a reviewed seed from the shipped 500-word clearance profile', async () => {
+test('background accepts ordinary search words under the shipped keyword policy profile', async () => {
   const harness = createHarness();
   const response = await harness.message({
     type: 'hunterStart',
@@ -185,7 +189,7 @@ test('background accepts a reviewed seed from the shipped 500-word clearance pro
   assert.equal(response.ok, true);
   assert.equal(response.job.keywords[0], 'stackable storage bins');
   assert.equal(response.job.riskProfileVersion, response.riskProfile.profileVersion);
-  assert.ok(response.riskProfile.approvedSeedCount >= 500);
+  assert.match(response.riskProfile.profileVersion, /^\d{4}-\d{2}-\d{2}\./);
   assert.equal(harness.calls.created.length, 1);
 });
 
@@ -228,9 +232,13 @@ test('background completes a search-to-detail run and preserves decision counts'
     ok: true,
     product: {
       asin: 'B012345678', url: 'https://www.amazon.com/dp/B012345678', title: 'Cabinet Shelf Liner',
-      brand: 'Generic', categories: [], bullets: [],
+      brand: 'Generic', manufacturer: 'Generic', categories: ['Home & Kitchen', 'Shelf Liners'], bullets: [],
       details: 'Cabinet shelf liner', availability: 'In Stock', price: '$24.99',
-      rating: '4.6 out of 5 stars', reviewCount: '1,234 ratings'
+      rating: '4.6 out of 5 stars', reviewCount: '1,234 ratings',
+      soldBy: 'Example Seller', shipsFrom: 'Amazon.com',
+      imageUrls: ['https://m.media-amazon.com/images/I/plain-shelf-liner.jpg'],
+      imageText: 'Plain shelf liner on white background',
+      capturedAt: new Date().toISOString()
     }
   });
   await harness.context.processLoadedPage(current.workerTabId);
@@ -240,7 +248,20 @@ test('background completes a search-to-detail run and preserves decision counts'
   await harness.context.advanceJob(current);
   current = await harness.context.getJob();
   assert.equal(current.status, 'complete');
-  assert.match(current.completionReason, /Ready target reached/);
+  assert.match(current.completionReason, /Preflight-candidate target reached/);
+
+  const payload = await harness.message({ type: 'hunterReadyPayload' });
+  assert.equal(payload.ok, true, payload.error || 'Evidence-bundle handoff failed.');
+  assert.equal(payload.bundles.length, 1);
+  assert.match(payload.bundles[0], /^GLDNPH1\.[A-Za-z0-9_-]+\.[a-f0-9]{16}$/i);
+  const parsed = listingPreflight.parseProductHunterEvidenceBundle(payload.bundles[0]);
+  assert.equal(parsed.valid, true);
+  assert.equal(parsed.payload.asin, 'B012345678');
+  assert.equal(parsed.payload.policyVersion, shippedRulePack.clearancePolicy.version);
+  assert.deepEqual(parsed.payload.imageUrls, ['https://m.media-amazon.com/images/I/plain-shelf-liner.jpg']);
+  assert.deepEqual(Array.from(payload.asins || []), ['B012345678']);
+  assert.equal(payload.links, undefined, 'Product Hunter must hand off evidence bundles, not direct listing links.');
+  assert.equal(payload.products, undefined, 'Product Hunter must not expose a direct product-link handoff payload.');
 });
 
 test('background retries the same Amazon page instead of skipping a failed candidate', async () => {

@@ -20,9 +20,14 @@ function product(overrides = {}) {
     url: 'https://www.amazon.com/example/dp/B012345678?tag=test',
     title: 'Cabinet Shelf Liner',
     brand: 'Generic',
-    categories: [],
+    manufacturer: 'Generic',
+    categories: ['Home & Kitchen', 'Shelf Liners'],
     bullets: [],
     details: 'Cabinet shelf liner',
+    soldBy: 'Example Seller',
+    shipsFrom: 'Amazon.com',
+    imageUrls: ['https://m.media-amazon.com/images/I/plain-shelf-liner.jpg'],
+    imageText: 'Plain shelf liner on white background',
     availability: 'In Stock',
     price: '$24.99',
     rating: '4.6 out of 5 stars',
@@ -42,14 +47,38 @@ function classify(overrides = {}, settings = {}, historyEntry = null, phase = 'd
   });
 }
 
-test('loads the reviewed official and community policy pack', () => {
+test('loads the reviewed official, operator, and community policy pack', () => {
   assert.equal(rulePack.ruleCount, rulePack.rules.length);
   assert.ok(rulePack.rules.length >= 177);
   assert.ok(rulePack.rules.some((rule) => rule.action === 'block'));
   assert.ok(rulePack.rules.some((rule) => rule.action === 'review'));
   assert.ok(rulePack.rules.filter((rule) => rule.sourceType === 'official-ebay').length >= 175);
+  assert.equal(rulePack.rules.filter((rule) => rule.sourceType === 'gldn-operator').length, 2);
   assert.equal(rulePack.rules.filter((rule) => rule.sourceType === 'profile2-discord').length, 2);
-  assert.ok(rulePack.rules.filter((rule) => rule.sourceType !== 'official-ebay').every((rule) => rule.action === 'review'));
+  assert.ok(rulePack.rules.filter((rule) => ['profile2-discord', 'profile2-telegram'].includes(rule.sourceType)).every((rule) => rule.action === 'review'));
+});
+
+test('blocks pesticides and aerosol spray cans under the GLDN operator no-list policy', () => {
+  const pesticide = classify({
+    title: 'EPA Registered Garden Insecticide Spray',
+    categories: ['Pest Control'],
+    bullets: ['Kills ants and roaches'],
+    details: 'Registered pesticide for outdoor use'
+  });
+  const aerosol = classify({
+    asin: 'B087654321',
+    url: 'https://www.amazon.com/dp/B087654321',
+    title: 'Red Aerosol Spray Paint Can',
+    categories: ['Paint'],
+    bullets: ['Pressurized spray finish'],
+    details: 'Aerosol can'
+  });
+  assert.equal(pesticide.status, core.STATUS.BLOCKED);
+  assert.equal(aerosol.status, core.STATUS.BLOCKED);
+  assert.equal(pesticide.policyAction, 'block');
+  assert.equal(aerosol.policyAction, 'block');
+  assert.ok(pesticide.policyMatches.some((rule) => rule.operatorRuleId === 'GLDN-NO-PESTICIDES'));
+  assert.ok(aerosol.policyMatches.some((rule) => rule.operatorRuleId === 'GLDN-NO-AEROSOL-SPRAY-CANS'));
 });
 
 test('normalizes configurable hunt limits', () => {
@@ -187,9 +216,9 @@ test('excludes ASINs copied inside the configured reuse window', () => {
   assert.match(result.reason, /last 60 days/i);
 });
 
-test('creates resumable jobs only from the shipped versioned seed profile and deduplicates them', () => {
-  const job = core.createJob({ keywords: 'cabinet shelf liner\nCabinet Shelf Liner\npicture hanging hooks', settings: { computerLabel: '2' }, seedProfile }, '2026-08-09T12:00:00.000Z');
-  assert.deepEqual(job.keywords, ['cabinet shelf liner', 'picture hanging hooks']);
+test('creates resumable jobs from arbitrary operator keywords and deduplicates them', () => {
+  const job = core.createJob({ keywords: 'cabinet shelf liner\nCabinet Shelf Liner\nwireless charging stand', settings: { computerLabel: '2' }, seedProfile }, '2026-08-09T12:00:00.000Z');
+  assert.deepEqual(job.keywords, ['cabinet shelf liner', 'wireless charging stand']);
   assert.equal(job.riskProfileVersion, rulePack.clearancePolicy.version);
   assert.equal(job.status, 'running');
   assert.equal(job.phase, 'search');
@@ -198,23 +227,49 @@ test('creates resumable jobs only from the shipped versioned seed profile and de
   assert.match(core.jobRiskProfileIssue({ ...job, riskProfileVersion: 'old' }, seedProfile), /saved hunt used risk profile/i);
 });
 
-test('rejects unknown or mixed seed lists and fails closed without the shipped profile', () => {
-  assert.throws(() => core.createJob({ keywords: 'nike phone case', seedProfile }), /only versioned.*not approved/i);
-  assert.throws(() => core.createJob({ keywords: 'cabinet shelf liner\nrandom trending product', seedProfile }), /random trending product/i);
-  assert.throws(() => core.createJob({ keywords: 'cabinet shelf liner' }), /risk profile is unavailable|not approved/i);
+test('accepts arbitrary nonempty search words and rejects only an empty hunt', () => {
+  assert.deepEqual(core.createJob({ keywords: 'phone case', seedProfile }).keywords, ['phone case']);
+  assert.deepEqual(core.createJob({ keywords: 'cabinet shelf liner\nrandom trending product', seedProfile }).keywords, ['cabinet shelf liner', 'random trending product']);
+  assert.deepEqual(core.createJob({ keywords: 'cabinet shelf liner' }).keywords, ['cabinet shelf liner']);
+  assert.throws(() => core.createJob({ keywords: '  ', seedProfile }), /enter at least one/i);
 });
 
-test('routes missing and non-generic Amazon brands to Review', () => {
+test('does not route missing or named Amazon brands to Review by themselves', () => {
   const missing = classify({ brand: '' });
-  assert.equal(missing.status, core.STATUS.REVIEW);
-  assert.match(missing.reason, /brand evidence is missing|did not expose a brand/i);
+  assert.equal(missing.status, core.STATUS.READY);
 
   const branded = classify({ brand: 'Kitchen Works' });
-  assert.equal(branded.status, core.STATUS.REVIEW);
-  assert.match(branded.reason, /brand|authenticity|listing rights/i);
+  assert.equal(branded.status, core.STATUS.READY);
 });
 
-test('routes IP, character, licensing, compatibility, replacement, and model cues to Review', () => {
+test('source, image, and brand metadata enrich results but do not create keyword-policy failures', () => {
+  const fixtures = [
+    { imageUrls: [], imageUrl: '' },
+    { soldBy: '' },
+    { shipsFrom: '' }
+  ];
+  for (const fixture of fixtures) {
+    const result = classify(fixture);
+    assert.equal(result.status, core.STATUS.READY, JSON.stringify(fixture));
+  }
+
+  const conflictingBrand = classify({ brandConflict: true });
+  assert.equal(conflictingBrand.status, core.STATUS.READY);
+});
+
+test('brand and IP cue words in product evidence do not stop a product by themselves', () => {
+  const fixtures = [
+    { bullets: ['Officially licensed character artwork'] },
+    { details: 'Disney fan art logo pattern' },
+    { imageText: 'Mickey Mouse character logo printed on package' }
+  ];
+  for (const fixture of fixtures) {
+    const result = classify(fixture);
+    assert.equal(result.status, core.STATUS.READY, JSON.stringify(fixture));
+  }
+});
+
+test('brand, character, licensing, replacement, and model words pass unless a reviewed item rule matches', () => {
   const fixtures = [
     { title: 'Nike Cabinet Shelf Liner' },
     { title: 'Disney Mickey Mouse Cabinet Shelf Liner' },
@@ -229,10 +284,12 @@ test('routes IP, character, licensing, compatibility, replacement, and model cue
     { title: 'Replacement for Apple Cabinet Shelf Liner' },
     { title: 'Cabinet Shelf Liner Model AB-1234' }
   ];
-  for (const fixture of fixtures) {
-    const result = classify({ brand: 'Generic', ...fixture });
-    assert.equal(result.status, core.STATUS.REVIEW, fixture.title);
-  }
+  const results = fixtures.map((fixture) => classify({ brand: 'Generic', ...fixture }));
+  assert.deepEqual(results.map((result) => result.status), [
+    'ready', 'ready', 'ready', 'ready', 'ready', 'ready', 'ready', 'ready',
+    'review', 'ready', 'ready', 'ready'
+  ]);
+  assert.match(results[8].reason, /compatible with/i);
 });
 
 test('fails closed when the schema-2 clearance profile is missing', () => {
@@ -247,7 +304,7 @@ test('fails closed when the schema-2 clearance profile is missing', () => {
   assert.match(result.reason, /invalid|cannot be cleared/i);
 });
 
-test('supports compound official Blocks before brand or IP Review fallbacks', () => {
+test('supports compound official Blocks independently of brand metadata', () => {
   const result = classify({
     title: 'Fake Nike Cabinet Shelf Liner',
     brand: 'Nike',
@@ -257,7 +314,7 @@ test('supports compound official Blocks before brand or IP Review fallbacks', ()
   assert.ok(result.policyMatches.some((match) => match.type === 'compound'));
 });
 
-test('keeps explicit official policy Blocks ahead of conservative Review gates', () => {
+test('keeps explicit official policy Blocks ahead of ordinary no-match clearance', () => {
   const result = classify({
     title: 'Fresh Ackee Fruit Cabinet Shelf Liner Bundle',
     brand: 'Named Brand',

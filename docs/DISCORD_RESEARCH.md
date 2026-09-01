@@ -27,7 +27,7 @@ There is no Discord or Telegram bot, user token, server installation, or backgro
 7. Compare screenshots or attachments with their source message before using them as evidence.
 8. Save the reviewed decisions as JSON using the schema below.
 9. Publish those reviewed decisions into the extension rules file. Community sources may publish Review only.
-10. Update `extension/product-research-output.json` so visible source counts and Product Hunter starting words match the reviewed evidence.
+10. Update the separate research reference artifact for audit history. Source cards and starting-word lists are not shown in the normal operator workflow.
 11. Reload GLDN Ops and run Listing Preflight against a sample that includes a known Block, a known Review, and an unmatched item.
 
 ## Reviewed Decision File
@@ -61,26 +61,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\listing-preflight\pu
 
 The publisher accepts only `asin`, `brand`, or `keyword` rules. Every community rule requires `sourceType: profile2-discord` or `profile2-telegram`, a Review decision, a reason, reviewer, review date, and exact source-message URL. Official policy decisions use `sourceType: official-ebay` and an exact official eBay help URL. Raw community messages and attachments do not enter the extension package.
 
-## Listing Preflight
+## Listing Policy Check
 
-1. Open **Workflows > Listing Preflight**.
-2. Paste or import one Amazon URL, ASIN, or product title per line.
-3. Click **Check Items**.
-4. Review the three buckets:
-   - **Ready to copy**: no current reviewed rule matched.
-   - **Needs review**: a Review rule matched, or no reviewed rule pack is loaded.
-   - **Blocked**: a Block rule matched.
-5. Click **Copy Ready Links** or **Download Ready Links**.
-6. Paste only that output into EcomSniper Product Hunter or Bulk Lister.
+1. Use any useful search words in Product Hunter and collect its exact Amazon product links.
+2. Open **Workflows > Research > Open Listing Policy Check** at any time. No clipboard handoff is required for the page to open.
+3. Paste one product title, Amazon URL, ASIN with a title, or CSV row per line.
+4. Click **Check Items**. Raw Amazon URLs are read sequentially in one inactive signed-in Amazon tab and cached for safe resume.
+5. Review the three buckets:
+   - **Ready to copy**: readable product text matched no published prohibited or restricted item keyword. A brand name alone does not stop the product.
+   - **Needs review**: a conditional policy rule matched, the product could not be read, or the rule pack is invalid or stale.
+   - **Blocked**: a published prohibition or GLDN operator no-list rule matched. Pesticides and aerosol or pressurized spray cans always Block.
+6. Click **Copy Ready Links** or **Copy Ready & Open Bulk Poster**. Review and Blocked rows are excluded automatically.
+7. Perform final human review of the generated listing before any listing action.
 
-The **Prepare Product Hunter Handoff** button now performs the same check before opening Product Hunter. If any item needs review or is blocked, Product Hunter stays closed and the complete candidate set opens in Listing Preflight. From there, **Copy Ready & Open Product Hunter** copies only Ready items and opens the handoff tab.
-
-Needs Review and Blocked inputs are always excluded from the ready output. If the rule pack is empty or unavailable, GLDN Ops fails closed and produces no ready links.
+If Amazon displays a CAPTCHA, complete it in the preserved worker tab and run the check again. Completed reads remain cached. If the rule pack is empty or unavailable, GLDN Ops fails closed and produces no Ready links. The read-only Existing Listings audit uses the same keyword decisions and never changes an eBay listing.
 
 ## Safety Boundary
 
-- Ready to copy is not an eBay approval.
+- No search phrase, Product Hunter candidate, or Ready result guarantees authenticity, intellectual-property permission, VeRO safety, or eBay approval.
 - GLDN Ops does not submit listings from Listing Preflight.
 - Uncertain items stay out of the ready output.
 - Current rules must be reviewed and refreshed as marketplace enforcement changes.
 - No Discord or Telegram user token, self-bot, browser cookie export, or hidden account access is permitted.
+- Load and pin the unpacked extensions manually on each computer and intended Chrome profile. Never use another computer, profile, or eBay account to evade an eBay restriction; use eBay's official support or appeal process.

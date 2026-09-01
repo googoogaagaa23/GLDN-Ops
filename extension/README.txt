@@ -1,4 +1,16 @@
-GLDN Ops v3.12.29
+GLDN Ops v3.12.30
+
+Current operator rule: the v3.12.30 paste-first keyword workflow below supersedes older historical entries about a 500-word allowlist, generic-brand gate, or five attestations. Do not follow those older instructions.
+
+v3.12.30 paste-first listing policy check:
+- Accepts any Product Hunter search words and does not stop products merely because they have a brand, manufacturer, model, or unfamiliar wording.
+- Opens Listing Policy Check directly with no clipboard prerequisite and removes the 500-word grid and official/Discord/Telegram source cards from the operator page.
+- Accepts pasted product titles or Amazon links; raw links are read sequentially in one inactive Amazon tab and cached for safe resume.
+- Copies only readable no-match Ready links. Conditional policy matches and unreadable products stay in Needs review; prohibited-item matches are Blocked.
+- Adds explicit GLDN Blocks for every pesticide product and every spray can, including registered pesticides and aerosol or pressurized cans.
+- Keeps Existing Listings Policy Audit read-only while applying the same keyword rules to active listing titles.
+- No keyword no-match or Ready result is an eBay guarantee or approval, and no check changes a listing.
+- Load and pin the unpacked extensions manually on each computer/profile. Installation does not restore selling permission and must never be used with another computer, profile, or account to evade an eBay restriction.
 
 v3.12.29 eBay policy and IP safety refresh:
 - Reviews the complete official eBay prohibited-and-restricted hub and every linked policy page, plus the linked intellectual-property and VeRO guidance.

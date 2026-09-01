@@ -110,6 +110,7 @@
         source: rule.source,
         sourceType: rule.sourceType,
         authority: rule.authority,
+        operatorRuleId: rule.operatorRuleId,
         evidenceUrls: rule.evidenceUrls
       }))
     });
@@ -154,6 +155,7 @@
           source: normalizeText(rule.source),
           sourceType: normalizeText(rule.sourceType),
           authority: normalizeText(rule.authority),
+          operatorRuleId: normalizeText(rule.operatorRuleId),
           evidenceUrls: Array.isArray(rule.evidenceUrls) ? rule.evidenceUrls.map(normalizeText).filter(Boolean) : []
         }))
       };

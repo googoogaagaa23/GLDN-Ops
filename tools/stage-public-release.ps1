@@ -187,9 +187,11 @@ SHA-256: $localHash
 
 SHA-256: $productHunterHash
 
-Product Hunter is a separate unpacked Chrome extension. It reads Amazon product
-details, applies the same reviewed eBay policy pack, and produces only reviewed
-Ready links. It does not list items or approve products for eBay.
+Product Hunter is a separate unpacked Chrome extension. It accepts the search
+words the operator chooses, reads exact Amazon product details, and applies the
+same prohibited and restricted item keyword pack as Listing Policy Check. A
+brand name alone does not stop a product. It sends no candidate directly to
+Bulk Poster and does not list or approve products for eBay.
 
 The complete machine-readable file list is in
 [release-manifest-v$Version.json](./release-manifest-v$Version.json).

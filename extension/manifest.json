@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.12.29",
+  "version": "3.12.30",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",

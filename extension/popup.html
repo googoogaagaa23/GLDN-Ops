@@ -280,12 +280,12 @@
 
   <section id="ecomSniperSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="research">
     <h2>EcomSniper Handoffs</h2>
-    <p class="hint">GLDN Ops opens handoff tabs and reports their tab state. Product Hunter and Bulk Poster must be reached through the Product Research Desk and Listing Preflight; EcomSniper owns its private controls and all listing work.</p>
+    <p class="hint">GLDN Ops opens the EcomSniper handoff tabs and the separate paste-first Listing Policy Check. EcomSniper owns its private controls and all listing work.</p>
     <button id="startSnipingWorkflow" class="secondary" type="button" data-guide-id="sniping">Start Sniping Workflow</button>
     <button id="openEcomSniperCompetitorScanner" class="secondary" type="button" data-guide-id="ecomsniper-handoffs">Open EcomSniper Competitor Scanner</button>
     <button id="prepareProductHunterClipboard" class="primary" type="button" data-guide-id="ecomsniper-handoffs">Prepare Product Hunter Handoff</button>
-    <button id="openEcomSniperProductHunter" class="secondary" type="button" data-guide-id="listing-preflight">Choose Reviewed Words for Product Hunter</button>
-    <button id="preflightBulkPosterClipboard" class="primary" type="button" data-guide-id="listing-preflight">Preflight Bulk Poster Links</button>
+    <button id="openEcomSniperProductHunter" class="secondary" type="button" data-guide-id="listing-preflight">Open EcomSniper Product Hunter</button>
+    <button id="preflightBulkPosterClipboard" class="primary" type="button" data-guide-id="listing-preflight">Open Listing Policy Check</button>
     <div id="ecomSniperMonitorCard" class="helper-card">
       <div class="helper-title">
         <span>Handoff monitor</span>
@@ -304,10 +304,10 @@
   </section>
 
   <section id="listingPreflightSection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="research">
-    <h2>Product Research Desk</h2>
-    <p class="hint">Choose from 500 versioned generic starting words, then check every exact Amazon result against the complete official eBay prohibited/restricted policy refresh plus separately labeled community Review findings.</p>
-    <button id="openListingPreflight" class="primary" type="button" data-guide-id="listing-preflight">Open Product Research Desk</button>
-    <div class="preset-box">Flow: reviewed words → Product Hunter → Listing Preflight → Ready links only → Bulk Poster → final human review. Ready never means eBay approval. Community findings can require Review but cannot create a hard Block.</div>
+    <h2>Listing Policy Check</h2>
+    <p class="hint">Paste product titles or Amazon links and check them against prohibited and restricted item keywords. A brand name alone does not stop a product.</p>
+    <button id="openListingPreflight" class="primary" type="button" data-guide-id="listing-preflight">Open Listing Policy Check</button>
+    <div class="preset-box">Pesticides and aerosol or pressurized spray cans always Block. Ready means no reviewed keyword matched the supplied product words; it is not eBay approval.</div>
   </section>
 
   <section id="ebayDailySection" class="section-card" data-platform="ebay" data-popup-section="workflows" data-workflow-group="daily">
@@ -479,7 +479,7 @@
       <ol>
         <li>Open Amazon Best Sellers starts manual product research.</li>
         <li>Open EcomSniper Competitor Scanner opens EcomSniper research.</li>
-        <li>Choose Reviewed Words for Product Hunter opens the mandatory Product Research Desk first.</li>
+        <li>Open EcomSniper Product Hunter accepts the search words you choose; the separate Listing Policy Check screens exact products before Bulk Poster.</li>
         <li>Refresh Handoff Status reports only whether a GLDN-opened EcomSniper tab is open or closed.</li>
         <li>Run Feature Health Check tests dashboard access, updater access, EcomSniper page routing, and saved identity.</li>
       </ol>

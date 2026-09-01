@@ -85,17 +85,17 @@ try {
 
 const payload = {
   schemaVersion: 2,
-  version: '2.0.0-2026-08-30',
-  generatedAt: '2026-08-30T00:00:00.000Z',
-  title: 'GLDN Product Research Desk',
-  description: 'Five hundred reviewed generic, unbranded starting phrases for EcomSniper Product Hunter, backed by a full official eBay prohibited-and-restricted policy-hub refresh.',
-  disclaimer: 'These are lower-risk research starting phrases, not approved products and not eBay approval. A phrase can still return a prohibited, restricted, recalled, branded, counterfeit, patented, copyrighted, or otherwise infringing exact product.',
+  version: '2.1.0-2026-08-31',
+  generatedAt: '2026-08-31T00:00:00.000Z',
+  title: 'GLDN Product Research Reference',
+  description: 'An optional archived phrase reference. Operators may use any useful Product Hunter search words; exact products are screened separately by Listing Policy Check.',
+  disclaimer: 'This reference is not eBay approval and is not shown in the normal paste-first workflow. Listing Policy Check makes decisions from reviewed prohibited and restricted item keywords, not from a brand allowlist.',
   readinessModel: {
-    mode: 'review-unless-generic-allowlist',
-    rule: 'Only an exact reviewed generic seed may start research. Exact products still need Listing Preflight and final human review of title, brand, model, images, packaging, provenance, seller eligibility, shipping, and recalls.',
-    brandAndIp: 'Any detected or unknown brand, model, character, franchise, team, celebrity, logo, compatibility, replacement, authenticity, licensing, warranty, certification, art, media, or design claim stays in Needs review.',
-    existingListings: 'Title/SKU-only existing listings that do not match an explicit official Block remain Needs review because the scan cannot prove authenticity, authorization, image rights, product safety, or eligibility.',
-    hardBlockAuthority: 'Only current, exact official eBay evidence may create Block. Community evidence may create Review only.'
+    mode: 'keyword-blocklist',
+    rule: 'Any useful search words may start Product Hunter research. Listing Policy Check then reads exact product text and applies the current reviewed prohibited and restricted item rules.',
+    brandHandling: 'A brand or manufacturer name by itself does not stop a product. A product stops only when its readable text matches a published Block or Review rule, or when the product cannot be read safely.',
+    existingListings: 'Existing listing titles and item text use the same keyword rules; pesticide and aerosol or pressurized spray-can matches always Block.',
+    hardBlockAuthority: 'Current official eBay evidence and explicit GLDN operator no-list rules may create Block. Community evidence may create Review only.'
   },
   sourceCoverage: [
     {
@@ -138,10 +138,9 @@ const payload = {
     id: idFor(term, index),
     term,
     family: familyFor(term),
-    reason: 'Reviewed generic, unbranded, non-powered physical-product research phrase; every exact result still requires Preflight and final human review.'
+    reason: 'Optional research reference only. Any useful search words may be used; every exact result still requires Listing Policy Check and final review.'
   })),
   avoidCategories: [
-    'Any brand, model, product line, logo, character, franchise, artist, celebrity, team, media title, licensed design, compatibility, replacement, authenticity, warranty, certification, purity, or provenance claim',
     'Counterfeit-heavy categories: apparel, footwear, fashion accessories, jewelry, watches, perfume/cosmetics, electronics, software/media, art, collectibles, trading cards, autographs, and custom printed products',
     'Adult content; weapons, knives, firearms, tactical/military/police, lock bypass, surveillance, and illegal-activity products',
     'Medical/health devices, drugs, supplements, cosmetics, food, alcohol, tobacco/vape, pesticides, chemicals, hazardous materials, batteries, chargers, lasers, and regulated safety products',
@@ -150,13 +149,13 @@ const payload = {
     'Anything requiring seller approval, licenses, permits, origin documentation, special shipping, regulatory labels, testing/certification, or a current recall lookup'
   ],
   workflow: [
-    { step: 1, title: 'Choose reviewed generic words', instruction: 'Copy only versioned phrases from this desk. Unknown or branded phrases do not start Product Hunter research.' },
-    { step: 2, title: 'Run Product Hunter', instruction: 'Paste one reviewed phrase per line into EcomSniper Product Hunter and export the resulting exact Amazon links.' },
-    { step: 3, title: 'Run Listing Preflight', instruction: 'Paste every exact link into Listing Preflight. Explicit official prohibitions Block; conditional, branded, IP-sensitive, stale, unknown, or incomplete evidence stays in Needs review.' },
+    { step: 1, title: 'Choose search words', instruction: 'Use any useful Product Hunter search words. This optional archived reference is not required.' },
+    { step: 2, title: 'Run Product Hunter', instruction: 'Paste the search words into EcomSniper Product Hunter and export the resulting exact Amazon links.' },
+    { step: 3, title: 'Run Listing Policy Check', instruction: 'Paste every exact link into Listing Policy Check. Prohibited-item matches Block, conditional restrictions stay in Needs review, and a brand alone does not stop a product.' },
     { step: 4, title: 'Continue Ready links only', instruction: 'Copy only Ready links into Bulk Poster. Review and Block rows never continue through the handoff.' },
     { step: 5, title: 'Final human review', instruction: 'Before any listing action, inspect the exact title, brand, model, images, packaging, rights, provenance, safety/recall status, seller eligibility, category, shipping, and generated eBay listing. Ready never means eBay approval.' }
   ]
 };
 
 fs.writeFileSync(outputPath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
-console.log(`Wrote ${payload.searchSeeds.length} reviewed Product Hunter phrases to ${outputPath}`);
+console.log(`Wrote ${payload.searchSeeds.length} optional Product Hunter reference phrases to ${outputPath}`);

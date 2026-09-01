@@ -7,7 +7,6 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $rulesPath = Join-Path $repoRoot "extension\listing-preflight-rules.json"
 $hunterRulesPath = Join-Path $repoRoot "product-hunter-extension\policy-rules.json"
-$researchPath = Join-Path $repoRoot "extension\product-research-output.json"
 $payload = Get-Content -Raw -LiteralPath $DecisionFile | ConvertFrom-Json
 
 if ([int]$payload.schemaVersion -notin @(1, 2)) { throw "Unsupported decision-file schema." }
@@ -47,6 +46,7 @@ foreach ($decision in $decisions) {
   $noneOf = @($decision.noneOf | ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } | Where-Object { $_ } | Select-Object -Unique)
   $policyTopic = ([string]$decision.policyTopic).Trim()
   $evidenceKind = ([string]$decision.evidenceKind).Trim()
+  $operatorRuleId = ([string]$decision.operatorRuleId).Trim().ToUpperInvariant()
   $evidenceUrls = @($decision.evidenceUrls | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
 
   if ($type -notin @("asin", "brand", "keyword", "compound")) { throw "Invalid rule type: $type" }
@@ -56,15 +56,18 @@ foreach ($decision in $decisions) {
   if ($reason.Length -lt 10) { throw "Every shared rule needs a clear review reason." }
   if (-not $reviewedBy) { throw "Every shared rule needs a reviewer." }
   if (-not $reviewedAt) { throw "Every shared rule needs a review date." }
-  if ($sourceType -notin @('official-ebay', 'profile2-discord', 'profile2-telegram')) {
-    throw "Every shared rule needs sourceType official-ebay, profile2-discord, or profile2-telegram."
+  if ($sourceType -notin @('official-ebay', 'gldn-operator', 'profile2-discord', 'profile2-telegram')) {
+    throw "Every shared rule needs sourceType official-ebay, gldn-operator, profile2-discord, or profile2-telegram."
   }
-  if ($sourceType -ne 'official-ebay' -and $action -ne 'review') {
+  if ($sourceType -in @('profile2-discord', 'profile2-telegram') -and $action -ne 'review') {
     throw "Community research may publish Review rules only. Hard Block rules require separate official eBay evidence."
+  }
+  if ($sourceType -eq 'gldn-operator' -and ($action -ne 'block' -or $operatorRuleId -notin @('GLDN-NO-PESTICIDES', 'GLDN-NO-AEROSOL-SPRAY-CANS'))) {
+    throw "GLDN operator rules must be one of the two approved no-list Blocks."
   }
   if (-not $evidenceUrls.Count) { throw "Every shared rule needs at least one exact source URL." }
 
-  $invalidEvidence = if ($sourceType -eq 'official-ebay') {
+  $invalidEvidence = if ($sourceType -in @('official-ebay', 'gldn-operator')) {
     @($evidenceUrls | Where-Object {
       $_ -notmatch '^https://(?:www\.)?ebay\.com/help/' -and
       $_ -notmatch '^https://(?:www\.)?ebay\.com/sellercenter/' -and
@@ -87,7 +90,7 @@ foreach ($decision in $decisions) {
   $sha = [Security.Cryptography.SHA256]::Create()
   try { $id = -join ($sha.ComputeHash($hashBytes)[0..9] | ForEach-Object { $_.ToString("x2") }) }
   finally { $sha.Dispose() }
-  $byKey[$key] = [ordered]@{
+  $publishedRule = [ordered]@{
     id = $id
     type = $type
     value = $normalizedValue
@@ -102,6 +105,8 @@ foreach ($decision in $decisions) {
     reviewedAt = $reviewedAt
     source = if ($sourceType -eq 'official-ebay') {
       'official-ebay-policy-reviewed'
+    } elseif ($sourceType -eq 'gldn-operator') {
+      'gldn-operator-reviewed'
     } elseif ($sourceType -eq 'profile2-discord') {
       'profile2-discord-reviewed'
     } else {
@@ -110,6 +115,8 @@ foreach ($decision in $decisions) {
     sourceType = $sourceType
     authority = if ($sourceType -eq 'official-ebay') {
       'eBay'
+    } elseif ($sourceType -eq 'gldn-operator') {
+      'GLDN Ops operator rule'
     } elseif ($sourceType -eq 'profile2-discord') {
       'EcomSniper Discord community report'
     } else {
@@ -117,41 +124,12 @@ foreach ($decision in $decisions) {
     }
     evidenceUrls = $evidenceUrls
   }
+  if ($sourceType -eq 'gldn-operator') { $publishedRule.operatorRuleId = $operatorRuleId }
+  $byKey[$key] = $publishedRule
   $accepted += 1
 }
 
 $rules = @($byKey.Values | Sort-Object @{ Expression = { $_.type } }, @{ Expression = { $_.value } })
-$research = if (Test-Path -LiteralPath $researchPath) {
-  Get-Content -Raw -LiteralPath $researchPath | ConvertFrom-Json
-} else {
-  [pscustomobject]@{ searchSeeds = @() }
-}
-$readyPhrases = @($research.searchSeeds | ForEach-Object { ([string]$_.term).Trim().ToLowerInvariant() } | Where-Object { $_ } | Select-Object -Unique)
-if (-not $readyPhrases.Count) { throw "The versioned Product Research Desk has no reviewed generic starting phrases." }
-
-$genericWords = @(
-  'a','an','and','for','of','the','to','with','without','home','household','indoor','outdoor',
-  'new','plain','generic','unbranded','manual','reusable','washable','durable','lightweight','portable',
-  'compact','small','medium','large','extra','wide','narrow','deep','shallow','tall','short','heavy','duty',
-  'adjustable','expandable','extendable','collapsible','folding','stackable','nesting','rolling','rotating',
-  'freestanding','hanging','mounted','wall','desktop','tabletop','countertop','under','over','corner',
-  'clear','mesh','wooden','wood','acrylic','plastic','silicone','metal','steel','stainless','microfiber',
-  'non','slip','soft','hard','set','pack','piece','pieces','count','ct','pc','pcs','pair','single','double',
-  'triple','tier','tiered','inch','inches','mm','cm','ft','feet','oz','lb','lbs','g','kg','ml','l','qt','gal'
-)
-$genericTokens = @(
-  $readyPhrases | ForEach-Object { [regex]::Matches($_, '[a-z0-9]+(?:-[a-z0-9]+)*') | ForEach-Object { $_.Value } }
-  $genericWords
-) | Where-Object { $_ } | ForEach-Object { ([string]$_).ToLowerInvariant() } | Sort-Object -Unique
-
-$reviewPhrases = @(
-  'authentic','authorized','brand new','branded','celebrity','character','collectible','compatible with',
-  'copyright','designer','fan art','fits','franchise','genuine','in the style of','inspired by','licensed',
-  'logo','model','official','original','patented','replacement for','replica','team logo','trademark','vero',
-  'warranty','limited edition','signed','autographed','certificate of authenticity','coa','dupe',
-  'ce certified','ukca certified','ul certified','fcc approved','epa registered','fda approved'
-)
-$genericBrandValues = @('generic','unbranded','does not apply','not applicable','n/a','none')
 $clearanceEvidenceUrls = @(
   'https://www.ebay.com/help/policies/prohibited-restricted-items/prohibited-restricted-items?id=4207',
   'https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276',
@@ -160,16 +138,12 @@ $clearanceEvidenceUrls = @(
   'https://www.ebay.com/help/policies/prohibited-restricted-items/product-safety-policy?id=4300'
 )
 $clearancePolicy = [ordered]@{
-  id = 'gldn-generic-only-clearance'
-  version = if ([string]$payload.clearanceVersion) { [string]$payload.clearanceVersion } else { '2026-08-30.1' }
-  mode = 'review-unless-generic-allowlist'
-  reviewedAt = '2026-08-30'
+  id = 'gldn-keyword-policy-check'
+  version = if ([string]$payload.clearanceVersion) { [string]$payload.clearanceVersion } else { '2026-08-31.1' }
+  mode = 'keyword-blocklist'
+  reviewedAt = '2026-08-31'
   maxAgeDays = 45
-  reason = 'Operational risk control: only reviewed generic, unbranded text may reach Ready; this is not an eBay approval or a determination that a brand is prohibited.'
-  readyPhrases = $readyPhrases
-  genericTokens = $genericTokens
-  reviewPhrases = $reviewPhrases
-  genericBrandValues = $genericBrandValues
+  reason = 'Classify supplied product text by reviewed prohibited-item and restricted-item keywords. A brand name alone does not stop an item, and a no-match result is not eBay approval.'
   evidenceUrls = $clearanceEvidenceUrls
 }
 

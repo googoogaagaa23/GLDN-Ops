@@ -6,6 +6,7 @@ const test = require('node:test');
 const ROOT = path.resolve(__dirname, '..');
 const preflight = require(path.join(ROOT, 'extension', 'listing-preflight-core.js'));
 const policyAudit = require(path.join(ROOT, 'extension', 'policy-listing-audit-core.js'));
+const publishedRulePack = JSON.parse(fs.readFileSync(path.join(ROOT, 'extension', 'listing-preflight-rules.json'), 'utf8'));
 
 const rulePack = {
   schemaVersion: 1,
@@ -53,11 +54,31 @@ test('existing listing audit classifies every unique item and decodes SKU ASINs'
   assert.equal(audit.listings.find((row) => row.itemId === '123456789014').action, 'review');
   assert.match(
     audit.listings.find((row) => row.itemId === '123456789014').reason,
-    /Existing-listing evidence is limited|No valid generic-only clearance profile is loaded/i
+    /Existing-listing evidence is limited|No valid forbidden-item keyword profile is loaded/i
   );
   assert.equal(audit.listings.find((row) => row.itemId === '123456789013').price, 9.99);
   assert.match(audit.reportFingerprint, /^policy-listings-/);
   assert.match(audit.rulesFingerprint, /^policy-rules-/);
+});
+
+test('existing listing audit flags pesticide and aerosol-can titles with the GLDN no-list evidence', () => {
+  const audit = policyAudit.buildPolicyAudit([
+    { itemId: '123456789021', title: 'EPA Registered Ant and Roach Insecticide' },
+    { itemId: '123456789022', title: 'Blue Aerosol Spray Paint Can' },
+    { itemId: '123456789023', title: 'Empty Trigger Pump Spray Bottle' }
+  ], publishedRulePack, {
+    scannedAt: '2026-08-31T12:00:00.000Z',
+    computerLabel: '0',
+    ebayAccountLabel: 'FAK12'
+  }, preflight);
+  const pesticide = audit.listings.find((row) => row.itemId === '123456789021');
+  const aerosol = audit.listings.find((row) => row.itemId === '123456789022');
+  const pumpBottle = audit.listings.find((row) => row.itemId === '123456789023');
+  assert.equal(pesticide.action, 'block');
+  assert.equal(aerosol.action, 'block');
+  assert.ok(pesticide.matches.some((rule) => rule.operatorRuleId === 'GLDN-NO-PESTICIDES'));
+  assert.ok(aerosol.matches.some((rule) => rule.operatorRuleId === 'GLDN-NO-AEROSOL-SPRAY-CANS'));
+  assert.notEqual(pumpBottle.action, 'block');
 });
 
 test('only current reviewed Block rows can enter an end batch', () => {
