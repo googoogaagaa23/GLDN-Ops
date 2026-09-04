@@ -1,4 +1,9 @@
-GLDN Ops v3.12.30
+GLDN Ops v3.12.31
+
+v3.12.31 reverse category launch repair:
+- Sale Event Is OFF starts the read-only Non-.99 scan without the prompt blocking its own workflow.
+- Repeated start clicks do not replace the open sale-event question.
+- Sale Event Is ON and real approval reviews still stop the launch. Listing changes remain approval-gated.
 
 Current operator rule: the v3.12.30 paste-first keyword workflow below supersedes older historical entries about a 500-word allowlist, generic-brand gate, or five attestations. Do not follow those older instructions.
 

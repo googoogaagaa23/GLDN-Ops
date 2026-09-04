@@ -2,6 +2,14 @@
 
 All notable extension releases should be recorded here before they are deployed to other computers.
 
+## v3.12.31 - 2026-09-03
+
+- Fixed the on-page Move Non-.99 Out of Sale prompt registering itself as an approval review, which could block the scan immediately after Sale Event Is OFF.
+- Marked only this prerequisite prompt as a workflow launcher; actual approval reviews and the sale-event ON guard remain enforced.
+- Added visible starting feedback and an in-flight launch guard so repeated clicks cannot replace the prompt or orphan its pending start.
+- Added executable regression checks for OFF, ON, cancel, duplicate clicks, retry, and unrelated real approval locks.
+- Price qualification, source/destination settings, category writes, final submission approval, and the no-rescan-after-submit behavior are unchanged.
+
 ## v3.12.30 - 2026-08-31
 
 - Replaced the visible Product Research Desk with a paste-first Listing Policy Check that opens without clipboard content.

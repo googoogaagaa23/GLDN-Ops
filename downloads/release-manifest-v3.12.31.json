@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "version": "3.12.31",
+  "generatedAt": "2026-09-04T02:17:37.5558969Z",
+  "files": [
+    {
+      "path": "downloads/GLDN-Ops-extension-v3.12.31.zip",
+      "sha256": "50C404C8123F6C993D52FFC07948DCF8DF351E9C9F83CE2F18A515721B3ABF17"
+    },
+    {
+      "path": "downloads/GLDN-Ops-local-v3.12.31.zip",
+      "sha256": "E4DDC91733F4F8B4219F5DB6830C06AEC6EEBE62B440D6C90DA5CE3F0CA77D8C"
+    },
+    {
+      "path": "downloads/GLDN-Ops-latest.zip",
+      "sha256": "E4DDC91733F4F8B4219F5DB6830C06AEC6EEBE62B440D6C90DA5CE3F0CA77D8C"
+    },
+    {
+      "path": "downloads/GLDN-Ops-Setup.exe",
+      "sha256": "B5BB216B56396FB6D00396FBD487DEA38AABD62040B4C772CC3852E4519E6FE5"
+    },
+    {
+      "path": "downloads/GLDN-Product-Hunter-v0.3.1.zip",
+      "sha256": "BCEBE157E40C487C99AED3C0493BCB177CD62BC7EC453563CE8CEEF39DB3C720"
+    },
+    {
+      "path": "downloads/GLDN-Product-Hunter-v0.3.1.sha256.txt",
+      "sha256": "5D3CD1155D24B2E6E52E0EF083D8B902E8082836A0811330583D012FAE77E149"
+    },
+    {
+      "path": "bootstrap-install.ps1",
+      "sha256": "4E45C22D0A63325CCCD14D64F2E0FA1A00BE994EF23ABC1BD74A1C3F3CF4A7B1"
+    },
+    {
+      "path": "install-latest.ps1",
+      "sha256": "E7899ED5086051CE26ADE83933841C2689EB1FB572A917C8C31BDBD253F5E73F"
+    },
+    {
+      "path": "releases/v3.12.31.md",
+      "sha256": "85E50B65098709B3E04D5B8B0F83C42CC0DE3332F8A62EA6F432B6E0B5AB5B75"
+    },
+    {
+      "path": "releases/GLDN-Product-Hunter-v0.3.1.md",
+      "sha256": "03BB7BE896EE5D21D09A8AA9F78A68CDE02DC689C2F81C10F0597D7116E76402"
+    }
+  ],
+  "publishLast": "downloads/latest.json"
+}

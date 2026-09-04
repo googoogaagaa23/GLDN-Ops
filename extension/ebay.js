@@ -19,6 +19,7 @@
   let move99ApplyButtonElement;
   let markShippedRunning = false;
   let markShippedMonitorRunning = false;
+  let move99StartPending = false;
   let snipingWinnerButtonElement;
   let ebayInterruptionStopped = false;
   let extensionContextInvalidated = false;
@@ -10982,7 +10983,7 @@
     overlay.id = "gldn-reverse-sale-event-gate";
     overlay.className = "gldn-modal-backdrop gldn-review-backdrop";
     overlay.innerHTML = `
-      <div class="gldn-modal gldn-review-modal">
+      <div class="gldn-modal gldn-review-modal" data-gldn-workflow-launcher="true">
         <button type="button" class="gldn-close" aria-label="Close">&times;</button>
         <h2>Is a sale event active?</h2>
         <p>Move Non-.99 Out of Sale reads eBay's displayed prices. It only works correctly when the sale event is off.</p>
@@ -11012,6 +11013,8 @@
   }
 
   async function startMove99Listings(scanMode = "price99") {
+    if (move99StartPending) return;
+    move99StartPending = true;
     let reservationToken = "";
     try {
     const reverse = scanMode === "non99";
@@ -11023,6 +11026,7 @@
       renderStatus(saleEventDecision.error, "error");
       return;
     }
+    renderStatus(reverse ? "Sale event is off. Starting the read-only Non-.99 scan..." : "Starting Move .99...", "ready");
     reservationToken = await U.claimWorkflowStart("move99", "Move .99");
     await storageSet({ gldnStopRequested: false });
     const storedIdentity = await storageGet(["computerLabel", "ebayAccountLabel", "pendingMove99Run"]);
@@ -11110,7 +11114,11 @@
     } catch (error) {
       renderStatus(error.message || "Move .99 could not start.", "error");
     } finally {
-      await U.releaseWorkflowStart(reservationToken);
+      try {
+        await U.releaseWorkflowStart(reservationToken);
+      } finally {
+        move99StartPending = false;
+      }
     }
   }
 

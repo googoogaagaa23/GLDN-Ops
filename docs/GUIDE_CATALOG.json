@@ -1,6 +1,6 @@
 {
-  "version": "3.12.30",
-  "updated": "2026-08-30",
+  "version": "3.12.31",
+  "updated": "2026-09-03",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",

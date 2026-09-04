@@ -1,11 +1,13 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-08-31
-Current local manifest: 3.12.30
+Last updated: 2026-09-03
+Current local manifest: 3.12.31
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  
 Current machine identity: eBay computer `0` / account `FAK12`, plus Poshmark computer `7`
+
+> v3.12.31 reverse launch repair: the sale-event prerequisite is a launcher, not an approval review. Deterministic execution reproduces the old self-block and verifies OFF starts, ON/cancel stop, repeated starts stay single-flight, and unrelated real reviews remain blocking. Current signed-in live verification is pending because the affected eBay tab is not connected. No listing changes were made during diagnosis.
 
 > v3.12.30 paste-first policy gate: Listing Policy Check opens without clipboard content, accepts pasted product titles or Amazon links, and reads raw Amazon links sequentially in one inactive tab. A brand name alone does not stop a product. Published prohibited-item keywords Block, conditional restrictions stay in Review, and readable no-match products become Ready. GLDN operator rules hard-block pesticides and every aerosol or pressurized spray can. The 500-word grid and official/Discord/Telegram source cards are no longer shown in the operator workflow. This new UI and package still require signed-in live review.
 >
