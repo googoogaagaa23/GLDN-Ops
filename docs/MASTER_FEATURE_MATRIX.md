@@ -7,7 +7,7 @@ Current tested eBay foundation: 3.11.33
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  
 Current machine identity: eBay computer `0` / account `FAK12`, plus Poshmark computer `7`
 
-> v3.12.32 candidate: cancellable reviews, paired multi-profile control, idle backoff, Health & Installations, non-overwriting policy setup, and a complete store package. Signed-in current-version live verification, settings-preserving deployment, and Store approval remain pending. Historical live rows below are not current-version certification.
+> v3.12.32 is published through the GitHub/local updater at the user's request, without a Google review dependency. Public artifacts and the exact stable updater response were verified. Cancellable reviews, paired multi-profile control, idle backoff, Health & Installations, complete guides, and non-overwriting policy tooling passed release checks. Signed-in current-version marketplace verification remains pending; historical live rows below are not current-version certification. The Store route is paused.
 
 > v3.12.31 reverse launch repair: the sale-event prerequisite is a launcher, not an approval review. Deterministic execution reproduces the old self-block and verifies OFF starts, ON/cancel stop, repeated starts stay single-flight, and unrelated real reviews remain blocking. Current signed-in live verification is pending because the affected eBay tab is not connected. No listing changes were made during diagnosis.
 

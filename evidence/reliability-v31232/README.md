@@ -1,6 +1,6 @@
 # v3.12.32 Verification - September 5, 2026
 
-Status: release candidate. Stable rollout and signed-in marketplace validation remain pending.
+Historical candidate checks. The subsequent local publication is recorded in [LOCAL_RELEASE.md](LOCAL_RELEASE.md). Signed-in marketplace validation remains pending.
 
 ## Completed
 
