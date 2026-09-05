@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.31. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.32. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -17,6 +17,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 ## Feature Index
 
+- [Health & Installations](#ops-health) - **IMPLEMENTED, UNPROVEN**
 - [First-Time Setup](#setup) - **PARTIAL**
 - [Floating Panel](#panel) - **LIVE PASS**
 - [Dashboard and Sync Queue](#dashboard) - **PARTIAL**
@@ -46,6 +47,47 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Diagnostics, Backup, and Interface Settings](#diagnostics) - **PARTIAL**
 - [Feature Tour, Themes, and Universal Access](#onboarding-interface) - **PARTIAL**
 - [Walmart Order Helper](#walmart) - **IMPLEMENTED, UNPROVEN**
+
+<a id="ops-health"></a>
+## Health & Installations
+
+**Matrix:** F-02, F-11
+
+**Evidence status:** IMPLEMENTED, UNPROVEN
+
+**Purpose:** Read workflow progress, review owners, installation files, and control pairing.
+
+### Prerequisites
+
+- Open the intended Chrome profile.
+- The latest Windows helper is needed for inventory and pairing.
+
+### Exact Steps
+
+1. Open Health & Installations from the popup.
+2. Check identity and running version.
+3. Refresh Status reads installed files and the public release.
+4. Open Results to review, pause, or resume a saved workflow.
+5. For background control, choose Pair This Profile, approve its code locally for the exact profile directory, then Check Pairing Approval.
+
+### Approval Stop
+
+Pairing requires explicit local approval. No marketplace or spreadsheet action is approved here.
+
+### Expected Output
+
+Profile-specific diagnostics. Other profiles' disk versions are not live runtime verification.
+
+### Failure Recovery
+
+- Upgrade the one-time Windows helper if inventory or pairing is unavailable.
+- Stale-progress warnings do not reset work.
+- Queued sheet records are not confirmed saved.
+
+### Evidence
+
+Deterministic lifecycle, status mapping, and pairing isolation checks. Signed-in deployment remains pending.
+
 
 <a id="setup"></a>
 ## First-Time Setup

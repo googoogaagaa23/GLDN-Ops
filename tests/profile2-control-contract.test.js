@@ -259,12 +259,12 @@ test('Profile 2 control launches automated variation discovery without an End ac
   assert.doesNotMatch(action, /submitEbayVariationEndReview/);
 });
 
-test('visible Profile 2 pages wake local control without waiting for the 30-second alarm', () => {
+test('ordinary pages do not poll local control; only paired background alarms do', () => {
   assert.match(background, /message\.type === 'gldnLocalControlHeartbeat'/);
-  assert.match(background, /respondToExtensionMessage\(pollLocalControl\(\), sendResponse, 'local-control-heartbeat'\)/);
-  assert.match(heartbeat, /document\.visibilityState !== 'visible'/);
-  assert.match(heartbeat, /HEARTBEAT_MS = 2000/);
-  assert.match(heartbeat, /type: 'gldnLocalControlHeartbeat'/);
+  assert.match(background, /scheduler: 'background-alarm'/);
+  assert.doesNotMatch(heartbeat, /setInterval|sendMessage/);
+  assert.match(background, /!pairing\?\.enabled \|\| !pairing.token/);
+  assert.match(background, /localControlBackoffMs \* 2/);
   assert.equal((manifest.match(/"control-heartbeat\.js"/g) || []).length, 6);
   for (const html of [popup, onboarding, guide]) {
     assert.match(html, /<script src="control-heartbeat\.js"><\/script>/);

@@ -1,0 +1,19 @@
+{
+  "ok": true,
+  "version": "3.12.32",
+  "channel": "local",
+  "isolated": true,
+  "signedInMarketplace": false,
+  "pageNetworkBlocked": true,
+  "serviceWorkerNetworkBlocked": false,
+  "pageErrors": [],
+  "checks": [
+    "actual service worker startup",
+    "empty state",
+    "stored progress",
+    "review ownership",
+    "queued records",
+    "desktop/mobile layout",
+    "results navigation"
+  ]
+}

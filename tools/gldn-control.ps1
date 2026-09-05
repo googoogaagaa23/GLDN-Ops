@@ -1,6 +1,8 @@
 param(
   [ValidateSet("Inspect", "Open", "Navigate", "Focus", "ReloadTab", "InspectTab", "InspectTutorialVideo", "InspectAmazonSubscribeSave", "InspectEbayVariations", "CloseTab", "InspectPage", "InspectMove99", "InspectMove99FinalReview", "ApproveMove99FinalReview", "PrepareVariationEndReview", "OpenExtension", "OpenDashboard", "ExtensionAction", "ReadState", "ReadEbayProfitReview", "ReadProfitBackfillReview", "PageAction", "ResetState", "ReloadExtension")]
   [string]$Action = "Inspect",
+  [ValidatePattern('^(Default|Profile(?: \d+)?)$')][string]$ProfileDirectory = 'Profile 2',
+  [ValidatePattern('^[A-F0-9]{12}$')][string]$PairingCode = '',
   [string]$Url = "",
   [ValidateSet("", "ebay", "poshmark", "amazon", "ecomsniper")]
   [string]$Platform = "",
@@ -58,7 +60,7 @@ function Get-GldnControlConfiguration {
 }
 
 function Get-Profile2GldnExtension {
-  $profileRoot = Join-Path $env:LOCALAPPDATA "Google\Chrome\User Data\Profile 2"
+  $profileRoot = Join-Path (Join-Path $env:LOCALAPPDATA 'Google\Chrome\User Data') $ProfileDirectory
   $preferencesPath = Join-Path $profileRoot "Secure Preferences"
   if (-not (Test-Path -LiteralPath $preferencesPath)) {
     throw "Chrome Profile 2 was not found."
@@ -310,6 +312,11 @@ function ConvertTo-ControlRequest {
 }
 
 $config = Get-GldnControlConfiguration
+if ($PairingCode) {
+  $body = @{ code = $PairingCode; profileDirectory = $ProfileDirectory } | ConvertTo-Json
+  Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$($config.port)/v1/control/pair-approve" -Headers @{ 'X-GLDN-Control' = $config.token } -ContentType 'application/json' -Body $body -TimeoutSec 15 | ConvertTo-Json
+  exit 0
+}
 $extension = Get-Profile2GldnExtension
 $expectedRoot = [System.IO.Path]::GetFullPath((Join-Path $config.installRoot "extension"))
 if ($extension.extensionRoot -ine $expectedRoot) {
@@ -319,6 +326,7 @@ if ($extension.extensionRoot -ine $expectedRoot) {
 $request = ConvertTo-ControlRequest -Name $Action
 $body = [pscustomobject]@{
   extensionId = $extension.extensionId
+  profileDirectory = $ProfileDirectory
   action = $request.action
   payload = $request.payload
 } | ConvertTo-Json -Depth 8 -Compress

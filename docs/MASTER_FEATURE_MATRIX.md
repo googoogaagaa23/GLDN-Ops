@@ -1,11 +1,13 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-09-03
-Current local manifest: 3.12.31
+Last updated: 2026-09-05
+Current local manifest: 3.12.32
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  
 Current machine identity: eBay computer `0` / account `FAK12`, plus Poshmark computer `7`
+
+> v3.12.32 candidate: cancellable reviews, paired multi-profile control, idle backoff, Health & Installations, non-overwriting policy setup, and a complete store package. Signed-in current-version live verification, settings-preserving deployment, and Store approval remain pending. Historical live rows below are not current-version certification.
 
 > v3.12.31 reverse launch repair: the sale-event prerequisite is a launcher, not an approval review. Deterministic execution reproduces the old self-block and verifies OFF starts, ON/cancel stop, repeated starts stay single-flight, and unrelated real reviews remain blocking. Current signed-in live verification is pending because the affected eBay tab is not connected. No listing changes were made during diagnosis.
 

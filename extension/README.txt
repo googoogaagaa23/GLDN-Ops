@@ -1,4 +1,4 @@
-GLDN Ops v3.12.31
+GLDN Ops v3.12.32
 
 v3.12.31 reverse category launch repair:
 - Sale Event Is OFF starts the read-only Non-.99 scan without the prompt blocking its own workflow.

@@ -11,10 +11,14 @@ if ($Version -ne [string]$manifest.version) { throw "Requested version $Version 
 $distRoot = Join-Path $repoRoot "dist"
 $buildRoot = Join-Path $repoRoot ".local-build"
 $stageRoot = Join-Path $buildRoot "GLDN-Ops"
+$stageRoot = [IO.Path]::GetFullPath($stageRoot)
+if (-not $stageRoot.StartsWith($repoRoot.TrimEnd('\') + '\.local-build\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid local package staging directory.' }
 $zipPath = Join-Path $distRoot "GLDN-Ops-local-v$Version.zip"
 $latestPath = Join-Path $distRoot "GLDN-Ops-latest.zip"
 
 $extensionFiles = @(
+  'deployment-channel.js', 'ops-health.html', 'ops-health.css', 'ops-health.js', 'ops-health-core.js', 'ops-health-background.js',
+  'workflow-guide-data.js', 'workflow-guide.css', 'workflow-guide.js',
   "manifest.json", "config.example.js", "theme-catalog.js", "foundation.js", "shared.js", "control-heartbeat.js", "profit-audit.js", "profit-backfill.js", "profit-backfill-background.js", "sniping-audit.js", "subscribe-save.js",
   "sniping-review.html", "sniping-review.css", "sniping-review.js", "background.js",
   "listing-preflight.html", "listing-preflight.css", "listing-preflight-core.js", "listing-preflight.js", "listing-preflight-rules.json", "product-research-output.json",
@@ -45,13 +49,16 @@ foreach ($file in $extensionFiles) {
   Copy-Item -LiteralPath $source -Destination (Join-Path $stageRoot "extension\$file") -Force
 }
 Copy-Item -LiteralPath (Join-Path $extensionRoot "icons") -Destination (Join-Path $stageRoot "extension\icons") -Recurse -Force
+foreach ($runtime in (Get-ChildItem -LiteralPath $extensionRoot -File | Where-Object { $_.Extension -in @('.js','.json','.html','.css','.txt') -and $_.Name -ne 'config.js' })) {
+  if (-not (Test-Path -LiteralPath (Join-Path $stageRoot "extension\$($runtime.Name)"))) { throw "Public runtime omitted from local package: $($runtime.Name)" }
+}
 
 foreach ($directory in $projectDirectories) {
   $source = Join-Path $repoRoot $directory
   if (-not (Test-Path -LiteralPath $source)) { throw "Missing local release directory: $directory" }
   Copy-Item -LiteralPath $source -Destination (Join-Path $stageRoot $directory) -Recurse -Force
 }
-foreach ($legacyTool in @("build-webstore-zip.ps1", "install-chrome-policy.ps1", "local-click-helper.ps1", "test-extension-health.ps1", "test-poshmark-computer-guard.ps1")) {
+foreach ($legacyTool in @("build-webstore-zip.ps1", "local-click-helper.ps1", "test-extension-health.ps1", "test-poshmark-computer-guard.ps1")) {
   $legacyPath = Join-Path $stageRoot "tools\$legacyTool"
   if (Test-Path -LiteralPath $legacyPath) { Remove-Item -LiteralPath $legacyPath -Force }
 }

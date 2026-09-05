@@ -255,6 +255,10 @@ $nodeTests = @(Get-ChildItem -LiteralPath (Join-Path $repoRoot "tests") -Filter 
 if ($LASTEXITCODE -ne 0) {
   throw "Automated test suite failed."
 }
+& (Join-Path $repoRoot 'tests\control-pairing-fixture.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Cross-profile pairing fixture failed.' }
+& (Join-Path $repoRoot 'tests\chrome-policy-fixture.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Chrome policy fixture failed.' }
 
 $dashboardHash = (Get-FileHash -Algorithm SHA256 (Join-Path $repoRoot "dashboard\GLDN_Ops_Dashboard_Code.gs")).Hash
 $embeddedHash = (Get-FileHash -Algorithm SHA256 (Join-Path $repoRoot "extension\dashboard_apps_script\Code.gs")).Hash

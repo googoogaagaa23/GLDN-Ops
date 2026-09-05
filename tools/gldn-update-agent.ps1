@@ -63,6 +63,7 @@ function Initialize-AgentControlConfig {
 }
 
 $script:AgentControlToken = Initialize-AgentControlConfig
+. (Join-Path $PSScriptRoot 'gldn-control-pairing.ps1')
 $script:AgentControlCommands = @()
 $script:AgentControlResults = @{}
 $script:AgentControlAllowedHosts = @("ebay.com", "amazon.com", "poshmark.com", "ecomsniper.io")
@@ -138,13 +139,10 @@ function Add-AgentTargetMetadata {
 }
 
 function Assert-AgentProfile2Target {
-  param([string]$ExtensionId)
-  $target = Resolve-GldnExtensionRequestTarget -ExtensionId $ExtensionId -FallbackInstallRoot $InstallRoot
-  $profiles = @($target.profileDirectories)
-  if ($profiles.Count -ne 1 -or [string]$profiles[0] -cne "Profile 2") {
-    throw "Local control is locked to the single signed-in Chrome Profile 2 extension instance."
-  }
-  return $target
+  param([string]$ExtensionId, [string]$ProfileDirectory = 'Profile 2')
+  $bindings = @($script:AgentBindings | Where-Object { $_.extensionId -ceq $ExtensionId -and $_.profileDirectory -ceq $ProfileDirectory })
+  if ($bindings.Count -ne 1) { throw 'Pair the exact Chrome profile from Health & Installations first.' }
+  return $bindings[0]
 }
 
 function Test-AgentAllowedHost {
@@ -461,13 +459,15 @@ function Add-AgentControlCommand {
   param($Body)
   $extensionId = [string]$Body.extensionId
   if ($extensionId -notmatch '^[a-p]{32}$') { throw "A valid Profile 2 GLDN Ops extension ID is required." }
-  [void](Assert-AgentProfile2Target -ExtensionId $extensionId)
+  $profile = if ($Body.profileDirectory) { [string]$Body.profileDirectory } else { 'Profile 2' }
+  $binding = Assert-AgentProfile2Target -ExtensionId $extensionId -ProfileDirectory $profile
   $action = ([string]$Body.action).Trim().ToLowerInvariant()
   $payload = ConvertTo-AgentControlPayload -Action $action -Payload $Body.payload
   Clear-AgentControlHistory
   $command = [pscustomobject]@{
     id = [guid]::NewGuid().ToString("N")
     extensionId = $extensionId
+    installationId = $binding.installationId
     action = $action
     payload = $payload
     status = "queued"
@@ -481,19 +481,21 @@ function Add-AgentControlCommand {
 }
 
 function Get-AgentNextControlCommand {
-  param([string]$ExtensionId)
-  [void](Assert-AgentProfile2Target -ExtensionId $ExtensionId)
+  param([string]$ExtensionId, [string]$ProfileToken)
+  $binding = Assert-AgentProfileBinding $ExtensionId $ProfileToken
   Clear-AgentControlHistory
   $now = [DateTimeOffset]::UtcNow
   $command = $null
   foreach ($candidate in $script:AgentControlCommands) {
     if ([string]$candidate.extensionId -cne [string]$ExtensionId) { continue }
+    if ([string]$candidate.installationId -cne [string]$binding.installationId) { continue }
     if ([DateTimeOffset]::Parse([string]$candidate.expiresAt) -le $now) { continue }
     if ([string]$candidate.status -eq "queued") {
       $command = $candidate
       break
     }
     $retryDispatch = ([string]$candidate.status -eq "dispatched") `
+      -and ([string]$candidate.action -match '^(inspect-|read-)') `
       -and ([int]$candidate.attempts -lt 3) `
       -and ([DateTimeOffset]::Parse([string]$candidate.dispatchedAt) -lt $now.AddSeconds(-30))
     if ($retryDispatch) {
@@ -519,11 +521,11 @@ function Get-AgentNextControlCommand {
 }
 
 function Complete-AgentControlCommand {
-  param($Body, [string]$ExtensionId)
-  [void](Assert-AgentProfile2Target -ExtensionId $ExtensionId)
+  param($Body, [string]$ExtensionId, [string]$ProfileToken)
+  $binding = Assert-AgentProfileBinding $ExtensionId $ProfileToken
   $commandId = [string]$Body.commandId
   if ($commandId -notmatch '^[a-f0-9]{32}$') { throw "The local-control command ID is invalid." }
-  $command = $script:AgentControlCommands | Where-Object { $_.id -ceq $commandId -and $_.extensionId -ceq $ExtensionId } | Select-Object -First 1
+  $command = $script:AgentControlCommands | Where-Object { $_.id -ceq $commandId -and $_.extensionId -ceq $ExtensionId -and $_.installationId -ceq $binding.installationId } | Select-Object -First 1
   if (-not $command) { throw "The local-control command was not found or expired." }
   $completedAt = [DateTime]::UtcNow.ToString("o")
   $command.status = if ($Body.ok -eq $true) { "completed" } else { "failed" }
@@ -664,7 +666,7 @@ function Send-HttpJson {
     "Content-Length: $($bytes.Length)",
     "Cache-Control: no-store",
     "Access-Control-Allow-Origin: $allowOrigin",
-    "Access-Control-Allow-Headers: Content-Type, X-GLDN-Updater, X-GLDN-Extension-Id",
+    "Access-Control-Allow-Headers: Content-Type, X-GLDN-Updater, X-GLDN-Extension-Id, X-GLDN-Profile-Token",
     "Access-Control-Allow-Methods: GET, POST, OPTIONS",
     "Connection: close",
     "",
@@ -718,7 +720,7 @@ try {
       $request = Read-HttpRequest $client
       $uri = [System.Uri]("http://127.0.0.1:$Port" + $request.target)
       $route = "$($request.method) $($uri.AbsolutePath)"
-      $operatorRoute = $route -in @("POST /v1/control/commands", "GET /v1/control/results")
+      $operatorRoute = $route -in @("POST /v1/control/commands", "GET /v1/control/results", "POST /v1/control/pair-approve")
       $allowed = if ($operatorRoute) { Test-AgentOperatorRequestAllowed $request } else { Test-AgentRequestAllowed $request }
       if (-not $allowed) {
         Send-HttpJson $request 403 ([pscustomobject]@{ ok = $false; error = "Updater request was not authorized." })
@@ -730,6 +732,11 @@ try {
       }
       $body = if ($request.body) { $request.body | ConvertFrom-Json } else { $null }
       switch ($route) {
+        "GET /v1/installations" { Send-HttpJson $request 200 (Get-AgentInstallations) }
+        "POST /v1/control/pair-start" { Send-HttpJson $request 200 (Start-AgentPairing $body ([string]$request.headers['x-gldn-extension-id'])) }
+        "POST /v1/control/pair-status" { Send-HttpJson $request 200 (Get-AgentPairingStatus $body ([string]$request.headers['x-gldn-extension-id'])) }
+        "POST /v1/control/pair-approve" { Send-HttpJson $request 200 (Approve-AgentPairing $body) }
+        "POST /v1/control/unpair" { Send-HttpJson $request 200 (Remove-AgentPairing ([string]$request.headers['x-gldn-extension-id']) ([string]$request.headers['x-gldn-profile-token'])) }
         "GET /v1/status" {
           $refresh = $uri.Query -match '(^|[?&])refresh=1(&|$)'
           Send-HttpJson $request 200 (Invoke-AgentAction -Name "Status" -Refresh:$refresh -RequestOrigin ([string]$request.headers["origin"]) -RequestExtensionId ([string]$request.headers["x-gldn-extension-id"]))
@@ -738,8 +745,8 @@ try {
         "POST /v1/update" { Send-HttpJson $request 200 (Invoke-AgentAction -Name "Update" -Body $body -RequestOrigin ([string]$request.headers["origin"]) -RequestExtensionId ([string]$request.headers["x-gldn-extension-id"])) }
         "POST /v1/rollback" { Send-HttpJson $request 200 (Invoke-AgentAction -Name "Rollback" -Body $body -RequestOrigin ([string]$request.headers["origin"]) -RequestExtensionId ([string]$request.headers["x-gldn-extension-id"])) }
         "POST /v1/control/commands" { Send-HttpJson $request 200 (Add-AgentControlCommand -Body $body) }
-        "GET /v1/control/next" { Send-HttpJson $request 200 (Get-AgentNextControlCommand -ExtensionId ([string]$request.headers["x-gldn-extension-id"])) }
-        "POST /v1/control/results" { Send-HttpJson $request 200 (Complete-AgentControlCommand -Body $body -ExtensionId ([string]$request.headers["x-gldn-extension-id"])) }
+        "GET /v1/control/next" { Send-HttpJson $request 200 (Get-AgentNextControlCommand -ExtensionId ([string]$request.headers["x-gldn-extension-id"]) -ProfileToken ([string]$request.headers['x-gldn-profile-token'])) }
+        "POST /v1/control/results" { Send-HttpJson $request 200 (Complete-AgentControlCommand -Body $body -ExtensionId ([string]$request.headers["x-gldn-extension-id"]) -ProfileToken ([string]$request.headers['x-gldn-profile-token'])) }
         "GET /v1/control/results" { Send-HttpJson $request 200 (Get-AgentControlResult -CommandId (Get-AgentQueryValue -Uri $uri -Name "commandId")) }
         default { Send-HttpJson $request 404 ([pscustomobject]@{ ok = $false; error = "Updater endpoint not found." }) }
       }

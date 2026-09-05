@@ -20,6 +20,9 @@ const move99SourceCategoryIdsInput = document.getElementById('move99SourceCatego
 const move99BackburnerIdsInput = document.getElementById('move99BackburnerIds');
 const currentMove99Destination = document.getElementById('currentMove99Destination');
 const diagnosticLogElement = document.getElementById('diagnosticLog');
+document.getElementById('openOpsHealth').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('ops-health.html') });
+});
 const updaterStatusElement = document.getElementById('updaterStatus');
 const updateExtensionButton = document.getElementById('updateExtension');
 const rollbackVersionInput = document.getElementById('rollbackVersion');
@@ -889,6 +892,11 @@ function renderEcomSniperMonitor(result = {}) {
 
 function renderUpdaterStatus(result) {
   updaterStatusElement.classList.remove('ready', 'warning', 'error');
+  if (result?.channel === 'webstore') {
+    updaterStatusElement.classList.add('ready');
+    updaterStatusElement.textContent = `Chrome Web Store updates enabled. Running v${result.runtimeVersion || result.currentVersion}.`;
+    return;
+  }
   if (!result?.ok) {
     updaterStatusElement.classList.add('error');
     updaterStatusElement.textContent = result?.error || 'Automatic updater is not installed or running.';

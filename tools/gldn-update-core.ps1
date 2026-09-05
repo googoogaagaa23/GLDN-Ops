@@ -1,4 +1,4 @@
-$script:GldnUpdaterVersion = "1.0.0"
+$script:GldnUpdaterVersion = "1.1.0"
 $script:GldnDefaultMetadataUrl = "https://raw.githubusercontent.com/googoogaagaa23/GLDN-Ops/main/downloads/latest.json"
 
 function Get-GldnDefaultInstallRoot {

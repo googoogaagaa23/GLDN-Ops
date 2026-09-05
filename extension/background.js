@@ -1,7 +1,10 @@
 importScripts(
+  'deployment-channel.js',
   'config.example.js',
   'theme-catalog.js',
   'foundation.js',
+  'ops-health-core.js',
+  'ops-health-background.js',
   'variation-core.js',
   'ebay-profit-core.js',
   'ebay-profit-background.js',
@@ -77,6 +80,8 @@ let openReviewQueue = Promise.resolve();
 let historicalProfitSyncPromise = null;
 let ebayMonthlyProfitSyncPromise = null;
 let localControlPollRunning = false;
+let localControlNextPollAt = 0;
+let localControlBackoffMs = 30000;
 
 const AUTOMATION_RESET_KEYS = Object.freeze([
   ...FOUNDATION.workflowStateKeys,
@@ -400,6 +405,7 @@ async function updaterRequest(path, options = {}) {
       headers: {
         'X-GLDN-Updater': '1',
         'X-GLDN-Extension-Id': chrome.runtime.id,
+        ...(options.profileToken ? { 'X-GLDN-Profile-Token': options.profileToken } : {}),
         ...(options.body ? { 'Content-Type': 'application/json' } : {})
       },
       body: options.body ? JSON.stringify(options.body) : undefined,
@@ -2143,11 +2149,14 @@ async function executeLocalControlCommand(command = {}) {
 }
 
 async function pollLocalControl() {
-  if (localControlPollRunning) return { ok: true, skipped: true };
+  if (localControlPollRunning || Date.now() < localControlNextPollAt) return { ok: true, skipped: true };
   localControlPollRunning = true;
   let hadCommand = false;
   try {
-    const response = await updaterRequest('/control/next', { timeoutMs: 4000 });
+    const { gldnControlPairing: pairing } = await storageGet(['gldnControlPairing']);
+    if (!pairing?.enabled || !pairing.token) return { ok: true, disabled: true };
+    const response = await updaterRequest('/control/next', { timeoutMs: 4000, profileToken: pairing.token });
+    localControlBackoffMs = 30000;
     const command = response?.command;
     if (!command?.id) return { ok: true, empty: true };
     hadCommand = true;
@@ -2157,18 +2166,21 @@ async function pollLocalControl() {
       await updaterRequest('/control/results', {
         method: 'POST',
         body: { commandId: command.id, ok: true, result },
+        profileToken: pairing.token,
         timeoutMs: 10000
       });
     } catch (error) {
       await updaterRequest('/control/results', {
         method: 'POST',
         body: { commandId: command.id, ok: false, error: error?.message || String(error) },
+        profileToken: pairing.token,
         timeoutMs: 10000
       }).catch(() => {});
       throw error;
     }
     return { ok: true, commandId: command.id };
   } catch (error) {
+    localControlBackoffMs = Math.min(300000, localControlBackoffMs * 2);
     if (hadCommand) {
       await recordExtensionLog({
         source: 'local-control',
@@ -2179,6 +2191,7 @@ async function pollLocalControl() {
     return { ok: false, unavailable: !hadCommand, error: error?.message || String(error) };
   } finally {
     localControlPollRunning = false;
+    localControlNextPollAt = Date.now() + (hadCommand ? 0 : localControlBackoffMs);
     if (hadCommand) setTimeout(() => pollLocalControl(), 100);
   }
 }
@@ -2206,6 +2219,12 @@ async function queueRuntimeReload({ returnUrl = '', sourceTabId = null, sourceTa
 
 async function updateExtensionAndReload(message = {}, sender = {}) {
   await assertUpdaterIdle('Updating GLDN Ops');
+  if (globalThis.GLDN_DEPLOYMENT_CHANNEL === 'webstore') {
+    return new Promise((resolve, reject) => chrome.runtime.requestUpdateCheck((status) => {
+      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+      else resolve({ ok: true, channel: 'webstore', status, currentVersion: EXTENSION_VERSION, nativeUpdates: true });
+    }));
+  }
   recordExtensionLog({ source: 'updater', level: 'info', operation: 'update', message: 'Verified extension update requested.' });
   const result = await updaterRequest('/update', { method: 'POST', body: {}, timeoutMs: 180000 });
   const diskVersion = String(result.currentVersion || result.diskVersion || '');
@@ -2227,6 +2246,7 @@ async function updateExtensionAndReload(message = {}, sender = {}) {
 }
 
 async function rollbackExtensionAndReload(message = {}, sender = {}) {
+  if (globalThis.GLDN_DEPLOYMENT_CHANNEL === 'webstore') throw new Error('Chrome manages this installation. Local rollback does not apply to the Web Store build.');
   await assertUpdaterIdle('Rolling back GLDN Ops');
   recordExtensionLog({ source: 'updater', level: 'info', operation: 'rollback', message: 'Extension rollback requested.' });
   const result = await updaterRequest('/rollback', {
@@ -2249,6 +2269,7 @@ function scheduleUpdaterCheck() {
 }
 
 async function checkUpdaterDiskVersion() {
+  if (globalThis.GLDN_DEPLOYMENT_CHANNEL === 'webstore') return { ok: true, nativeUpdates: true };
   let status;
   try {
     status = await updaterRequest('/status', { timeoutMs: 3000 });
@@ -2288,6 +2309,7 @@ async function checkUpdaterDiskVersion() {
 }
 
 async function getUpdaterRuntimeStatus(refresh = false) {
+  if (globalThis.GLDN_DEPLOYMENT_CHANNEL === 'webstore') return { ok: true, channel: 'webstore', runtimeVersion: EXTENSION_VERSION, currentVersion: EXTENSION_VERSION, nativeUpdates: true };
   const [status, workflowStatus, stored] = await Promise.all([
     updaterRequest(`/status${refresh ? '?refresh=1' : ''}`, { timeoutMs: refresh ? 20000 : 3000 }),
     activeWorkflowStatus(),
@@ -7100,7 +7122,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'gldnLocalControlHeartbeat') {
-    return respondToExtensionMessage(pollLocalControl(), sendResponse, 'local-control-heartbeat');
+    sendResponse({ ok: true, disabled: true, scheduler: 'background-alarm' });
+    return false;
+  }
+
+  if (['getOpsHealth', 'beginControlPairing', 'finishControlPairing', 'disableControlPairing'].includes(message.type)) {
+    if (!String(sender.url || '').startsWith(chrome.runtime.getURL('ops-health.html'))) {
+      sendResponse({ ok: false, error: 'Open Health & Installations to use this action.' });
+      return false;
+    }
+    return respondToExtensionMessage(handleOpsHealthMessage(message), sendResponse, 'health-installations');
   }
 
   if (message.type === 'currentTabInfo') {

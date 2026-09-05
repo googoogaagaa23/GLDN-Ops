@@ -1,85 +1,45 @@
-param(
-  [string]$Version = ""
-)
-
-$ErrorActionPreference = "Stop"
-
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$extensionRoot = Join-Path $repoRoot "extension"
-$manifestPath = Join-Path $extensionRoot "manifest.json"
-$distRoot = Join-Path $repoRoot "dist"
-$buildRoot = Join-Path $repoRoot ".webstore-build"
-$stageRoot = Join-Path $buildRoot "extension"
-
-$manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+param([string]$Version = '')
+$ErrorActionPreference = 'Stop'
+$repoRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$extensionRoot = Join-Path $repoRoot 'extension'
+$manifest = Get-Content -Raw -LiteralPath (Join-Path $extensionRoot 'manifest.json') | ConvertFrom-Json
 if (-not $Version) { $Version = [string]$manifest.version }
-if ($Version -ne [string]$manifest.version) {
-  throw "Requested version $Version does not match manifest version $($manifest.version)."
+if ($Version -cne [string]$manifest.version) { throw 'Requested and source versions do not match.' }
+$stageRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot '.webstore-build\extension'))
+if (-not $stageRoot.StartsWith($repoRoot.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid staging directory.' }
+if (Test-Path -LiteralPath $stageRoot) { Remove-Item -LiteralPath $stageRoot -Recurse -Force }
+New-Item -ItemType Directory -Path $stageRoot -Force | Out-Null
+# Ship the complete top-level runtime, not an obsolete hand-maintained subset.
+Get-ChildItem -LiteralPath $extensionRoot -File | Where-Object { $_.Extension -in @('.js','.json','.html','.css','.txt') -and $_.Name -ne 'config.js' } | ForEach-Object {
+  Copy-Item -LiteralPath $_.FullName -Destination $stageRoot
 }
-
-New-Item -ItemType Directory -Force -Path $distRoot, $buildRoot | Out-Null
-if (Test-Path $stageRoot) {
-  Remove-Item -LiteralPath $stageRoot -Recurse -Force
+Copy-Item -LiteralPath (Join-Path $extensionRoot 'icons') -Destination (Join-Path $stageRoot 'icons') -Recurse
+foreach ($required in @('sniping-audit.js','sniping-review.js','ops-health-background.js','profit-backfill-background.js','ebay-profit-background.js')) {
+  if (-not (Test-Path -LiteralPath (Join-Path $stageRoot $required))) { throw "Required runtime missing: $required" }
 }
-New-Item -ItemType Directory -Force -Path $stageRoot | Out-Null
-
-$runtimeFiles = @(
-  "manifest.json",
-  "config.example.js",
-  "foundation.js",
-  "shared.js",
-  "control-heartbeat.js",
-  "profit-audit.js",
-  "sniping-audit.js",
-  "subscribe-save.js",
-  "sniping-review.html",
-  "sniping-review.css",
-  "sniping-review.js",
-  "background.js",
-  "popup.html",
-  "popup.js",
-  "styles.css",
-  "guide.html",
-  "amazon.js",
-  "walmart.js",
-  "ebay.js",
-  "ecomsniper.js",
-  "poshmark.js",
-  "reload.html",
-  "reload.js",
-  "start-move99.html",
-  "start-move99.js"
-)
-
-foreach ($file in $runtimeFiles) {
-  $source = Join-Path $extensionRoot $file
-  if (-not (Test-Path $source)) { throw "Missing extension runtime file: $file" }
-  Copy-Item -LiteralPath $source -Destination (Join-Path $stageRoot $file)
+[IO.File]::WriteAllText((Join-Path $stageRoot 'deployment-channel.js'), "globalThis.GLDN_DEPLOYMENT_CHANNEL = 'webstore';`n")
+foreach ($forbidden in @('key','update_url')) {
+  if ($manifest.PSObject.Properties.Name -contains $forbidden) { throw "Store manifest must not contain $forbidden." }
 }
-
-Copy-Item -LiteralPath (Join-Path $extensionRoot "icons") -Destination (Join-Path $stageRoot "icons") -Recurse
-
-$stagedManifest = Get-Content -LiteralPath (Join-Path $stageRoot "manifest.json") -Raw | ConvertFrom-Json
-if ($stagedManifest.permissions -contains "management") { throw "Chrome Web Store package must not request management permission." }
-if ($stagedManifest.PSObject.Properties.Name -contains "update_url") { throw "Chrome Web Store package must not include update_url." }
-if ($stagedManifest.PSObject.Properties.Name -contains "key") { throw "Chrome Web Store package must not include a manifest key." }
-foreach ($hostPermission in @($stagedManifest.host_permissions)) {
-  if ($hostPermission -match "localhost|127\.0\.0\.1") { throw "Chrome Web Store package must not include external Windows helper host permissions." }
+# The Store channel exposes other-site tools through the toolbar, not an all-sites content script.
+$broadHosts = @('http://*/*','https://*/*','*://*/*','<all_urls>')
+$manifest.host_permissions = @($manifest.host_permissions | Where-Object { $_ -notin $broadHosts })
+$manifest.content_scripts = @($manifest.content_scripts | Where-Object { @($_.matches | Where-Object { $_ -in $broadHosts }).Count -eq 0 })
+$manifest | Add-Member -NotePropertyName optional_host_permissions -NotePropertyValue @('http://127.0.0.1/*') -Force
+[IO.File]::WriteAllText((Join-Path $stageRoot 'manifest.json'), ($manifest | ConvertTo-Json -Depth 20), [Text.UTF8Encoding]::new($false))
+$config = Get-Content -Raw -LiteralPath (Join-Path $stageRoot 'config.example.js')
+if ($config -match 'dashboardKey\s*:\s*["''][^"'']+["'']') { throw 'Public package contains a dashboard credential.' }
+foreach ($script in (Get-ChildItem -LiteralPath $stageRoot -File -Filter '*.js')) {
+  $text = Get-Content -Raw -LiteralPath $script.FullName
+  foreach ($call in [regex]::Matches($text, 'importScripts\(([\s\S]*?)\)')) {
+    foreach ($file in [regex]::Matches($call.Groups[1].Value, '["'']([^"'']+\.js)["'']')) {
+      if (-not (Test-Path -LiteralPath (Join-Path $stageRoot $file.Groups[1].Value))) { throw "Missing runtime import: $($file.Groups[1].Value)" }
+    }
+  }
 }
-
-$configText = Get-Content -LiteralPath (Join-Path $stageRoot "config.example.js") -Raw
-if ($configText -match 'dashboardKey:\s*"[^"]{1,}"') {
-  throw "Chrome Web Store package must not contain a built-in dashboard key."
-}
-if ($configText -match "GLDN-Private-Seller-Level") {
-  throw "Chrome Web Store package contains the private dashboard key."
-}
-
-$zipPath = Join-Path $distRoot "GLDN-Ops-webstore-v$Version.zip"
-if (Test-Path $zipPath) {
-  Remove-Item -LiteralPath $zipPath -Force
-}
-Compress-Archive -Path (Join-Path $stageRoot "*") -DestinationPath $zipPath -CompressionLevel Optimal
-
-Write-Host "Built Chrome Web Store ZIP:"
-Write-Host "  $zipPath"
+$dist = Join-Path $repoRoot 'dist'
+New-Item -ItemType Directory -Path $dist -Force | Out-Null
+$zip = Join-Path $dist "GLDN-Ops-webstore-v$Version.zip"
+if (Test-Path -LiteralPath $zip) { Remove-Item -LiteralPath $zip -Force }
+Compress-Archive -Path (Join-Path $stageRoot '*') -DestinationPath $zip -CompressionLevel Optimal
+[pscustomobject]@{ ok=$true; zip=$zip; sha256=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash; submitted=$false; approved=$false } | ConvertTo-Json

@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.32
+
+- Fix closed-review registration races without bypassing unrelated approvals.
+- Pair background control per Chrome profile; remove webpage heartbeats and back off idle/unavailable control polling.
+- Add Health & Installations with saved progress, review owners, queued-record counts, versions, and explicit pairing/revocation.
+- Replace the legacy force-install script with plan-first non-overwriting store policy configuration; build the complete separate Chrome-managed store runtime.
+- This candidate still needs its signed-in live rollout gate. New inventory and pairing require the updated one-time Windows installer; extension-only updates do not replace the helper.
+
 All notable extension releases should be recorded here before they are deployed to other computers.
 
 ## v3.12.31 - 2026-09-03

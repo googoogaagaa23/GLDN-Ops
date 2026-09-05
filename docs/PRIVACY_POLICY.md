@@ -1,6 +1,6 @@
 # GLDN Ops Privacy Policy
 
-Effective date: 2026-07-07
+Effective date: 2026-09-05
 
 GLDN Ops is an internal marketplace operations assistant used by authorized team members.
 
@@ -20,6 +20,9 @@ GLDN Ops may read page content from supported sites only when needed for its vis
 - Poshmark order, sales, earnings, closet stats, listing, and profile data.
 - EcomSniper workflow page controls needed for handoff status.
 - Local extension settings, diagnostics, and workflow state.
+- Buyer and recipient names, delivery addresses, and contact details needed for reviewed order audits or delivery handoffs.
+
+In the local/unpacked build, the general GLDN launcher can appear on other HTTP/HTTPS pages and its manifest grants broad page access. The Store package limits automatic page access to supported sites and uses its toolbar elsewhere; local helper access is optional and requested by the Pair This Profile action. Page-reading workflows use their own supported-page and account checks in both builds.
 
 ## How Data Is Used
 
@@ -47,8 +50,11 @@ The extension stores settings locally in the Chrome profile, including:
 - UI preferences.
 - Move .99 category settings.
 - Recent workflow state and diagnostic logs.
+- Optional local-control installation identity and per-profile credential. It is excluded from settings backups and Health & Installations results.
 
 Users can clear local extension data by removing the extension from Chrome or by clearing the relevant extension storage.
+
+Local records remain until cleared or removed. Shared Google Sheet records remain until their authorized owner deletes them; uninstalling GLDN Ops does not delete shared data. Optional local control can be disabled separately. The Windows helper stores only a hash of each profile's control credential and its explicit profile binding.
 
 ## Clipboard
 
@@ -60,7 +66,7 @@ Dashboard sync uses HTTPS and requires a private setup code saved in the local C
 
 ## Reviewed eBay Final Actions
 
-The local unpacked build uses Chrome debugger input only after the operator separately approves eBay's final Mark as Shipped confirmation for an exact order count. Before sending one mouse press and one mouse release, GLDN Ops rechecks the exact owner tab, Awaiting shipment URL, approved count, confirmation dialog, action label, and hit-tested button. It does not inspect network traffic, change developer settings, or automatically retry an ambiguous final action.
+The extension includes Chrome debugger permission for approved native eBay input. The Mark as Shipped final-action path requires separate approval for the exact count and rechecks the owner tab, Awaiting shipment page, count, confirmation dialog, action label, and hit-tested button before sending input. Ambiguous final actions must be reviewed rather than blindly retried.
 
 ## Contact
 

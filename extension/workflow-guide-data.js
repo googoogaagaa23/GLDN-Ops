@@ -1,6 +1,6 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.31",
-  "updated": "2026-09-03",
+  "version": "3.12.32",
+  "updated": "2026-09-05",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",
@@ -11,6 +11,32 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
     "IMPLEMENTED, LIVE REVIEW PENDING": "The implementation and deterministic data checks pass, but the current signed-in marketplace review still needs to be reached."
   },
   "features": [
+    {
+      "id": "ops-health",
+      "matrix": "F-02, F-11",
+      "title": "Health & Installations",
+      "status": "IMPLEMENTED, UNPROVEN",
+      "summary": "Read workflow progress, review owners, installation files, and control pairing.",
+      "prerequisites": [
+        "Open the intended Chrome profile.",
+        "The latest Windows helper is needed for inventory and pairing."
+      ],
+      "steps": [
+        "Open Health & Installations from the popup.",
+        "Check identity and running version.",
+        "Refresh Status reads installed files and the public release.",
+        "Open Results to review, pause, or resume a saved workflow.",
+        "For background control, choose Pair This Profile, approve its code locally for the exact profile directory, then Check Pairing Approval."
+      ],
+      "approvalStop": "Pairing requires explicit local approval. No marketplace or spreadsheet action is approved here.",
+      "output": "Profile-specific diagnostics. Other profiles' disk versions are not live runtime verification.",
+      "recovery": [
+        "Upgrade the one-time Windows helper if inventory or pairing is unavailable.",
+        "Stale-progress warnings do not reset work.",
+        "Queued sheet records are not confirmed saved."
+      ],
+      "evidence": "Deterministic lifecycle, status mapping, and pairing isolation checks. Signed-in deployment remains pending."
+    },
     {
       "id": "setup",
       "matrix": "F-02, F-05, F-06, F-08, F-12",

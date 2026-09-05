@@ -278,7 +278,10 @@
     }
   });
 
+  const pendingReviewReleases = new Set();
   const claimWorkflowStart = async (workflowId, label) => {
+    await Promise.resolve();
+    await Promise.all([...pendingReviewReleases]);
     const result = await runtimeMessage({ type: "claimWorkflowStart", workflowId, label });
     if (!result?.ok) throw new Error(result?.error || `Could not start ${label || "workflow"}.`);
     return result.token;
@@ -292,20 +295,28 @@
   const documentInstanceId = globalThis.crypto?.randomUUID?.() || `document-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const openReviewReset = runtimeMessage({ type: "clearOpenReviewsForTab" });
 
+  const openReviewLifecycles = new WeakMap();
   const registerOpenReview = async (modal) => {
     if (!modal || modal.dataset.gldnOpenReviewToken) return;
     const token = globalThis.crypto?.randomUUID?.() || `review-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     const label = normalizeText(modal.querySelector("h1, h2, h3, [role='heading']")?.textContent || "GLDN review").slice(0, 120);
     modal.dataset.gldnOpenReviewToken = token;
-    await openReviewReset;
-    const result = await runtimeMessage({
+    const lifecycle = { canceled: false, sent: false, pending: null };
+    openReviewLifecycles.set(modal, lifecycle);
+    lifecycle.pending = (async () => {
+      await openReviewReset;
+      if (lifecycle.canceled || modal.isConnected === false) return;
+      lifecycle.sent = true;
+      const result = await runtimeMessage({
       type: "registerOpenReview",
       token,
       label,
       page: location.href,
       documentInstanceId
-    });
-    if (!result?.ok) delete modal.dataset.gldnOpenReviewToken;
+      });
+      if (!result?.ok && !lifecycle.canceled) delete modal.dataset.gldnOpenReviewToken;
+    })();
+    await lifecycle.pending;
   };
 
   const releaseOpenReviewsInNode = (node) => {
@@ -315,7 +326,18 @@
     modals.push(...node.querySelectorAll?.(".gldn-modal[data-gldn-open-review-token]") || []);
     for (const modal of modals) {
       const token = modal.dataset.gldnOpenReviewToken;
-      if (token) runtimeMessage({ type: "releaseOpenReview", token });
+      const lifecycle = openReviewLifecycles.get(modal);
+      if (lifecycle) {
+        lifecycle.canceled = true;
+        // Finish any in-flight registration before releasing its background lock.
+        const released = lifecycle.pending.then(() => {
+          if (lifecycle.sent && token) return runtimeMessage({ type: "releaseOpenReview", token });
+        });
+        pendingReviewReleases.add(released);
+        void released.finally(() => pendingReviewReleases.delete(released));
+      } else if (token) {
+        runtimeMessage({ type: "releaseOpenReview", token });
+      }
     }
   };
 

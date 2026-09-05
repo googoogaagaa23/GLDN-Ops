@@ -1,6 +1,6 @@
 # Chrome Web Store Submission (Archived)
 
-This path is not used for the current GLDN Ops rollout. Local unpacked deployment is the supported path; see `INSTALL.md` and `docs/LOCAL_DEPLOYMENT.md`. The remaining content below is retained only as historical reference.
+Superseded by [the v3.12.32 submission preparation](STORE_SUBMISSION_V31232.md). The permissions, package name, and checks below describe an old build and must not be copied into the current submission. Local deployment remains the immediate path until the Store release is approved.
 
 This is the release path for automatic updates across computers. Use Chrome Web Store distribution instead of unpacked ZIP installs, GitHub ZIP updates, CRX policy experiments, or external Windows click services.
 

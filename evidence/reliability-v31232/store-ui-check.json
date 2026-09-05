@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "version": "3.12.32",
+  "channel": "webstore",
+  "isolated": true,
+  "signedInMarketplace": false,
+  "pageNetworkBlocked": true,
+  "serviceWorkerNetworkBlocked": false,
+  "pageErrors": [],
+  "checks": [
+    "actual service worker startup",
+    "empty state",
+    "stored progress",
+    "review ownership",
+    "queued records",
+    "desktop/mobile layout",
+    "results navigation",
+    "no all-sites injection or broad host grant",
+    "optional helper access not granted by default"
+  ]
+}

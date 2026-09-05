@@ -1,0 +1,3 @@
+98bb5a9b73eb71d2116f254ecba6eb276d6d97638e8e1c78655d6ea3d244d3aa  GLDN-Ops-extension-v3.12.32.zip
+b8dd1a7d0468c5b8af56f2cbf6f24f6cb77c01096117a65216782b03b205c06f  GLDN-Ops-local-v3.12.32.zip
+029a58fbfc380ea8180991f3d19a2be912b46d2adbf1dc68eeac1004aa15541c  GLDN-Ops-webstore-v3.12.32.zip
