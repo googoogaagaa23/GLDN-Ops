@@ -1,4 +1,12 @@
-GLDN Ops v3.12.32
+GLDN Ops v3.12.33
+
+v3.12.33 existing-listings policy audit recovery:
+- Shows classification progress after all listing pages have been collected.
+- Resume finishes saved final-page scans without opening a nonexistent extra page.
+- Interrupted scans and their saved listing pages survive the repair update.
+- Reopen Existing Listings Policy Audit and choose Resume Scan after updating.
+- Do not use Reset or Discard Local Audit to clear an old update blocker; use the current installer in the same loaded folder, then reload the extension in Chrome.
+- Read-only repair: no listings are ended and policy decisions are unchanged.
 
 v3.12.31 reverse category launch repair:
 - Sale Event Is OFF starts the read-only Non-.99 scan without the prompt blocking its own workflow.

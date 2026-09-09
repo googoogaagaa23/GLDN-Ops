@@ -215,7 +215,7 @@ test('policy audit page exposes complete recovery and CSV review but guards all 
   assert.match(ebay, /button\.hidden = !isActiveListingsPage\(\)/);
   assert.match(ebay, /function showPolicyListingAuditLauncher\(autoStart = false\)/);
   assert.match(ebay, /showPolicyListingAuditLauncher\(true\)/);
-  assert.match(ebay, /if \(autoStart && !active && !complete\) run\(true\)/);
+  assert.match(ebay, /if \(autoStart && !active && !complete\) run\(!state\?\.runId\)/);
   assert.match(ebay, /Start Fresh Complete Scan/);
   assert.match(ebay, /This window never exposes an End control/);
   assert.match(ebay, /scanEbayPolicyListings/);

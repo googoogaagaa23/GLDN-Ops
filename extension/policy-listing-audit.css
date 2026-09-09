@@ -7,6 +7,7 @@
 }
 
 .audit-only .check-cell { display: none !important; }
+[hidden] { display: none !important; }
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 820px; background: #090d13; }

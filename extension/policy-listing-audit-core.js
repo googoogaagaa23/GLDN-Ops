@@ -117,11 +117,7 @@
     return `policy-rules-${fnv1a(signature)}`;
   }
 
-  function buildPolicyAudit(records, rulePack, metadata = {}, preflight = root.GLDN_LISTING_PREFLIGHT) {
-    if (!preflight) throw new Error("Listing Preflight did not load.");
-    const pack = preflight.normalizeRulePack(rulePack);
-    if (!pack.rules.length) throw new Error("No reviewed policy rules are loaded. Existing listings cannot be classified.");
-
+  function normalizedAuditRecords(records) {
     const unique = new Map();
     for (const raw of Array.isArray(records) ? records : []) {
       const record = normalizeListingRecord(raw);
@@ -129,12 +125,15 @@
       if (unique.has(record.itemId)) throw new Error(`Duplicate Active Listing item number: ${record.itemId}.`);
       unique.set(record.itemId, record);
     }
-    const listings = [...unique.values()];
+    return [...unique.values()];
+  }
+
+  function classifyAuditRecords(listings, pack, preflight) {
     const evaluated = preflight.evaluateRows(
       listings.map((listing, index) => listingPreflightRow(listing, index)),
       pack
     );
-    const results = listings.map((listing, index) => {
+    return listings.map((listing, index) => {
       const result = evaluated[index];
       return {
         ...listing,
@@ -160,6 +159,9 @@
         }))
       };
     });
+  }
+
+  function assemblePolicyAudit(results, pack, metadata, preflight) {
     results.sort((left, right) => {
       const rank = { block: 0, review: 1, clear: 2 };
       return Number(rank[left.action] ?? 3) - Number(rank[right.action] ?? 3)
@@ -191,10 +193,40 @@
       importedAt: scannedAt,
       computerLabel,
       ebayAccountLabel,
-      totalListings: listings.length,
+      totalListings: results.length,
       summary,
       listings: results
     };
+  }
+
+  function buildPolicyAudit(records, rulePack, metadata = {}, preflight = root.GLDN_LISTING_PREFLIGHT) {
+    if (!preflight) throw new Error("Listing Preflight did not load.");
+    const pack = preflight.normalizeRulePack(rulePack);
+    if (!pack.rules.length) throw new Error("No reviewed policy rules are loaded. Existing listings cannot be classified.");
+    return assemblePolicyAudit(classifyAuditRecords(normalizedAuditRecords(records), pack, preflight), pack, metadata, preflight);
+  }
+
+  async function buildPolicyAuditAsync(records, rulePack, metadata = {}, preflight = root.GLDN_LISTING_PREFLIGHT, options = {}) {
+    if (!preflight) throw new Error("Listing Preflight did not load.");
+    const pack = preflight.normalizeRulePack(rulePack);
+    if (!pack.rules.length) throw new Error("No reviewed policy rules are loaded. Existing listings cannot be classified.");
+    const listings = normalizedAuditRecords(records);
+    const batchSize = Math.max(1, Math.min(200, Math.floor(Number(options.batchSize) || 100)));
+    const results = [];
+    const summary = { total: 0, clear: 0, review: 0, block: 0 };
+    if (options.onProgress) await options.onProgress({ classifiedListings: 0, totalListings: listings.length, summary: { ...summary } });
+    for (let offset = 0; offset < listings.length; offset += batchSize) {
+      // Let storage updates, pause requests and worker lifecycle events run between bounded batches.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const batch = classifyAuditRecords(listings.slice(offset, offset + batchSize), pack, preflight);
+      results.push(...batch);
+      for (const result of batch) {
+        summary.total += 1;
+        if (Object.hasOwn(summary, result.action)) summary[result.action] += 1;
+      }
+      if (options.onProgress) await options.onProgress({ classifiedListings: results.length, totalListings: listings.length, summary: { ...summary } });
+    }
+    return assemblePolicyAudit(results, pack, metadata, preflight);
   }
 
   function blockItemIds(audit, requestedIds = [], completedIds = []) {
@@ -329,6 +361,7 @@
     listingPreflightRow,
     rulePackFingerprint,
     buildPolicyAudit,
+    buildPolicyAuditAsync,
     blockItemIds,
     normalizeEndSubmissionOutcome,
     compactControlRecord,

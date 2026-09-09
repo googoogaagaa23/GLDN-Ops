@@ -11486,23 +11486,30 @@
     const renderStored = async () => {
       const stored = await storageGet(["ebayPolicyListingScanState", "ebayPolicyListingAudit"]);
       const state = stored.ebayPolicyListingScanState || null;
-      const audit = stored.ebayPolicyListingAudit || null;
-      const summary = audit?.summary || {};
+      const audit = !state || state.phase === "complete" ? stored.ebayPolicyListingAudit || null : null;
+      const summary = audit?.summary || state?.classificationSummary || {};
       modal.querySelector("[data-policy-metric='total']").textContent = Number(summary.total || state?.scannedListings || 0).toLocaleString();
       modal.querySelector("[data-policy-metric='clear']").textContent = Number(summary.clear || 0).toLocaleString();
       modal.querySelector("[data-policy-metric='review']").textContent = Number(summary.review || 0).toLocaleString();
       modal.querySelector("[data-policy-metric='block']").textContent = Number(summary.block || 0).toLocaleString();
-      const scanning = state?.active === true && state?.phase === "scanning";
+      const scanning = state?.active === true && ["scanning", "classifying", "saving"].includes(state?.phase);
       const resumable = !scanning && ["paused", "error"].includes(String(state?.phase || "")) && Boolean(state?.runId);
+      if (state?.interrupted && state.phase === "paused") busy = false;
       startButton.disabled = busy || scanning;
       resumeButton.disabled = busy || !resumable;
-      pauseButton.disabled = !scanning;
+      pauseButton.disabled = !scanning || state?.phase === "saving" || state?.stopRequested === true;
       if (state?.phase === "complete" && audit) {
         status.textContent = `Complete: ${Number(summary.total || 0).toLocaleString()} unique listings verified; ${Number(summary.block || 0).toLocaleString()} reviewed Block, ${Number(summary.review || 0).toLocaleString()} Needs Review, ${Number(summary.clear || 0).toLocaleString()} no rule match. Nothing was ended.`;
+      } else if (state?.phase === "classifying") {
+        status.textContent = `Checking policy rules: ${Number(state.classifiedListings || 0).toLocaleString()} of ${Number(state.totalListings || 0).toLocaleString()} listings classified. All pages are saved.`;
+      } else if (state?.phase === "saving") {
+        status.textContent = "Saving the completed policy results...";
       } else if (scanning) {
         status.textContent = `Scanning page ${Number(state.page || 1).toLocaleString()}${state.totalPages ? ` of ${Number(state.totalPages).toLocaleString()}` : ""}: ${Number(state.scannedListings || 0).toLocaleString()} of ${Number(state.totalListings || 0).toLocaleString()} verified.`;
       } else if (resumable) {
-        status.textContent = `${state.error || `Paused before page ${Number(state.nextPage || 1).toLocaleString()}.`} Resume continues from the saved verified checkpoint.`;
+        status.textContent = Number(state.totalPages || 0) > 0 && Number(state.completedPages || 0) >= Number(state.totalPages)
+          ? `${state.error || "All listing pages are saved."} Resume finishes policy results without rescanning completed pages.`
+          : `${state.error || `Paused before page ${Number(state.nextPage || 1).toLocaleString()}.`} Resume continues from the saved verified checkpoint.`;
       } else if (!busy) {
         status.textContent = audit ? "A complete saved audit is available." : "No complete policy audit is saved yet.";
       }
@@ -11537,12 +11544,20 @@
       const response = await runtimeMessage({ type: "openExtensionPage", page: "policy-listing-audit.html" });
       if (!response?.ok) status.textContent = response?.error || "Detailed results could not open.";
     });
-    refreshTimer = setInterval(() => renderStored().catch(() => {}), 1500);
-    renderStored()
+    let recoveryCheck = 0;
+    const refresh = async () => {
+      if (Date.now() - recoveryCheck >= 15000) {
+        recoveryCheck = Date.now();
+        await runtimeMessage({ type: "getEbayPolicyListingScanStatus" }, 15000).catch(() => null);
+      }
+      return renderStored();
+    };
+    refreshTimer = setInterval(() => refresh().catch(() => {}), 1500);
+    refresh()
       .then(({ state, audit }) => {
-        const active = state?.active === true && state?.phase === "scanning";
+        const active = state?.active === true;
         const complete = state?.phase === "complete" && Boolean(audit);
-        if (autoStart && !active && !complete) run(true);
+        if (autoStart && !active && !complete) run(!state?.runId);
       })
       .catch((error) => { status.textContent = error.message; });
   }

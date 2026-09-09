@@ -148,9 +148,16 @@
     if (!state) return "No complete scan saved.";
     if (state.phase === "scanning") {
       const totalPages = Number(state.totalPages || 0);
+      if (totalPages && Number(state.completedPages || 0) >= totalPages) {
+        return `All ${Number(state.scannedListings || 0).toLocaleString()} listings collected. Preparing policy results...`;
+      }
       return `Scanning page ${Number(state.page || 1).toLocaleString()}${totalPages ? ` of ${totalPages.toLocaleString()}` : ""}: ${Number(state.scannedListings || 0).toLocaleString()} of ${Number(state.totalListings || 0).toLocaleString()} verified.`;
     }
-    if (state.phase === "paused") return `Paused before page ${Number(state.nextPage || 1).toLocaleString()}. Resume continues from the saved verified checkpoint.`;
+    if (state.phase === "classifying") return `Checking policy rules: ${Number(state.classifiedListings || 0).toLocaleString()} of ${Number(state.totalListings || 0).toLocaleString()} listings classified. All listing pages are saved.`;
+    if (state.phase === "saving") return `Saving results for all ${Number(state.totalListings || 0).toLocaleString()} listings...`;
+    if (state.phase === "paused") return Number(state.totalPages || 0) > 0 && Number(state.completedPages || 0) >= Number(state.totalPages)
+      ? "Paused after collecting every listing. Resume finishes policy results from the saved listings; no pages need rescanning."
+      : `Paused before page ${Number(state.nextPage || 1).toLocaleString()}. Resume continues from the saved verified checkpoint.`;
     if (state.phase === "error") return `${String(state.error || "The scan stopped safely.")} The verified checkpoint is resumable.`;
     if (state.phase === "complete") return `Complete: ${Number(state.totalListings || 0).toLocaleString()} unique Active Listings were verified and classified.`;
     return "Preparing a quiet signed-in eBay scan tab...";
@@ -163,15 +170,16 @@
     const totalPages = allRows.length ? Math.ceil(allRows.length / PAGE_SIZE) : 0;
     const start = allRows.length ? (page - 1) * PAGE_SIZE + 1 : 0;
     const end = allRows.length ? Math.min(page * PAGE_SIZE, allRows.length) : 0;
-    const scanActive = scanState?.active === true && scanState?.phase === "scanning";
+    const scanActive = scanState?.active === true && ["scanning", "classifying", "saving"].includes(scanState?.phase);
     const resumable = !scanActive && ["paused", "error"].includes(String(scanState?.phase || "")) && Boolean(scanState?.runId);
     const hasAnyPendingReview = pendingReview?.active === true;
     const hasPendingReview = pendingMatchesAudit();
 
-    elements.metricScanned.textContent = Number(audit?.summary?.total || 0).toLocaleString();
-    elements.metricClear.textContent = Number(audit?.summary?.clear || 0).toLocaleString();
-    elements.metricReview.textContent = Number(audit?.summary?.review || 0).toLocaleString();
-    elements.metricBlock.textContent = Number(audit?.summary?.block || 0).toLocaleString();
+    const summary = audit?.summary || scanState?.classificationSummary || {};
+    elements.metricScanned.textContent = Number(audit?.summary?.total || scanState?.scannedListings || 0).toLocaleString();
+    elements.metricClear.textContent = Number(summary.clear || 0).toLocaleString();
+    elements.metricReview.textContent = Number(summary.review || 0).toLocaleString();
+    elements.metricBlock.textContent = Number(summary.block || 0).toLocaleString();
     elements.metricEnded.textContent = done.size.toLocaleString();
     elements.metricSelected.textContent = selectedIds.size.toLocaleString();
     elements.scanHeadline.textContent = scanProgressMessage(scanState);
@@ -180,12 +188,12 @@
       : "A complete scan is read-only. It verifies each 200-row eBay page before classification.";
     elements.auditIdentity.textContent = audit
       ? `${audit.computerLabel} / ${audit.ebayAccountLabel}`
-      : "No audit";
+      : scanState?.computerLabel ? `${scanState.computerLabel} / ${scanState.ebayAccountLabel}` : "No audit";
 
     elements.freshScan.disabled = scanActive || operationBusy;
     elements.freshScan.textContent = hasAnyPendingReview ? "Cancel Review & Start Fresh Scan" : "Start Fresh Complete Scan";
     elements.resumeScan.disabled = !resumable || operationBusy || hasAnyPendingReview;
-    elements.stopScan.disabled = !scanActive;
+    elements.stopScan.disabled = !scanActive || scanState?.phase === "saving" || scanState?.stopRequested === true;
     elements.discardScan.disabled = scanActive || operationBusy || hasPendingReview || (!audit && !scanState);
     elements.selectAllBlock.disabled = !audit || scanActive || operationBusy;
     elements.clearSelection.disabled = !selectedIds.size;
@@ -218,7 +226,7 @@
     }
 
     if (!rows.length) {
-      elements.listingRows.innerHTML = `<tr><td colspan="7" class="empty">${audit ? "No listings match this filter." : "Run a complete read-only scan to begin."}</td></tr>`;
+      elements.listingRows.innerHTML = `<tr><td colspan="7" class="empty">${audit ? "No listings match this filter." : scanState?.runId ? escapeHtml(scanProgressMessage(scanState)) : "Run a complete read-only scan to begin."}</td></tr>`;
       return;
     }
 
@@ -251,7 +259,7 @@
         if (response?.paused) setStatus(response.error, "success");
         else throw new Error(response?.error || "The policy scan stopped safely.");
       } else {
-        audit = response.audit;
+        audit = response.audit || audit;
         selectedIds.clear();
         setStatus(`Complete: ${Number(response.scannedListings || 0).toLocaleString()} listings classified read-only. ${Number(response.summary?.block || 0).toLocaleString()} official Block matches require urgent human inspection; no listing was changed.`, "success");
       }
@@ -262,6 +270,7 @@
       const stored = await storageGet([AUDIT_KEY, SCAN_KEY]);
       audit = stored[AUDIT_KEY] || audit;
       scanState = stored[SCAN_KEY] || scanState;
+      if (scanState && scanState.phase !== "complete") audit = null;
       render();
     }
   }
@@ -458,6 +467,8 @@
     }
     if (changes[SCAN_KEY]) {
       scanState = changes[SCAN_KEY].newValue || null;
+      if (scanState && scanState.phase !== "complete") audit = null;
+      if (scanState?.interrupted && scanState.phase === "paused") operationBusy = false;
       if (scanState) setStatus(scanProgressMessage(scanState), scanState.phase === "error" ? "error" : scanState.phase === "complete" ? "success" : "");
     }
     if (changes[PENDING_KEY]) {
@@ -470,9 +481,11 @@
   });
 
   try {
+    await runtimeMessage({ type: "getEbayPolicyListingScanStatus" }, 15000).catch(() => null);
     const stored = await storageGet([AUDIT_KEY, SCAN_KEY, PENDING_KEY, LEDGER_KEY, RESULT_KEY]);
     audit = stored[AUDIT_KEY] || null;
     scanState = stored[SCAN_KEY] || null;
+    if (scanState && scanState.phase !== "complete") audit = null;
     pendingReview = stored[PENDING_KEY] || null;
     endLedger = stored[LEDGER_KEY] || {};
     latestResult = stored[RESULT_KEY] || null;
@@ -485,4 +498,12 @@
   } catch (error) {
     setStatus(error?.message || String(error), "error");
   }
+
+  // A restarted background worker can leave an active checkpoint with nobody processing it.
+  setInterval(() => {
+    if (scanState?.active) {
+      runtimeMessage({ type: "getEbayPolicyListingScanStatus" }, 15000)
+        .catch((error) => setStatus(`Cannot reach the scan worker: ${error.message} Saved listings have not been discarded.`, "error"));
+    }
+  }, 15000);
 })();

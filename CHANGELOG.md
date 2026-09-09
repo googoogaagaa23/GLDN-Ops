@@ -1,5 +1,15 @@
 # GLDN Ops Changelog
 
+## v3.12.33 - 2026-09-08
+
+- Fix final-page policy audit recovery, including the 18,359-listing page-92 checkpoint.
+- Classify in bounded batches with progress, pause support and a small completion message.
+- Recover interrupted workers and retain verified raw pages if saving fails.
+- Preserve read-only scan checkpoints through updates without preserving old End approvals.
+- Hide the unused native End-review section and resume saved work from the eBay launcher.
+- Keeps v3.12.32 installation/health/pairing changes. Policy rules and listing-ending permissions are unchanged.
+- Automated and isolated UI checks are separate from M0 live verification, which remains pending.
+
 ## v3.12.32
 
 - Fix closed-review registration races without bypassing unrelated approvals.

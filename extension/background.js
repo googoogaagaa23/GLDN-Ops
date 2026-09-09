@@ -79,6 +79,8 @@ let workflowStartQueue = Promise.resolve();
 let openReviewQueue = Promise.resolve();
 let historicalProfitSyncPromise = null;
 let ebayMonthlyProfitSyncPromise = null;
+let policyListingScanPromise = null;
+let policyListingStopRequested = false;
 let localControlPollRunning = false;
 let localControlNextPollAt = 0;
 let localControlBackoffMs = 30000;
@@ -4217,10 +4219,24 @@ async function startMove99WorkflowFromExtension(message = {}) {
 async function clearIncompatibleWorkflowState(reason = 'extension-start') {
   const stored = await storageGet([...VERSIONED_WORKFLOW_KEYS, 'gldnOpenReviews']);
   const remove = [];
+  const preserved = {};
   for (const key of VERSIONED_WORKFLOW_KEYS) {
     const value = stored[key];
     if (value == null || value === false) continue;
     if (value === true || typeof value !== 'object' || String(value.extensionVersion || '') !== EXTENSION_VERSION) {
+      if (key === 'ebayPolicyListingScanState' && value && typeof value === 'object' && !Array.isArray(value)
+          && String(value.runId || '') && ['scanning', 'classifying', 'saving', 'paused', 'error', 'complete'].includes(value.phase)) {
+        // This is read-only evidence, not an approval. Resume revalidates identity, rules and every saved page.
+        preserved[key] = {
+          ...value,
+          active: false,
+          phase: value.phase === 'complete' ? 'complete' : 'paused',
+          interrupted: value.phase !== 'complete',
+          stopRequested: false,
+          updatedAt: new Date().toISOString()
+        };
+        continue;
+      }
       remove.push(key);
     }
   }
@@ -4234,16 +4250,17 @@ async function clearIncompatibleWorkflowState(reason = 'extension-start') {
   )));
   const reviewsChanged = Object.keys(compatibleReviews).length !== Object.keys(reviews).length;
   if (remove.length) await storageRemove(remove);
+  if (Object.keys(preserved).length) await storageSet(preserved);
   if (reviewsChanged) await storageSet({ gldnOpenReviews: compatibleReviews });
-  if (!remove.length && !reviewsChanged) return { ok: true, changed: false };
+  if (!remove.length && !reviewsChanged && !Object.keys(preserved).length) return { ok: true, changed: false };
   await recordExtensionLog({
     source: 'foundation',
     level: 'info',
     operation: 'workflow-version-migration',
-    message: `Cleared workflow state from an incompatible extension context: ${[...remove, ...(reviewsChanged ? ['gldnOpenReviews'] : [])].join(', ')}.`,
+    message: `Cleared incompatible workflow state: ${[...remove, ...(reviewsChanged ? ['gldnOpenReviews'] : [])].join(', ') || 'none'}. Preserved read-only scan checkpoints: ${Object.keys(preserved).join(', ') || 'none'}.`,
     detail: reason
   });
-  return { ok: true, changed: true, removed: remove, reviewsChanged };
+  return { ok: true, changed: true, removed: remove, preserved: Object.keys(preserved), reviewsChanged };
 }
 
 async function clearRemovedBulkAutomationState() {
@@ -5226,7 +5243,57 @@ async function readCompletePolicyListingScan(runId, totalListings) {
   return records;
 }
 
-async function scanEbayPolicyListings(request = {}, sender = {}) {
+async function recoverInterruptedPolicyListingScan(starting = false) {
+  if (policyListingScanPromise && !starting) return;
+  const stored = await storageGet([POLICY_LISTING_SCAN_STATE_KEY, 'gldnWorkflowReservation']);
+  if (policyListingScanPromise && !starting) return;
+  const state = stored[POLICY_LISTING_SCAN_STATE_KEY];
+  if (!state?.active || !['scanning', 'classifying', 'saving'].includes(state.phase)) return;
+  await storageSet({
+    [POLICY_LISTING_SCAN_STATE_KEY]: {
+      ...state,
+      active: false,
+      phase: 'paused',
+      interrupted: true,
+      stopRequested: false,
+      updatedAt: new Date().toISOString()
+    }
+  });
+  if (stored.gldnWorkflowReservation?.id === 'ebay-policy-scan') {
+    await releaseWorkflowStart(stored.gldnWorkflowReservation.token);
+  }
+}
+
+async function getEbayPolicyListingScanStatus() {
+  await recoverInterruptedPolicyListingScan();
+  const stored = await storageGet([POLICY_LISTING_SCAN_STATE_KEY]);
+  return { ok: true, scanState: stored[POLICY_LISTING_SCAN_STATE_KEY] || null };
+}
+
+function scanEbayPolicyListings(request = {}, sender = {}) {
+  if (policyListingScanPromise) {
+    return Promise.resolve({ ok: false, busy: true, error: 'The policy scan is already running. Its saved progress will update here.' });
+  }
+  policyListingStopRequested = false;
+  policyListingScanPromise = runEbayPolicyListingScan(request, sender)
+    .finally(() => { policyListingScanPromise = null; policyListingStopRequested = false; });
+  return policyListingScanPromise;
+}
+
+async function assertPolicyListingRunActive(runId) {
+  const stored = await storageGet([POLICY_LISTING_SCAN_STATE_KEY]);
+  const state = stored[POLICY_LISTING_SCAN_STATE_KEY] || {};
+  if (state.runId !== runId) throw new Error('This saved policy scan was replaced by a newer run.');
+  if (state.stopRequested || policyListingStopRequested) {
+    const error = new Error('Paused. The verified listings are saved; Resume can finish without repeating completed pages.');
+    error.policyScanPaused = true;
+    throw error;
+  }
+  return state;
+}
+
+async function runEbayPolicyListingScan(request = {}, sender = {}) {
+  await recoverInterruptedPolicyListingScan(true);
   const pending = await storageGet([PENDING_POLICY_LISTING_END_REVIEW_KEY, 'pendingVariationEndReview']);
   if (pending[PENDING_POLICY_LISTING_END_REVIEW_KEY]?.active) {
     return { ok: false, error: 'An exact policy End review is awaiting approval. Finish or cancel it before rescanning.' };
@@ -5250,11 +5317,14 @@ async function scanEbayPolicyListings(request = {}, sender = {}) {
     const previous = stored[POLICY_LISTING_SCAN_STATE_KEY] || {};
     const canResume = request.fresh !== true
       && String(previous.runId || '')
-      && ['paused', 'error', 'scanning'].includes(String(previous.phase || ''))
+      && ['paused', 'error', 'scanning', 'classifying', 'saving'].includes(String(previous.phase || ''))
       && String(previous.computerLabel || '') === identity.computerLabel
       && String(previous.ebayAccountLabel || '') === identity.ebayAccountLabel
       && String(previous.rulesFingerprint || '') === rulesFingerprint;
 
+    if (request.fresh !== true && previous.runId && !canResume) {
+      throw new Error('The saved scan belongs to a different account or policy-rule version. Its checkpoint was kept; choose Start Fresh Complete Scan to replace it.');
+    }
     if (canResume) {
       runId = String(previous.runId);
       nextPage = Math.max(1, Number(previous.nextPage || previous.page || 1));
@@ -5290,15 +5360,17 @@ async function scanEbayPolicyListings(request = {}, sender = {}) {
       }
     });
 
-    scanTab = await createChromeTab({ url: variationScanPageUrl(nextPage), active: false });
-    await waitForControlTabSettled(scanTab.id, 30000);
-    for (let page = nextPage; ; page += 1) {
+    if (!totalPages || nextPage <= totalPages) {
+      scanTab = await createChromeTab({ url: variationScanPageUrl(nextPage), active: false });
+      await waitForControlTabSettled(scanTab.id, 30000);
+    }
+    for (let page = nextPage; !totalPages || page <= totalPages; page += 1) {
       const latest = await storageGet([POLICY_LISTING_SCAN_STATE_KEY]);
       const latestState = latest[POLICY_LISTING_SCAN_STATE_KEY] || {};
       if (String(latestState.runId || '') !== runId) {
         throw new Error('This saved policy scan was replaced by a newer run.');
       }
-      if (latestState.stopRequested === true) {
+      if (latestState.stopRequested === true || policyListingStopRequested) {
         const pausedAt = new Date().toISOString();
         await storageSet({
           [POLICY_LISTING_SCAN_STATE_KEY]: {
@@ -5328,6 +5400,7 @@ async function scanEbayPolicyListings(request = {}, sender = {}) {
       }
 
       const chunkKey = policyListingScanChunkKey(runId, page);
+      await assertPolicyListingRunActive(runId);
       const updatedAt = new Date().toISOString();
       await storageSet({
         [chunkKey]: {
@@ -5363,17 +5436,46 @@ async function scanEbayPolicyListings(request = {}, sender = {}) {
       await controlDelay(VARIATION_SCAN_NAVIGATION_DELAY_MS);
     }
 
+    const collectedState = await assertPolicyListingRunActive(runId);
+    await storageSet({
+      [POLICY_LISTING_SCAN_STATE_KEY]: {
+        ...collectedState,
+        phase: 'classifying',
+        page: totalPages,
+        nextPage: totalPages + 1,
+        classifiedListings: 0,
+        updatedAt: new Date().toISOString()
+      }
+    });
     const records = await readCompletePolicyListingScan(runId, totalListings);
     const scannedAt = new Date().toISOString();
-    const audit = POLICY_LISTING_AUDIT.buildPolicyAudit(records, rulePack, {
+    const audit = await POLICY_LISTING_AUDIT.buildPolicyAuditAsync(records, rulePack, {
       scannedAt,
       computerLabel: identity.computerLabel,
       ebayAccountLabel: identity.ebayAccountLabel
-    }, LISTING_PREFLIGHT);
+    }, LISTING_PREFLIGHT, {
+      batchSize: 100,
+      onProgress: async (progress) => {
+        const state = await assertPolicyListingRunActive(runId);
+        await storageSet({
+          [POLICY_LISTING_SCAN_STATE_KEY]: {
+            ...state,
+            phase: 'classifying',
+            classifiedListings: progress.classifiedListings,
+            classificationSummary: progress.summary,
+            updatedAt: new Date().toISOString()
+          }
+        });
+      }
+    });
     if (Number(audit.totalListings || 0) !== totalListings
         || Number(audit.summary?.total || 0) !== totalListings) {
       throw new Error('The policy classification did not cover every verified Active Listing. No review was created.');
     }
+    const classifiedState = await assertPolicyListingRunActive(runId);
+    await storageSet({
+      [POLICY_LISTING_SCAN_STATE_KEY]: { ...classifiedState, phase: 'saving', updatedAt: new Date().toISOString() }
+    });
     await storageSet({
       [POLICY_LISTING_AUDIT_STATE_KEY]: audit,
       [POLICY_LISTING_SCAN_STATE_KEY]: {
@@ -5389,6 +5491,7 @@ async function scanEbayPolicyListings(request = {}, sender = {}) {
         completedPages: totalPages,
         totalPages,
         scannedListings: totalListings,
+        classifiedListings: totalListings,
         totalListings,
         summary: audit.summary,
         stopRequested: false,
@@ -5397,25 +5500,26 @@ async function scanEbayPolicyListings(request = {}, sender = {}) {
         updatedAt: scannedAt
       }
     });
-    await removePolicyListingScanChunks(runId);
+    await removePolicyListingScanChunks(runId).catch(() => null);
     await recordExtensionLog({
       source: 'ebay-policy-listings',
       level: 'info',
       operation: 'complete-read-only-scan',
       message: `Classified all ${totalListings} active listings: ${audit.summary.block} Block, ${audit.summary.review} Review, ${audit.summary.clear} no current rule match.`,
       detail: { runId, reportFingerprint: audit.reportFingerprint, rulesFingerprint, summary: audit.summary }
-    });
-    return { ok: true, audit, scannedListings: totalListings, summary: audit.summary };
+    }).catch(() => null);
+    // The page reads the committed audit from storage; do not send a second store-sized payload.
+    return { ok: true, scannedListings: totalListings, summary: audit.summary };
   } catch (error) {
     const now = new Date().toISOString();
     const latest = await storageGet([POLICY_LISTING_SCAN_STATE_KEY]).catch(() => ({}));
     const state = latest[POLICY_LISTING_SCAN_STATE_KEY] || {};
-    if (!runId || String(state.runId || '') === runId) {
+    if (runId && String(state.runId || '') === runId) {
       await storageSet({
         [POLICY_LISTING_SCAN_STATE_KEY]: {
           ...state,
           active: false,
-          phase: 'error',
+          phase: error?.policyScanPaused ? 'paused' : 'error',
           runId: runId || String(state.runId || ''),
           error: error?.message || String(error),
           resumable: Boolean(runId),
@@ -5424,7 +5528,7 @@ async function scanEbayPolicyListings(request = {}, sender = {}) {
         }
       }).catch(() => null);
     }
-    return { ok: false, error: error?.message || String(error), resumable: Boolean(runId), runId };
+    return { ok: false, paused: Boolean(error?.policyScanPaused), error: error?.message || String(error), resumable: Boolean(runId), runId };
   } finally {
     if (Number.isInteger(Number(scanTab?.id))) await closeChromeTab(Number(scanTab.id)).catch(() => null);
     await releaseWorkflowStart(reservation.token);
@@ -5432,11 +5536,13 @@ async function scanEbayPolicyListings(request = {}, sender = {}) {
 }
 
 async function stopEbayPolicyListingScan() {
+  await recoverInterruptedPolicyListingScan();
   const stored = await storageGet([POLICY_LISTING_SCAN_STATE_KEY]);
   const state = stored[POLICY_LISTING_SCAN_STATE_KEY];
-  if (!state?.active || state.phase !== 'scanning') {
+  if (!state?.active || !['scanning', 'classifying'].includes(state.phase)) {
     return { ok: true, changed: false, message: 'No existing-listings policy scan is currently running.' };
   }
+  policyListingStopRequested = true;
   await storageSet({
     [POLICY_LISTING_SCAN_STATE_KEY]: {
       ...state,
@@ -5444,7 +5550,7 @@ async function stopEbayPolicyListingScan() {
       updatedAt: new Date().toISOString()
     }
   });
-  return { ok: true, changed: true, message: 'The scan will pause after its current verified page. No listings will be changed.' };
+  return { ok: true, changed: true, message: 'The scan will pause after its current page or classification batch. No listings will be changed.' };
 }
 
 async function clearEbayPolicyListingScan() {
@@ -7286,6 +7392,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       stopEbayPolicyListingScan(),
       sendResponse,
       'stop-ebay-policy-listing-scan'
+    );
+  }
+
+  if (message.type === 'getEbayPolicyListingScanStatus') {
+    return respondToExtensionMessage(
+      getEbayPolicyListingScanStatus(),
+      sendResponse,
+      'get-ebay-policy-listing-scan-status'
     );
   }
 

@@ -1,6 +1,6 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.32",
-  "updated": "2026-09-05",
+  "version": "3.12.33",
+  "updated": "2026-09-08",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",
