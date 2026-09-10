@@ -18,6 +18,7 @@
   let move99ReviewButtonElement;
   let move99ApplyButtonElement;
   let markShippedRunning = false;
+  let markShippedFinalization = null;
   let markShippedMonitorRunning = false;
   let move99StartPending = false;
   let snipingWinnerButtonElement;
@@ -2533,6 +2534,7 @@
   async function startSellerLevelScan() {
     let reservationToken = "";
     try {
+      await reconcilePendingMarkShippedCompletion();
       reservationToken = await U.claimWorkflowStart("seller-level", "Seller Level scan");
       await storageSet({ gldnStopRequested: false, pendingSellerLevelScan: true });
     } catch (error) {
@@ -2875,18 +2877,34 @@
   }
 
   async function reconcileApprovedMarkShippedActivation(state) {
-    const remaining = parseAwaitingResultsCount();
-    const evidence = markShippedCompletionEvidence(
-      document.body?.innerText || "",
-      state.beforeCount,
-      state.selectedCount,
-      remaining
-    );
-    if (evidence) {
-      await finalizePendingMarkShipped(state, evidence);
-      return;
-    }
+    if (await reconcilePendingMarkShippedCompletion()) return;
     renderStatus("Mark as Shipped was approved, but its result is not yet provable. Review eBay, then use Reset only after confirming the order state.", "error");
+  }
+
+  async function isMarkShippedOwnerPage(state) {
+    if (!state?.active || !isAwaitingShipmentPage() || !Number.isInteger(state.ownerTabId)) return false;
+    const info = await runtimeMessage({ type: "currentTabInfo" });
+    return Boolean(info?.ok && info.tabId === state.ownerTabId);
+  }
+
+  function recoverableMarkShippedCompletion(state, bodyText, remaining) {
+    if (!state?.active || !["activating-approved-action", "awaiting-approval", "awaiting-result", "manual-review-required", "finalizing"].includes(state.phase)) return null;
+    if (!state.activationApprovedAt && !state.confirmationOpenedAt && !state.finalActionClickedAt && !state.finalizingAt) return null;
+    if (!Number.isInteger(Number(state.beforeCount)) || Number(state.beforeCount) <= 0
+        || Number(state.selectedCount) !== Number(state.beforeCount)) return null;
+    // Recovery needs eBay's explicit success banner, never an empty/search-filtered table alone.
+    if (!/\b[\d,]+\s+orders?\s+(?:has|have)\s+been marked as shipped\b/i.test(String(bodyText || ""))) return null;
+    if (remaining == null) return null;
+    return markShippedCompletionEvidence(bodyText, state.beforeCount, state.selectedCount, remaining);
+  }
+
+  async function reconcilePendingMarkShippedCompletion() {
+    const stored = await storageGet(["pendingMarkShippedRun"]);
+    const state = stored.pendingMarkShippedRun;
+    if (!await isMarkShippedOwnerPage(state)) return false;
+    const evidence = recoverableMarkShippedCompletion(state, document.body?.innerText || "", parseAwaitingResultsCount());
+    if (!evidence) return false;
+    return Boolean(await finalizePendingMarkShipped(state, evidence));
   }
 
   async function recoverPendingMarkShippedFinalApproval(state) {
@@ -3009,8 +3027,11 @@
           await dismissAnyMarkShippedConfirmation();
           throw new Error(validation.error);
         }
+        const refreshed = await storageGet(["pendingMarkShippedRun"]);
+        const latest = refreshed.pendingMarkShippedRun;
+        if (!latest?.active || latest.startedAt !== current.startedAt || latest.ownerTabId !== current.ownerTabId) return;
         const approvalState = {
-          ...current,
+          ...latest,
           phase: "awaiting-approval",
           selectedCount: selected,
           confirmationCountSource: confirmationSelection?.source || "",
@@ -3025,6 +3046,10 @@
       } catch (error) {
         const stored = await storageGet(["pendingMarkShippedRun"]).catch(() => ({}));
         const pending = stored.pendingMarkShippedRun;
+        if (!pending?.active || pending.startedAt !== state.startedAt || pending.ownerTabId !== state.ownerTabId) {
+          overlay.remove();
+          return;
+        }
         const actionMayHaveRun = Boolean(pending?.trustedActivationDispatchAt || pending?.trustedActivationReleasedAt
           || (pending?.phase === "activating-approved-action" && error.activationNotDispatched !== true));
         if (overlay.isConnected) {
@@ -3066,15 +3091,25 @@
   }
 
   async function finalizePendingMarkShipped(state, evidence) {
+    if (markShippedFinalization) return markShippedFinalization;
+    markShippedFinalization = finishPendingMarkShipped(state, evidence);
+    try {
+      return await markShippedFinalization;
+    } finally {
+      markShippedFinalization = null;
+    }
+  }
+
+  async function finishPendingMarkShipped(state, evidence) {
+    if (!await isMarkShippedOwnerPage(state)) return null;
+    const stored = await storageGet(["pendingMarkShippedRun"]);
+    const current = stored.pendingMarkShippedRun;
+    if (!current?.active || !state.startedAt || current.startedAt !== state.startedAt
+        || current.ownerTabId !== state.ownerTabId || Number(current.selectedCount) !== Number(state.selectedCount)) return null;
     const marked = Number(evidence?.marked || 0);
+    if (!Number.isInteger(marked) || marked <= 0 || marked > Number(state.selectedCount)) return null;
     const exact = Boolean(evidence?.exact && marked === Number(state.selectedCount));
-    await storageSet({
-      pendingMarkShippedRun: {
-        ...state,
-        phase: "finalizing",
-        finalizingAt: new Date().toISOString()
-      }
-    });
+    // Save the result and clear busy together; an interrupted "finalizing" write left runs locked.
     const record = await saveMarkShippedResult({
       startedAt: state.startedAt,
       status: exact ? "Completed" : "Partial",
@@ -3086,6 +3121,7 @@
       error: exact ? "" : `Expected ${Number(state.selectedCount || 0).toLocaleString()} marked shipped, but eBay confirmed ${marked.toLocaleString()}.`,
       pageUrl: location.href
     });
+    document.getElementById("gldn-mark-shipped-activation-approval")?.remove();
     await dismissAnyMarkShippedConfirmation();
     if (!exact) {
       renderStatus(`Mark as Shipped needs review: ${marked} of ${state.selectedCount} confirmed`, "error");
@@ -3103,6 +3139,7 @@
       const stored = await storageGet(["pendingMarkShippedRun"]);
       const state = stored.pendingMarkShippedRun;
       if (!state?.active || !["awaiting-approval", "awaiting-result"].includes(state.phase)) return;
+      if (!await isMarkShippedOwnerPage(state)) return;
 
       const remaining = parseAwaitingResultsCount();
       const evidence = markShippedCompletionEvidence(
@@ -3235,6 +3272,7 @@
         renderStatus("This computer is Poshmark-only or is not configured. Mark as Shipped requires an eBay computer.", "error");
         return;
       }
+      await reconcilePendingMarkShippedCompletion();
       reservationToken = await U.claimWorkflowStart("mark-shipped", "Mark as Shipped");
       await storageSet({
         gldnStopRequested: false,
@@ -3645,6 +3683,7 @@
   async function startEbaySnapshotScan() {
     let reservationToken = "";
     try {
+      await reconcilePendingMarkShippedCompletion();
       reservationToken = await U.claimWorkflowStart("ebay-snapshot", "eBay sales snapshot");
       await storageSet({
         gldnStopRequested: false,
@@ -11168,6 +11207,7 @@
   async function startListingLimitCheck() {
     let reservationToken = "";
     try {
+      await reconcilePendingMarkShippedCompletion();
       reservationToken = await U.claimWorkflowStart("listing-limits", "Listing limit check");
       await storageSet({
         gldnStopRequested: false,
@@ -11183,8 +11223,12 @@
   }
 
   async function resumePendingActions() {
+    await reconcilePendingMarkShippedCompletion();
     const result = await storageGet(["pendingMarkShippedRun", "pendingSellerLevelScan", "pendingReviewMonthlyLimits", "pendingMove99Run"]);
-    if (result.pendingMarkShippedRun?.active) {
+    if (result.pendingMarkShippedRun?.active && (
+      (result.pendingMarkShippedRun.phase === "prepare" && isAwaitingShipmentPage())
+      || await isMarkShippedOwnerPage(result.pendingMarkShippedRun)
+    )) {
       if (result.pendingMarkShippedRun.phase === "awaiting-activation-approval") {
         setTimeout(() => showMarkShippedActivationApproval(result.pendingMarkShippedRun), 600);
       } else if (["awaiting-approval", "awaiting-result"].includes(result.pendingMarkShippedRun.phase)) {
@@ -11861,7 +11905,8 @@
     }, 15000);
     if (!dispatched?.ok || dispatched.dispatched !== true) {
       const refreshed = await storageGet(["pendingMarkShippedRun"]);
-      const latest = refreshed.pendingMarkShippedRun || awaitingResult;
+      const latest = refreshed.pendingMarkShippedRun;
+      if (!latest?.active || latest.startedAt !== awaitingResult.startedAt || latest.ownerTabId !== awaitingResult.ownerTabId) return;
       const dispatchRecorded = Boolean(latest.trustedFinalActionDispatchAt);
       await storageSet({
         pendingMarkShippedRun: {
@@ -12327,7 +12372,9 @@
       if (pending?.active && pending.confirmed && (isMove99ActiveListingsPage() || isMove99BulkEditorPage())) {
         await runMove99Automation();
       }
-      if (["activating-approved-action", "manual-review-required"].includes(pendingMarkShipped?.phase)) {
+      if (pendingMarkShipped?.active && await isMarkShippedOwnerPage(pendingMarkShipped)
+          && !await reconcilePendingMarkShippedCompletion()
+          && ["activating-approved-action", "manual-review-required"].includes(pendingMarkShipped.phase)) {
         const recovered = await recoverPendingMarkShippedFinalApproval(pendingMarkShipped);
         if (recovered) monitorPendingMarkShippedApproval();
       }

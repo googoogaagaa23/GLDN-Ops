@@ -1,4 +1,10 @@
-GLDN Ops v3.12.35
+GLDN Ops v3.12.36
+
+v3.12.36 shipment completion recovery:
+- A delayed eBay success banner releases the completed Mark as Shipped workflow.
+- Seller Level and snapshot starts reconcile exact completion first.
+- Recovery never clicks Mark as shipped again; another tab or an empty table alone cannot complete a run.
+- A late click acknowledgment cannot restore a cleared or replaced shipment run.
 
 v3.12.35 dashboard confirmations and Tasks timestamps:
 - Checks Google's exact saved receipt after a lost sync response.

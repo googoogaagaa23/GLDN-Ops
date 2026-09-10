@@ -23,7 +23,7 @@ function extract(source, name) {
 (async () => {
   const browser = await chromium.launch({ headless: true, channel: 'chrome' });
   const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
-  const evidence = path.join(root, 'evidence/mark-shipped-v3.12.34');
+  const evidence = path.join(root, 'evidence/mark-shipped-v3.12.36');
   fs.mkdirSync(evidence, { recursive: true });
   const results = [];
   try {
@@ -151,6 +151,49 @@ function extract(source, name) {
     await page.locator('#native').evaluate((element) => element.remove());
     assert.equal(await page.evaluate(() => findMarkShippedDialog({ requireLayout: false })), null);
     results.push({ name: 'native confirmation remains detectable; GLDN confirmation text is excluded', pass: true });
+    for (const phase of ['manual-review-required', 'finalizing']) {
+      await page.setContent('<h1>Manage orders awaiting shipment</h1><p>Results: 0</p><p id="result"></p><p id="status"></p><button id="next">Scan Seller Level</button>');
+      await page.evaluate((phase) => {
+        window.markShippedFinalization = null;
+        window.stored = { pendingMarkShippedRun: { active: true, phase, startedAt: '2026-09-10T03:00:00.000Z', activationApprovedAt: '2026-09-10T03:01:00.000Z', ownerTabId: 29, beforeCount: 4, selectedCount: 4 } };
+        window.storageGet = async () => structuredClone(window.stored);
+        window.storageSet = async (data) => Object.assign(window.stored, structuredClone(data));
+        window.isAwaitingShipmentPage = () => true;
+        window.parseAwaitingResultsCount = () => 0;
+        window.runtimeMessage = async (msg) => {
+          if (msg.type !== 'currentTabInfo') throw new Error('Recovery must never dispatch a shipment');
+          return { ok: true, tabId: 29 };
+        };
+        window.syncs = 0;
+        window.syncMarkShippedRecord = async () => { window.syncs++; return { ok: true }; };
+        window.dismissAnyMarkShippedConfirmation = async () => {};
+        window.renderStatus = (text) => { document.getElementById('status').textContent = text; };
+        window.U.claimWorkflowStart = async () => {
+          if (window.stored.pendingMarkShippedRun?.active) throw new Error('Still busy');
+          return 'fixture-reservation';
+        };
+        window.U.releaseWorkflowStart = async () => {};
+        window.scanHealthPage = () => { window.nextScanStarted = true; };
+        window.nextScanStarted = false;
+      }, phase);
+      await page.addScriptTag({ content: [
+        'markShippedCompletionEvidence', 'recoverableMarkShippedCompletion', 'isMarkShippedOwnerPage',
+        'reconcilePendingMarkShippedCompletion', 'finalizePendingMarkShipped', 'finishPendingMarkShipped',
+        'saveMarkShippedResult', 'startSellerLevelScan'
+      ].map((name) => extract(ebay, name)).join('\n') });
+      assert.equal(await page.evaluate(() => reconcilePendingMarkShippedCompletion()), false, 'Empty table alone cannot complete');
+      await page.evaluate(() => {
+        document.getElementById('result').textContent = '4 orders have been marked as shipped.';
+        document.getElementById('next').onclick = () => startSellerLevelScan();
+      });
+      await page.locator('#next').click();
+      await page.waitForFunction(() => window.nextScanStarted);
+      assert.equal(await page.evaluate(() => window.stored.pendingMarkShippedRun), null);
+      assert.equal(await page.evaluate(() => window.stored.lastMarkShippedResult.markedCount), 4);
+      assert.equal(await page.evaluate(() => window.syncs), 1);
+      await page.screenshot({ path: path.join(evidence, `recovered-${phase}.png`) });
+      results.push({ name: `${phase}: late success unlocks Seller Level without resubmission`, pass: true });
+    }
     const report = { syntheticBrowserFixture: true, signedInMarketplace: false, results };
     fs.writeFileSync(path.join(evidence, 'results.json'), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report));

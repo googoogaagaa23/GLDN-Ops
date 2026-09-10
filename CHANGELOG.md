@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.36 - 2026-09-09
+
+- Recover delayed Mark as Shipped success from eBay's explicit order-count banner in the original awaiting-shipment tab, including manual-review and interrupted-finalizing states.
+- Check completed shipments before Seller Level, snapshot, listing-limit and shipment starts, and during startup and the existing heartbeat.
+- Save completion and clear the busy flag together; coalesce duplicate completion callbacks while dashboard sync finishes separately from the busy flag.
+- Prevent late click-release and failed-dispatch callbacks from reviving a completed or replaced run. Preserve the second-approval evidence when a native confirmation opens.
+- Verification: focused contracts and isolated Chrome fixtures cover the four-order/zero-remaining regression, empty-table rejection, wrong-tab rejection, partial completion, duplicate callbacks and delayed dashboard responses. No live shipment was submitted for this release.
+
 ## v3.12.35 - 2026-09-09
 
 - Reconcile lost dashboard responses against an exact action/account/request receipt before reporting success.

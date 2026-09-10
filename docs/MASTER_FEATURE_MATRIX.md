@@ -1,13 +1,13 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-09-09
-Current local manifest: 3.12.35
+Current local manifest: 3.12.36
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  
 Current machine identity: eBay computer `0` / account `FAK12`, plus Poshmark computer `7`
 
-> v3.12.35 adds exact dashboard receipt recovery after response timeouts and deploys the Tasks manual timestamp handler for individual edits and pasted blocks. Live source and a saved Computer 2 seller receipt are verified; historical dates are not rewritten. Manual signed-in edit-event delivery still needs observation.
+> v3.12.36 repairs delayed Mark as Shipped completion and stale busy-state restoration. Exact success evidence from the owner tab is required; recovery submits nothing. Focused tests and isolated Chrome fixtures pass. The affected Computer 0 shipment tab is not attached here, so post-update live recovery remains unverified. v3.12.35 dashboard receipt and manual timestamp repairs are retained.
 
 > v3.12.34 fixes Mark as Shipped menu target duplication and the locked approval overlay. Pre-dispatch failures allow fresh approval; attempted or uncertain clicks remain review-only. Browser fixtures verify desktop/mobile close controls, page interaction, and native-dialog exclusion. Computer 2 signed-in shipment completion remains pending; no orders were changed by this release work.
 

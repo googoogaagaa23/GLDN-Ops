@@ -2577,9 +2577,11 @@ async function dispatchTrustedEbayMarkShippedActivation(message, sender) {
     });
     const releasedAt = new Date().toISOString();
     const refreshed = await storageGet(['pendingMarkShippedRun']);
-    await storageSet({
+    if (refreshed.pendingMarkShippedRun?.active
+        && refreshed.pendingMarkShippedRun.startedAt === stored.pendingMarkShippedRun.startedAt
+        && refreshed.pendingMarkShippedRun.ownerTabId === stored.pendingMarkShippedRun.ownerTabId) await storageSet({
       pendingMarkShippedRun: {
-        ...(refreshed.pendingMarkShippedRun || stored.pendingMarkShippedRun),
+        ...refreshed.pendingMarkShippedRun,
         trustedActivationReleasedAt: releasedAt,
         updatedAt: releasedAt
       }
@@ -2700,9 +2702,11 @@ async function dispatchTrustedEbayMarkShippedContinue(message, sender) {
     });
     const releasedAt = new Date().toISOString();
     const refreshed = await storageGet(['pendingMarkShippedRun']);
-    await storageSet({
+    if (refreshed.pendingMarkShippedRun?.active
+        && refreshed.pendingMarkShippedRun.startedAt === stored.pendingMarkShippedRun.startedAt
+        && refreshed.pendingMarkShippedRun.ownerTabId === stored.pendingMarkShippedRun.ownerTabId) await storageSet({
       pendingMarkShippedRun: {
-        ...(refreshed.pendingMarkShippedRun || stored.pendingMarkShippedRun),
+        ...refreshed.pendingMarkShippedRun,
         trustedFinalActionReleasedAt: releasedAt,
         updatedAt: releasedAt
       }
