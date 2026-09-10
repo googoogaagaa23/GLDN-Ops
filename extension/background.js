@@ -58,7 +58,7 @@ const ECOMSNIPER_PAGE_LABELS = Object.freeze({
   productHunter: 'Product Hunter',
   bulkPoster: 'Bulk Poster'
 });
-const DASHBOARD_REQUEST_TIMEOUT_MS = 15000;
+const DASHBOARD_REQUEST_TIMEOUT_MS = 25000;
 const DASHBOARD_BATCH_REQUEST_TIMEOUT_MS = 90000;
 const HISTORICAL_PROFIT_PAGE_ACTION_TIMEOUT_MS = 360000;
 const HISTORICAL_PROFIT_SYNC_BATCH_SIZE = 50;
@@ -6150,12 +6150,13 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = DASHBOARD_REQUEST
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    const text = await response.text();
+    return { ok: response.ok, status: response.status, text: async () => text };
   } catch (error) {
-    if (error?.name === 'AbortError') {
-      throw new Error('Dashboard request timed out.');
-    }
-    throw error;
+    const failure = new Error(error?.name === 'AbortError' ? 'Dashboard request timed out.' : (error.message || 'Dashboard connection interrupted.'));
+    failure.outcomeUnknown = true;
+    throw failure;
   } finally {
     clearTimeout(timeout);
   }
@@ -6177,7 +6178,7 @@ function dashboardRequestTimeoutMs(action) {
     : DASHBOARD_REQUEST_TIMEOUT_MS;
 }
 
-async function postToDashboard(action, record = null) {
+async function postDashboardRequest(action, record = null) {
   const { url, key } = await getDashboardConfig();
   const syncId = String(record?.syncId || '').trim();
   const response = await fetchWithTimeout(url, {
@@ -6207,6 +6208,31 @@ async function postToDashboard(action, record = null) {
     throw new Error(data.error || `Dashboard request failed (${response.status}).`);
   }
   return data;
+}
+
+async function postToDashboard(action, record = null) {
+  try {
+    return await postDashboardRequest(action, record);
+  } catch (error) {
+    if (!error.outcomeUnknown || !record?.syncId || action === 'syncReceiptRead') throw error;
+    // A disconnected response does not roll back the Google Sheets write.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const receipt = await postDashboardRequest('syncReceiptRead', {
+          syncId: record.syncId, action,
+          computerLabel: record.computerLabel,
+          accountLabel: record.ebayAccountLabel || record.accountLabel || record.poshmarkAccountLabel || ''
+        });
+        if (receipt.found === true && receipt.syncId === record.syncId && receipt.action === action && receipt.result?.ok === true) {
+          return { ...receipt.result, syncId: record.syncId, confirmedByReceipt: true };
+        }
+        if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 1500));
+      } catch (_) { break; }
+    }
+    const pending = new Error('Google has not confirmed the save yet. It may already be in the sheet; the saved request will be checked again automatically.');
+    pending.outcomeUnknown = true;
+    throw pending;
+  }
 }
 
 async function testDashboardConnection() {
@@ -6419,12 +6445,13 @@ async function handleSync(action, record, successMessage, options = {}) {
       lastDashboardSync: {
         ok: false,
         queued: true,
+        pendingConfirmation: error.outcomeUnknown === true,
         at: new Date().toISOString(),
         syncId: syncedRecord.syncId,
         error: error.message
       }
     });
-    return { ok: false, queued: true, syncId: syncedRecord.syncId, attempts: queued.attempts, error: error.message };
+    return { ok: false, queued: true, pendingConfirmation: error.outcomeUnknown === true, syncId: syncedRecord.syncId, attempts: queued.attempts, error: error.message };
   }
 }
 

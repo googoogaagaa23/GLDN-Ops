@@ -2476,6 +2476,10 @@
           renderStatus("Seller level synced", "completed");
           return;
         }
+        if (syncResult?.pendingConfirmation) {
+          renderStatus("Saved locally. Google confirmation is pending; the sheet may already be updated. GLDN will check again automatically.", "ready");
+          return;
+        }
         const error = syncResult?.error || "Dashboard sync failed.";
         renderStatus(`Saved locally - dashboard sync failed: ${error}`, "error");
       }).catch((error) => {
@@ -3583,6 +3587,11 @@
           renderStatus("eBay snapshot synced.", "completed");
           setTimeout(close, 900);
         } else {
+          if (response?.pendingConfirmation) {
+            status.textContent = "Saved locally. Google confirmation is pending; the sheet may already be updated. GLDN will check again automatically.";
+            renderStatus(status.textContent, "ready");
+            return;
+          }
           const error = response?.error || "Dashboard sync failed.";
           status.textContent = error;
           renderStatus(`Snapshot saved locally - sync failed: ${error}`, "error");

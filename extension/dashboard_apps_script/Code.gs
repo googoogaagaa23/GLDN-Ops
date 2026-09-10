@@ -280,6 +280,9 @@ function doPost(e) {
 }
 
 function processDashboardAction_(action, input) {
+  if (action === 'syncReceiptRead') {
+    return readSyncReceipt_(input);
+  }
   if (action === 'ping') {
     return { ok: true, message: 'Dashboard connection works.', serverTime: new Date().toISOString() };
   }
@@ -3485,6 +3488,28 @@ function findSyncReceipt_(syncId) {
   } catch (_) {
     return { message: 'Dashboard record was already processed.' };
   }
+}
+
+function readSyncReceipt_(input) {
+  const syncId = cleanText_(input.syncId).slice(0, 180);
+  const action = cleanText_(input.action);
+  if (!syncId || !action) throw new Error('Sync receipt ID and action are required.');
+  const missing = { ok: true, found: false, syncId, action };
+  const sheet = getSpreadsheet_().getSheetByName(SYNC_RECEIPT_SHEET);
+  if (!sheet || sheet.getLastRow() < 2) return missing;
+  const match = sheet.getRange(2, 1, sheet.getLastRow() - 1, 1)
+    .createTextFinder(syncId).matchEntireCell(true).findNext();
+  if (!match) return missing;
+  const row = sheet.getRange(match.getRow(), 1, 1, 6).getValues()[0];
+  if (cleanText_(row[1]) !== action
+    || (input.computerLabel != null && computerKey_(row[3]) !== computerKey_(input.computerLabel))
+    || (input.accountLabel && cleanText_(row[4]).toLowerCase() !== cleanText_(input.accountLabel).toLowerCase())) {
+    throw new Error('Sync receipt does not match this account and action.');
+  }
+  let result;
+  try { result = JSON.parse(String(row[5] || '')); } catch (_) { return missing; }
+  if (result.ok !== true) return missing;
+  return { ok: true, found: true, syncId, action, receivedAt: validDate_(row[2]).toISOString(), result };
 }
 
 function saveSyncReceipt_(syncId, action, record, result) {

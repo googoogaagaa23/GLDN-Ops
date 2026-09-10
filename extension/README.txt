@@ -1,4 +1,11 @@
-GLDN Ops v3.12.34
+GLDN Ops v3.12.35
+
+v3.12.35 dashboard confirmations and Tasks timestamps:
+- Checks Google's exact saved receipt after a lost sync response.
+- Unconfirmed saves are pending confirmation, not a claim that nothing was saved.
+- Live Tasks automation stamps manual values and every cell in pasted blocks.
+- Late Shipment Rate targets the metric row, not the parent checkbox.
+- Historical timestamps are preserved; no old edits are assigned invented dates.
 
 v3.12.34 Mark as Shipped approval recovery:
 - Nested menu rows and buttons count as one eBay action; separate matches still stop.

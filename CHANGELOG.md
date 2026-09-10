@@ -1,5 +1,15 @@
 # GLDN Ops Changelog
 
+## v3.12.35 - 2026-09-09
+
+- Reconcile lost dashboard responses against an exact action/account/request receipt before reporting success.
+- Report unresolved transport outcomes as pending confirmation and retain the same idempotent retry ID.
+- Include response-body reading in the timeout and allow 25 seconds for ordinary dashboard requests.
+- Repair the live Tasks sheet's manual late-shipment timestamps, pasted checkbox/metric blocks, and ordinary computer-column inputs.
+- Match percentage rows by unambiguous label prefix; keep unchecking separate from task completion.
+- Preserve prior timestamps and notes without inventing historical edit times. Archived snapshots stay untouched.
+
+
 ## v3.12.34 - 2026-09-09
 
 - Fix duplicate Mark as Shipped target detection for nested eBay menu rows and buttons.
