@@ -1,4 +1,12 @@
-GLDN Ops v3.12.33
+GLDN Ops v3.12.34
+
+v3.12.34 Mark as Shipped approval recovery:
+- Nested menu rows and buttons count as one eBay action; separate matches still stop.
+- Rechecks the selection and Shipping menu immediately before activation.
+- Failed approval no longer locks the page. Close review stays available after failure.
+- A confirmed no-click failure allows a fresh approval. An uncertain click requires reviewing eBay first and is never retried automatically.
+- GLDN's own approval window is never used as eBay confirmation evidence.
+- Keeps all v3.12.33 policy-audit recovery changes.
 
 v3.12.33 existing-listings policy audit recovery:
 - Shows classification progress after all listing pages have been collected.

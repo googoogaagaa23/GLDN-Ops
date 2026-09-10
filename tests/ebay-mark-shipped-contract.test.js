@@ -328,6 +328,49 @@ test("trusted Mark as Shipped activation probes one exact hit-tested menu action
   assert.match(backgroundSource, /dispatchTrustedEbayMarkShippedActivation\(message, sender\)/);
 });
 
+for (const failure of ['attach', 'probe', 'mousePressed', 'mouseReleased']) {
+  test(`Mark as Shipped distinguishes ${failure} failure from an attempted shipment click`, async () => {
+    let pending = {
+      active: true, phase: 'activating-approved-action', activationApprovedAt: new Date().toISOString(),
+      ownerTabId: 29, beforeCount: 6, selectedCount: 6
+    };
+    const mouse = [];
+    let detached = false;
+    const sandbox = {
+      URL, Date,
+      getTab: async () => ({ url: 'https://www.ebay.com/sh/ord/?filter=status%3AAWAITING_SHIPMENT' }),
+      storageGet: async () => ({ pendingMarkShippedRun: structuredClone(pending) }),
+      storageSet: async (data) => { pending = structuredClone(data.pendingMarkShippedRun); },
+      debuggerAttach: async () => { if (failure === 'attach') throw new Error('attach failed'); },
+      debuggerDetach: async () => { detached = true; },
+      buildMarkShippedActivationTargetProbe: () => 'probe()',
+      debuggerCommand: async (_target, method, params) => {
+        if (method === 'Runtime.evaluate') return { result: { value: failure === 'probe'
+          ? { ok: false, error: 'menu closed' }
+          : { ok: true, x: 40, y: 60, label: 'mark as shipped' } } };
+        mouse.push(params.type);
+        if (params.type === failure) throw new Error('connection lost');
+        return {};
+      }
+    };
+    vm.runInNewContext([
+      extractFunction(backgroundSource, 'isExactAwaitingShipmentUrl'),
+      extractFunction(backgroundSource, 'validateTrustedMarkShippedActivation'),
+      `async ${extractFunction(backgroundSource, 'dispatchTrustedEbayMarkShippedActivation')}`
+    ].join('\n'), sandbox);
+    const result = await sandbox.dispatchTrustedEbayMarkShippedActivation(
+      { beforeCount: 6, selectedCount: 6 },
+      { tab: { id: 29, url: 'https://www.ebay.com/sh/ord/?filter=status%3AAWAITING_SHIPMENT' } }
+    );
+    const attempted = failure.startsWith('mouse');
+    assert.equal(result.ok, false);
+    assert.equal(result.dispatched, attempted);
+    assert.equal(Boolean(pending.trustedActivationDispatchAt), attempted);
+    assert.equal(mouse.length, failure === 'mouseReleased' ? 2 : attempted ? 1 : 0);
+    assert.equal(detached, failure !== 'attach');
+  });
+}
+
 test("trusted eBay Continue rejects mismatched, stale, and duplicate approvals", () => {
   assert.ok(manifest.permissions.includes("debugger"));
   const sandbox = { URL };

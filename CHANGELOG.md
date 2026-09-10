@@ -1,5 +1,15 @@
 # GLDN Ops Changelog
 
+## v3.12.34 - 2026-09-09
+
+- Fix duplicate Mark as Shipped target detection for nested eBay menu rows and buttons.
+- Revalidate selection and reopen a closed Shipping menu before the approved activation.
+- Report whether a failed activation sent a shipment click; do not automatically retry an uncertain result.
+- Keep the approval window nonblocking outside its panel, with usable close controls after errors.
+- Exclude GLDN approval windows from native eBay confirmation detection.
+- Preserve v3.12.33 policy scan recovery and all unrelated release behavior.
+- Verified with executable contracts and isolated browser fixtures. Computer 2 signed-in shipment completion remains unverified.
+
 ## v3.12.33 - 2026-09-08
 
 - Fix final-page policy audit recovery, including the 18,359-listing page-92 checkpoint.

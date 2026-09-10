@@ -1,11 +1,13 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-09-08
-Current local manifest: 3.12.33
+Last updated: 2026-09-09
+Current local manifest: 3.12.34
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  
 Current machine identity: eBay computer `0` / account `FAK12`, plus Poshmark computer `7`
+
+> v3.12.34 fixes Mark as Shipped menu target duplication and the locked approval overlay. Pre-dispatch failures allow fresh approval; attempted or uncertain clicks remain review-only. Browser fixtures verify desktop/mobile close controls, page interaction, and native-dialog exclusion. Computer 2 signed-in shipment completion remains pending; no orders were changed by this release work.
 
 > v3.12.33 repairs the final-page Existing Listings Policy Audit, reports batched classification progress, and preserves read-only checkpoints through upgrades. Recovery and rules are covered by executable regressions including an 18,359-record checkpoint. M0 completion and CSV readback remain pending; this is not a current signed-in LIVE PASS.
 

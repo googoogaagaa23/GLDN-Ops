@@ -2661,6 +2661,7 @@
   function findMarkShippedDialog(options = {}) {
     const requireLayout = options.requireLayout !== false;
     const candidates = [...document.querySelectorAll('[role="dialog"], .lightbox-dialog, .dialog, [aria-modal="true"], section, div')]
+      .filter((element) => !element.closest('[id^="gldn-"], .gldn-order-panel, .gldn-modal-backdrop'))
       .filter((element) => (requireLayout ? U.isVisible(element) : markShippedElementDisplayed(element)))
       .map((element) => ({
         element,
@@ -2702,6 +2703,7 @@
       const closed = await closeCompletedMarkShippedDialog();
       if (closed) return true;
       const dialog = [...document.querySelectorAll('[role="dialog"], .lightbox-dialog, .dialog, [aria-modal="true"], section, div')]
+        .filter((element) => !element.closest('[id^="gldn-"], .gldn-order-panel, .gldn-modal-backdrop'))
         .filter(U.isVisible)
         .map((element) => ({ element, text: U.normalizeText(element.innerText || element.textContent || ""), rect: element.getBoundingClientRect() }))
         .filter(({ text, rect }) => isMarkShippedDialogText(text) && rect.width >= 240 && rect.height >= 120)
@@ -2837,13 +2839,22 @@
     });
 
     await new Promise((resolve) => setTimeout(resolve, 120));
+    try {
+      // Hiding the approval can close eBay's menu; recheck selection and reopen only Shipping.
+      await ensureMarkShippedMenuForApproval(state);
+    } catch (error) {
+      error.activationNotDispatched = true;
+      throw error;
+    }
     const dispatched = await runtimeMessage({
       type: "dispatchTrustedEbayMarkShippedActivation",
       selectedCount: Number(state.selectedCount || 0),
       beforeCount: Number(state.beforeCount || 0)
     }, 15000);
     if (!dispatched?.ok || dispatched.dispatched !== true) {
-      throw new Error(dispatched?.error || "The trusted eBay Mark as shipped activation failed.");
+      const error = new Error(dispatched?.error || "The trusted eBay Mark as shipped activation failed.");
+      error.activationNotDispatched = dispatched?.dispatched === false;
+      throw error;
     }
     const outcome = await waitForMarkShippedActivationOutcome(state, 12000);
     if (outcome) return outcome;
@@ -2926,6 +2937,7 @@
     overlay.innerHTML = `
       <div class="gldn-modal gldn-review-modal">
         <h2>Approve Mark as Shipped</h2>
+        <button type="button" class="gldn-mark-shipped-close" data-action="close" aria-label="Close review" title="Close review">&times;</button>
         <p>eBay reports <strong>${Number(state.selectedCount || 0).toLocaleString()}</strong> of <strong>${Number(state.beforeCount || 0).toLocaleString()}</strong> awaiting orders selected.</p>
         <p>This next click may mark every selected order as shipped immediately. Review the eBay rows behind this window before approving.</p>
         <div class="gldn-actions">
@@ -2937,7 +2949,13 @@
     document.documentElement.appendChild(overlay);
     U.enhanceModal?.(overlay.querySelector(".gldn-modal"));
     const status = overlay.querySelector(".gldn-modal-status");
+    const closeButton = overlay.querySelector('[data-action="close"]');
+    closeButton.addEventListener("click", () => overlay.remove());
     overlay.querySelector('[data-action="cancel"]').addEventListener("click", () => {
+      if (overlay.dataset.manualReview === "true") {
+        overlay.remove();
+        return;
+      }
       cancelMarkShippedActivationApproval().catch((error) => {
         status.textContent = error.message || String(error);
       });
@@ -2949,6 +2967,7 @@
       overlay.dataset.activationBusy = "true";
       button.disabled = true;
       cancelButton.disabled = true;
+      closeButton.disabled = true;
       overlay.setAttribute("aria-busy", "true");
       status.textContent = "Applying your approval to eBay...";
       try {
@@ -3001,11 +3020,16 @@
         monitorPendingMarkShippedApproval();
       } catch (error) {
         const stored = await storageGet(["pendingMarkShippedRun"]).catch(() => ({}));
-        const actionMayHaveRun = stored.pendingMarkShippedRun?.phase === "activating-approved-action";
+        const pending = stored.pendingMarkShippedRun;
+        const actionMayHaveRun = Boolean(pending?.trustedActivationDispatchAt || pending?.trustedActivationReleasedAt
+          || (pending?.phase === "activating-approved-action" && error.activationNotDispatched !== true));
         if (overlay.isConnected) {
           overlay.style.display = "flex";
           overlay.removeAttribute("aria-busy");
         }
+        delete overlay.dataset.activationBusy;
+        closeButton.disabled = false;
+        cancelButton.disabled = false;
         if (actionMayHaveRun) {
           await storageSet({
             pendingMarkShippedRun: {
@@ -3015,14 +3039,24 @@
               updatedAt: new Date().toISOString()
             }
           });
+          overlay.dataset.manualReview = "true";
+          cancelButton.textContent = "Close and review eBay";
+          button.disabled = true;
           if (overlay.isConnected) status.textContent = `${error.message || String(error)} Review eBay before using Reset.`;
         } else {
-          delete overlay.dataset.activationBusy;
+          if (pending?.phase === "activating-approved-action" && error.activationNotDispatched === true) {
+            await storageSet({ pendingMarkShippedRun: {
+              ...pending, phase: "awaiting-activation-approval", activationApprovedAt: "",
+              error: error.message || String(error), updatedAt: new Date().toISOString()
+            } });
+          }
           button.disabled = false;
-          cancelButton.disabled = false;
           status.textContent = error.message || String(error);
         }
         renderStatus(`Mark as Shipped stopped safely: ${error.message || String(error)}`, "error");
+      } finally {
+        overlay.removeAttribute("aria-busy");
+        closeButton.disabled = false;
       }
     });
   }

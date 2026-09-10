@@ -1,0 +1,58 @@
+{
+  "syntheticBrowserFixture": true,
+  "signedInMarketplace": false,
+  "results": [
+    {
+      "name": "nested menu row and button",
+      "pass": true
+    },
+    {
+      "name": "nested text hit target",
+      "pass": true
+    },
+    {
+      "name": "two independent actions",
+      "pass": true
+    },
+    {
+      "name": "disabled menu parent",
+      "pass": true
+    },
+    {
+      "name": "closed menu",
+      "pass": true
+    },
+    {
+      "name": "extension text is not eBay",
+      "pass": true
+    },
+    {
+      "name": "blocked hit target",
+      "pass": true
+    },
+    {
+      "name": "Shipping menu reopens after approval is hidden",
+      "pass": true
+    },
+    {
+      "name": "changed order count stops before dispatch",
+      "pass": true
+    },
+    {
+      "name": "failure=false: outside click, close, retry gate, preserved state",
+      "pass": true
+    },
+    {
+      "name": "failure=true: outside click, close, retry gate, preserved state",
+      "pass": true
+    },
+    {
+      "name": "failure=unknown: outside click, close, retry gate, preserved state",
+      "pass": true
+    },
+    {
+      "name": "native confirmation remains detectable; GLDN confirmation text is excluded",
+      "pass": true
+    }
+  ]
+}

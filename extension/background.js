@@ -2487,19 +2487,17 @@ function buildMarkShippedActivationTargetProbe() {
         && Number(style.opacity || 1) > 0 && rect.width > 0 && rect.height > 0;
     };
     const actionableSelector = 'button, a, li, [role="menuitem"], [role="button"], [tabindex]:not([tabindex="-1"])';
-    const seen = new Set();
-    const matches = [...document.querySelectorAll(actionableSelector)]
+    const candidates = [...document.querySelectorAll(actionableSelector)]
       .filter(visible)
       .filter((element) => !element.closest('[id^="gldn-"], .gldn-order-panel, .gldn-modal-backdrop'))
       .filter((element) => normalize(element.getAttribute('aria-label') || element.innerText || element.textContent || element.title) === 'mark as shipped')
-      .map((element) => element.closest(actionableSelector) || element)
-      .filter((element) => {
-        if (seen.has(element)) return false;
-        seen.add(element);
-        return !element.disabled && element.getAttribute('aria-disabled') !== 'true';
-      });
+      .filter((element) => !element.disabled && !element.closest('[aria-disabled="true"], [disabled], [inert]'));
+    // A menu row and its nested button describe one action, not two choices.
+    const matches = candidates.filter((element) => !candidates.some((other) => other !== element && element.contains(other)));
     if (matches.length !== 1) {
-      return { ok: false, error: 'Expected exactly one enabled eBay Mark as shipped menu action.', matches: matches.length };
+      return { ok: false, error: matches.length === 0
+        ? 'The eBay Shipping menu closed or its Mark as shipped action is unavailable. No shipment click was sent.'
+        : 'More than one separate eBay Mark as shipped action is visible. No shipment click was sent.', matches: matches.length };
     }
     const target = matches[0];
     target.scrollIntoView({ block: 'center', inline: 'center' });
@@ -2507,7 +2505,7 @@ function buildMarkShippedActivationTargetProbe() {
     const x = Math.max(1, Math.min(innerWidth - 1, rect.left + rect.width / 2));
     const y = Math.max(1, Math.min(innerHeight - 1, rect.top + rect.height / 2));
     const hit = document.elementFromPoint(x, y);
-    if (!hit || !(hit === target || target.contains(hit) || hit.contains(target))) {
+    if (!hit || !(hit === target || target.contains(hit))) {
       return { ok: false, error: 'The eBay Mark as shipped menu action is not the hit-tested target.' };
     }
     return {
@@ -2588,8 +2586,7 @@ async function dispatchTrustedEbayMarkShippedActivation(message, sender) {
     });
     return { ok: true, dispatched: true, selectedCount: approved.selectedCount, target: { id: probe.id, label: probe.label } };
   } catch (error) {
-    error.dispatchRecorded = dispatchRecorded;
-    throw error;
+    return { ok: false, dispatched: dispatchRecorded, error: error?.message || String(error) };
   } finally {
     if (attached) await debuggerDetach(target);
   }
