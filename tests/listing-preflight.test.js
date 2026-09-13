@@ -238,7 +238,7 @@ test('counterfeit language Blocks while brand names alone do not stop a product'
   const results = core.evaluateRows(rows, publishedPack());
   assert.equal(results[0].action, 'block');
   assert.deepEqual(results.slice(1).map((row) => row.action), [
-    'clear', 'clear', 'clear', 'clear', 'clear', 'clear', 'review', 'clear', 'clear'
+    'clear', 'review', 'clear', 'clear', 'review', 'clear', 'review', 'clear', 'clear'
   ]);
   assert.ok(results[0].matches.some((match) => match.type === 'compound'));
 });

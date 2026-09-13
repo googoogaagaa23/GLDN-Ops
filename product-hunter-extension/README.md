@@ -1,6 +1,8 @@
 # GLDN Product Hunter
 
-Current package: v0.3.1
+Current package: v0.3.2
+
+v0.3.2 shares the stronger September 13 IP keyword decisions with GLDN Ops. Counterfeit and unauthorized-copy signals Block; targeted licensing and authenticity signals require Review. A brand name alone is not blocked. Pesticides and spray cans remain blocked. Text screening cannot verify image rights, licenses or product authenticity.
 
 GLDN Product Hunter is a separate Chrome extension for finding Amazon products before EcomSniper listing work. It accepts the operator's own search words, reads exact Amazon product pages in one inactive tab, and checks the collected product text against GLDN's reviewed eBay prohibited and restricted item rules.
 

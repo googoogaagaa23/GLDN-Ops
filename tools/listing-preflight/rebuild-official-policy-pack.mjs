@@ -577,3 +577,7 @@ console.log(JSON.stringify({
   block: rules.filter((rule) => rule.action === 'block').length,
   review: rules.filter((rule) => rule.action === 'review').length
 }, null, 2));
+
+// Preserve the later, targeted IP review when rebuilding the older full-hub decisions.
+const { refreshIpPolicyPack } = await import('./refresh-ip-policy-pack.mjs');
+console.log(refreshIpPolicyPack());

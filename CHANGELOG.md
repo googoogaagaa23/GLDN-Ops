@@ -1,5 +1,12 @@
 # GLDN Ops Changelog
 
+## v3.12.37 - 2026-09-13
+
+- Added targeted intellectual-property decisions for counterfeit claims, unauthorized copies, character and logo merchandise, imitation wording, and authenticity/warranty claims. The shared 622-rule pack preserves ordinary-brand no-match handling and pesticide/spray-can Blocks.
+- Existing Listings Policy Audit now finishes a bounded page snapshot despite daily additions or removals, deduplicates shifted rows, and preserves reviewable results with an explicit changing-store coverage warning.
+- Resume reclassifies saved raw pages with current rules while retaining account, page-completeness and approval checks. No automatic listing changes were added.
+- Bundles GLDN Product Hunter v0.3.2 with the same refreshed policy decisions. Its separate exact duplicate-inventory guard is unchanged.
+
 ## v3.12.36 - 2026-09-09
 
 - Recover delayed Mark as Shipped success from eBay's explicit order-count banner in the original awaiting-shipment tab, including manual-review and interrupted-finalizing states.

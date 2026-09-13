@@ -181,7 +181,7 @@
     const resultSignature = results.map((listing) => `${listing.itemId}:${listing.action}:${listing.matches.map((match) => match.id || `${match.type}:${match.value}`).join(",")}`).join("|");
     return {
       schemaVersion: 2,
-      source: "complete-active-listings-policy-scan",
+      source: metadata.coverage?.followUpRecommended ? "changing-active-listings-policy-snapshot" : "complete-active-listings-policy-scan",
       reportName: "Existing Listings Policy Audit",
       reportFingerprint: `policy-listings-${fnv1a(`${computerLabel}|${ebayAccountLabel}|${scannedAt}|${resultSignature}`)}`,
       rulesFingerprint,
@@ -194,6 +194,7 @@
       computerLabel,
       ebayAccountLabel,
       totalListings: results.length,
+      ...(metadata.coverage ? { coverage: { ...metadata.coverage } } : {}),
       summary,
       listings: results
     };

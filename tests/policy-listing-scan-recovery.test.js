@@ -33,7 +33,7 @@ function harness(total = 18359) {
       }))
     };
   }
-  const h = { data, progress: [], tabsCreated: 0, saveFailure: false, classificationHook: null };
+  const h = { data, progress: [], tabsCreated: 0, saveFailure: false, classificationHook: null, snapshots: null, pagesRead: [] };
   const context = vm.createContext({
     console, setTimeout, Date, Promise,
     VARIATION_SCAN_PAGE_SIZE: 200,
@@ -45,7 +45,7 @@ function harness(total = 18359) {
         await options.onProgress({ classifiedListings: 0, summary: { total: 0 } });
         if (h.classificationHook) await h.classificationHook();
         await options.onProgress({ classifiedListings: rows.length, summary: { total: rows.length, clear: rows.length, block: 0, review: 0 } });
-        return { totalListings: rows.length, summary: { total: rows.length, clear: rows.length, block: 0, review: 0 }, listings: rows };
+        return { totalListings: rows.length, summary: { total: rows.length, clear: rows.length, block: 0, review: 0 }, listings: rows, coverage: metadata.coverage };
       }
     },
     FOUNDATION: { normalizeEbayAccount: (v) => v },
@@ -66,7 +66,17 @@ function harness(total = 18359) {
     releaseWorkflowStart: async (token) => {
       if (data.gldnWorkflowReservation?.token === token) delete data.gldnWorkflowReservation;
     },
-    createChromeTab: async () => { h.tabsCreated += 1; throw new Error('Completed scans must not open page 93'); },
+    createChromeTab: async () => { h.tabsCreated += 1; if (h.snapshots) return { id: 123 }; throw new Error('Completed scans must not open page 93'); },
+    updateChromeTab: async () => {},
+    waitForControlTabSettled: async () => {},
+    waitForEbayVariationScanPage: async (tabId, offset, timeout, allowEnd) => {
+      assert.equal(allowEnd, true);
+      const page = offset / 200 + 1;
+      h.pagesRead.push(page);
+      assert.ok(h.snapshots?.[page], `unexpected page ${page}`);
+      return h.snapshots[page];
+    },
+    controlDelay: async () => {},
     variationScanPageUrl: (page) => `https://example.test/active?page=${page}`,
     closeChromeTab: async () => {},
     recordExtensionLog: async () => {}
@@ -75,8 +85,95 @@ function harness(total = 18359) {
   h.run = () => context.scanEbayPolicyListings({ fresh: false });
   h.status = () => context.getEbayPolicyListingScanStatus();
   h.stop = () => context.stopEbayPolicyListingScan();
+  h.readSaved = (total, pages) => context.readCompletePolicyListingScan('recovery-run', total, pages);
   return h;
 }
+
+function snapshot(total, page, firstId = (page - 1) * 200) {
+  const offset = (page - 1) * 200;
+  const count = Math.max(0, Math.min(200, total - offset));
+  return { total, start: offset + 1, end: offset + count, endOfList: count === 0,
+    records: Array.from({ length: count }, (_, index) => ({ itemId: String(300000000000 + firstId + index), title: 'Wood storage shelf' })) };
+}
+
+test('daily listing growth no longer aborts, deduplicates shifted rows and bounds the pass', async () => {
+  const h = harness(201);
+  Object.assign(h.data[STATE], { completedPages: 1, nextPage: 2 });
+  delete h.data[chunkKey(2)];
+  h.snapshots = { 2: snapshot(650, 2, 199) };
+  const result = await h.run();
+  assert.equal(result.ok, true, result.error);
+  assert.deepEqual(h.pagesRead, [2], 'do not chase a constantly growing page count');
+  assert.equal(result.scannedListings, 399);
+  assert.equal(result.coverage.initialTotal, 201);
+  assert.equal(result.coverage.latestTotal, 650);
+  assert.equal(result.coverage.duplicatesRemoved, 1);
+  assert.equal(result.coverage.followUpRecommended, true);
+  assert.equal(h.data[AUDIT].coverage.countChanged, true);
+  assert.equal(h.data[STATE].phase, 'complete');
+});
+
+test('listing shrinkage and an explicit end-of-list checkpoint finish without restart', async () => {
+  for (const total of [201, 199]) {
+    const h = harness(450);
+    Object.assign(h.data[STATE], { completedPages: 1, nextPage: 2 });
+    delete h.data[chunkKey(2)];
+    delete h.data[chunkKey(3)];
+    h.snapshots = { 2: snapshot(total, 2) };
+    const result = await h.run();
+    assert.equal(result.ok, true, result.error);
+    assert.deepEqual(h.pagesRead, [2]);
+    assert.equal(result.coverage.followUpRecommended, true);
+    assert.equal(result.coverage.latestTotal, total);
+    assert.equal(result.scannedListings, Math.max(200, total));
+  }
+});
+
+test('stable count with shifted duplicates is explicitly incomplete, not a false full-store result', async () => {
+  const h = harness(201);
+  h.data[chunkKey(2)].records[0] = h.data[chunkKey(1)].records[0];
+  const result = await h.run();
+  assert.equal(result.ok, true, result.error);
+  assert.equal(result.coverage.countChanged, false);
+  assert.equal(result.coverage.completeAtStableCount, false);
+  assert.equal(result.coverage.followUpRecommended, true);
+  assert.equal(result.scannedListings, 200);
+});
+
+test('current IP rules can classify old raw checkpoints without rescanning the store', async () => {
+  const h = harness(201);
+  h.data[STATE].rulesFingerprint = 'older-ip-rules';
+  const result = await h.run();
+  assert.equal(result.ok, true, result.error);
+  assert.equal(h.tabsCreated, 0);
+  assert.equal(h.data[STATE].rulesFingerprint, 'same-rules');
+  assert.equal(result.coverage.completeAtStableCount, true);
+});
+
+test('count tolerance never accepts missing rows, wrong ranges or within-page duplicates', async () => {
+  for (const bad of ['missing row', 'duplicate row', 'wrong range', 'missing end evidence']) {
+    const h = harness(201);
+    const page = snapshot(202, 2);
+    Object.assign(h.data[chunkKey(2)], page, { schemaVersion: 2, observedTotal: 202 });
+    if (bad === 'missing row') h.data[chunkKey(2)].records.pop();
+    if (bad === 'duplicate row') h.data[chunkKey(2)].records[1] = h.data[chunkKey(2)].records[0];
+    if (bad === 'wrong range') h.data[chunkKey(2)].start = 1;
+    if (bad === 'missing end evidence') Object.assign(h.data[chunkKey(2)], { observedTotal: 100, start: 201, end: 200, records: [], endOfList: false });
+    const result = await h.run();
+    assert.equal(result.ok, false, bad);
+    assert.equal(h.data[AUDIT], undefined);
+    assert.ok(h.data[chunkKey(1)]);
+  }
+});
+
+test('an explicitly verified empty store is a valid zero-listing result', async () => {
+  const h = harness(0);
+  h.snapshots = { 1: snapshot(0, 1) };
+  const result = await h.run();
+  assert.equal(result.ok, true, result.error);
+  assert.equal(result.scannedListings, 0);
+  assert.equal(result.coverage.completeAtStableCount, true);
+});
 
 test('all 18,359 saved listings finish without requesting page 93', async () => {
   const h = harness();

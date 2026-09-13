@@ -1,13 +1,13 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-09-09
-Current local manifest: 3.12.36
+Current local manifest: 3.12.37
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  
 Current machine identity: eBay computer `0` / account `FAK12`, plus Poshmark computer `7`
 
-> v3.12.36 repairs delayed Mark as Shipped completion and stale busy-state restoration. Exact success evidence from the owner tab is required; recovery submits nothing. Focused tests and isolated Chrome fixtures pass. The affected Computer 0 shipment tab is not attached here, so post-update live recovery remains unverified. v3.12.35 dashboard receipt and manual timestamp repairs are retained.
+> v3.12.37 strengthens targeted IP text screening and allows Existing Listings Policy Audit to finish a bounded changing-store snapshot with deduplication and coverage warnings. Saved raw pages can be reclassified under current rules. Signed-in affected-store validation remains pending; no live listing was changed. The v3.12.36 shipment recovery and v3.12.35 dashboard receipt/manual timestamp repairs are retained.
 
 > v3.12.34 fixes Mark as Shipped menu target duplication and the locked approval overlay. Pre-dispatch failures allow fresh approval; attempted or uncertain clicks remain review-only. Browser fixtures verify desktop/mobile close controls, page interaction, and native-dialog exclusion. Computer 2 signed-in shipment completion remains pending; no orders were changed by this release work.
 

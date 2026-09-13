@@ -146,20 +146,22 @@
 
   function scanProgressMessage(state) {
     if (!state) return "No complete scan saved.";
+    const changed = state.countChanged || state.coverage?.followUpRecommended;
+    const coverageNote = changed ? " Store changed during this scan; results cover the unique listings observed, not a guaranteed current-store total." : "";
     if (state.phase === "scanning") {
       const totalPages = Number(state.totalPages || 0);
       if (totalPages && Number(state.completedPages || 0) >= totalPages) {
-        return `All ${Number(state.scannedListings || 0).toLocaleString()} listings collected. Preparing policy results...`;
+        return `${Number(state.scannedListings || 0).toLocaleString()} listing rows collected. Preparing policy results...${coverageNote}`;
       }
-      return `Scanning page ${Number(state.page || 1).toLocaleString()}${totalPages ? ` of ${totalPages.toLocaleString()}` : ""}: ${Number(state.scannedListings || 0).toLocaleString()} of ${Number(state.totalListings || 0).toLocaleString()} verified.`;
+      return `Scanning page ${Number(state.page || 1).toLocaleString()}${totalPages ? ` of ${totalPages.toLocaleString()}` : ""}: ${Number(state.scannedListings || 0).toLocaleString()} rows read.${coverageNote}`;
     }
-    if (state.phase === "classifying") return `Checking policy rules: ${Number(state.classifiedListings || 0).toLocaleString()} of ${Number(state.totalListings || 0).toLocaleString()} listings classified. All listing pages are saved.`;
+    if (state.phase === "classifying") return `Checking policy rules: ${Number(state.classifiedListings || 0).toLocaleString()} of ${Number(state.totalListings || 0).toLocaleString()} listings classified. Collected pages are saved.${coverageNote}`;
     if (state.phase === "saving") return `Saving results for all ${Number(state.totalListings || 0).toLocaleString()} listings...`;
     if (state.phase === "paused") return Number(state.totalPages || 0) > 0 && Number(state.completedPages || 0) >= Number(state.totalPages)
-      ? "Paused after collecting every listing. Resume finishes policy results from the saved listings; no pages need rescanning."
+      ? `Paused after collecting the planned pages. Resume finishes policy results from the saved listings; no pages need rescanning.${coverageNote}`
       : `Paused before page ${Number(state.nextPage || 1).toLocaleString()}. Resume continues from the saved verified checkpoint.`;
     if (state.phase === "error") return `${String(state.error || "The scan stopped safely.")} The verified checkpoint is resumable.`;
-    if (state.phase === "complete") return `Complete: ${Number(state.totalListings || 0).toLocaleString()} unique Active Listings were verified and classified.`;
+    if (state.phase === "complete") return `Scan finished: ${Number(state.totalListings || 0).toLocaleString()} unique listings classified.${coverageNote}`;
     return "Preparing a quiet signed-in eBay scan tab...";
   }
 
@@ -184,7 +186,7 @@
     elements.metricSelected.textContent = selectedIds.size.toLocaleString();
     elements.scanHeadline.textContent = scanProgressMessage(scanState);
     elements.scanDetail.textContent = audit
-      ? `${Number(audit.ruleCount || 0).toLocaleString()} reviewed rules applied at ${new Date(audit.scannedAt).toLocaleString()}. “No rule match” is not eBay approval.`
+      ? `${Number(audit.ruleCount || 0).toLocaleString()} reviewed rules applied at ${new Date(audit.scannedAt).toLocaleString()}. “No rule match” is not eBay approval.${audit.coverage?.followUpRecommended ? ` Count: ${Number(audit.coverage.initialTotal).toLocaleString()} at start, ${Number(audit.coverage.latestTotal).toLocaleString()} last observed. ${Number(audit.coverage.duplicatesRemoved || 0).toLocaleString()} repeated rows removed. Run a follow-up scan for listings added or shifted during this pass.` : ""}`
       : "A complete scan is read-only. It verifies each 200-row eBay page before classification.";
     elements.auditIdentity.textContent = audit
       ? `${audit.computerLabel} / ${audit.ebayAccountLabel}`
@@ -261,7 +263,7 @@
       } else {
         audit = response.audit || audit;
         selectedIds.clear();
-        setStatus(`Complete: ${Number(response.scannedListings || 0).toLocaleString()} listings classified read-only. ${Number(response.summary?.block || 0).toLocaleString()} official Block matches require urgent human inspection; no listing was changed.`, "success");
+        setStatus(`Scan finished: ${Number(response.scannedListings || 0).toLocaleString()} listings classified read-only. ${Number(response.summary?.block || 0).toLocaleString()} Block matches require urgent human inspection; no listing was changed.${response.coverage?.followUpRecommended ? " Store changed; review these results and run a follow-up scan for new or shifted listings." : ""}`, "success");
       }
     } catch (error) {
       setStatus(error?.message || String(error), "error");

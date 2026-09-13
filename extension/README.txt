@@ -1,4 +1,12 @@
-GLDN Ops v3.12.36
+GLDN Ops v3.12.37
+
+v3.12.37 IP screening and changing-store scans:
+- Adds targeted counterfeit, unauthorized-copy, character/logo licensing and authenticity checks to both preflight and existing-listing audits. Ordinary brand names alone remain allowed by the keyword check.
+- Existing-listing policy scans finish a bounded pass when daily listing totals change, deduplicate repeated item IDs, and show a follow-up coverage warning instead of discarding the audit.
+- Incomplete pages, browser checks, wrong-account checkpoints and marketplace approval boundaries remain protected.
+- Resume can apply current rules to saved raw pages without rereading completed pages.
+- Pesticides and spray cans remain blocked. No-match text is not proof of authenticity or eBay permission.
+
 
 v3.12.36 shipment completion recovery:
 - A delayed eBay success banner releases the completed Mark as Shipped workflow.

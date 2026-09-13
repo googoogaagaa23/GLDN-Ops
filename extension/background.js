@@ -4478,11 +4478,11 @@ function variationScanPageUrl(page) {
   return url.toString();
 }
 
-async function inspectEbayVariationScanPage(tabId, expectedOffset) {
+async function inspectEbayVariationScanPage(tabId, expectedOffset, allowEndOfList = false) {
   const injection = await chrome.scripting.executeScript({
     target: { tabId },
     world: 'MAIN',
-    func: (offset) => {
+    func: (offset, allowEnd) => {
       const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
       const visible = (element) => {
         if (!element) return false;
@@ -4503,6 +4503,13 @@ async function inspectEbayVariationScanPage(tabId, expectedOffset) {
       const range = ranges.find((entry) => entry.start === expectedStart)
         || ranges.find((entry) => expectedStart >= entry.start && expectedStart <= Math.min(entry.end, entry.total))
         || null;
+      const totals = [...new Set(ranges.map((entry) => entry.total))];
+      const empty = /Results?:\s*0\b/i.test(bodyText) && /(?:no results|didn't find any results)/i.test(bodyText);
+      const endTotal = totals.length === 1 ? totals[0] : empty ? 0 : null;
+      if (allowEnd && !interruption && endTotal !== null && Number(offset) >= endTotal
+          && /^\/sh\/lst\/active\/?$/.test(location.pathname)) {
+        return { ok: true, endOfList: true, total: endTotal, records: [], start: Number(offset) + 1, end: Number(offset), recordCount: 0 };
+      }
       const idFromHref = (href) => {
         const match = String(href || '').match(/\/itm\/(?:[^/?#]+\/)?(\d{9,15})(?:[/?#]|$)/i);
         return match?.[1] || '';
@@ -4556,16 +4563,16 @@ async function inspectEbayVariationScanPage(tabId, expectedOffset) {
         records
       };
     },
-    args: [Math.max(0, Number(expectedOffset || 0))]
+    args: [Math.max(0, Number(expectedOffset || 0)), allowEndOfList === true]
   });
   return injection?.[0]?.result || null;
 }
 
-async function waitForEbayVariationScanPage(tabId, expectedOffset, timeoutMs = 45000) {
+async function waitForEbayVariationScanPage(tabId, expectedOffset, timeoutMs = 45000, allowEndOfList = false) {
   const deadline = Date.now() + timeoutMs;
   let last = null;
   while (Date.now() < deadline) {
-    last = await inspectEbayVariationScanPage(tabId, expectedOffset);
+    last = await inspectEbayVariationScanPage(tabId, expectedOffset, allowEndOfList);
     if (last?.interruption) {
       throw new Error('eBay paused the read-only scan with its browser check. No listings were changed.');
     }
@@ -5212,36 +5219,49 @@ async function currentPolicyListingIdentity() {
   return { computerLabel, ebayAccountLabel };
 }
 
-async function readCompletePolicyListingScan(runId, totalListings) {
+async function readCompletePolicyListingScan(runId, totalListings, completedPages = Math.ceil(Number(totalListings || 0) / VARIATION_SCAN_PAGE_SIZE)) {
   const total = Number(totalListings || 0);
-  const totalPages = Math.ceil(total / VARIATION_SCAN_PAGE_SIZE);
-  if (!total || !totalPages) throw new Error('eBay did not report a positive Active Listings total.');
+  const totalPages = Number(completedPages);
+  if (!Number.isInteger(total) || total < 0 || !Number.isInteger(totalPages) || totalPages < 1) throw new Error('eBay did not report a verified Active Listings page.');
   const keys = Array.from({ length: totalPages }, (_, index) => policyListingScanChunkKey(runId, index + 1));
   const stored = await storageGet(keys);
-  const records = [];
-  const seen = new Set();
+  const seen = new Map();
+  let latestTotal = total;
+  let countChanged = false;
+  let duplicatesRemoved = 0;
   for (let index = 0; index < keys.length; index += 1) {
     const page = index + 1;
     const chunk = stored[keys[index]];
     const expectedOffset = index * VARIATION_SCAN_PAGE_SIZE;
-    const expectedCount = Math.min(VARIATION_SCAN_PAGE_SIZE, total - expectedOffset);
-    if (!chunk || Number(chunk.page) !== page || Number(chunk.totalListings) !== total
+    const observedTotal = Number(chunk?.observedTotal ?? chunk?.totalListings);
+    const expectedCount = Math.max(0, Math.min(VARIATION_SCAN_PAGE_SIZE, observedTotal - expectedOffset));
+    if (!chunk || Number(chunk.page) !== page || chunk.runId !== runId
+        || !Number.isInteger(observedTotal) || observedTotal < 0
+        || (expectedCount === 0 && chunk.endOfList !== true)
+        || (chunk.schemaVersion >= 2 && (Number(chunk.start) !== expectedOffset + 1 || Number(chunk.end) !== expectedOffset + expectedCount))
         || !Array.isArray(chunk.records) || chunk.records.length !== expectedCount) {
       throw new Error(`Saved scan page ${page.toLocaleString()} is missing or incomplete. Resume the scan before reviewing results.`);
     }
+    latestTotal = observedTotal;
+    countChanged ||= observedTotal !== total;
+    const pageIds = new Set();
     for (const record of chunk.records) {
       const itemId = String(record?.itemId || '');
-      if (!/^\d{9,15}$/.test(itemId) || seen.has(itemId)) {
+      if (!/^\d{9,15}$/.test(itemId) || pageIds.has(itemId)) {
         throw new Error(`Saved scan page ${page.toLocaleString()} contains an invalid or duplicate eBay item number.`);
       }
-      seen.add(itemId);
-      records.push(record);
+      pageIds.add(itemId);
+      if (seen.has(itemId)) duplicatesRemoved += 1;
+      seen.set(itemId, record);
     }
   }
-  if (records.length !== total || seen.size !== total) {
-    throw new Error(`The completed scan expected ${total.toLocaleString()} unique listings but verified ${seen.size.toLocaleString()}.`);
-  }
-  return records;
+  const records = [...seen.values()];
+  return { records, coverage: {
+    mode: 'bounded-page-snapshot', initialTotal: total, latestTotal,
+    observedUnique: records.length, pagesRead: totalPages, countChanged, duplicatesRemoved,
+    followUpRecommended: countChanged || duplicatesRemoved > 0 || records.length !== total,
+    completeAtStableCount: !countChanged && duplicatesRemoved === 0 && records.length === total
+  } };
 }
 
 async function recoverInterruptedPolicyListingScan(starting = false) {
@@ -5320,17 +5340,16 @@ async function runEbayPolicyListingScan(request = {}, sender = {}) {
       && String(previous.runId || '')
       && ['paused', 'error', 'scanning', 'classifying', 'saving'].includes(String(previous.phase || ''))
       && String(previous.computerLabel || '') === identity.computerLabel
-      && String(previous.ebayAccountLabel || '') === identity.ebayAccountLabel
-      && String(previous.rulesFingerprint || '') === rulesFingerprint;
+      && String(previous.ebayAccountLabel || '') === identity.ebayAccountLabel;
 
     if (request.fresh !== true && previous.runId && !canResume) {
-      throw new Error('The saved scan belongs to a different account or policy-rule version. Its checkpoint was kept; choose Start Fresh Complete Scan to replace it.');
+      throw new Error('The saved scan belongs to a different account. Its checkpoint was kept; choose Start Fresh Complete Scan to replace it.');
     }
     if (canResume) {
       runId = String(previous.runId);
       nextPage = Math.max(1, Number(previous.nextPage || previous.page || 1));
-      totalListings = Math.max(0, Number(previous.totalListings || 0));
-      totalPages = totalListings ? Math.ceil(totalListings / VARIATION_SCAN_PAGE_SIZE) : 0;
+      totalListings = Math.max(0, Number(previous.initialTotal || previous.totalListings || 0));
+      totalPages = Number(previous.totalPages || (totalListings ? Math.ceil(totalListings / VARIATION_SCAN_PAGE_SIZE) : 0));
     } else {
       if (previous.runId) await removePolicyListingScanChunks(previous.runId);
       runId = globalThis.crypto?.randomUUID?.() || `policy-listings-${Date.now()}`;
@@ -5355,6 +5374,9 @@ async function runEbayPolicyListingScan(request = {}, sender = {}) {
         totalPages: totalPages || null,
         scannedListings: Math.min(totalListings || 0, Math.max(0, nextPage - 1) * VARIATION_SCAN_PAGE_SIZE),
         totalListings: totalListings || null,
+        initialTotal: totalListings || null,
+        latestTotal: canResume ? previous.latestTotal ?? totalListings : null,
+        countChanged: canResume && previous.countChanged === true,
         stopRequested: false,
         startedAt,
         updatedAt: new Date().toISOString()
@@ -5391,26 +5413,27 @@ async function runEbayPolicyListingScan(request = {}, sender = {}) {
       const offset = (page - 1) * VARIATION_SCAN_PAGE_SIZE;
       await updateChromeTab(scanTab.id, { url: variationScanPageUrl(page), active: false });
       await waitForControlTabSettled(scanTab.id, 30000);
-      const snapshot = await waitForEbayVariationScanPage(scanTab.id, offset);
+      const snapshot = await waitForEbayVariationScanPage(scanTab.id, offset, 45000, true);
       if (!totalListings) {
         totalListings = Number(snapshot.total || 0);
-        totalPages = Math.ceil(totalListings / VARIATION_SCAN_PAGE_SIZE);
+        totalPages = Math.max(1, Math.ceil(totalListings / VARIATION_SCAN_PAGE_SIZE));
       }
-      if (Number(snapshot.total || 0) !== totalListings) {
-        throw new Error(`The Active Listings total changed from ${totalListings.toLocaleString()} to ${Number(snapshot.total || 0).toLocaleString()} during the scan. Start a fresh scan after eBay settles.`);
-      }
+      // Keep a bounded pass while daily listings change. Each page still needs exact row evidence.
+      const countChanged = latestState.countChanged === true || Number(snapshot.total) !== totalListings;
 
       const chunkKey = policyListingScanChunkKey(runId, page);
       await assertPolicyListingRunActive(runId);
       const updatedAt = new Date().toISOString();
       await storageSet({
         [chunkKey]: {
-          schemaVersion: 1,
+          schemaVersion: 2,
           runId,
           page,
           start: Number(snapshot.start || 0),
           end: Number(snapshot.end || 0),
           totalListings,
+          observedTotal: Number(snapshot.total),
+          endOfList: snapshot.endOfList === true,
           records: snapshot.records,
           verifiedAt: updatedAt
         },
@@ -5428,32 +5451,41 @@ async function runEbayPolicyListingScan(request = {}, sender = {}) {
           totalPages,
           scannedListings: Math.min(totalListings, Number(snapshot.end || page * VARIATION_SCAN_PAGE_SIZE)),
           totalListings,
+          initialTotal: totalListings,
+          latestTotal: Number(snapshot.total),
+          countChanged,
           stopRequested: false,
           startedAt,
           updatedAt
         }
       });
-      if (Number(snapshot.end || 0) >= totalListings) break;
+      if (snapshot.endOfList || Number(snapshot.end || 0) >= Number(snapshot.total)) break;
       await controlDelay(VARIATION_SCAN_NAVIGATION_DELAY_MS);
     }
 
     const collectedState = await assertPolicyListingRunActive(runId);
+    totalPages = Number(collectedState.completedPages || totalPages);
+    const { records, coverage } = await readCompletePolicyListingScan(runId, totalListings, totalPages);
     await storageSet({
       [POLICY_LISTING_SCAN_STATE_KEY]: {
         ...collectedState,
         phase: 'classifying',
         page: totalPages,
         nextPage: totalPages + 1,
+        totalPages,
+        coverage,
+        totalListings: records.length,
+        scannedListings: records.length,
         classifiedListings: 0,
         updatedAt: new Date().toISOString()
       }
     });
-    const records = await readCompletePolicyListingScan(runId, totalListings);
     const scannedAt = new Date().toISOString();
     const audit = await POLICY_LISTING_AUDIT.buildPolicyAuditAsync(records, rulePack, {
       scannedAt,
       computerLabel: identity.computerLabel,
-      ebayAccountLabel: identity.ebayAccountLabel
+      ebayAccountLabel: identity.ebayAccountLabel,
+      coverage
     }, LISTING_PREFLIGHT, {
       batchSize: 100,
       onProgress: async (progress) => {
@@ -5469,8 +5501,8 @@ async function runEbayPolicyListingScan(request = {}, sender = {}) {
         });
       }
     });
-    if (Number(audit.totalListings || 0) !== totalListings
-        || Number(audit.summary?.total || 0) !== totalListings) {
+    if (Number(audit.totalListings || 0) !== records.length
+        || Number(audit.summary?.total || 0) !== records.length) {
       throw new Error('The policy classification did not cover every verified Active Listing. No review was created.');
     }
     const classifiedState = await assertPolicyListingRunActive(runId);
@@ -5491,9 +5523,12 @@ async function runEbayPolicyListingScan(request = {}, sender = {}) {
         nextPage: totalPages + 1,
         completedPages: totalPages,
         totalPages,
-        scannedListings: totalListings,
-        classifiedListings: totalListings,
-        totalListings,
+        scannedListings: records.length,
+        classifiedListings: records.length,
+        totalListings: records.length,
+        initialTotal: totalListings,
+        latestTotal: coverage.latestTotal,
+        coverage,
         summary: audit.summary,
         stopRequested: false,
         startedAt,
@@ -5506,11 +5541,11 @@ async function runEbayPolicyListingScan(request = {}, sender = {}) {
       source: 'ebay-policy-listings',
       level: 'info',
       operation: 'complete-read-only-scan',
-      message: `Classified all ${totalListings} active listings: ${audit.summary.block} Block, ${audit.summary.review} Review, ${audit.summary.clear} no current rule match.`,
+      message: `Classified ${records.length} observed listings: ${audit.summary.block} Block, ${audit.summary.review} Review, ${audit.summary.clear} no current rule match.${coverage.followUpRecommended ? ' Store changed during the scan; a follow-up is recommended.' : ''}`,
       detail: { runId, reportFingerprint: audit.reportFingerprint, rulesFingerprint, summary: audit.summary }
     }).catch(() => null);
     // The page reads the committed audit from storage; do not send a second store-sized payload.
-    return { ok: true, scannedListings: totalListings, summary: audit.summary };
+    return { ok: true, scannedListings: records.length, summary: audit.summary, coverage };
   } catch (error) {
     const now = new Date().toISOString();
     const latest = await storageGet([POLICY_LISTING_SCAN_STATE_KEY]).catch(() => ({}));

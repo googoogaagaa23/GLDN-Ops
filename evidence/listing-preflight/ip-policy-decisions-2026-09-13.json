@@ -1,0 +1,1298 @@
+{
+  "reviewedAt": "2026-09-13",
+  "sources": [
+    "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+    "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+  ],
+  "scope": "Text-based IP risk screening. No claim of image inspection, authenticity verification or complete brand coverage. Conditional rules require human evidence review.",
+  "decisions": [
+    {
+      "type": "compound",
+      "value": "Counterfeit and knockoff sale claims",
+      "anyOf": [
+        "knockoff",
+        "knockoffs",
+        "knock-off",
+        "knock-offs",
+        "knock off replica",
+        "counterfeit goods",
+        "counterfeit replica",
+        "counterfeits for sale",
+        "not authentic",
+        "fake designer",
+        "fake branded"
+      ],
+      "noneOf": [
+        "counterfeit detector",
+        "counterfeit detection",
+        "counterfeit prevention guide"
+      ],
+      "action": "block",
+      "reason": "The text describes counterfeit or knockoff goods. Counterfeit goods cannot be listed, even when disclosed. Inspect the exact matched product before ending any existing listing.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "explicit-prohibition",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "unauthorized copies and branded merchandise",
+      "allOf": [
+        "unauthorized"
+      ],
+      "anyOf": [
+        "copy",
+        "copies",
+        "reproduction",
+        "reproductions",
+        "logo",
+        "logos",
+        "character merchandise",
+        "branded merchandise",
+        "reprint",
+        "reprints"
+      ],
+      "action": "block",
+      "reason": "Unauthorized copies or uses of protected logos and characters are not allowed. Calling them replicas or unofficial does not supply permission.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "explicit-prohibition",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "unauthorised copies and branded merchandise",
+      "allOf": [
+        "unauthorised"
+      ],
+      "anyOf": [
+        "copy",
+        "copies",
+        "reproduction",
+        "reproductions",
+        "logo",
+        "logos",
+        "character merchandise",
+        "branded merchandise",
+        "reprint",
+        "reprints"
+      ],
+      "action": "block",
+      "reason": "Unauthorized copies or uses of protected logos and characters are not allowed. Calling them replicas or unofficial does not supply permission.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "explicit-prohibition",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Unlicensed copies of protected material",
+      "allOf": [
+        "unlicensed"
+      ],
+      "anyOf": [
+        "logo",
+        "logos",
+        "character merchandise",
+        "movie copy",
+        "movie copies",
+        "software copy",
+        "software copies",
+        "music copy",
+        "music copies",
+        "branded merchandise"
+      ],
+      "action": "block",
+      "reason": "The product explicitly describes unlicensed copies or protected-logo merchandise. Permission is required; a disclaimer does not make infringement acceptable.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "explicit-prohibition",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Bootleg entertainment and software",
+      "anyOf": [
+        "bootleg dvd",
+        "bootleg dvds",
+        "bootleg blu-ray",
+        "bootleg blu ray",
+        "bootleg movie",
+        "bootleg movies",
+        "bootleg music",
+        "bootleg cd",
+        "bootleg cds",
+        "bootleg software",
+        "pirated software",
+        "pirated movies",
+        "pirated games"
+      ],
+      "action": "block",
+      "reason": "Unauthorized bootleg copies of movies, music, games and software are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "explicit-prohibition",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Content used without permission",
+      "allOf": [
+        "without permission"
+      ],
+      "anyOf": [
+        "copied product photos",
+        "copied product images",
+        "copied listing description",
+        "copyrighted artwork",
+        "copyrighted images"
+      ],
+      "action": "block",
+      "reason": "This text explicitly describes use of protected listing content without permission. Use your own content, licensed content or an available eBay catalog alternative.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "explicit-prohibition",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "dupe",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "dupes",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "designer inspired",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "designer-inspired",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "inspired by",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "inspired-by",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "replica",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "replicas",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "1:1 copy",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "1:1 quality",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "mirror quality",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "keyword",
+      "value": "AAA quality",
+      "action": "review",
+      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Fan-made protected artwork",
+      "anyOf": [
+        "fan art",
+        "fan-art",
+        "fanart",
+        "fan made",
+        "fan-made",
+        "unofficial merchandise",
+        "unofficial merch"
+      ],
+      "action": "review",
+      "reason": "Fan-made or custom wording does not establish permission to reproduce protected characters or artwork. Verify rights for the exact design; do not copy this link into the lister until reviewed.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character sticker licensing",
+      "allOf": [
+        "sticker"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character stickers licensing",
+      "allOf": [
+        "stickers"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character decal licensing",
+      "allOf": [
+        "decal"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character decals licensing",
+      "allOf": [
+        "decals"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character shirt licensing",
+      "allOf": [
+        "shirt"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character shirts licensing",
+      "allOf": [
+        "shirts"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character t-shirt licensing",
+      "allOf": [
+        "t-shirt"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character hoodie licensing",
+      "allOf": [
+        "hoodie"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character mug licensing",
+      "allOf": [
+        "mug"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character mugs licensing",
+      "allOf": [
+        "mugs"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character figurine licensing",
+      "allOf": [
+        "figurine"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character figure licensing",
+      "allOf": [
+        "figure"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character toy licensing",
+      "allOf": [
+        "toy"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character toys licensing",
+      "allOf": [
+        "toys"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character plush licensing",
+      "allOf": [
+        "plush"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character poster licensing",
+      "allOf": [
+        "poster"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character patch licensing",
+      "allOf": [
+        "patch"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character patches licensing",
+      "allOf": [
+        "patches"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character keychain licensing",
+      "allOf": [
+        "keychain"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character costume licensing",
+      "allOf": [
+        "costume"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character party supplies licensing",
+      "allOf": [
+        "party supplies"
+      ],
+      "anyOf": [
+        "Disney",
+        "Pixar",
+        "Marvel",
+        "DC Comics",
+        "Pokemon",
+        "Pokémon",
+        "Pikachu",
+        "Mickey Mouse",
+        "Harry Potter",
+        "Star Wars",
+        "Hello Kitty",
+        "Barbie",
+        "Funko"
+      ],
+      "action": "review",
+      "reason": "Named character or entertainment merchandise needs an authenticity and licensing check. Genuine authorized goods can be resold; this is a review signal, not a finding that all goods from this brand are prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Named character designs",
+      "anyOf": [
+        "Mickey Mouse",
+        "Minnie Mouse",
+        "Pikachu",
+        "Hello Kitty",
+        "Harry Potter",
+        "Darth Vader",
+        "Spider-Man",
+        "Spiderman",
+        "Super Mario",
+        "SpongeBob",
+        "Sponge Bob"
+      ],
+      "action": "review",
+      "reason": "A recognizable protected-character name raises a licensing or authenticity question for the exact design. Check source evidence and images; genuine authorized goods are not automatically prohibited.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Character artwork and licensing claims",
+      "anyOf": [
+        "licensed character",
+        "character artwork",
+        "character logo",
+        "licensed artwork"
+      ],
+      "action": "review",
+      "reason": "A character-artwork or licensing claim needs evidence for the exact design. Words such as officially licensed do not establish permission on their own.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Sports and team logo merchandise",
+      "anyOf": [
+        "NFL jersey",
+        "NBA jersey",
+        "MLB jersey",
+        "NHL jersey",
+        "team logo",
+        "league logo",
+        "replica jersey",
+        "championship ring"
+      ],
+      "action": "review",
+      "reason": "Check licensing and authenticity of league or team merchandise. A logo or an official-looking title is not proof of authorization.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Replacement trademark badges and emblems",
+      "anyOf": [
+        "replacement logo",
+        "replacement emblem",
+        "car emblem",
+        "vehicle emblem",
+        "car badge",
+        "steering wheel badge",
+        "brand logo decal",
+        "designer logo"
+      ],
+      "action": "review",
+      "reason": "Replacement badges, logos and emblems may reproduce protected trademarks. Verify the exact design and authorization, including logos visible only in photos.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "type": "compound",
+      "value": "Authenticity and warranty claims",
+      "anyOf": [
+        "genuine OEM",
+        "OEM genuine",
+        "authenticity guaranteed",
+        "guaranteed authentic",
+        "factory original logo",
+        "manufacturer warranty",
+        "manufacturer's warranty"
+      ],
+      "action": "review",
+      "reason": "Verify the claimed OEM origin, authenticity or transferable manufacturer warranty for this exact product. Do not rely on the title claim alone.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    }
+  ]
+}

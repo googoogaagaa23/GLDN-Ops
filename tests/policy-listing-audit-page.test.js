@@ -47,7 +47,7 @@ test('last-page screen shows collected totals, classification progress and recov
   const p = await page(collected);
   assert.equal(p.messages[0].type, 'getEbayPolicyListingScanStatus');
   assert.equal(p.elements.metricScanned.textContent, '18,359');
-  assert.match(p.elements.scanHeadline.textContent, /All 18,359 listings collected/);
+  assert.match(p.elements.scanHeadline.textContent, /18,359 listing rows collected/);
   assert.equal(p.elements.auditIdentity.textContent, 'M0 / CLICKNCARRY');
   assert.equal(p.elements.currentReview.hidden, true);
   p.change({ ebayPolicyListingScanState: {
@@ -78,4 +78,21 @@ test('saved audit rows become visible and downloadable only after the complete c
   assert.equal(p.elements.currentReview.hidden, true);
   const css = fs.readFileSync(path.join(ext, 'policy-listing-audit.css'), 'utf8');
   assert.match(css, /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
+});
+
+test('changing-store results remain visible with a prominent coverage warning', async () => {
+  const coverage = { followUpRecommended: true, initialTotal: 18640, latestTotal: 18641, duplicatesRemoved: 1 };
+  const state = { ...collected, active: false, phase: 'complete', totalListings: 18639, coverage };
+  const p = await page(state);
+  p.change({ ebayPolicyListingScanState: state, ebayPolicyListingAudit: {
+    computerLabel: 'M0', ebayAccountLabel: 'CLICKNCARRY', scannedAt: '2026-09-13T00:00:00Z',
+    totalListings: 18639, ruleCount: 620, summary: { total: 18639 }, coverage,
+    listings: [{ itemId: '300000000001', title: 'Reviewable listing', action: 'review', matches: [] }]
+  } });
+  assert.match(p.elements.scanHeadline.textContent, /Store changed/);
+  assert.match(p.elements.scanHeadline.textContent, /not a guaranteed current-store total/);
+  assert.match(p.elements.scanDetail.textContent, /18,640 at start, 18,641 last observed/);
+  assert.match(p.elements.scanDetail.textContent, /1 repeated rows removed/);
+  assert.match(p.elements.listingRows.innerHTML, /Reviewable listing/);
+  assert.equal(p.elements.downloadAudit.disabled, false);
 });

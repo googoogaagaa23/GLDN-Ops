@@ -7,25 +7,25 @@
 Run Setup once on each Windows computer. Load the stable extension folder once
 in every intended Chrome profile. Later updates use **Update & Reload**.
 
-SHA-256: CE5759CDC21B82DB8DE14046002604CE4FC487E7044BF10EFAC764E63AAE39F9
+SHA-256: 2AF6C7F825FB0A19140767AFD3169CF666ED28D749D2C4C9EC6807F47A0685FA
 
 ## Current extension package
 
-- [Download GLDN Ops v3.12.36](./GLDN-Ops-extension-v3.12.36.zip)
+- [Download GLDN Ops v3.12.37](./GLDN-Ops-extension-v3.12.37.zip)
 
-SHA-256: 01F4A5A076F140B96CCF3F5E8440DEE597EA2042EA618AC6580174CD0D4DE4EE
+SHA-256: 1F20843A8688E7EF7F6F0241FDA717D21E2BE35759135D3D40D4C80BCDE3B6BD
 
 ## Current full local bundle
 
-- [Download the GLDN Ops v3.12.36 local bundle](./GLDN-Ops-local-v3.12.36.zip)
+- [Download the GLDN Ops v3.12.37 local bundle](./GLDN-Ops-local-v3.12.37.zip)
 
-SHA-256: 197DA96A9AD210807DF53482633116379258A3F33A4CD550D8C5EC28D73CA7A3
+SHA-256: 93E398EC8CF09022759591381A18EA686DE75B7D915BF44DAF3AECE68275882E
 
 ## Standalone Product Hunter
 
-- [Download GLDN Product Hunter v0.3.1](./GLDN-Product-Hunter-v0.3.1.zip)
+- [Download GLDN Product Hunter v0.3.2](./GLDN-Product-Hunter-v0.3.2.zip)
 
-SHA-256: D800C2D7A4BE33A2311E278921135C2B2EF5A2BE9B60A66F35381C8F2FDFF4A4
+SHA-256: 9B4F8C3FA9C567728D11CF352C851D908F1DE0207F40F2B654B8A46BD0311CB5
 
 Product Hunter is a separate unpacked Chrome extension. It accepts the search
 words the operator chooses, reads exact Amazon product details, and applies the
@@ -34,4 +34,4 @@ brand name alone does not stop a product. It sends no candidate directly to
 Bulk Poster and does not list or approve products for eBay.
 
 The complete machine-readable file list is in
-[release-manifest-v3.12.36.json](./release-manifest-v3.12.36.json).
+[release-manifest-v3.12.37.json](./release-manifest-v3.12.37.json).

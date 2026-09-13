@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "version": "2.1.0-2026-08-31",
-  "generatedAt": "2026-08-31T00:00:00.000Z",
+  "generatedAt": "2026-09-13T14:43:55.936Z",
   "title": "GLDN Product Research Reference",
   "description": "An optional archived phrase reference. Operators may use any useful Product Hunter search words; exact products are screened separately by Listing Policy Check.",
   "disclaimer": "This reference is not eBay approval and is not shown in the normal paste-first workflow. Listing Policy Check makes decisions from reviewed prohibited and restricted item keywords, not from a brand allowlist.",
@@ -18,7 +18,7 @@
       "label": "Official eBay policy",
       "status": "full-hub-reviewed",
       "reviewedSignals": 70,
-      "publishedRules": 576,
+      "publishedRules": 618,
       "note": "All policy links exposed by the prohibited-and-restricted items hub were reviewed on 2026-08-30, along with Counterfeit, Intellectual Property/VeRO, search manipulation, product safety, and eligibility requirements.",
       "links": [
         "https://www.ebay.com/help/policies/prohibited-restricted-items/prohibited-restricted-items?id=4207",

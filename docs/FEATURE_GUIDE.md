@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.36. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.37. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -846,11 +846,12 @@ The exact ending path is already live-proven in signed-in Profile 2 across 736 p
 
 1. Open Workflows, choose Listings, and click Scan Existing Listings.
 2. Click Start Fresh Complete Scan, or Resume Scan after a saved interruption.
-3. GLDN Ops opens one quiet signed-in eBay tab and verifies every 200-row Active Listings page by exact item number.
-4. Wait for Scanned to equal eBay's reported total; a partial or changing total cannot publish an audit.
-5. Review Needs review and Blocked rows. A readable title with no matched item-policy word is Clear; a conditional match is Review; a prohibited match or GLDN pesticide/spray-can rule is Blocked.
-6. Use search and filters, open an exact item for manual inspection, and download the full source-linked CSV audit if needed.
-7. Do not treat Clear as eBay approval or Blocked as authorization to end an item.
+3. GLDN Ops opens one quiet signed-in eBay tab and verifies each collected 200-row Active Listings page by exact item number.
+4. Wait for Scan finished. Daily additions or removals do not restart the scan: GLDN finishes the planned pages and removes repeated item IDs.
+5. If Store changed appears, review the saved results now and run a follow-up scan for listings added or shifted during the pass. The displayed count is unique listings observed, not a guaranteed current-store total.
+6. Review Needs review and Blocked rows. IP imitation, character/logo licensing and authenticity claims may need evidence review. Pesticides and spray cans remain Blocked.
+7. Use search and filters, open an exact item for manual inspection, and download the full source-linked CSV audit if needed.
+8. Do not treat Clear as eBay approval or Blocked as authorization to end an item.
 
 ### Approval Stop
 
@@ -858,13 +859,13 @@ This audit is read-only. It exposes no listing selection, revision, relisting, o
 
 ### Expected Output
 
-A complete resumable exact-ID audit, source-linked classifications, and an exportable CSV without any eBay listing change.
+A resumable exact-ID audit, source-linked classifications, coverage warnings for changing stores, and an exportable CSV without any eBay listing change.
 
 ### Failure Recovery
 
-- A missing page range, incomplete row count, duplicate item number, changing total, browser check, or missing/invalid rule pack pauses or fails with no eBay listing change.
+- Missing page ranges, incomplete rows, duplicates within one page, browser checks and invalid rules still stop safely. Repeated IDs across separate verified pages are deduplicated and flagged as changing coverage.
 - Resume continues from the next unverified page; Start Fresh discards old local page checkpoints only after explicit operator action.
-- A changed reviewed-rule pack changes the audit fingerprint and requires reclassification.
+- Current rules reclassify saved raw pages on Resume; old marketplace approvals cannot be reused.
 - An unreadable or incomplete row stays Needs review; a brand name alone does not create Review.
 
 ### Evidence
@@ -1000,7 +1001,7 @@ A simple Ready, Needs review, and Blocked table plus a copyable Ready-only Amazo
 
 ### Evidence
 
-The 2026-08-31 shared pack contains 580 rules: 576 official eBay rules, 2 GLDN operator Blocks for pesticides and spray cans, and 2 Discord-backed Review warnings. Deterministic tests prove keyword-only no-match clearance, arbitrary brands and search words, inactive-tab product reading, fail-closed invalid data, Ready-only copying, and read-only existing-listing classification.
+The 2026-09-13.1 shared pack contains 622 rules: 618 official-policy decisions, 2 GLDN operator Blocks for pesticides and spray cans, and 2 Discord-backed Review warnings. Only IP was re-reviewed on September 13; the full policy-hub review date remains August 31. Text screening cannot verify product authenticity, image rights or licensing.
 
 
 <a id="product-hunter-listing-guard"></a>

@@ -1,0 +1,41 @@
+{
+  "scope": "Isolated Chrome fixture; no signed-in account or marketplace action",
+  "results": [
+    {
+      "width": 1440,
+      "pass": true,
+      "checks": [
+        "coverage warning",
+        "results visible",
+        "search",
+        "CSV download",
+        "no marketplace messages",
+        "warning fits"
+      ]
+    },
+    {
+      "width": 900,
+      "pass": true,
+      "checks": [
+        "coverage warning",
+        "results visible",
+        "search",
+        "CSV download",
+        "no marketplace messages",
+        "warning fits"
+      ]
+    },
+    {
+      "width": 540,
+      "pass": true,
+      "checks": [
+        "coverage warning",
+        "results visible",
+        "search",
+        "CSV download",
+        "no marketplace messages",
+        "warning fits"
+      ]
+    }
+  ]
+}

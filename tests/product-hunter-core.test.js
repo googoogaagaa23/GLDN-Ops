@@ -257,7 +257,7 @@ test('source, image, and brand metadata enrich results but do not create keyword
   assert.equal(conflictingBrand.status, core.STATUS.READY);
 });
 
-test('brand and IP cue words in product evidence do not stop a product by themselves', () => {
+test('targeted character and fan-art cues in product details now require IP evidence review', () => {
   const fixtures = [
     { bullets: ['Officially licensed character artwork'] },
     { details: 'Disney fan art logo pattern' },
@@ -265,7 +265,7 @@ test('brand and IP cue words in product evidence do not stop a product by themse
   ];
   for (const fixture of fixtures) {
     const result = classify(fixture);
-    assert.equal(result.status, core.STATUS.READY, JSON.stringify(fixture));
+    assert.equal(result.status, core.STATUS.REVIEW, JSON.stringify(fixture));
   }
 });
 
@@ -286,7 +286,7 @@ test('brand, character, licensing, replacement, and model words pass unless a re
   ];
   const results = fixtures.map((fixture) => classify({ brand: 'Generic', ...fixture }));
   assert.deepEqual(results.map((result) => result.status), [
-    'ready', 'ready', 'ready', 'ready', 'ready', 'ready', 'ready', 'ready',
+    'ready', 'review', 'ready', 'ready', 'ready', 'ready', 'review', 'review',
     'review', 'ready', 'ready', 'ready'
   ]);
   assert.match(results[8].reason, /compatible with/i);
