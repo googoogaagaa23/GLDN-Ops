@@ -247,6 +247,12 @@
     return unique;
   }
 
+  function endableItemIds(audit, requestedIds = [], completedIds = []) {
+    const eligible = (audit?.listings || []).filter((row) => ['block', 'review'].includes(row.action));
+    // Review is selectable by the operator, never treated as a confirmed violation.
+    return blockItemIds({ listings: eligible.map((row) => ({ ...row, action: 'block' })) }, requestedIds, completedIds);
+  }
+
   function normalizeEndSubmissionOutcome(itemIds = [], response = {}) {
     const requestedItemIds = [...new Set((Array.isArray(itemIds) ? itemIds : [])
       .map(validItemId)
@@ -268,8 +274,10 @@
       ? requestedItemIds
       : explicitFailedItemIds;
     const failed = new Set(failedItemIds);
+    const hasSuccess = response.ok === true && /^(SUCCESS|CONFIRMATION)$/.test(messageType);
     return {
-      successfulItemIds: requestedItemIds.filter((itemId) => !failed.has(itemId)),
+      successfulItemIds: hasSuccess && !globalFailure ? requestedItemIds.filter((itemId) => !failed.has(itemId)) : [],
+      unknownItemIds: !globalFailure && !hasSuccess ? requestedItemIds.filter((itemId) => !failed.has(itemId)) : [],
       failedItemIds,
       messageType,
       message,
@@ -364,6 +372,7 @@
     buildPolicyAudit,
     buildPolicyAuditAsync,
     blockItemIds,
+    endableItemIds,
     normalizeEndSubmissionOutcome,
     compactControlRecord,
     auditCsv,

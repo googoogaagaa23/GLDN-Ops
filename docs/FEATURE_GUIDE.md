@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.37. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.38. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -834,7 +834,7 @@ The exact ending path is already live-proven in signed-in Profile 2 across 736 p
 
 **Evidence status:** IMPLEMENTED, LIVE REVIEW PENDING
 
-**Purpose:** Read every active eBay listing, classify its visible product words with the current item-policy rules, and make no marketplace changes.
+**Purpose:** Scan existing listings and end selected flags in exact, approved batches.
 
 ### Prerequisites
 
@@ -844,33 +844,33 @@ The exact ending path is already live-proven in signed-in Profile 2 across 736 p
 
 ### Exact Steps
 
-1. Open Workflows, choose Listings, and click Scan Existing Listings.
-2. Click Start Fresh Complete Scan, or Resume Scan after a saved interruption.
-3. GLDN Ops opens one quiet signed-in eBay tab and verifies each collected 200-row Active Listings page by exact item number.
-4. Wait for Scan finished. Daily additions or removals do not restart the scan: GLDN finishes the planned pages and removes repeated item IDs.
-5. If Store changed appears, review the saved results now and run a follow-up scan for listings added or shifted during the pass. The displayed count is unique listings observed, not a guaranteed current-store total.
-6. Review Needs review and Blocked rows. IP imitation, character/logo licensing and authenticity claims may need evidence review. Pesticides and spray cans remain Blocked.
-7. Use search and filters, open an exact item for manual inspection, and download the full source-linked CSV audit if needed.
-8. Do not treat Clear as eBay approval or Blocked as authorization to end an item.
+1. Open Workflows, Listings, then Scan Existing Listings.
+2. Start or Resume a scan; Refresh Policy Checks reclassifies saved rows with current rules without rescanning.
+3. Inspect matched reasons. Review is not a confirmed violation; ordinary brand names alone are not flags.
+4. Select All Block, individual flags, or Select Filtered Flags across all result pages. No-match rows are excluded.
+5. Review Selected on eBay opens up to 200 exact listings together. Inspect this batch before approval.
+6. Return to GLDN, type the exact displayed approval phrase, then click End Exact Batch.
+7. If the native final confirmation cannot be verified, review it on eBay and use Check eBay Result. GLDN never retries an uncertain End click.
+8. After verified success, ended counts update and remaining selection stays queued. Each next batch needs fresh approval.
 
 ### Approval Stop
 
-This audit is read-only. It exposes no listing selection, revision, relisting, or End control and grants no marketplace approval.
+No scan changes listings. Exact, one-use approval is required for each reviewed batch.
 
 ### Expected Output
 
-A resumable exact-ID audit, source-linked classifications, coverage warnings for changing stores, and an exportable CSV without any eBay listing change.
+Exact-ID audit, bulk selection, native batch review, verified ended counts, remaining selection and CSV.
 
 ### Failure Recovery
 
-- Missing page ranges, incomplete rows, duplicates within one page, browser checks and invalid rules still stop safely. Repeated IDs across separate verified pages are deduplicated and flagged as changing coverage.
-- Resume continues from the next unverified page; Start Fresh discards old local page checkpoints only after explicit operator action.
-- Current rules reclassify saved raw pages on Resume; old marketplace approvals cannot be reused.
-- An unreadable or incomplete row stays Needs review; a brand name alone does not create Review.
+- Count changes produce coverage warnings, not automatic restarts.
+- Refresh Policy Checks keeps scan dates and ended counts. Audits older than 48 hours require a fresh scan before ending.
+- Cancel Review keeps results. After a potentially submitted action, use Check eBay Result instead. It reads the result or Ended Listings, never retries End.
+- Pesticides and aerosol spray cans stay excluded. Specific conditional risks stay Review. No-match is not a policy guarantee.
 
 ### Evidence
 
-v3.12.30 deterministic contracts prove full-count reconciliation, source-linked keyword classification, pesticide and spray-can Blocks, source/profile fingerprinting, CSV export, and audit-only UI guards. The page cannot prepare or submit an End request. The prior signed-in Profile 2 scan verified all 7,294 Active Listings; a fresh read-only scan remains the current live gate.
+v3.12.38 isolated Chrome and unit tests cover 201 flags in 200-plus-1 batches, exact approval, changed seller/IDs, stale success and replay protection. Live exact-number search and Actions menu inspected; no live End action performed. Signed-in ending remains pending.
 
 
 <a id="move99-recovery"></a>

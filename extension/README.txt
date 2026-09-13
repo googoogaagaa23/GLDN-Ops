@@ -1,4 +1,12 @@
-GLDN Ops v3.12.37
+GLDN Ops v3.12.38
+
+v3.12.38 policy batches and calibrated screening:
+- Restores bulk selection, exact-item native eBay review and one-use approval, up to 200 listings.
+- Uncertain submissions are not retried; Check eBay Result reads the result or Ended Listings.
+- Refresh Policy Checks reuses saved rows without changing their original scan date.
+- Ordinary brands, compatibility, OEM, warranty and generic inspiration are not blanket holds.
+- Pesticides, spray cans and explicit counterfeit signals remain blocked.
+- No live listing was ended during development. Live ending validation remains pending.
 
 v3.12.37 IP screening and changing-store scans:
 - Adds targeted counterfeit, unauthorized-copy, character/logo licensing and authenticity checks to both preflight and existing-listing audits. Ordinary brand names alone remain allowed by the keyword check.

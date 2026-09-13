@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const reviewedAt = '2026-09-13';
-const version = '2026-09-13.1';
+const version = '2026-09-13.2';
 const ipUrl = 'https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349';
 const counterfeitUrl = 'https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276';
 const decisions = [];
@@ -36,7 +36,7 @@ add('Content used without permission', 'block',
   'This text explicitly describes use of protected listing content without permission. Use your own content, licensed content or an available eBay catalog alternative.',
   { allOf: ['without permission'], anyOf: ['copied product photos', 'copied product images', 'copied listing description', 'copyrighted artwork', 'copyrighted images'] });
 
-for (const phrase of ['dupe', 'dupes', 'designer inspired', 'designer-inspired', 'inspired by', 'inspired-by', 'replica', 'replicas', '1:1 copy', '1:1 quality', 'mirror quality', 'AAA quality']) {
+for (const phrase of ['dupe', 'dupes', 'designer inspired', 'designer-inspired', 'replica', 'replicas', '1:1 copy', '1:1 quality', 'mirror quality']) {
   add(phrase, 'review', 'Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.');
 }
 add('Fan-made protected artwork', 'review',
@@ -60,10 +60,10 @@ add('Sports and team logo merchandise', 'review',
   { anyOf: ['NFL jersey', 'NBA jersey', 'MLB jersey', 'NHL jersey', 'team logo', 'league logo', 'replica jersey', 'championship ring'] });
 add('Replacement trademark badges and emblems', 'review',
   'Replacement badges, logos and emblems may reproduce protected trademarks. Verify the exact design and authorization, including logos visible only in photos.',
-  { anyOf: ['replacement logo', 'replacement emblem', 'car emblem', 'vehicle emblem', 'car badge', 'steering wheel badge', 'brand logo decal', 'designer logo'] });
-add('Authenticity and warranty claims', 'review',
-  'Verify the claimed OEM origin, authenticity or transferable manufacturer warranty for this exact product. Do not rely on the title claim alone.',
-  { anyOf: ['genuine OEM', 'OEM genuine', 'authenticity guaranteed', 'guaranteed authentic', 'factory original logo', 'manufacturer warranty', "manufacturer's warranty"] });
+  { anyOf: ['replacement logo', 'replacement emblem', 'OEM emblem', 'car emblem', 'vehicle emblem', 'car badge', 'steering wheel badge', 'brand logo decal', 'designer logo'] });
+add('Protected-brand imitation claims', 'review',
+  'A designer or protected-brand imitation claim needs review. Ordinary inspiration, compatibility, OEM and warranty wording alone is not a violation.',
+  { anyOf: ['designer inspired', 'designer-inspired', 'inspired by Gucci', 'inspired by Louis Vuitton', 'inspired by Chanel', 'factory original logo'] });
 
 function key(rule) {
   return [rule.type, rule.value.toLowerCase(), ...( ['allOf', 'anyOf', 'noneOf'].map((field) => (rule[field] || []).map((v) => v.toLowerCase()).join(','))), rule.sourceType].join(':');
@@ -72,7 +72,13 @@ function key(rule) {
 export function refreshIpPolicyPack() {
   const rulesPath = path.join(root, 'extension/listing-preflight-rules.json');
   const pack = JSON.parse(fs.readFileSync(rulesPath, 'utf8'));
-  const rules = new Map(pack.rules.map((rule) => [key(rule), rule]));
+  // Replace superseded broad IP heuristics, including packs refreshed more than once.
+  const superseded = new Set(['Authenticity and warranty claims', 'inspired by', 'inspired-by', 'AAA quality']);
+  const currentDecisionNames = new Set(decisions.map((rule) => rule.value));
+  const rules = new Map(pack.rules.filter((rule) =>
+    !(rule.sourceType === 'official-ebay' && rule.type === 'keyword' && rule.value === 'compatible with')
+    && !(rule.reviewedAt === reviewedAt && rule.policyTopic === 'Intellectual property and counterfeit items'
+      && (superseded.has(rule.value) || currentDecisionNames.has(rule.value)))).map((rule) => [key(rule), rule]));
   for (const decision of decisions) {
     const signature = key(decision);
     rules.set(signature, { id: crypto.createHash('sha256').update(signature).digest('hex').slice(0, 20), ...decision });

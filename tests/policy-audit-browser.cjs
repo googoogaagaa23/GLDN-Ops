@@ -10,7 +10,7 @@ const ext = path.join(root, 'extension');
 
 (async () => {
   const browser = await chromium.launch({ headless: true, channel: 'chrome' });
-  const evidence = path.join(root, 'evidence/policy-audit-v3.12.37');
+  const evidence = path.join(root, 'evidence/policy-audit-v3.12.38');
   fs.mkdirSync(evidence, { recursive: true });
   const results = [];
   const coverage = { initialTotal: 18640, latestTotal: 18641, observedUnique: 3, countChanged: true, duplicatesRemoved: 1, followUpRecommended: true };
@@ -32,9 +32,36 @@ const ext = path.join(root, 'extension');
           phase: 'complete', active: false, totalListings: 3, runId: 'fixture', coverage
         } };
         window.fixtureMessages = [];
+        const listeners = [];
+        window.changeFixture = (changes) => {
+          Object.assign(data, changes);
+          listeners.forEach((fn) => fn(Object.fromEntries(Object.entries(changes).map(([key, newValue]) => [key, { newValue }])), 'local'));
+        };
         window.chrome = {
-          runtime: { sendMessage(message, cb) { window.fixtureMessages.push(message); cb({ ok: true }); } },
-          storage: { local: { get(keys, cb) { cb(data); } }, onChanged: { addListener() {} } }
+          runtime: { sendMessage(message, cb) {
+            window.fixtureMessages.push(message);
+            if (message.type === 'prepareEbayPolicyListingEndReview') {
+              window.changeFixture({ pendingPolicyListingEndReview: {
+                active: true, phase: 'review-ready', reviewMode: 'native-active-listings-ui',
+                runId: 'fixture-' + window.fixtureMessages.length, reportFingerprint: message.reportFingerprint,
+                itemIds: message.itemIds, requestedCount: message.itemIds.length
+              } });
+              cb({ ok: true, requestedCount: message.itemIds.length }); return;
+            }
+            if (message.type === 'submitEbayPolicyListingEndReview') {
+              const pending = data.pendingPolicyListingEndReview;
+              if (message.runId !== pending.runId) throw Error('Wrong run');
+              const successfulItemIds = pending.itemIds;
+              const old = data.policyListingEndLedger?.[pending.reportFingerprint]?.successfulItemIds || [];
+              window.changeFixture({
+                pendingPolicyListingEndReview: null,
+                policyListingEndLedger: { [pending.reportFingerprint]: { successfulItemIds: [...old, ...successfulItemIds] } }
+              });
+              cb({ ok: true, stopped: true, successfulItemIds, successfulCount: successfulItemIds.length, failedCount: 0 }); return;
+            }
+            cb({ ok: true });
+          } },
+          storage: { local: { get(keys, cb) { cb(data); } }, onChanged: { addListener(fn) { listeners.push(fn); } } }
         };
       }, { audit, coverage });
       await page.addScriptTag({ path: path.join(ext, 'policy-listing-audit-core.js') });
@@ -57,9 +84,40 @@ const ext = path.join(root, 'extension');
       assert.match(csv, /300000000001/);
       assert.match(csv, /Knockoff designer handbag/);
       assert.deepEqual(await page.evaluate(() => window.fixtureMessages.map((message) => message.type)), ['getEbayPolicyListingScanStatus']);
+      await page.evaluate((audit) => {
+        const listings = Array.from({ length: 201 }, (_, index) => ({
+          itemId: String(300000000100 + index), title: 'Flagged item ' + index,
+          action: index ? 'review' : 'block', status: index ? 'REVIEW' : 'BLOCK', matches: []
+        }));
+        listings.push({ itemId: '399999999999', title: 'Ordinary item', action: 'clear', matches: [] });
+        window.changeFixture({ ebayPolicyListingScanState: { phase: 'complete', active: false, totalListings: 202, coverage: audit.coverage }, ebayPolicyListingAudit: {
+          ...audit, reportFingerprint: 'bulk-fixture', listings, totalListings: 202,
+          summary: { total: 202, block: 1, review: 200, clear: 1 }
+        } });
+      }, audit);
+      await page.locator('#selectFiltered').click();
+      assert.equal(await page.locator('#metricSelected').innerText(), '201');
+      await page.locator('#prepareReview').click();
+      assert.equal(await page.locator('#currentReview').isVisible(), true);
+      assert.equal(await page.locator('#currentReviewCount').innerText(), '200 exact listings');
+      await page.locator('#approvalToken').fill('APPROVE END POLICY LISTINGS 201');
+      assert.equal(await page.locator('#approveEnd').isEnabled(), false);
+      await page.locator('#approvalToken').fill('APPROVE END POLICY LISTINGS 200');
+      assert.equal(await page.locator('#approveEnd').isEnabled(), true);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, 'page fits viewport');
+      await page.screenshot({ path: path.join(evidence, `review-${width}.png`), fullPage: true });
+      await page.locator('#approveEnd').click();
+      assert.equal(await page.locator('#metricEnded').innerText(), '200');
+      assert.equal(await page.locator('#metricSelected').innerText(), '1');
+      assert.equal(await page.locator('#currentReview').isVisible(), false);
+      assert.equal(await page.evaluate(() => window.fixtureMessages.filter((message) => message.type === 'prepareEbayPolicyListingEndReview').length), 1);
+      await page.locator('#prepareReview').click();
+      assert.equal(await page.locator('#currentReviewCount').innerText(), '1 exact listings');
+      assert.equal(await page.locator('#approvalToken').inputValue(), '');
+      assert.equal(await page.locator('#approveEnd').isEnabled(), false);
       assert.deepEqual(errors, []);
       await page.screenshot({ path: path.join(evidence, `snapshot-${width}.png`), fullPage: true });
-      results.push({ width, pass: true, checks: ['coverage warning', 'results visible', 'search', 'CSV download', 'no marketplace messages', 'warning fits'] });
+      results.push({ width, pass: true, checks: ['coverage warning', 'search', 'CSV', '201 flags selected, no-match excluded', '200-item batch', 'exact approval', '200 ended and 1 remaining', 'next batch requires fresh approval'] });
       await page.close();
     }
     fs.writeFileSync(path.join(evidence, 'results.json'), JSON.stringify({ scope: 'Isolated Chrome fixture; no signed-in account or marketplace action', results }, null, 2));

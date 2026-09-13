@@ -1,0 +1,9 @@
+{
+  "scope": "Isolated DOM fixtures, not live ending verification",
+  "results": [
+    "exact selection, owner binding, one End click, exact dialog, explicit success",
+    "hidden or extra selected count rejected before End",
+    "changed native confirmation IDs never clicked",
+    "stale and partial success messages never complete the batch"
+  ]
+}

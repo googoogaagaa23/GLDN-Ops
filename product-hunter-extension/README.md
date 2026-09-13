@@ -1,6 +1,8 @@
 # GLDN Product Hunter
 
-Current package: v0.3.2
+Current package: v0.3.3
+
+v0.3.3 shares the calibrated 618-rule policy pack. Ordinary compatibility, OEM, warranty, AAA-quality and generic inspiration wording do not flag products alone. Specific IP risks, pesticides and spray-can exclusions remain. No-match is not a compliance guarantee.
 
 v0.3.2 shares the stronger September 13 IP keyword decisions with GLDN Ops. Counterfeit and unauthorized-copy signals Block; targeted licensing and authenticity signals require Review. A brand name alone is not blocked. Pesticides and spray cans remain blocked. Text screening cannot verify image rights, licenses or product authenticity.
 

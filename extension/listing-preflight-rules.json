@@ -1,9 +1,9 @@
 {
   "schemaVersion": 2,
-  "version": "2026-09-13.1",
-  "generatedAt": "2026-09-13T14:43:55.936Z",
+  "version": "2026-09-13.2",
+  "generatedAt": "2026-09-13T15:04:53.875Z",
   "sourceGeneratedAt": "2026-08-31",
-  "ruleCount": 622,
+  "ruleCount": 618,
   "policyCoverage": {
     "hubUrl": "https://www.ebay.com/help/policies/prohibited-restricted-items/prohibited-restricted-items?id=4207",
     "reviewedAt": "2026-08-31",
@@ -376,12 +376,12 @@
         "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
         "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
       ],
-      "addedDecisions": 45
+      "addedDecisions": 42
     }
   },
   "clearancePolicy": {
     "id": "gldn-keyword-policy-check",
-    "version": "2026-09-13.1",
+    "version": "2026-09-13.2",
     "mode": "keyword-blocklist",
     "reviewedAt": "2026-08-31",
     "maxAgeDays": 45,
@@ -500,33 +500,6 @@
       "operatorRuleId": "GLDN-NO-PESTICIDES",
       "evidenceUrls": [
         "https://www.ebay.com/help/policies/prohibited-restricted-items/fertilizer-pesticides-policy?id=4630"
-      ]
-    },
-    {
-      "id": "bf1fdde80d23e1fed1f7",
-      "type": "compound",
-      "value": "Authenticity and warranty claims",
-      "anyOf": [
-        "genuine OEM",
-        "OEM genuine",
-        "authenticity guaranteed",
-        "guaranteed authentic",
-        "factory original logo",
-        "manufacturer warranty",
-        "manufacturer's warranty"
-      ],
-      "action": "review",
-      "reason": "Verify the claimed OEM origin, authenticity or transferable manufacturer warranty for this exact product. Do not rely on the title claim alone.",
-      "policyTopic": "Intellectual property and counterfeit items",
-      "evidenceKind": "conditional-review",
-      "reviewedBy": "GLDN official eBay policy review",
-      "reviewedAt": "2026-09-13",
-      "source": "official-ebay-policy-reviewed",
-      "sourceType": "official-ebay",
-      "authority": "eBay",
-      "evidenceUrls": [
-        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
-        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
       ]
     },
     {
@@ -1927,12 +1900,39 @@
       ]
     },
     {
-      "id": "7fec26c3c6b9a74b91fe",
+      "id": "d6e25275a65b7b806b92",
+      "type": "compound",
+      "value": "Protected-brand imitation claims",
+      "anyOf": [
+        "designer inspired",
+        "designer-inspired",
+        "inspired by Gucci",
+        "inspired by Louis Vuitton",
+        "inspired by Chanel",
+        "factory original logo"
+      ],
+      "action": "review",
+      "reason": "A designer or protected-brand imitation claim needs review. Ordinary inspiration, compatibility, OEM and warranty wording alone is not a violation.",
+      "policyTopic": "Intellectual property and counterfeit items",
+      "evidenceKind": "conditional-review",
+      "reviewedBy": "GLDN official eBay policy review",
+      "reviewedAt": "2026-09-13",
+      "source": "official-ebay-policy-reviewed",
+      "sourceType": "official-ebay",
+      "authority": "eBay",
+      "evidenceUrls": [
+        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
+        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
+      ]
+    },
+    {
+      "id": "5dcb73e84c4caa23b31f",
       "type": "compound",
       "value": "Replacement trademark badges and emblems",
       "anyOf": [
         "replacement logo",
         "replacement emblem",
+        "OEM emblem",
         "car emblem",
         "vehicle emblem",
         "car badge",
@@ -2181,24 +2181,6 @@
       "id": "e46c94eddc133483fc58",
       "type": "keyword",
       "value": "1:1 quality",
-      "action": "review",
-      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
-      "policyTopic": "Intellectual property and counterfeit items",
-      "evidenceKind": "conditional-review",
-      "reviewedBy": "GLDN official eBay policy review",
-      "reviewedAt": "2026-09-13",
-      "source": "official-ebay-policy-reviewed",
-      "sourceType": "official-ebay",
-      "authority": "eBay",
-      "evidenceUrls": [
-        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
-        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
-      ]
-    },
-    {
-      "id": "f209dd037276f70cb229",
-      "type": "keyword",
-      "value": "AAA quality",
       "action": "review",
       "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
       "policyTopic": "Intellectual property and counterfeit items",
@@ -3942,24 +3924,6 @@
       "authority": "eBay",
       "evidenceUrls": [
         "https://www.ebay.com/help/policies/prohibited-restricted-items/lockpicking-devices-policy?id=4329"
-      ]
-    },
-    {
-      "id": "d05b5664bb06efdd4b71",
-      "type": "keyword",
-      "value": "compatible with",
-      "action": "review",
-      "reason": "Compatibility claims using another brand need title accuracy and intellectual-property review.",
-      "policyTopic": "Intellectual property policy",
-      "evidenceKind": "conditional-review",
-      "reviewedBy": "GLDN official policy review",
-      "reviewedAt": "2026-08-08",
-      "source": "official-ebay-policy-reviewed",
-      "sourceType": "official-ebay",
-      "authority": "eBay",
-      "evidenceUrls": [
-        "https://www.ebay.com/help/policies/listing-policies/selling-policies/intellectual-property-vero-program?id=4349",
-        "https://www.ebay.com/help/policies/listing-policies/search-browse-manipulation-policy?id=4243"
       ]
     },
     {
@@ -6838,42 +6802,6 @@
       "authority": "eBay",
       "evidenceUrls": [
         "https://www.ebay.com/help/policies/prohibited-restricted-items/fertilizer-pesticides-policy?id=4630"
-      ]
-    },
-    {
-      "id": "600f4c18b491e3794417",
-      "type": "keyword",
-      "value": "inspired by",
-      "action": "review",
-      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
-      "policyTopic": "Intellectual property and counterfeit items",
-      "evidenceKind": "conditional-review",
-      "reviewedBy": "GLDN official eBay policy review",
-      "reviewedAt": "2026-09-13",
-      "source": "official-ebay-policy-reviewed",
-      "sourceType": "official-ebay",
-      "authority": "eBay",
-      "evidenceUrls": [
-        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
-        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
-      ]
-    },
-    {
-      "id": "2ff0dc9ebc54a3819064",
-      "type": "keyword",
-      "value": "inspired-by",
-      "action": "review",
-      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
-      "policyTopic": "Intellectual property and counterfeit items",
-      "evidenceKind": "conditional-review",
-      "reviewedBy": "GLDN official eBay policy review",
-      "reviewedAt": "2026-09-13",
-      "source": "official-ebay-policy-reviewed",
-      "sourceType": "official-ebay",
-      "authority": "eBay",
-      "evidenceUrls": [
-        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
-        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
       ]
     },
     {

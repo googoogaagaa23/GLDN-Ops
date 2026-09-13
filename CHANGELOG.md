@@ -1,5 +1,14 @@
 # GLDN Ops Changelog
 
+## v3.12.38 - 2026-09-13
+
+- Restored bulk selection and approval-gated ending for selected Block and Review rows. No-match rows are excluded; Review is not a confirmed violation.
+- Exact batches of up to 200 use normal signed-in native eBay pages, not private ending endpoints.
+- One-use approval, exact seller/selection checks, explicit result verification and no uncertain retries.
+- Refresh Policy Checks reclassifies saved rows while preserving scan dates and ended counts.
+- Narrowed compatibility, warranty, OEM and generic inspiration heuristics. Product Hunter v0.3.3 shares the 618-rule pack; pesticides and aerosol exclusions remain.
+- Isolated browser checks pass; signed-in ending remains pending. No live listing was changed.
+
 ## v3.12.37 - 2026-09-13
 
 - Added targeted intellectual-property decisions for counterfeit claims, unauthorized copies, character and logo merchandise, imitation wording, and authenticity/warranty claims. The shared 622-rule pack preserves ordinary-brand no-match handling and pesticide/spray-can Blocks.

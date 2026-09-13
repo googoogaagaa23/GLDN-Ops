@@ -287,9 +287,9 @@ test('brand, character, licensing, replacement, and model words pass unless a re
   const results = fixtures.map((fixture) => classify({ brand: 'Generic', ...fixture }));
   assert.deepEqual(results.map((result) => result.status), [
     'ready', 'review', 'ready', 'ready', 'ready', 'ready', 'review', 'review',
-    'review', 'ready', 'ready', 'ready'
+    'ready', 'ready', 'ready', 'ready'
   ]);
-  assert.match(results[8].reason, /compatible with/i);
+  assert.equal(results[8].status, 'ready', 'compatibility wording alone is not an IP flag');
 });
 
 test('fails closed when the schema-2 clearance profile is missing', () => {

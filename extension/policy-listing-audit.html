@@ -7,15 +7,16 @@
   <link rel="stylesheet" href="policy-listing-audit.css">
   <link rel="stylesheet" href="workflow-guide.css">
 </head>
-<body class="audit-only">
+<body>
   <header class="topbar">
     <div>
       <p class="eyebrow">GLDN OPS / EBAY</p>
       <h1>Existing Listings Policy Audit</h1>
-      <p class="subtitle">Read every active listing, apply the current official-policy and generic/IP risk profile, and make no marketplace changes.</p>
+      <p class="subtitle">Existing listings, policy signals, and approved batch ending.</p>
     </div>
     <div class="topbar-actions">
       <button id="freshScan" class="button primary" type="button">Start Fresh Complete Scan</button>
+      <button id="recheckRules" class="button secondary" type="button">Refresh Policy Checks</button>
       <button id="resumeScan" class="button secondary" type="button">Resume Scan</button>
       <button id="stopScan" class="button ghost" type="button">Pause Safely</button>
       <button id="discardScan" class="button ghost" type="button">Discard Local Audit</button>
@@ -34,11 +35,11 @@
 
     <section class="metrics" aria-label="Policy audit totals">
       <div><span>Scanned</span><strong id="metricScanned">0</strong></div>
-      <div><span>Generic text only</span><strong id="metricClear">0</strong></div>
+      <div><span>No rule match</span><strong id="metricClear">0</strong></div>
       <div><span>Needs review</span><strong id="metricReview">0</strong></div>
       <div><span>Reviewed Block</span><strong id="metricBlock">0</strong></div>
-      <div hidden><span>Ended</span><strong id="metricEnded">0</strong></div>
-      <div hidden><span>Selected</span><strong id="metricSelected">0</strong></div>
+      <div><span>Ended</span><strong id="metricEnded">0</strong></div>
+      <div><span>Selected</span><strong id="metricSelected">0</strong></div>
     </section>
 
     <section class="toolbar" aria-label="Audit controls">
@@ -50,13 +51,14 @@
         <button class="filter-button active" type="button" data-filter="all">All</button>
         <button class="filter-button" type="button" data-filter="block">Block</button>
         <button class="filter-button" type="button" data-filter="review">Review</button>
-        <button class="filter-button" type="button" data-filter="clear">Generic text only</button>
-        <button class="filter-button" type="button" data-filter="ended" hidden>Ended</button>
+        <button class="filter-button" type="button" data-filter="clear">No rule match</button>
+        <button class="filter-button" type="button" data-filter="ended">Ended</button>
       </div>
-      <button id="selectAllBlock" class="button secondary" type="button" hidden>Select All Block</button>
-      <button id="clearSelection" class="button ghost" type="button" hidden>Clear Selection</button>
+      <button id="selectAllBlock" class="button secondary" type="button">Select All Block</button>
+      <button id="selectFiltered" class="button secondary" type="button">Select Filtered Flags</button>
+      <button id="clearSelection" class="button ghost" type="button">Clear Selection</button>
       <button id="downloadAudit" class="button ghost" type="button">Download Audit CSV</button>
-      <button id="prepareReview" class="button danger" type="button" hidden>Review Selected on eBay</button>
+      <button id="prepareReview" class="button danger" type="button">Review Selected on eBay</button>
     </section>
 
     <div id="status" class="status" role="status" aria-live="polite">Run a complete read-only scan to begin.</div>
@@ -68,7 +70,8 @@
         <small id="currentReviewReport">Existing Listings Policy Audit</small>
       </div>
       <button id="focusReview" class="button secondary" type="button">Open eBay Review</button>
-      <button id="cancelReview" class="button ghost" type="button">Cancel Review &amp; Rescan</button>
+      <button id="cancelReview" class="button ghost" type="button">Cancel Review</button>
+      <button id="checkResult" class="button secondary" type="button" hidden>Check eBay Result</button>
       <label class="approval-field">
         <span>Exact approval phrase</span>
         <input id="approvalToken" type="text" autocomplete="off" spellcheck="false">
@@ -81,7 +84,7 @@
       <table>
         <thead>
           <tr>
-            <th class="check-cell"><input id="pageSelection" type="checkbox" aria-label="Select Block listings on this page"></th>
+            <th class="check-cell"><input id="pageSelection" type="checkbox" aria-label="Select flagged listings on this page"></th>
             <th>Item number</th>
             <th>Listing</th>
             <th>Classification</th>
@@ -106,8 +109,8 @@
     </nav>
 
     <section class="safety-band">
-      <strong>Read-only audit mode</strong>
-      <span>This page exposes no selection, revision, relisting, or End control. <b>Block</b> means an exact official prohibition signal requiring urgent human inspection; <b>Review</b> includes brands, VeRO/IP risk, eligibility conditions, stale/unknown evidence, and title-only listings that cannot be proven safe. No result changes an eBay listing.</span>
+      <strong>Approval required to end</strong>
+      <span><b>Block</b>: prohibited-item or operator exclusion signal. <b>Review</b>: uncertain risk, not a confirmed violation. <b>No rule match</b>: no detected text signal, not a guarantee. Only your selected, reviewed batch can be ended; the scan itself never ends listings.</span>
     </section>
   </main>
 

@@ -173,7 +173,7 @@ test('background policy workflow is resumable, exact, approval-gated, and stops 
   assert.match(background, /policyaudit:\s*'policy-listing-audit\.html'/);
   assert.match(background, /audit is older than 48 hours/i);
   assert.match(background, /reviewed policy rules changed/i);
-  assert.match(background, /APPROVE END POLICY LISTINGS \$\{expectedCount\}/);
+  assert.match(background, /APPROVE END POLICY LISTINGS/);
   assert.match(background, /message\.type === 'scanEbayPolicyListings'/);
   assert.match(background, /message\.type === 'prepareEbayPolicyListingEndReview'/);
   assert.match(background, /message\.type === 'submitEbayPolicyListingEndReview'/);
@@ -181,7 +181,10 @@ test('background policy workflow is resumable, exact, approval-gated, and stops 
   const submitStart = background.indexOf('async function submitEbayPolicyListingEndReview');
   const submitEnd = background.indexOf('\nfunction openTab', submitStart);
   const submitSource = background.slice(submitStart, submitEnd);
-  assert.match(submitSource, /stopped: true/);
+  assert.match(submitSource, /finishPolicyNativeResult/);
+  assert.match(submitSource, /request.runId !== pending.runId/);
+  assert.match(submitSource, /phase: 'submitted'/);
+  assert.doesNotMatch(submitSource, /fetchEbayVariationEndReview|submit-end-listings/);
   assert.doesNotMatch(submitSource, /prepareEbayPolicyListingEndReview\(/);
 });
 
@@ -200,7 +203,7 @@ test('Profile 2 control can run only the complete read-only policy scan', () => 
   assert.doesNotMatch(source, /prepareEbayPolicyListingEndReview|submitEbayPolicyListingEndReview/);
 });
 
-test('policy audit page exposes complete recovery and CSV review but guards all listing-ending controls off', () => {
+test('policy audit page exposes selection and exact approval without automatic ending', () => {
   const ebay = fs.readFileSync(path.join(ROOT, 'extension', 'ebay.js'), 'utf8');
   const background = fs.readFileSync(path.join(ROOT, 'extension', 'background.js'), 'utf8');
   const popup = fs.readFileSync(path.join(ROOT, 'extension', 'popup.html'), 'utf8');
@@ -223,15 +226,15 @@ test('policy audit page exposes complete recovery and CSV review but guards all 
   assert.match(page, /Start Fresh Complete Scan/);
   assert.match(page, /Resume Scan/);
   assert.match(page, /Pause Safely/);
-  assert.match(page, /class="audit-only"/);
-  assert.match(page, /id="selectAllBlock"[^>]+hidden/);
-  assert.match(page, /id="prepareReview"[^>]+hidden/);
-  assert.match(page, /Read-only audit mode/);
-  assert.match(page, /exposes no selection, revision, relisting, or End control/i);
-  assert.match(pageJs, /const AUDIT_ONLY = true/);
-  assert.match(pageJs, /if \(AUDIT_ONLY\)[^]+No eBay End review can be prepared here/);
-  assert.match(pageJs, /if \(AUDIT_ONLY\)[^]+No listing can be ended here/);
-  assert.match(pageJs, /elements\.currentReview\.hidden = AUDIT_ONLY/);
+  assert.doesNotMatch(page, /class="audit-only"/);
+  assert.doesNotMatch(page, /id="selectAllBlock"[^>]+hidden/);
+  assert.doesNotMatch(page, /id="prepareReview"[^>]+hidden/);
+  assert.match(page, /Approval required to end/);
+  assert.match(page, /Select Filtered Flags/);
+  assert.match(page, /Check eBay Result/);
+  assert.doesNotMatch(pageJs, /AUDIT_ONLY/);
+  assert.match(pageJs, /runId: pendingReview.runId/);
+  assert.match(pageJs, /pendingReview.phase === "review-ready"/);
 });
 
 test('policy audit fingerprint changes with source evidence and clearance semantics', () => {

@@ -266,40 +266,6 @@
     },
     {
       "type": "keyword",
-      "value": "inspired by",
-      "action": "review",
-      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
-      "policyTopic": "Intellectual property and counterfeit items",
-      "evidenceKind": "conditional-review",
-      "reviewedBy": "GLDN official eBay policy review",
-      "reviewedAt": "2026-09-13",
-      "source": "official-ebay-policy-reviewed",
-      "sourceType": "official-ebay",
-      "authority": "eBay",
-      "evidenceUrls": [
-        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
-        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
-      ]
-    },
-    {
-      "type": "keyword",
-      "value": "inspired-by",
-      "action": "review",
-      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
-      "policyTopic": "Intellectual property and counterfeit items",
-      "evidenceKind": "conditional-review",
-      "reviewedBy": "GLDN official eBay policy review",
-      "reviewedAt": "2026-09-13",
-      "source": "official-ebay-policy-reviewed",
-      "sourceType": "official-ebay",
-      "authority": "eBay",
-      "evidenceUrls": [
-        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
-        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
-      ]
-    },
-    {
-      "type": "keyword",
       "value": "replica",
       "action": "review",
       "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
@@ -369,23 +335,6 @@
     {
       "type": "keyword",
       "value": "mirror quality",
-      "action": "review",
-      "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
-      "policyTopic": "Intellectual property and counterfeit items",
-      "evidenceKind": "conditional-review",
-      "reviewedBy": "GLDN official eBay policy review",
-      "reviewedAt": "2026-09-13",
-      "source": "official-ebay-policy-reviewed",
-      "sourceType": "official-ebay",
-      "authority": "eBay",
-      "evidenceUrls": [
-        "https://www.ebay.com/help/policies/protecting-intellectual-property/vero-program?id=4349",
-        "https://www.ebay.com/help/policies/prohibited-restricted-items/counterfeit-item-policy?id=4276"
-      ]
-    },
-    {
-      "type": "keyword",
-      "value": "AAA quality",
       "action": "review",
       "reason": "Possible imitation or authenticity claim. Check the exact product, any referenced brand, design and source evidence. Branded dupes and counterfeits are prohibited; legitimate replicas are not automatically prohibited.",
       "policyTopic": "Intellectual property and counterfeit items",
@@ -1247,6 +1196,7 @@
       "anyOf": [
         "replacement logo",
         "replacement emblem",
+        "OEM emblem",
         "car emblem",
         "vehicle emblem",
         "car badge",
@@ -1270,18 +1220,17 @@
     },
     {
       "type": "compound",
-      "value": "Authenticity and warranty claims",
+      "value": "Protected-brand imitation claims",
       "anyOf": [
-        "genuine OEM",
-        "OEM genuine",
-        "authenticity guaranteed",
-        "guaranteed authentic",
-        "factory original logo",
-        "manufacturer warranty",
-        "manufacturer's warranty"
+        "designer inspired",
+        "designer-inspired",
+        "inspired by Gucci",
+        "inspired by Louis Vuitton",
+        "inspired by Chanel",
+        "factory original logo"
       ],
       "action": "review",
-      "reason": "Verify the claimed OEM origin, authenticity or transferable manufacturer warranty for this exact product. Do not rely on the title claim alone.",
+      "reason": "A designer or protected-brand imitation claim needs review. Ordinary inspiration, compatibility, OEM and warranty wording alone is not a violation.",
       "policyTopic": "Intellectual property and counterfeit items",
       "evidenceKind": "conditional-review",
       "reviewedBy": "GLDN official eBay policy review",
