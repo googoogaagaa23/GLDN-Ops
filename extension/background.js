@@ -4218,13 +4218,25 @@ async function startMove99WorkflowFromExtension(message = {}) {
 }
 
 async function clearIncompatibleWorkflowState(reason = 'extension-start') {
-  const stored = await storageGet([...VERSIONED_WORKFLOW_KEYS, 'gldnOpenReviews']);
+  const stored = await storageGet([...VERSIONED_WORKFLOW_KEYS, 'gldnOpenReviews', 'policyListingEndHistory']);
   const remove = [];
   const preserved = {};
   for (const key of VERSIONED_WORKFLOW_KEYS) {
     const value = stored[key];
     if (value == null || value === false) continue;
     if (value === true || typeof value !== 'object' || String(value.extensionVersion || '') !== EXTENSION_VERSION) {
+      if (key === 'pendingPolicyListingEndReview' && value?.reviewMode === 'native-active-listings-ui'
+          && value.runId && value.seller && value.computerLabel && value.ebayAccountLabel
+          && value.reportFingerprint && Array.isArray(value.itemIds) && value.itemIds.length > 0 && value.itemIds.length <= 200
+          && new Set(value.itemIds).size === value.itemIds.length && value.itemIds.every((id) => /^\d{9,15}$/.test(String(id)))) {
+        // Preserve the potentially submitted batch, never its old approval permission.
+        preserved[key] = { ...value, active: true, phase: 'result-unknown', extensionVersion: EXTENSION_VERSION,
+          message: 'Saved batch recovered after update. Check eBay Result, or Set Aside Batch & Continue. Do not submit this batch again.' };
+        preserved.policyListingEndHistory = { ...(stored.policyListingEndHistory || {}), [value.runId]: {
+          ...preserved[key], active: false, phase: 'set-aside'
+        } };
+        continue;
+      }
       if (key === 'ebayPolicyListingScanState' && value && typeof value === 'object' && !Array.isArray(value)
           && String(value.runId || '') && ['scanning', 'classifying', 'saving', 'paused', 'error', 'complete'].includes(value.phase)) {
         // This is read-only evidence, not an approval. Resume revalidates identity, rules and every saved page.
@@ -4250,8 +4262,8 @@ async function clearIncompatibleWorkflowState(reason = 'extension-start') {
       && Number(review.expiresAt || 0) > Date.now()
   )));
   const reviewsChanged = Object.keys(compatibleReviews).length !== Object.keys(reviews).length;
-  if (remove.length) await storageRemove(remove);
   if (Object.keys(preserved).length) await storageSet(preserved);
+  if (remove.length) await storageRemove(remove);
   if (reviewsChanged) await storageSet({ gldnOpenReviews: compatibleReviews });
   if (!remove.length && !reviewsChanged && !Object.keys(preserved).length) return { ok: true, changed: false };
   await recordExtensionLog({
@@ -5163,6 +5175,7 @@ const POLICY_LISTING_AUDIT_STATE_KEY = 'ebayPolicyListingAudit';
 const POLICY_LISTING_SCAN_STATE_KEY = 'ebayPolicyListingScanState';
 const POLICY_LISTING_SCAN_CHUNK_PREFIX = 'ebayPolicyListingScanChunk:';
 const POLICY_LISTING_END_LEDGER_KEY = 'policyListingEndLedger';
+const POLICY_LISTING_END_HISTORY_KEY = 'policyListingEndHistory';
 const PENDING_POLICY_LISTING_END_REVIEW_KEY = 'pendingPolicyListingEndReview';
 const LAST_POLICY_LISTING_END_RESULT_KEY = 'lastPolicyListingEndResult';
 const POLICY_LISTING_END_BATCH_LIMIT = 200;
@@ -5701,13 +5714,46 @@ async function policyListingNativePage(args) {
       if (url.origin !== 'https://www.ebay.com' || url.pathname !== '/sh/lst/ended'
         || !sameIds((url.searchParams.get('keyword') || '').split(','), ids)
         || !args.seller || seller() !== args.seller) throw new Error('The ended-listings account and exact search could not be verified.');
-      const observed = tableRows().map((node) => node.id.slice('shui-dt-checkone-'.length));
-      return { ok: true, outcome: sameIds(observed, ids) ? 'success' : 'unknown',
-        message: sameIds(observed, ids) ? ids.length + ' exact listings verified in eBay Ended Listings.' : 'Not every item is verified in Ended Listings yet.' };
+      const search = document.querySelector('#shui-search-box__input');
+      if (!search || !sameIds(text(search.value).split(','), ids)) throw new Error('The exact search has not finished loading.');
+      // Inactive also contains hidden policy-violation rows. Require per-item Relist evidence,
+      // not just a checkbox or absence from Active, and never interact with the Relist link.
+      const rows = [...document.querySelectorAll('tr.grid-row[data-id]')].filter(visible);
+      if (!document.querySelector('table[role="grid"],[role="grid"]')) throw new Error('The inactive results table is still loading.');
+      const observed = rows.map((row) => row.getAttribute('data-id')).filter((id) => /^\d{9,15}$/.test(id));
+      if (observed.some((id) => !ids.includes(id))) throw new Error('Inactive results still include unrelated listings.');
+      const successfulItemIds = rows.filter((row) => {
+        const id = row.getAttribute('data-id');
+        const group = row.closest('tbody') || row;
+        const check = group.querySelector('input[id="shui-dt-checkone-' + id + '"]');
+        const endDate = text(row.querySelector('.shui-dt-column__actualEndDate')?.innerText);
+        const relist = [...row.querySelectorAll('a[href]')].some((link) => {
+          const target = new URL(link.href);
+          return visible(link) && /^Relist\b/i.test(text(link.innerText)) && target.origin === url.origin
+            && target.pathname === '/sl/list' && target.searchParams.get('mode') === 'RelistItem'
+            && target.searchParams.get('itemId') === id;
+        });
+        return ids.includes(id) && check && enabled(check) && endDate && endDate !== '-'
+          && !group.querySelector('a[href*="/ifh/"],.inline-notice--attention') && relist;
+      }).map((row) => row.getAttribute('data-id'));
+      const nextLink = [...document.querySelectorAll('a[href]')].find((link) =>
+        visible(link) && /^(?:Go to )?next page$/i.test(text(link.getAttribute('aria-label') || link.innerText)));
+      let nextUrl = '';
+      if (nextLink) {
+        const next = new URL(nextLink.href);
+        if (next.origin === url.origin && next.pathname === url.pathname
+          && sameIds((next.searchParams.get('keyword') || '').split(','), ids)
+          && Number(next.searchParams.get('offset')) > Number(url.searchParams.get('offset') || 0)) nextUrl = next.href;
+      }
+      return { ok: true, outcome: sameIds(successfulItemIds, ids) ? 'success' : 'unknown',
+        successfulItemIds, nextUrl, message: successfulItemIds.length + ' exact listings verified ended on this page.' };
     }
     if (args.mode === 'result') {
       if (location.origin !== 'https://www.ebay.com' || !location.pathname.startsWith('/sh/lst/')) throw new Error('The eBay result page is no longer available.');
       if (args.seller && seller() !== args.seller) throw new Error('The result belongs to an unverified seller.');
+      if (!sameIds((new URL(location.href).searchParams.get('keyword') || '').split(','), ids)) {
+        return { ok: true, outcome: 'unknown', message: 'The result page no longer identifies this exact batch. Check Inactive Listings.' };
+      }
       const fresh = notices().filter((value) => !(args.baseline || []).includes(value));
       const failure = fresh.find((value) => /\b(unable|failed|could not|cannot|missing|not ended)\b/i.test(value));
       if (failure) return { ok: true, outcome: 'unknown', message: failure };
@@ -5787,13 +5833,22 @@ async function focusEbayPolicyListingEndReview() {
 }
 
 async function cancelEbayPolicyListingEndReview() {
-  const stored = await storageGet([PENDING_POLICY_LISTING_END_REVIEW_KEY]);
-  const pending = stored[PENDING_POLICY_LISTING_END_REVIEW_KEY];
-  if (pending?.active && pending.phase !== 'review-ready') {
-    throw new Error('This batch may already have been submitted. Use Check eBay Result; do not submit it again. Keep the review tab open.');
-  }
-  await storageRemove([PENDING_POLICY_LISTING_END_REVIEW_KEY]);
-  return { ok: true, message: 'Review canceled. Saved scan results are unchanged.' };
+  // A native eBay action can happen even while our own phase is review-ready.
+  // Preserve the exact batch before releasing its lock; never make those IDs eligible again.
+  if (policyEndOperationBusy) throw new Error('Wait for the current batch operation to finish.');
+  policyEndOperationBusy = true;
+  try {
+    const stored = await storageGet([PENDING_POLICY_LISTING_END_REVIEW_KEY, POLICY_LISTING_END_HISTORY_KEY]);
+    const pending = stored[PENDING_POLICY_LISTING_END_REVIEW_KEY];
+    if (!pending?.active) return { ok: true, message: 'No current batch to set aside.' };
+    if (!pending.runId || !pending.itemIds?.length) throw new Error('The saved batch is incomplete. It has not been discarded.');
+    const history = stored[POLICY_LISTING_END_HISTORY_KEY] || {};
+    await storageSet({ [POLICY_LISTING_END_HISTORY_KEY]: { ...history, [pending.runId]: {
+      ...pending, active: false, phase: 'set-aside', parkedAt: new Date().toISOString()
+    } } });
+    await storageRemove([PENDING_POLICY_LISTING_END_REVIEW_KEY]);
+    return { ok: true, message: 'Batch set aside, not marked ended. Its items are excluded from new batches. You can review other flagged items now.' };
+  } finally { policyEndOperationBusy = false; }
 }
 
 let policyEndOperationBusy = false;
@@ -5826,7 +5881,7 @@ async function prepareEbayPolicyListingEndReview(request = {}, sender = {}) {
   try {
     const itemIds = exactPolicyListingItemIds(request.itemIds);
     const stored = await storageGet([PENDING_POLICY_LISTING_END_REVIEW_KEY, POLICY_LISTING_AUDIT_STATE_KEY,
-      POLICY_LISTING_END_LEDGER_KEY, 'pendingVariationEndReview']);
+      POLICY_LISTING_END_LEDGER_KEY, POLICY_LISTING_END_HISTORY_KEY, 'pendingVariationEndReview']);
     if (stored[PENDING_POLICY_LISTING_END_REVIEW_KEY]?.active || stored.pendingVariationEndReview?.active) {
       throw new Error('Finish or cancel the existing exact review first.');
     }
@@ -5835,7 +5890,9 @@ async function prepareEbayPolicyListingEndReview(request = {}, sender = {}) {
     const audit = stored[POLICY_LISTING_AUDIT_STATE_KEY];
     await validateCurrentPolicyListingAudit(audit);
     if (request.reportFingerprint !== audit.reportFingerprint) throw new Error('The selected audit changed. Select the current results.');
-    POLICY_LISTING_AUDIT.endableItemIds(audit, itemIds, stored[POLICY_LISTING_END_LEDGER_KEY]?.[audit.reportFingerprint]?.successfulItemIds || []);
+    const ending = POLICY_LISTING_AUDIT.endingStateForAudit(audit, stored[POLICY_LISTING_END_HISTORY_KEY], stored[POLICY_LISTING_END_LEDGER_KEY]);
+    if (itemIds.some((id) => ending.held.includes(id))) throw new Error('Some selected items belong to a set-aside batch. Check its results; do not submit them again.');
+    POLICY_LISTING_AUDIT.endableItemIds(audit, itemIds, ending.completed);
     const url = 'https://www.ebay.com/sh/lst/active?keyword=' + encodeURIComponent(itemIds.join(',')) + '&source=filterbar&action=search';
     const opened = await openTab(url);
     if (!opened.ok) throw new Error(opened.error);
@@ -5869,47 +5926,94 @@ async function prepareEbayPolicyListingEndReview(request = {}, sender = {}) {
   }
 }
 
-async function finishPolicyNativeResult(pending, result) {
-  if (result.outcome !== 'success') {
-    await storageSet({ [PENDING_POLICY_LISTING_END_REVIEW_KEY]: { ...pending, phase: 'result-unknown', message: result.message } });
-    return { ok: false, stopped: true, unknown: true, message: result.message ||
-      'The batch may have been submitted. Inspect the native eBay tab, then Check eBay Result. No automatic retry will occur.' };
-  }
-  const stored = await storageGet([POLICY_LISTING_END_LEDGER_KEY]);
+async function finishPolicyNativeResult(pending, result, archived = false) {
+  const stored = await storageGet([POLICY_LISTING_END_LEDGER_KEY, POLICY_LISTING_END_HISTORY_KEY, PENDING_POLICY_LISTING_END_REVIEW_KEY]);
+  if (!archived && stored[PENDING_POLICY_LISTING_END_REVIEW_KEY]?.runId !== pending.runId) throw new Error('The pending batch changed during the result check.');
+  const history = stored[POLICY_LISTING_END_HISTORY_KEY] || {};
+  const confirmed = new Set([
+    ...(history[pending.runId]?.successfulItemIds || []), ...(pending.successfulItemIds || []),
+    ...(result.outcome === 'success' ? pending.itemIds : result.successfulItemIds || [])
+  ].map(String).filter((id) => pending.itemIds.includes(id)));
+  const successfulItemIds = [...confirmed];
+  const unresolvedItemIds = pending.itemIds.filter((id) => !confirmed.has(id));
+  const complete = !unresolvedItemIds.length;
   const completedAt = new Date().toISOString();
+  const message = complete ? successfulItemIds.length + ' exact listings verified ended. The next selected batch is available.'
+    : successfulItemIds.length + ' of ' + pending.itemIds.length + ' verified ended; ' + unresolvedItemIds.length
+      + ' still unconfirmed. Set Aside Batch & Continue to review other items without resubmitting these.'
+      + (result.message ? ' ' + result.message : '');
+  const batch = { ...pending, active: !archived && !complete, phase: complete ? 'complete' : archived ? 'set-aside' : 'result-unknown',
+    successfulItemIds, unresolvedItemIds, checkedAt: completedAt, message };
   const saved = {
     runId: pending.runId, reportFingerprint: pending.reportFingerprint, requestedCount: pending.itemIds.length,
-    successfulItemIds: pending.itemIds, successfulCount: pending.itemIds.length,
-    failedItemIds: [], failedCount: 0, completedAt, message: result.message
+    successfulItemIds, successfulCount: successfulItemIds.length, unresolvedItemIds,
+    failedItemIds: [], failedCount: 0, completedAt, message
   };
-  await storageSet({
-    [POLICY_LISTING_END_LEDGER_KEY]: mergedPolicyListingEndLedger(stored[POLICY_LISTING_END_LEDGER_KEY], pending, pending.itemIds, [], completedAt),
-    [LAST_POLICY_LISTING_END_RESULT_KEY]: saved
-  });
-  await storageRemove([PENDING_POLICY_LISTING_END_REVIEW_KEY]);
-  return { ok: true, stopped: true, ...saved };
+  const changes = { [POLICY_LISTING_END_HISTORY_KEY]: { ...history, [pending.runId]: batch } };
+  if (successfulItemIds.length) {
+    changes[POLICY_LISTING_END_LEDGER_KEY] = mergedPolicyListingEndLedger(stored[POLICY_LISTING_END_LEDGER_KEY], pending, successfulItemIds, [], completedAt);
+    changes[LAST_POLICY_LISTING_END_RESULT_KEY] = saved;
+  }
+  if (!archived && !complete) changes[PENDING_POLICY_LISTING_END_REVIEW_KEY] = batch;
+  await storageSet(changes);
+  if (!archived && complete) await storageRemove([PENDING_POLICY_LISTING_END_REVIEW_KEY]);
+  return { ok: complete, stopped: true, unknown: !complete, ...saved };
 }
 
-async function checkEbayPolicyListingEndResult() {
+async function checkEbayPolicyListingEndResult(request = {}) {
   if (policyEndOperationBusy) throw new Error('Wait for the current batch operation to finish.');
   policyEndOperationBusy = true;
   try {
-    const stored = await storageGet([PENDING_POLICY_LISTING_END_REVIEW_KEY]);
-    const pending = stored[PENDING_POLICY_LISTING_END_REVIEW_KEY];
-    if (!pending?.active || pending.phase === 'review-ready') throw new Error('No submitted batch needs a result check.');
+    const stored = await storageGet([PENDING_POLICY_LISTING_END_REVIEW_KEY, POLICY_LISTING_END_HISTORY_KEY]);
+    const archived = Boolean(request.archivedRunId);
+    let pending = archived ? stored[POLICY_LISTING_END_HISTORY_KEY]?.[request.archivedRunId]
+      : stored[PENDING_POLICY_LISTING_END_REVIEW_KEY];
+    if (!pending?.runId || (!archived && !pending.active)) throw new Error('No saved batch needs a result check.');
+    const identity = await currentPolicyListingIdentity();
+    if (pending.computerLabel !== identity.computerLabel || pending.ebayAccountLabel !== identity.ebayAccountLabel) {
+      throw new Error('Switch back to the computer/account configuration that owns this batch.');
+    }
+    // The user may have ended it directly on eBay without our approval textbox.
+    if (!archived) {
+      pending = { ...pending, phase: 'checking-result' };
+      await storageSet({ [PENDING_POLICY_LISTING_END_REVIEW_KEY]: pending });
+    }
     let result = await inspectPolicyNativePage(pending, 'result').catch(() => ({ outcome: 'unknown' }));
     if (result.outcome !== 'success') {
-      const url = 'https://www.ebay.com/sh/lst/ended?status=UNSOLD_NOT_RELISTED&keyword=' + encodeURIComponent(pending.itemIds.join(','));
+      const url = 'https://www.ebay.com/sh/lst/ended?status=ENDED&timePeriod=LAST_90_DAYS&limit=200&keyword='
+        + encodeURIComponent(pending.itemIds.join(',')) + '&source=filterbar&action=search';
       const opened = await openTab(url, { active: false });
       if (opened.ok) {
+        const found = new Set(pending.successfulItemIds || []);
         try {
-          await waitForControlTabSettled(opened.tabId, 30000);
-          result = await inspectPolicyNativePage({ ...pending, sourceTabId: opened.tabId }, 'ended');
-        } catch (_) { /* An incomplete ended-listings read is not proof of completion. */ }
-        finally { await closeTab(opened.tabId); }
+          const visited = new Set([url]);
+          const deadline = Date.now() + 120000;
+          for (let page = 0; page < 10 && Date.now() < deadline; page += 1) {
+            await waitForControlTabSettled(opened.tabId, Math.min(30000, deadline - Date.now()));
+            let read;
+            for (let attempt = 0; attempt < 12; attempt += 1) {
+              try { read = await inspectPolicyNativePage({ ...pending, sourceTabId: opened.tabId }, 'ended'); break; }
+              catch (error) {
+                if (attempt === 11) throw error;
+                await new Promise((resolve) => setTimeout(resolve, 500));
+              }
+            }
+            (read.successfulItemIds || []).forEach((id) => { if (pending.itemIds.includes(id)) found.add(id); });
+            if (read.outcome === 'success') pending.itemIds.forEach((id) => found.add(id));
+            if (found.size === pending.itemIds.length || !read.nextUrl || visited.has(read.nextUrl)) break;
+            const next = new URL(read.nextUrl);
+            if (next.origin !== 'https://www.ebay.com' || next.pathname !== '/sh/lst/ended'
+              || next.searchParams.get('keyword') !== pending.itemIds.join(',')) break;
+            visited.add(read.nextUrl);
+            await updateChromeTab(opened.tabId, { url: read.nextUrl, active: false });
+          }
+          result = { outcome: found.size === pending.itemIds.length ? 'success' : 'unknown', successfulItemIds: [...found] };
+        } catch (error) {
+          result = { outcome: 'unknown', successfulItemIds: [...found], message: error.message };
+        } finally { await closeTab(opened.tabId).catch(() => false); }
       }
     }
-    return await finishPolicyNativeResult(pending, result);
+    return await finishPolicyNativeResult(pending, result, archived);
   } finally { policyEndOperationBusy = false; }
 }
 
@@ -5919,7 +6023,7 @@ async function submitEbayPolicyListingEndReview(request = {}) {
   let dispatched = false;
   let pending;
   try {
-    const stored = await storageGet([PENDING_POLICY_LISTING_END_REVIEW_KEY, POLICY_LISTING_AUDIT_STATE_KEY, POLICY_LISTING_END_LEDGER_KEY]);
+    const stored = await storageGet([PENDING_POLICY_LISTING_END_REVIEW_KEY, POLICY_LISTING_AUDIT_STATE_KEY, POLICY_LISTING_END_LEDGER_KEY, POLICY_LISTING_END_HISTORY_KEY]);
     pending = stored[PENDING_POLICY_LISTING_END_REVIEW_KEY];
     if (!pending?.active || pending.phase !== 'review-ready' || pending.reviewMode !== 'native-active-listings-ui'
       || request.runId !== pending.runId || request.reportFingerprint !== pending.reportFingerprint) {
@@ -5932,7 +6036,9 @@ async function submitEbayPolicyListingEndReview(request = {}) {
     const audit = stored[POLICY_LISTING_AUDIT_STATE_KEY];
     await validateCurrentPolicyListingAudit(audit);
     if (audit.reportFingerprint !== pending.reportFingerprint || audit.rulesFingerprint !== pending.rulesFingerprint) throw new Error('The audited item set changed.');
-    POLICY_LISTING_AUDIT.endableItemIds(audit, itemIds, stored[POLICY_LISTING_END_LEDGER_KEY]?.[audit.reportFingerprint]?.successfulItemIds || []);
+    const ending = POLICY_LISTING_AUDIT.endingStateForAudit(audit, stored[POLICY_LISTING_END_HISTORY_KEY], stored[POLICY_LISTING_END_LEDGER_KEY]);
+    if (itemIds.some((id) => ending.held.includes(id))) throw new Error('This batch has unresolved prior activity. Check its results; do not resubmit.');
+    POLICY_LISTING_AUDIT.endableItemIds(audit, itemIds, ending.completed);
     // Persist consumption before any native End click, including across service-worker restarts.
     pending = { ...pending, phase: 'submitted', submittedAt: new Date().toISOString() };
     await storageSet({ [PENDING_POLICY_LISTING_END_REVIEW_KEY]: pending });
@@ -7538,7 +7644,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.type === 'checkEbayPolicyListingEndResult') {
-    checkEbayPolicyListingEndResult().then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
+    checkEbayPolicyListingEndResult(message).then(sendResponse).catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
   if (message.type === 'submitEbayPolicyListingEndReview') {

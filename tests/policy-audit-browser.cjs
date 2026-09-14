@@ -10,7 +10,7 @@ const ext = path.join(root, 'extension');
 
 (async () => {
   const browser = await chromium.launch({ headless: true, channel: 'chrome' });
-  const evidence = path.join(root, 'evidence/policy-audit-v3.12.38');
+  const evidence = path.join(root, 'evidence/policy-audit-v3.12.39');
   fs.mkdirSync(evidence, { recursive: true });
   const results = [];
   const coverage = { initialTotal: 18640, latestTotal: 18641, observedUnique: 3, countChanged: true, duplicatesRemoved: 1, followUpRecommended: true };
@@ -44,20 +44,31 @@ const ext = path.join(root, 'extension');
               window.changeFixture({ pendingPolicyListingEndReview: {
                 active: true, phase: 'review-ready', reviewMode: 'native-active-listings-ui',
                 runId: 'fixture-' + window.fixtureMessages.length, reportFingerprint: message.reportFingerprint,
-                itemIds: message.itemIds, requestedCount: message.itemIds.length
+                itemIds: message.itemIds, requestedCount: message.itemIds.length,
+                computerLabel: 'M0', ebayAccountLabel: 'FIXTURE', createdAt: '2026-09-13T14:00:00Z'
               } });
               cb({ ok: true, requestedCount: message.itemIds.length }); return;
             }
-            if (message.type === 'submitEbayPolicyListingEndReview') {
+            if (message.type === 'cancelEbayPolicyListingEndReview') {
               const pending = data.pendingPolicyListingEndReview;
-              if (message.runId !== pending.runId) throw Error('Wrong run');
+              window.changeFixture({
+                policyListingEndHistory: { ...data.policyListingEndHistory, [pending.runId]: { ...pending, active: false, phase: 'set-aside' } },
+                pendingPolicyListingEndReview: null
+              });
+              cb({ ok: true }); return;
+            }
+            if (message.type === 'submitEbayPolicyListingEndReview' || message.type === 'checkEbayPolicyListingEndResult') {
+              const pending = message.archivedRunId ? data.policyListingEndHistory[message.archivedRunId] : data.pendingPolicyListingEndReview;
+              if (message.type === 'submitEbayPolicyListingEndReview' && message.runId !== pending.runId) throw Error('Wrong run');
               const successfulItemIds = pending.itemIds;
               const old = data.policyListingEndLedger?.[pending.reportFingerprint]?.successfulItemIds || [];
               window.changeFixture({
-                pendingPolicyListingEndReview: null,
+                pendingPolicyListingEndReview: message.archivedRunId ? data.pendingPolicyListingEndReview : null,
+                policyListingEndHistory: { ...data.policyListingEndHistory, [pending.runId]: { ...pending, active: false, phase: 'complete', successfulItemIds } },
                 policyListingEndLedger: { [pending.reportFingerprint]: { successfulItemIds: [...old, ...successfulItemIds] } }
               });
-              cb({ ok: true, stopped: true, successfulItemIds, successfulCount: successfulItemIds.length, failedCount: 0 }); return;
+              cb({ ok: true, stopped: true, successfulItemIds, successfulCount: successfulItemIds.length, failedCount: 0,
+                message: successfulItemIds.length + ' exact listings verified ended.' }); return;
             }
             cb({ ok: true });
           } },
@@ -115,9 +126,37 @@ const ext = path.join(root, 'extension');
       assert.equal(await page.locator('#currentReviewCount').innerText(), '1 exact listings');
       assert.equal(await page.locator('#approvalToken').inputValue(), '');
       assert.equal(await page.locator('#approveEnd').isEnabled(), false);
+      assert.equal(await page.locator('#checkResult').isVisible(), true);
+      const sendsBefore = await page.evaluate(() => window.fixtureMessages.filter(m => m.type === 'submitEbayPolicyListingEndReview').length);
+      await page.locator('#checkResult').click();
+      assert.equal(await page.locator('#metricEnded').innerText(), '201');
+      assert.equal(await page.locator('#currentReview').isVisible(), false);
+      assert.equal(await page.evaluate(() => window.fixtureMessages.filter(m => m.type === 'submitEbayPolicyListingEndReview').length), sendsBefore);
+      await page.evaluate((audit) => {
+        window.changeFixture({ ebayPolicyListingAudit: audit,
+          ebayPolicyListingScanState: { phase: 'complete', active: false, totalListings: 3, coverage: audit.coverage },
+          policyListingEndLedger: {}, policyListingEndHistory: {} });
+      }, audit);
+      await page.locator('#selectAllBlock').click();
+      await page.locator('#prepareReview').click();
+      await page.locator('#cancelReview').click();
+      assert.equal(await page.locator('#heldBatches').isVisible(), true);
+      assert.equal(await page.locator('#metricEnded').innerText(), '0');
+      assert.equal(await page.locator('[data-item-id="300000000001"]').isEnabled(), false);
+      await page.locator('[data-filter="review"]').click();
+      await page.locator('#selectFiltered').click();
+      assert.equal(await page.locator('#metricSelected').innerText(), '1');
+      await page.locator('#prepareReview').click();
+      const reviewRun = await page.evaluate(() => window.fixtureMessages.filter(m => m.type === 'prepareEbayPolicyListingEndReview').at(-1).itemIds);
+      assert.deepEqual(reviewRun, ['300000000002']);
+      await page.locator('#checkHeldResult').click();
+      assert.equal(await page.locator('#metricEnded').innerText(), '1');
+      assert.equal(await page.locator('#currentReviewCount').innerText(), '1 exact listings');
+      assert.equal(await page.locator('#approveEnd').isEnabled(), false);
+      assert.equal(await page.locator('#heldBatches').isVisible(), false);
       assert.deepEqual(errors, []);
       await page.screenshot({ path: path.join(evidence, `snapshot-${width}.png`), fullPage: true });
-      results.push({ width, pass: true, checks: ['coverage warning', 'search', 'CSV', '201 flags selected, no-match excluded', '200-item batch', 'exact approval', '200 ended and 1 remaining', 'next batch requires fresh approval'] });
+      results.push({ width, pass: true, checks: ['coverage warning', 'search', 'CSV', '201 flags selected, no-match excluded', '200-item batch', 'exact approval', '200 ended and 1 remaining', 'manual ending recognized without resubmission', 'set-aside Block batch excluded while Review batch proceeds', 'archived result leaves current Review intact'] });
       await page.close();
     }
     fs.writeFileSync(path.join(evidence, 'results.json'), JSON.stringify({ scope: 'Isolated Chrome fixture; no signed-in account or marketplace action', results }, null, 2));

@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.39 - 2026-09-13
+
+- Reconcile native eBay ending without requiring the operator to reapprove an already-ended batch.
+- Check exact inactive rows individually, distinguish hidden policy-violation rows from ended items, and follow bounded exact-search pagination.
+- Save partial results and allow Set Aside Batch & Continue without forgetting or resubmitting unresolved IDs.
+- Preserve native batch evidence across updates and keep old approvals revoked. Archived result checks do not disturb another current batch.
+- Policy rules remain the same calibrated 618-rule pack. No live listings were changed during release verification.
+
 ## v3.12.38 - 2026-09-13
 
 - Restored bulk selection and approval-gated ending for selected Block and Review rows. No-match rows are excluded; Review is not a confirmed violation.

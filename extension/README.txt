@@ -1,4 +1,11 @@
-GLDN Ops v3.12.38
+GLDN Ops v3.12.39
+
+v3.12.39 native ending result recovery:
+- Check eBay Result is available even when items were ended directly on eBay.
+- Exact per-item ended evidence is saved; hidden policy-violation rows are not treated as ended.
+- Set Aside Batch & Continue preserves unresolved IDs and allows other Review flags to proceed.
+- Saved batches can be checked later without another End submission. Updates preserve old batch evidence, not old approval.
+- Existing calibrated policy rules and pesticide/aerosol exclusions are unchanged.
 
 v3.12.38 policy batches and calibrated screening:
 - Restores bulk selection, exact-item native eBay review and one-use approval, up to 200 listings.

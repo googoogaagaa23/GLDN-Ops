@@ -1,0 +1,53 @@
+{
+  "scope": "Isolated Chrome fixture; no signed-in account or marketplace action",
+  "results": [
+    {
+      "width": 1440,
+      "pass": true,
+      "checks": [
+        "coverage warning",
+        "search",
+        "CSV",
+        "201 flags selected, no-match excluded",
+        "200-item batch",
+        "exact approval",
+        "200 ended and 1 remaining",
+        "manual ending recognized without resubmission",
+        "set-aside Block batch excluded while Review batch proceeds",
+        "archived result leaves current Review intact"
+      ]
+    },
+    {
+      "width": 900,
+      "pass": true,
+      "checks": [
+        "coverage warning",
+        "search",
+        "CSV",
+        "201 flags selected, no-match excluded",
+        "200-item batch",
+        "exact approval",
+        "200 ended and 1 remaining",
+        "manual ending recognized without resubmission",
+        "set-aside Block batch excluded while Review batch proceeds",
+        "archived result leaves current Review intact"
+      ]
+    },
+    {
+      "width": 540,
+      "pass": true,
+      "checks": [
+        "coverage warning",
+        "search",
+        "CSV",
+        "201 flags selected, no-match excluded",
+        "200-item batch",
+        "exact approval",
+        "200 ended and 1 remaining",
+        "manual ending recognized without resubmission",
+        "set-aside Block batch excluded while Review batch proceeds",
+        "archived result leaves current Review intact"
+      ]
+    }
+  ]
+}

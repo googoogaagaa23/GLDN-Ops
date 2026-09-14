@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.38. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.39. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -849,9 +849,10 @@ The exact ending path is already live-proven in signed-in Profile 2 across 736 p
 3. Inspect matched reasons. Review is not a confirmed violation; ordinary brand names alone are not flags.
 4. Select All Block, individual flags, or Select Filtered Flags across all result pages. No-match rows are excluded.
 5. Review Selected on eBay opens up to 200 exact listings together. Inspect this batch before approval.
-6. Return to GLDN, type the exact displayed approval phrase, then click End Exact Batch.
-7. If the native final confirmation cannot be verified, review it on eBay and use Check eBay Result. GLDN never retries an uncertain End click.
-8. After verified success, ended counts update and remaining selection stays queued. Each next batch needs fresh approval.
+6. Either return to GLDN, type the exact displayed phrase and click End Exact Batch, OR use eBay's own End confirmation after reviewing the rows. Do not submit through both paths.
+7. If you ended directly on eBay, use Check eBay Result in GLDN. No second End approval is needed to check results.
+8. If some results remain unconfirmed, choose Set Aside Batch & Continue. Those exact items stay excluded while you select and review other Block or Review flags.
+9. After verified success, ended counts update and remaining selection stays queued. Each next batch needs fresh approval.
 
 ### Approval Stop
 
@@ -865,12 +866,14 @@ Exact-ID audit, bulk selection, native batch review, verified ended counts, rema
 
 - Count changes produce coverage warnings, not automatic restarts.
 - Refresh Policy Checks keeps scan dates and ended counts. Audits older than 48 hours require a fresh scan before ending.
-- Cancel Review keeps results. After a potentially submitted action, use Check eBay Result instead. It reads the result or Ended Listings, never retries End.
+- Check eBay Result reads exact normal eBay pages and saves each proven ended item. Hidden policy-violation rows are not counted as ended.
+- Set-aside batches remain available under Check Saved Batch Result, including after a new scan. Checking one does not cancel another current review.
+- Updates preserve native batch evidence, not old approval permission. When updating from v3.12.38, do not Reset or discard the stuck review first. If the extension blocks its own updater, run the existing GLDN Ops installer/update tool, then reload GLDN Ops using Chrome's extension management page and reopen the audit.
 - Pesticides and aerosol spray cans stay excluded. Specific conditional risks stay Review. No-match is not a policy guarantee.
 
 ### Evidence
 
-v3.12.38 isolated Chrome and unit tests cover 201 flags in 200-plus-1 batches, exact approval, changed seller/IDs, stale success and replay protection. Live exact-number search and Actions menu inspected; no live End action performed. Signed-in ending remains pending.
+v3.12.39 unit and isolated Chrome tests cover manual completion without another End click, partial evidence, archived batches, account separation, migration and independent Review continuation. Live native inactive exact-search layout inspected read-only. No live End action performed; M0 result reconciliation remains unverified.
 
 
 <a id="move99-recovery"></a>

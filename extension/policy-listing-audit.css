@@ -108,6 +108,10 @@ main { padding: 18px 30px 34px; }
 .review-summary small { color: #8f9cad; }
 .approval-field small { color: #d7c27b; font-size: 11px; line-height: 1.35; }
 .approval-field input { border-color: #7d6130; }
+.held-band { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 14px 0; border-bottom: 1px solid #7d6130; }
+.held-band strong { color: #ffd875; }
+.held-band label { color: #a9b4c2; }
+.held-band select { max-width: 100%; min-width: 0; flex: 1 1 240px; padding: 10px; background: #0c121a; color: #fff; border: 1px solid #3c4858; border-radius: 4px; }
 
 .table-wrap { overflow: auto; margin-top: 12px; border: 1px solid #29313d; max-height: calc(100vh - 405px); min-height: 340px; }
 table { width: 100%; min-width: 1060px; border-collapse: collapse; table-layout: fixed; }

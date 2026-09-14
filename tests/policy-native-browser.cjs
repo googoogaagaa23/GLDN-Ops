@@ -79,7 +79,33 @@ document.getElementById('actions').onclick = () => {
     await page.evaluate(() => document.getElementById('notice').textContent = '1 listing has been ended.');
     assert.equal((await run('result', { seller: 'seller', baseline: [] })).outcome, 'unknown');
     results.push('stale and partial success messages never complete the batch');
-    const dir = path.join(root, 'evidence/policy-audit-v3.12.38');
+    await page.evaluate(() => history.replaceState({}, '', '/sh/lst/active?keyword=399999999999'));
+    assert.equal((await run('result', { seller: 'seller', baseline: [] })).outcome, 'unknown');
+    results.push('unrelated batch URL never inherits a same-count success');
+
+    await page.goto('https://www.ebay.com/sh/lst/ended?status=ENDED&keyword=' + ids.join(','));
+    await page.setContent('<a href="/usr/seller" aria-label="seller View profile">seller</a>'
+      + '<input id="shui-search-box__input" value="' + ids.join(',') + '"><table role="grid">'
+      + ids.map((id) => '<tbody><tr class="grid-row" data-id="' + id + '">'
+        + '<td><input type="checkbox" id="shui-dt-checkone-' + id + '"></td>'
+        + '<td><a href="/sl/list?mode=RelistItem&itemId=' + id + '">Relist</a></td>'
+        + '<td class="shui-dt-column__actualEndDate">Sep 13, 2026</td></tr></tbody>').join('') + '</table>');
+    await page.addScriptTag({ content: native });
+    assert.deepEqual((await run('ended', { seller: 'seller' })).successfulItemIds, ids);
+    await page.locator('tbody').last().evaluate(el => {
+      el.querySelector('input').disabled = true;
+      const notice = document.createElement('div');
+      notice.className = 'inline-notice--attention'; notice.textContent = "It's hidden until you can fix it.";
+      el.appendChild(notice);
+    });
+    const partial = await run('ended', { seller: 'seller' });
+    assert.equal(partial.outcome, 'unknown');
+    assert.deepEqual(partial.successfulItemIds, [ids[0]]);
+    assert.equal((await run('ended', { seller: 'other' })).ok, false);
+    await page.locator('#shui-search-box__input').fill('unrelated');
+    assert.equal((await run('ended', { seller: 'seller' })).ok, false);
+    results.push('exact ended rows recognized individually; hidden violations, wrong seller, and unfinished search excluded');
+    const dir = path.join(root, 'evidence/policy-audit-v3.12.39');
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'native-fixture-results.json'), JSON.stringify({ scope: 'Isolated DOM fixtures, not live ending verification', results }, null, 2));
     console.log(results.join('\n'));

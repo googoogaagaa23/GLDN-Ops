@@ -15,6 +15,8 @@ function worker(data, native) {
     POLICY_LISTING_AUDIT: core, POLICY_LISTING_AUDIT_STATE_KEY: 'audit',
     PENDING_POLICY_LISTING_END_REVIEW_KEY: 'pending', POLICY_LISTING_END_LEDGER_KEY: 'ledger',
     LAST_POLICY_LISTING_END_RESULT_KEY: 'result', policyListingScanPromise: null,
+    POLICY_LISTING_END_HISTORY_KEY: 'history',
+    currentPolicyListingIdentity: async () => ({ computerLabel: 'M0', ebayAccountLabel: 'FIXTURE' }),
     storageGet: async () => data,
     storageSet: async (values) => Object.assign(data, structuredClone(values)),
     storageRemove: async (keys) => keys.forEach((key) => delete data[key]),
@@ -41,11 +43,11 @@ function worker(data, native) {
 
 function fixture() {
   return {
-    audit: { reportFingerprint: 'a', rulesFingerprint: 'r',
+    audit: { reportFingerprint: 'a', rulesFingerprint: 'r', computerLabel: 'M0', ebayAccountLabel: 'FIXTURE',
       listings: ids.map((itemId, index) => ({ itemId, action: index ? 'review' : 'block' })) },
     pending: { active: true, phase: 'review-ready', reviewMode: 'native-active-listings-ui',
       runId: 'one', reportFingerprint: 'a', rulesFingerprint: 'r',
-      itemIds: ids, requestedCount: 2, seller: 'seller', sourceTabId: 10 },
+      itemIds: ids, requestedCount: 2, seller: 'seller', sourceTabId: 10, computerLabel: 'M0', ebayAccountLabel: 'FIXTURE' },
     ledger: {}
   };
 }
@@ -129,12 +131,112 @@ test('unverified native confirmation is never clicked and no next batch starts a
   assert.equal(w.calls.includes('openTab'), false);
 });
 
-test('unknown review cannot be canceled into a duplicate submission', async () => {
+test('unknown review is set aside durably and excluded from new batches, not forgotten', async () => {
   const data = fixture();
   data.pending.phase = 'submitted';
   const w = worker(data, async () => ({}));
-  await assert.rejects(w.context.cancelEbayPolicyListingEndReview(), /may already have been submitted/);
-  assert.ok(data.pending);
+  await w.context.cancelEbayPolicyListingEndReview();
+  assert.equal(data.pending, undefined);
+  assert.equal(data.history.one.phase, 'set-aside');
+  assert.deepEqual(data.history.one.itemIds, ids);
+  assert.deepEqual(core.endingStateForAudit(data.audit, data.history).held, ids);
+  assert.equal(data.result, undefined);
+  assert.deepEqual(w.calls, []);
+});
+
+test('manual native completion can be reconciled from review-ready without an approval token', async () => {
+  const data = fixture();
+  const w = worker(data, async (_, mode) => {
+    assert.equal(mode, 'result');
+    return { outcome: 'success', message: '2 listings have been ended.' };
+  });
+  const result = await w.context.checkEbayPolicyListingEndResult();
+  assert.equal(result.successfulCount, 2);
+  assert.equal(data.pending, undefined);
+  assert.equal(data.history.one.phase, 'complete');
+  assert.deepEqual(w.calls, ['result']);
+});
+
+test('partial result saves only proven IDs and preserves all uncertain IDs across restart and rescan', async () => {
+  const data = fixture();
+  const w = worker(data, async () => ({ outcome: 'unknown', successfulItemIds: [ids[0]] }));
+  const result = await w.context.checkEbayPolicyListingEndResult();
+  assert.equal(result.unknown, true);
+  assert.deepEqual([...result.successfulItemIds], [ids[0]]);
+  assert.deepEqual(data.ledger.a.successfulItemIds, [ids[0]]);
+  const resumed = worker(data, async () => { throw Error('No submission'); });
+  await resumed.context.cancelEbayPolicyListingEndReview();
+  const ending = core.endingStateForAudit({ ...data.audit, reportFingerprint: 'fresh-scan' }, data.history);
+  assert.deepEqual(ending.completed, [ids[0]]);
+  assert.deepEqual(ending.held, [ids[1]]);
+  assert.deepEqual(core.endingStateForAudit({ ...data.audit, ebayAccountLabel: 'OTHER' }, data.history).held, []);
+});
+
+test('checking an archived batch does not replace or clear a different pending Review batch', async () => {
+  const data = fixture();
+  data.history = { previous: { ...data.pending, runId: 'previous', active: false, phase: 'set-aside' } };
+  data.pending.runId = 'current-review';
+  data.pending.itemIds = ['300000000003'];
+  const w = worker(data, async () => ({ outcome: 'success' }));
+  const result = await w.context.checkEbayPolicyListingEndResult({ archivedRunId: 'previous' });
+  assert.equal(result.successfulCount, 2);
+  assert.equal(data.pending.runId, 'current-review');
+  assert.equal(data.pending.phase, 'review-ready');
+  assert.equal(data.history.previous.phase, 'complete');
+});
+
+test('ready cancellation also preserves IDs because native eBay ending is independent', async () => {
+  const data = fixture();
+  const w = worker(data, async () => { throw Error('Do not click'); });
+  await w.context.cancelEbayPolicyListingEndReview();
+  assert.deepEqual(core.endingStateForAudit(data.audit, data.history).held, ids);
+});
+
+test('history write failure never clears the original pending batch', async () => {
+  const data = fixture();
+  const w = worker(data, async () => ({}));
+  w.context.storageSet = async () => { throw Error('Storage full'); };
+  await assert.rejects(w.context.cancelEbayPolicyListingEndReview(), /Storage full/);
+  assert.equal(data.pending.runId, 'one');
+});
+
+test('result checks fail before reading an account that does not own the batch', async () => {
+  const data = fixture();
+  data.pending.ebayAccountLabel = 'OTHER';
+  const w = worker(data, async () => { throw Error('Must not read'); });
+  await assert.rejects(w.context.checkEbayPolicyListingEndResult(), /owns this batch/);
+  assert.deepEqual(w.calls, []);
+});
+
+test('set-aside IDs cannot be prepared again, while unrelated Review IDs can reach preparation', async () => {
+  const data = fixture();
+  data.history = { one: { ...data.pending, phase: 'set-aside', active: false } };
+  delete data.pending;
+  data.audit.listings.push({ itemId: '300000000003', action: 'review' });
+  const w = worker(data, async () => ({}));
+  w.context.claimWorkflowStart = async () => ({ ok: true });
+  await assert.rejects(w.context.prepareEbayPolicyListingEndReview({ itemIds: ids, reportFingerprint: 'a' }), /set-aside/);
+  assert.deepEqual(w.calls, []);
+  await assert.rejects(w.context.prepareEbayPolicyListingEndReview({ itemIds: ['300000000003'], reportFingerprint: 'a' }));
+  assert.deepEqual(w.calls, ['openTab']);
+});
+
+test('ended recovery follows only exact observed pagination, preserves partial proof, and closes its own tab', async () => {
+  const data = fixture();
+  const w = worker(data, async (_, mode) => mode === 'result' ? { outcome: 'unknown' } :
+    { outcome: 'unknown', successfulItemIds: [ids[0]], nextUrl: 'https://example.com/wrong' });
+  w.context.openTab = async (url, options) => {
+    assert.match(url, /status=ENDED/);
+    assert.equal(options.active, false);
+    return { ok: true, tabId: 77 };
+  };
+  w.context.waitForControlTabSettled = async () => {};
+  w.context.closeTab = async (id) => { assert.equal(id, 77); return true; };
+  w.context.updateChromeTab = async () => { throw Error('Must not navigate to unrelated link'); };
+  const result = await w.context.checkEbayPolicyListingEndResult();
+  assert.deepEqual([...result.successfulItemIds], [ids[0]]);
+  assert.equal(data.pending.phase, 'result-unknown');
+  assert.deepEqual(w.calls, ['result', 'ended']);
 });
 
 test('empty or informational legacy results never count as successful ends', () => {

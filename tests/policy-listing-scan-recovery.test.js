@@ -293,3 +293,27 @@ test('extension upgrade preserves read-only scan checkpoints but not old End app
   assert.ok(data['ebayPolicyListingScanChunk:old-run:92']);
   assert.equal(data.pendingPolicyListingEndReview, undefined);
 });
+
+test('upgrade retains v3.12.38 native batch evidence but revokes its old End approval', async () => {
+  const pending = { active: true, phase: 'review-ready', extensionVersion: '3.12.38',
+    reviewMode: 'native-active-listings-ui', runId: 'manual-56', seller: 'seller',
+    computerLabel: 'M0', ebayAccountLabel: 'FIXTURE', reportFingerprint: 'saved',
+    itemIds: ['300000000001'], requestedCount: 1, sourceTabId: 77 };
+  const data = { pendingPolicyListingEndReview: pending };
+  const code = source.slice(source.indexOf('async function clearIncompatibleWorkflowState'), source.indexOf('async function clearRemovedBulkAutomationState'));
+  const context = vm.createContext({
+    VERSIONED_WORKFLOW_KEYS: ['pendingPolicyListingEndReview'], EXTENSION_VERSION: '3.12.39',
+    storageGet: async () => structuredClone(data),
+    storageSet: async (values) => Object.assign(data, structuredClone(values)),
+    storageRemove: async (keys) => keys.forEach((key) => { delete data[key]; }),
+    recordExtensionLog: async () => {}
+  });
+  vm.runInContext(code, context);
+  await context.clearIncompatibleWorkflowState('update');
+  assert.equal(data.pendingPolicyListingEndReview.phase, 'result-unknown');
+  assert.deepEqual(data.pendingPolicyListingEndReview.itemIds, pending.itemIds);
+  assert.equal(data.pendingPolicyListingEndReview.sourceTabId, 77);
+  assert.equal(data.policyListingEndHistory['manual-56'].phase, 'set-aside');
+  delete data.pendingPolicyListingEndReview; // Even a later Reset retains the batch receipt.
+  assert.deepEqual(data.policyListingEndHistory['manual-56'].itemIds, pending.itemIds);
+});

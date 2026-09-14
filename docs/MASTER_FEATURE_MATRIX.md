@@ -1,9 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-09-09
-Current local manifest: 3.12.38
+Last updated: 2026-09-13
+Current local manifest: 3.12.39
 
-v3.12.38 restores exact approved bulk ending and narrows broad IP heuristics. Isolated browser tests pass; live ending remains pending. No live listings were ended during release work.
+v3.12.39 reconciles manual native ending, preserves partial results, and lets unresolved batches be set aside while other flags proceed. Live inactive-listing layout and exact search inspected; isolated browser checks pass. Affected M0 completion remains unverified. No live listings were ended during release work.
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  

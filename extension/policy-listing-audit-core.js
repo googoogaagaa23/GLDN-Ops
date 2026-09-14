@@ -285,6 +285,20 @@
     };
   }
 
+  function endingStateForAudit(audit, history = {}, ledger = {}) {
+    const completed = new Set(ledger?.[audit?.reportFingerprint]?.successfulItemIds || []);
+    const held = new Set();
+    const batches = Object.values(history || {}).filter((batch) =>
+      audit?.computerLabel && audit?.ebayAccountLabel
+      && batch.computerLabel === audit.computerLabel && batch.ebayAccountLabel === audit.ebayAccountLabel);
+    for (const batch of batches) {
+      (batch.successfulItemIds || []).forEach((id) => completed.add(String(id)));
+      if (batch.phase !== "complete") (batch.itemIds || []).forEach((id) => held.add(String(id)));
+    }
+    completed.forEach((id) => held.delete(id));
+    return { completed: [...completed], held: [...held], batches };
+  }
+
   function compactControlRecord(audit = {}) {
     const listings = Array.isArray(audit.listings) ? audit.listings : [];
     const allBlocks = listings.filter((listing) => listing?.action === "block");
@@ -373,6 +387,7 @@
     buildPolicyAuditAsync,
     blockItemIds,
     endableItemIds,
+    endingStateForAudit,
     normalizeEndSubmissionOutcome,
     compactControlRecord,
     auditCsv,

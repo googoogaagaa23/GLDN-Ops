@@ -7,6 +7,7 @@
   const PENDING_KEY = "pendingPolicyListingEndReview";
   const LEDGER_KEY = "policyListingEndLedger";
   const RESULT_KEY = "lastPolicyListingEndResult";
+  const HISTORY_KEY = "policyListingEndHistory";
   const PAGE_SIZE = 100;
   const END_BATCH_LIMIT = 200;
   const byId = (id) => document.getElementById(id);
@@ -38,6 +39,9 @@
     focusReview: byId("focusReview"),
     cancelReview: byId("cancelReview"),
     checkResult: byId("checkResult"),
+    heldBatches: byId("heldBatches"),
+    heldBatchSelect: byId("heldBatchSelect"),
+    checkHeldResult: byId("checkHeldResult"),
     approvalToken: byId("approvalToken"),
     approvalInstruction: byId("approvalInstruction"),
     approveEnd: byId("approveEnd"),
@@ -54,6 +58,7 @@
   let pendingReview = null;
   let endLedger = {};
   let latestResult = null;
+  let endHistory = {};
   let filter = "all";
   let page = 1;
   let operationBusy = false;
@@ -103,8 +108,15 @@
   }
 
   function completedIds() {
-    const entry = endLedger?.[String(audit?.reportFingerprint || "")] || {};
-    return new Set((entry.successfulItemIds || []).map(String));
+    return new Set(CORE.endingStateForAudit(audit, endHistory, endLedger).completed);
+  }
+
+  function heldIds() {
+    return new Set(CORE.endingStateForAudit(audit, endHistory, endLedger).held);
+  }
+
+  function unavailableIds() {
+    return new Set([...completedIds(), ...heldIds()]);
   }
 
   function pendingMatchesAudit() {
@@ -169,6 +181,9 @@
 
   function render() {
     const done = completedIds();
+    const held = heldIds();
+    const unavailable = unavailableIds();
+    unavailable.forEach((id) => selectedIds.delete(id));
     const rows = currentPageRows();
     const allRows = filteredRows();
     const totalPages = allRows.length ? Math.ceil(allRows.length / PAGE_SIZE) : 0;
@@ -198,7 +213,7 @@
 
     elements.freshScan.disabled = scanActive || operationBusy;
     elements.recheckRules.disabled = !audit || scanActive || operationBusy || hasAnyPendingReview;
-    elements.freshScan.textContent = hasAnyPendingReview ? "Cancel Review & Start Fresh Scan" : "Start Fresh Complete Scan";
+    elements.freshScan.textContent = hasAnyPendingReview ? "Set Aside Batch & Start Fresh Scan" : "Start Fresh Complete Scan";
     elements.resumeScan.disabled = !resumable || operationBusy || hasAnyPendingReview;
     elements.stopScan.disabled = !scanActive || scanState?.phase === "saving" || scanState?.stopRequested === true;
     elements.discardScan.disabled = scanActive || operationBusy || hasPendingReview || (!audit && !scanState);
@@ -212,13 +227,13 @@
     elements.rangeLabel.textContent = `${start.toLocaleString()}-${end.toLocaleString()} of ${allRows.length.toLocaleString()} shown`;
     elements.pageLabel.textContent = `Page ${totalPages ? page : 0} of ${totalPages}`;
 
-    const selectableRows = rows.filter((listing) => ["block", "review"].includes(listing.action) && !done.has(String(listing.itemId)));
+    const selectableRows = rows.filter((listing) => ["block", "review"].includes(listing.action) && !unavailable.has(String(listing.itemId)));
     elements.pageSelection.disabled = !selectableRows.length || operationBusy;
     elements.pageSelection.checked = Boolean(selectableRows.length) && selectableRows.every((listing) => selectedIds.has(String(listing.itemId)));
     elements.pageSelection.indeterminate = selectableRows.some((listing) => selectedIds.has(String(listing.itemId))) && !elements.pageSelection.checked;
 
     elements.currentReview.hidden = !hasAnyPendingReview;
-    elements.checkResult.hidden = !hasPendingReview || awaitingApproval;
+    elements.checkResult.hidden = !hasPendingReview;
     elements.checkResult.disabled = operationBusy;
     if (hasAnyPendingReview) {
       const count = Number(pendingReview.requestedCount || 0);
@@ -228,13 +243,24 @@
       elements.cancelReview.disabled = operationBusy;
       elements.approvalToken.placeholder = token;
       elements.approvalInstruction.textContent = awaitingApproval
-        ? `After inspecting every eBay row, type exactly ${token}.`
+        ? `End here with ${token}, OR use eBay's own End confirmation and then Check Result. Do not do both.`
         : pendingReview.phase !== "review-ready" ? (pendingReview.message || "Submission already attempted. Check eBay Result; do not submit again.")
         : "This review is from an older version. Cancel it and prepare a new batch from the saved results.";
       elements.approvalToken.disabled = !awaitingApproval || operationBusy;
       elements.approveEnd.textContent = `End Exact ${count.toLocaleString()}`;
       elements.approveEnd.disabled = !awaitingApproval || operationBusy || String(elements.approvalToken.value || "").trim() !== token;
     }
+
+    const heldBatches = CORE.endingStateForAudit(audit, endHistory, endLedger).batches
+      .filter((batch) => batch.phase !== "complete" && batch.runId !== pendingReview?.runId);
+    const previousBatch = elements.heldBatchSelect.value;
+    elements.heldBatches.hidden = !heldBatches.length;
+    elements.heldBatchSelect.innerHTML = heldBatches.map((batch) => {
+      const remaining = batch.itemIds.length - (batch.successfulItemIds || []).length;
+      return `<option value="${escapeHtml(batch.runId)}">${remaining} unconfirmed of ${batch.itemIds.length} | ${escapeHtml(new Date(batch.createdAt || batch.parkedAt).toLocaleString())}</option>`;
+    }).join("");
+    if (heldBatches.some((batch) => batch.runId === previousBatch)) elements.heldBatchSelect.value = previousBatch;
+    elements.checkHeldResult.disabled = operationBusy || !heldBatches.length;
 
     if (!rows.length) {
       elements.listingRows.innerHTML = `<tr><td colspan="7" class="empty">${audit ? "No listings match this filter." : scanState?.runId ? escapeHtml(scanProgressMessage(scanState)) : "Run a complete read-only scan to begin."}</td></tr>`;
@@ -243,7 +269,7 @@
 
     elements.listingRows.innerHTML = rows.map((listing) => {
       const completed = done.has(String(listing.itemId));
-      const endable = ["block", "review"].includes(listing.action) && !completed;
+      const endable = ["block", "review"].includes(listing.action) && !unavailable.has(String(listing.itemId));
       const matches = (listing.matches || []).map((match) => `${match.type}: ${match.value}`).join(" | ");
       const evidenceCount = (listing.matches || []).flatMap((match) => match.evidenceUrls || []).filter(Boolean).length;
       return `
@@ -254,7 +280,7 @@
           <td><span class="classification ${escapeHtml(listing.action)}">${escapeHtml(listing.action === "clear" ? "NO RULE MATCH" : listing.status)}</span><span class="meta">${escapeHtml(listing.action === "block" ? "Urgent human inspection" : listing.action === "review" ? "Review candidate, not a confirmed violation" : "Still not eBay approval")}</span></td>
           <td><span class="price">${escapeHtml(CORE.formatMoney(listing.price))}</span></td>
           <td><span class="reason">${escapeHtml(listing.reason || "No reason reported")}</span><span class="evidence">${escapeHtml(matches || "No matched reviewed rule")}${evidenceCount ? ` | ${evidenceCount} source link${evidenceCount === 1 ? "" : "s"}` : ""}</span></td>
-          <td><span class="row-status ${completed ? "completed" : ""}">${completed ? "Ended" : "Open"}</span></td>
+          <td><span class="row-status ${completed ? "completed" : ""}">${completed ? "Ended" : held.has(String(listing.itemId)) ? "Unconfirmed batch" : "Open"}</span></td>
         </tr>`;
     }).join("");
   }
@@ -299,7 +325,7 @@
     if (operationBusy) return;
     operationBusy = true;
     render();
-    setStatus("Canceling the saved eBay review...");
+    setStatus("Preserving this batch and releasing other selected items...");
     let canceled = false;
     try {
       const response = await runtimeMessage({ type: "cancelEbayPolicyListingEndReview" }, 30000);
@@ -314,7 +340,7 @@
       render();
     }
     if (canceled && rescan) await runScan(true);
-    else if (canceled) setStatus("Review canceled. Your scan and selection are still saved.", "success");
+    else if (canceled) setStatus("Batch set aside, not marked ended. Its items remain excluded from new batches. Other flagged items are available.", "success");
   }
 
   elements.freshScan.addEventListener("click", () => {
@@ -370,7 +396,7 @@
   });
   elements.listingSearch.addEventListener("input", () => { page = 1; render(); });
   elements.selectAllBlock.addEventListener("click", () => {
-    const done = completedIds();
+    const done = unavailableIds();
     (audit?.listings || []).forEach((listing) => {
       if (listing.action === "block" && !done.has(String(listing.itemId))) selectedIds.add(String(listing.itemId));
     });
@@ -378,14 +404,14 @@
   });
   elements.clearSelection.addEventListener("click", () => { selectedIds.clear(); render(); });
   elements.selectFiltered.addEventListener("click", () => {
-    const done = completedIds();
+    const done = unavailableIds();
     filteredRows().forEach((listing) => {
       if (["block", "review"].includes(listing.action) && !done.has(String(listing.itemId))) selectedIds.add(String(listing.itemId));
     });
     render();
   });
   elements.pageSelection.addEventListener("change", () => {
-    const done = completedIds();
+    const done = unavailableIds();
     currentPageRows().forEach((listing) => {
       if (!["block", "review"].includes(listing.action) || done.has(String(listing.itemId))) return;
       if (elements.pageSelection.checked) selectedIds.add(String(listing.itemId));
@@ -445,17 +471,27 @@
   });
 
   elements.cancelReview.addEventListener("click", () => cancelReviewAndRescan(false));
-  elements.checkResult.addEventListener("click", async () => {
+  async function checkResult(archivedRunId) {
     if (operationBusy) return;
     operationBusy = true;
     render();
     try {
-      const result = await runtimeMessage({ type: "checkEbayPolicyListingEndResult" }, 30000);
+      setStatus("Checking exact item numbers on eBay. This does not submit or repeat an End action.");
+      const result = await runtimeMessage({ type: "checkEbayPolicyListingEndResult", archivedRunId }, 180000);
       (result.successfulItemIds || []).forEach((id) => selectedIds.delete(String(id)));
       setStatus(result.message || result.error || "No explicit eBay result yet.", result.ok ? "success" : "error");
     } catch (error) { setStatus(error.message, "error"); }
-    finally { operationBusy = false; render(); }
-  });
+    finally {
+      const stored = await storageGet([PENDING_KEY, LEDGER_KEY, HISTORY_KEY]).catch(() => ({}));
+      pendingReview = stored[PENDING_KEY] || null;
+      endLedger = stored[LEDGER_KEY] || endLedger;
+      endHistory = stored[HISTORY_KEY] || endHistory;
+      operationBusy = false;
+      render();
+    }
+  }
+  elements.checkResult.addEventListener("click", () => checkResult());
+  elements.checkHeldResult.addEventListener("click", () => checkResult(elements.heldBatchSelect.value));
 
   elements.approvalToken.addEventListener("input", render);
   elements.approveEnd.addEventListener("click", async () => {
@@ -515,20 +551,22 @@
     }
     if (changes[LEDGER_KEY]) endLedger = changes[LEDGER_KEY].newValue || {};
     if (changes[RESULT_KEY]) latestResult = changes[RESULT_KEY].newValue || null;
+    if (changes[HISTORY_KEY]) endHistory = changes[HISTORY_KEY].newValue || {};
     render();
   });
 
   try {
     await runtimeMessage({ type: "getEbayPolicyListingScanStatus" }, 15000).catch(() => null);
-    const stored = await storageGet([AUDIT_KEY, SCAN_KEY, PENDING_KEY, LEDGER_KEY, RESULT_KEY]);
+    const stored = await storageGet([AUDIT_KEY, SCAN_KEY, PENDING_KEY, LEDGER_KEY, RESULT_KEY, HISTORY_KEY]);
     audit = stored[AUDIT_KEY] || null;
     scanState = stored[SCAN_KEY] || null;
     if (scanState && scanState.phase !== "complete") audit = null;
     pendingReview = stored[PENDING_KEY] || null;
     endLedger = stored[LEDGER_KEY] || {};
     latestResult = stored[RESULT_KEY] || null;
+    endHistory = stored[HISTORY_KEY] || {};
     if (pendingMatchesAudit()) {
-      setStatus(`An exact ${Number(pendingReview.requestedCount || 0).toLocaleString()}-listing eBay review is open. Inspect it before entering ${expectedApprovalToken()}.`);
+      setStatus(pendingReview.message || `An exact ${Number(pendingReview.requestedCount || 0).toLocaleString()}-listing review is open. If you ended it directly on eBay, click Check Result. Otherwise inspect the rows before approving.`);
     } else if (scanState) {
       setStatus(scanProgressMessage(scanState), scanState.phase === "error" ? "error" : scanState.phase === "complete" ? "success" : "");
     }
