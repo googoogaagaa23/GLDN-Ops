@@ -720,6 +720,13 @@
     return [headers.join(','), ...rows].join('\r\n');
   }
 
+  function recheckReadyProducts(products, rulePack, policyApi = globalThis.GLDN_LISTING_PREFLIGHT) {
+    if (!policyApi?.evaluateRows) throw new Error('Policy checks are unavailable. Nothing can be copied.');
+    const candidates = (products || []).filter((product) => product?.status === STATUS.READY);
+    const decisions = policyApi.evaluateRows(candidates.map((product) => policyRow(normalizeProduct(product), 'detail')), rulePack);
+    return candidates.filter((product, index) => decisions[index]?.action === 'clear');
+  }
+
   function readyLinks(products) {
     const seen = new Set();
     const links = [];
@@ -769,6 +776,7 @@
     markHistory,
     pruneHistory,
     buildAuditCsv,
+    recheckReadyProducts,
     readyLinks
   });
 });

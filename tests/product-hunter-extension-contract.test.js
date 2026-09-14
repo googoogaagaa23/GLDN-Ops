@@ -98,7 +98,7 @@ test('policy data ships as a nonempty reviewed rule set', () => {
   assert.ok(rules.rules.every((rule) => ['block', 'review'].includes(rule.action)));
   assert.ok(rules.rules.every((rule) => ['official-ebay', 'gldn-operator', 'profile2-discord', 'profile2-telegram'].includes(rule.sourceType)));
   assert.ok(rules.rules.filter((rule) => rule.sourceType === 'official-ebay').length >= 175);
-  assert.equal(rules.rules.filter((rule) => rule.sourceType === 'gldn-operator').length, 2);
+  assert.deepEqual([...new Set(rules.rules.filter((rule) => rule.sourceType === 'gldn-operator').map((rule) => rule.operatorRuleId))].sort(), ['GLDN-NO-AEROSOL-SPRAY-CANS', 'GLDN-NO-PESTICIDES']);
   assert.equal(rules.rules.filter((rule) => rule.sourceType === 'profile2-discord').length, 2);
   assert.ok(rules.rules.filter((rule) => ['profile2-discord', 'profile2-telegram'].includes(rule.sourceType)).every((rule) => rule.action === 'review'));
 });

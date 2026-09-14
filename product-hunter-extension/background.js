@@ -967,18 +967,20 @@ async function readyPayload() {
   const job = await getJob();
   if (!job) return { ok: true, bundles: [], asins: [] };
   const products = await getProducts(job);
-  const ready = products.filter((product) => product.status === CORE.STATUS.READY);
   const rulePack = await loadRulePack();
+  const ready = CORE.recheckReadyProducts(products, rulePack, POLICY);
   const policyVersion = CORE.normalizeText(rulePack?.clearancePolicy?.version);
   const bundles = ready.map((product) => POLICY.buildProductHunterEvidenceBundle(product, policyVersion));
-  return { ok: true, bundles, asins: ready.map((product) => product.asin) };
+  const excludedCount = products.filter((product) => product.status === CORE.STATUS.READY).length - ready.length;
+  return { ok: true, bundles, asins: ready.map((product) => product.asin), excludedCount };
 }
 
 async function commitReadyHistory(asins) {
   const job = await getJob();
   if (!job) throw new Error('No hunt is loaded.');
   const requested = new Set((asins || []).map((asin) => CORE.extractAsin(asin)).filter(Boolean));
-  const products = (await getProducts(job)).filter((product) => product.status === CORE.STATUS.READY && requested.has(product.asin));
+  const products = CORE.recheckReadyProducts(await getProducts(job), await loadRulePack(), POLICY)
+    .filter((product) => requested.has(product.asin));
   const oldHistory = await getHistory();
   const history = CORE.pruneHistory(CORE.markHistory(oldHistory, products, {
     jobId: job.id,

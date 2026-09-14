@@ -307,10 +307,12 @@
 
   async function copyReady() {
     const response = await send({ type: 'hunterReadyPayload' });
-    if (!response.bundles?.length) throw new Error('No integrity-checked Product Hunter evidence bundles are available to copy.');
+    if (!response.bundles?.length) throw new Error(response.excludedCount
+      ? `${response.excludedCount} saved Ready results no longer pass the current policy checks. Nothing was copied. Start a new hunt to refresh the results.`
+      : 'No integrity-checked Product Hunter evidence bundles are available to copy.');
     await navigator.clipboard.writeText(response.bundles.join('\n'));
     await send({ type: 'hunterCommitReadyHistory', asins: response.asins || [] });
-    setNotice(`${response.bundles.length.toLocaleString()} Product Hunter evidence bundle${response.bundles.length === 1 ? '' : 's'} copied for Listing Preflight. No link was sent to Bulk Poster.`, 'success');
+    setNotice(`${response.bundles.length.toLocaleString()} Product Hunter evidence bundle${response.bundles.length === 1 ? '' : 's'} copied for Listing Preflight.${response.excludedCount ? ` Excluded ${response.excludedCount} saved results under the current policy rules.` : ''} No link was sent to Bulk Poster.`, 'success');
   }
 
   function downloadAudit() {

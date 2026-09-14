@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-09-13
-Current local manifest: 3.12.42
+Current local manifest: 3.12.43
+
+v3.12.43 adds 22 targeted pesticide operator rules (639 total policy rules) shared with Product Hunter v0.3.4. Observed removal families and spelling/plural/hyphen variants hard-block in preflight and saved-audit reclassification. Empty containers, ordinary tools and nutrition-only fertilizers remain separate. Unit and isolated browser checks are recorded for this release; no live listing changes or all-computer installation are claimed.
 
 v3.12.42 adds Removed Listing History with private shared incident storage and additive exact-ASIN / related-title checks. Sixty observed incidents (56 ASINs) from one signed-in account were saved to the existing dashboard and read back exactly; three case explanations were read. Backend version 48 is deployed. Isolated tests prove the scanner and sharing contract; this is not a claim that every live account was scanned or synced.
 

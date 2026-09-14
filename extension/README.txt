@@ -1,4 +1,12 @@
-GLDN Ops v3.12.42
+GLDN Ops v3.12.43
+
+v3.12.43 stronger pesticide prevention:
+- Blocks botanical plant sprays, rooting treatments, septic/pool chemicals, repellents and disinfecting products.
+- Handles pesticide plurals, hyphens, common spelling variants and microbial kill claims.
+- Uses the same rules in Listing Policy Check, existing-listing audits and Product Hunter v0.3.4.
+- After Update & Reload, reopen Listing Policy Check and check pasted links again.
+- For a saved Existing Listings Policy Audit, click Refresh Policy Checks; use Start Fresh Complete Scan for new listings.
+- No automatic listing changes. Review selected flagged items and approve the exact End batch.
 
 v3.12.42 removed listing history:
 - Open Removed Listing History in the popup, then Scan This eBay Account.

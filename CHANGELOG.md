@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.43 - 2026-09-13
+
+- Strengthened the operator no-pesticide policy to 22 targeted rules covering natural plant oils, rooting compounds, septic/pool treatments, repellents, active ingredients and antimicrobial claims.
+- Fixed missed plurals, hyphenated terms and common pesticide spelling variants without widening unrelated IP matching. Cached phrase patterns avoid recompiling them for every store row.
+- Shared the 639-rule pack with standalone Product Hunter v0.3.4. Existing audits can reclassify saved rows using Refresh Policy Checks; exact approval remains required to end listings.
+- Product Hunter rechecks saved Ready results against current rules at export and copy-history time; older pesticide results cannot retain clearance after an update.
+- Added positive, negative, evidence-field, copy-exclusion, Product Hunter and existing-audit regression coverage. No marketplace listings changed during this release.
+
 ## v3.12.42 - 2026-09-13
 
 - Added Removed Listing History: read-only Inactive > View Listings collection, exact paired notices, available case explanations, pause/resume, and per-account provenance.

@@ -1,6 +1,8 @@
 # GLDN Product Hunter
 
-Current package: v0.3.3
+Current package: v0.3.4
+
+v0.3.4 shares the 639-rule policy pack with GLDN Ops v3.12.43. Stronger operator pesticide blocks cover botanical plant sprays, rooting treatments, septic/pool chemicals, pest repellents, disinfectants and microbial kill claims. Search and detail results are checked; rejected items never enter Ready copy output. This is stricter than eBay's conditional pesticide policy, not a compliance guarantee.
 
 v0.3.3 shares the calibrated 618-rule policy pack. Ordinary compatibility, OEM, warranty, AAA-quality and generic inspiration wording do not flag products alone. Specific IP risks, pesticides and spray-can exclusions remain. No-match is not a compliance guarantee.
 

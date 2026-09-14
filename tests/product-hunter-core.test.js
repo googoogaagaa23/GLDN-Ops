@@ -53,7 +53,7 @@ test('loads the reviewed official, operator, and community policy pack', () => {
   assert.ok(rulePack.rules.some((rule) => rule.action === 'block'));
   assert.ok(rulePack.rules.some((rule) => rule.action === 'review'));
   assert.ok(rulePack.rules.filter((rule) => rule.sourceType === 'official-ebay').length >= 175);
-  assert.equal(rulePack.rules.filter((rule) => rule.sourceType === 'gldn-operator').length, 2);
+  assert.deepEqual([...new Set(rulePack.rules.filter((rule) => rule.sourceType === 'gldn-operator').map((rule) => rule.operatorRuleId))].sort(), ['GLDN-NO-AEROSOL-SPRAY-CANS', 'GLDN-NO-PESTICIDES']);
   assert.equal(rulePack.rules.filter((rule) => rule.sourceType === 'profile2-discord').length, 2);
   assert.ok(rulePack.rules.filter((rule) => ['profile2-discord', 'profile2-telegram'].includes(rule.sourceType)).every((rule) => rule.action === 'review'));
 });

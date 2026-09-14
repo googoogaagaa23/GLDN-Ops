@@ -499,17 +499,19 @@
       imageText: normalizeText(row?.imageText)
     };
     const haystack = normalizeSearchText(Object.values(fields).join(' '));
+    const pesticideText = pesticideSearchText(haystack);
     const asinSet = new Set((row?.asins || []).map((asin) => String(asin).toUpperCase()));
     const matches = [];
     for (const rule of rules || []) {
+      const matchText = rule.operatorRuleId === 'GLDN-NO-PESTICIDES' ? pesticideText : haystack;
       let matched = false;
       if (rule.type === 'asin') matched = asinSet.has(rule.value);
       else if (rule.type === 'brand') matched = includesReviewedPhrase(normalizeSearchText(fields.brand), normalizeSearchText(rule.value));
       else if (rule.type === 'compound') matched = true;
-      else matched = includesReviewedPhrase(haystack, normalizeSearchText(rule.value));
-      if (matched && rule.allOf?.length) matched = rule.allOf.every((phrase) => includesReviewedPhrase(haystack, phrase));
-      if (matched && rule.anyOf?.length) matched = rule.anyOf.some((phrase) => includesReviewedPhrase(haystack, phrase));
-      if (matched && rule.noneOf?.length) matched = rule.noneOf.every((phrase) => !includesReviewedPhrase(haystack, phrase));
+      else matched = includesReviewedPhrase(matchText, normalizeSearchText(rule.value));
+      if (matched && rule.allOf?.length) matched = rule.allOf.every((phrase) => includesReviewedPhrase(matchText, phrase));
+      if (matched && rule.anyOf?.length) matched = rule.anyOf.some((phrase) => includesReviewedPhrase(matchText, phrase));
+      if (matched && rule.noneOf?.length) matched = rule.noneOf.every((phrase) => !includesReviewedPhrase(matchText, phrase));
       if (matched) matches.push(rule);
     }
     matches.sort((left, right) => ACTION_RANK[right.action] - ACTION_RANK[left.action]);
@@ -629,10 +631,32 @@
       .join('\n');
   }
 
+  function pesticideSearchText(value) {
+    // Normalize pesticide wording only; do not broaden unrelated IP/brand matching.
+    return value.normalize('NFKC').replace(/\b(?:pesticides?|insecticides?|herbicides?)\s*[-\u2010-\u2015 ]\s*free\b/g, ' ')
+      .replace(/\b(?:no|without)\s+(?:pesticides?|insecticides?|herbicides?)\b/g, ' ')
+      .replace(/[\u2010-\u2015_-]/g, ' ').replace(/&/g, ' and ')
+      .replace(/\b(?:repellants?|repellents?)\b/g, 'repellent')
+      .replace(/\b(?:disinfectents?|disinfectants?)\b/g, 'disinfectant')
+      .replace(/\bpestisides?\b/g, 'pesticide')
+      .replace(/\bflies\b/g, 'fly').replace(/\bfungi\b/g, 'fungus').replace(/\bviruses\b/g, 'virus')
+      .replace(/\b(cockroach|roach|mosquito)es\b/g, '$1')
+      .replace(/\bmoth balls\b/g, 'moth ball').replace(/\bcitronella candles\b/g, 'citronella candle')
+      .replace(/\b(pesticide|insecticide|herbicide|fungicide|rodenticide|miticide|algaecide|algicide|biocide|germicide|sanitizer|sanitiser|repellent|insect|bug|ant|roach|cockroach|mosquito|flea|tick|bedbug|wasp|hornet|termite|mite|aphid|gnat|rodent|rat|mouse|mole|vole|gopher|rabbit|snake|squirrel|raccoon|animal|pest|weed|germ|plant|houseplant|garden|tablet|granule|pellet|chemical|drop|wipe|mothball|crystal|dunk|bit|regulator|pyrethrin)s\b/g, '$1')
+      .replace(/\s+/g, ' ').trim();
+  }
+
+  const phraseCache = new Map();
   function includesReviewedPhrase(haystack, phrase) {
     if (!phrase) return false;
-    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-    return new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, 'i').test(haystack);
+    let regex = phraseCache.get(phrase);
+    if (!regex) {
+      if (phraseCache.size >= 10000) phraseCache.clear();
+      const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+      regex = new RegExp(`(?:^|[^a-z0-9])${escaped}(?:$|[^a-z0-9])`, 'i');
+      phraseCache.set(phrase, regex);
+    }
+    return regex.test(haystack);
   }
 
   return Object.freeze({

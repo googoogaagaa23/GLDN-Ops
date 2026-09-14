@@ -11,7 +11,7 @@ test('IP refresh is valid, shared with Product Hunter and preserves older hub re
   assert.equal(pack.policyCoverage.ipReview.reviewedAt, '2026-09-13');
   assert.equal(pack.policyCoverage.reviewedAt, '2026-08-31');
   assert.equal(pack.clearancePolicy.reviewedAt, '2026-08-31');
-  assert.equal(pack.rules.filter((rule) => rule.sourceType === 'gldn-operator').length, 2);
+  assert.deepEqual([...new Set(pack.rules.filter((rule) => rule.sourceType === 'gldn-operator').map((rule) => rule.operatorRuleId))].sort(), ['GLDN-NO-AEROSOL-SPRAY-CANS', 'GLDN-NO-PESTICIDES']);
   assert.equal(pack.rules.filter((rule) => /discord|telegram/.test(rule.sourceType) && rule.action === 'block').length, 0);
 });
 

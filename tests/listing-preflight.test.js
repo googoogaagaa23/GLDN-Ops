@@ -171,8 +171,8 @@ test('published full-hub pack is valid, source-separated, and uses keyword-only 
   const discord = pack.rules.filter((rule) => rule.sourceType === 'profile2-discord');
   const telegram = pack.rules.filter((rule) => rule.sourceType === 'profile2-telegram');
   assert.ok(official.length >= 575);
-  assert.equal(operator.length, 2);
-  assert.deepEqual(operator.map((rule) => rule.operatorRuleId).sort(), ['GLDN-NO-AEROSOL-SPRAY-CANS', 'GLDN-NO-PESTICIDES']);
+  assert.ok(operator.length >= 2);
+  assert.deepEqual([...new Set(operator.map((rule) => rule.operatorRuleId))].sort(), ['GLDN-NO-AEROSOL-SPRAY-CANS', 'GLDN-NO-PESTICIDES']);
   assert.ok(operator.every((rule) => rule.action === 'block' && rule.authority === 'GLDN Ops operator rule'));
   assert.equal(discord.length, 2);
   assert.equal(telegram.length, 0);

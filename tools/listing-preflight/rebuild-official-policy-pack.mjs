@@ -581,3 +581,5 @@ console.log(JSON.stringify({
 // Preserve the later, targeted IP review when rebuilding the older full-hub decisions.
 const { refreshIpPolicyPack } = await import('./refresh-ip-policy-pack.mjs');
 console.log(refreshIpPolicyPack());
+const { refreshPesticidePolicyPack } = await import('./refresh-pesticide-policy-pack.mjs');
+console.log(refreshPesticidePolicyPack());

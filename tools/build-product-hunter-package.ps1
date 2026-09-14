@@ -44,7 +44,7 @@ $officialRules = @($rules.rules | Where-Object { $_.sourceType -eq 'official-eba
 $operatorBlocks = @($rules.rules | Where-Object { $_.sourceType -eq 'gldn-operator' -and $_.action -eq 'block' })
 $communityBlocks = @($rules.rules | Where-Object { $_.sourceType -in @('profile2-discord', 'profile2-telegram') -and $_.action -eq 'block' })
 if ($officialRules.Count -lt 575) { throw 'Reviewed official eBay policy coverage is incomplete.' }
-if ($operatorBlocks.Count -ne 2 -or @($operatorBlocks.operatorRuleId | Sort-Object -Unique).Count -ne 2) { throw 'Product Hunter requires both approved GLDN no-list Blocks.' }
+if ($operatorBlocks.Count -lt 2 -or (@($operatorBlocks.operatorRuleId | Sort-Object -Unique) -join ',') -ne 'GLDN-NO-AEROSOL-SPRAY-CANS,GLDN-NO-PESTICIDES') { throw 'Product Hunter requires both approved GLDN no-list Blocks.' }
 if ($communityBlocks.Count) { throw 'Community evidence cannot create a Product Hunter Block.' }
 if ([int]$rules.policyCoverage.hubPolicyCount -ne 70 -or @($rules.policyCoverage.pages).Count -ne 70 -or @($rules.policyCoverage.supplementalPages).Count -lt 1) {
   throw 'Product Hunter policy coverage must include all 70 hub policies plus supplemental intellectual-property review.'
