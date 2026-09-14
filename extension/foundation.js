@@ -70,6 +70,7 @@
     "pendingVariationEndReview",
     "pendingPolicyListingEndReview",
     "ebayPolicyListingScanState",
+    "gldnViolationHistoryScan",
     "pendingMarkShippedRun",
     "pendingSellerLevelScan",
     "pendingReviewMonthlyLimits",
@@ -822,6 +823,9 @@
     const policyScan = stored.ebayPolicyListingScanState;
     add("ebayPolicyListingScanState", "ebay-policy-scan", "Existing listings policy scan", policyScan, {
       busy: active(policyScan)
+    });
+    add("gldnViolationHistoryScan", "ebay-violation-history", "Removed listing history", stored.gldnViolationHistoryScan, {
+      busy: active(stored.gldnViolationHistoryScan)
     });
 
     const markShipped = stored.pendingMarkShippedRun;

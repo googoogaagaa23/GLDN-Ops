@@ -10,6 +10,8 @@ importScripts(
   'ebay-profit-background.js',
   'order-audit-core.js',
   'order-audit-background.js',
+  'violation-history-core.js',
+  'violation-history-background.js',
   'listing-preflight-core.js',
   'policy-listing-audit-core.js',
   'profit-backfill.js',
@@ -256,6 +258,7 @@ chrome.commands?.onCommand?.addListener((command) => {
 });
 
 async function resetAutomationState(sender = {}) {
+  violationStop = true;
   await PROFIT_BACKFILL_BACKGROUND.reset().catch(() => ({ ok: false }));
   await EBAY_PROFIT_BACKGROUND.reset().catch(() => ({ ok: false }));
   await storageRemove(AUTOMATION_RESET_KEYS);
@@ -1401,6 +1404,7 @@ async function runLocalControlListingPreflight(payload = {}) {
   const ruleResponse = await fetch(chrome.runtime.getURL('listing-preflight-rules.json'), { cache: 'no-store' });
   if (!ruleResponse.ok) throw new Error(`Listing Preflight rules returned ${ruleResponse.status}.`);
   const rulePack = LISTING_PREFLIGHT.normalizeRulePack(await ruleResponse.json());
+  rulePack.incidentHistory = (await refreshViolationHistory(true)).records;
   const rows = LISTING_PREFLIGHT.parseInputRows(input);
   if (!rows.length) throw new Error('Listing Preflight did not find any usable rows.');
   const results = LISTING_PREFLIGHT.evaluateRows(rows, rulePack);
@@ -5206,7 +5210,7 @@ async function removePolicyListingScanChunks(runId = '') {
   return keys.length;
 }
 
-async function loadListingPreflightRulePack() {
+async function loadListingPreflightRulePack(forceHistory = false) {
   if (!LISTING_PREFLIGHT || !POLICY_LISTING_AUDIT) {
     throw new Error('The existing-listings policy engine did not load.');
   }
@@ -5216,7 +5220,8 @@ async function loadListingPreflightRulePack() {
   if (!rulePack.ruleCount) {
     throw new Error('No reviewed policy rules are loaded. Existing listings cannot be classified.');
   }
-  return rulePack;
+  const history = await refreshViolationHistory(forceHistory);
+  return { ...rulePack, incidentHistory: history.records };
 }
 
 async function currentPolicyListingIdentity() {
@@ -5863,7 +5868,7 @@ async function reclassifyEbayPolicyListings() {
     if (!previous?.listings?.length || previous.computerLabel !== identity.computerLabel || previous.ebayAccountLabel !== identity.ebayAccountLabel) {
       throw new Error('No saved audit for this account. Run a scan first.');
     }
-    const pack = await loadListingPreflightRulePack();
+    const pack = await loadListingPreflightRulePack(true);
     const audit = await POLICY_LISTING_AUDIT.buildPolicyAuditAsync(previous.listings, pack, previous, LISTING_PREFLIGHT);
     const ledger = stored[POLICY_LISTING_END_LEDGER_KEY] || {};
     const oldEntry = ledger[previous.reportFingerprint];
@@ -6344,6 +6349,8 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = DASHBOARD_REQUEST
 
 function dashboardRequestTimeoutMs(action) {
   const batchActions = new Set([
+    'policyIncidentBatch',
+    'policyIncidentRead',
     'marketplaceProfitBatch',
     'ebayMonthlyProfitBatch',
     'ebayCostResolutionBatch',
@@ -7589,6 +7596,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse,
       'scan-ebay-policy-listings'
     );
+  }
+
+  if (message.type === 'scanEbayViolationHistory') {
+    startViolationHistoryScan(message, sender).then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
+    return true;
+  }
+  if (message.type === 'getEbayViolationHistory' || message.type === 'syncEbayViolationHistory' || message.type === 'stopEbayViolationHistory') {
+    const operation = message.type === 'stopEbayViolationHistory' ? stopViolationHistoryScan()
+      : message.type === 'syncEbayViolationHistory' ? syncViolationHistory()
+      : getViolationHistoryStatus(message.refresh === true);
+    return respondToExtensionMessage(operation, sendResponse, 'violation-history');
   }
 
   if (message.type === 'stopEbayPolicyListingScan') {

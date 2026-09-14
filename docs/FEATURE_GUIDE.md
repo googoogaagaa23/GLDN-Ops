@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.41. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.42. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -17,6 +17,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 ## Feature Index
 
+- [Removed Listing History](#removed-listing-history) - **PARTIAL**
 - [Health & Installations](#ops-health) - **IMPLEMENTED, UNPROVEN**
 - [First-Time Setup](#setup) - **PARTIAL**
 - [Floating Panel](#panel) - **LIVE PASS**
@@ -47,6 +48,47 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Diagnostics, Backup, and Interface Settings](#diagnostics) - **PARTIAL**
 - [Feature Tour, Themes, and Universal Access](#onboarding-interface) - **PARTIAL**
 - [Walmart Order Helper](#walmart) - **IMPLEMENTED, UNPROVEN**
+
+<a id="removed-listing-history"></a>
+## Removed Listing History
+
+**Matrix:** C-13
+
+**Evidence status:** PARTIAL
+
+**Purpose:** Learn from eBay's previous listing violations and share product-level prevention history across GLDN profiles.
+
+### Prerequisites
+
+- Use the intended signed-in eBay Chrome profile.
+- Update GLDN Ops and connect every profile to the same dashboard.
+
+### Exact Steps
+
+1. Open Removed Listing History in the popup.
+2. Choose Scan This eBay Account. GLDN reads Inactive > View Listings and available case explanations.
+3. Wait for Shared history verified; Pause and Resume retain completed reads.
+4. Repeat on each eBay account. The combined history is checked before copying Ready links.
+5. Open Existing Listings and choose Refresh Policy Checks to apply the shared incidents to a saved audit.
+
+### Approval Stop
+
+Read-only on eBay. This workflow never relists, appeals, revises or ends a listing.
+
+### Expected Output
+
+Private shared Policy Incidents history with account, SKU/ASIN, product, exact notice and source links. Exact ASINs block; related wording needs review, not a declaration of illegality.
+
+### Failure Recovery
+
+- Use Sync Shared History after restoring the dashboard connection.
+- A failed shared save stays local/queued and is not described as globally updated.
+- An unavailable case retains its original row notice and a visible explanation-reading error.
+
+### Evidence
+
+60 live incidents (56 ASINs) saved and read back from the deployed private dashboard; three case details read. Synthetic multi-page scanner and desktop/mobile UI checks pass. Full deployed multi-account validation remains pending.
+
 
 <a id="ops-health"></a>
 ## Health & Installations

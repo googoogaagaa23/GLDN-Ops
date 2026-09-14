@@ -1,8 +1,8 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(root);
   if (typeof module === 'object' && module.exports) module.exports = api;
   root.GLDN_LISTING_PREFLIGHT = api;
-})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+})(typeof globalThis !== 'undefined' ? globalThis : this, function (root) {
   'use strict';
 
   const ACTION_RANK = Object.freeze({ clear: 0, review: 1, block: 2 });
@@ -460,6 +460,7 @@
       validationErrors,
       clearancePolicy,
       policyCoverage,
+      incidentHistory: Array.isArray(pack?.incidentHistory) ? pack.incidentHistory : [],
       rules
     };
   }
@@ -476,7 +477,11 @@
         reason: `Reviewed policy data is unavailable or invalid.${detail} This item cannot be cleared for copying.`
       }));
     }
-    return (rows || []).map((row) => evaluateRow(row, pack.rules, pack.clearancePolicy));
+    const results = (rows || []).map((row) => evaluateRow(row, pack.rules, pack.clearancePolicy));
+    if (!pack.incidentHistory.length) return results;
+    const history = root.GLDN_VIOLATION_HISTORY;
+    if (!history) return results.map((row) => row.action === 'block' ? row : { ...row, action: 'review', status: 'REVIEW', reason: 'Shared removal-history checks did not load.' });
+    return history.applyHistory(results, pack.incidentHistory);
   }
 
   function evaluateRow(row, rules, clearancePolicy = {}) {

@@ -1,0 +1,13 @@
+.topbar a { display:inline-flex; align-items:center; text-decoration:none; }
+.history-guide { border-bottom:1px solid #354154; padding:12px 0; }
+.history-guide summary { cursor:pointer; font-weight:700; }
+.history-guide li { margin:8px 0; max-width:1000px; line-height:1.5; }
+#counts { font-weight:750; color:#e8c45e; }
+#sharedStatus { color:#9badbb; }
+table th:nth-child(n) { width:auto; }
+table th:first-child { width:160px; }
+table th:last-child { width:170px; }
+td { overflow-wrap:anywhere; font-size:13px; line-height:1.45; }
+td a { color:#90b6ff; display:block; margin-bottom:6px; }
+.table-wrap { max-height:65vh; }
+@media(max-width:760px) { .topbar { align-items:flex-start; flex-direction:column; padding:18px; } main{padding:16px;} h1{font-size:24px;} .search-field{min-width:100%;} }

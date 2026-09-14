@@ -1154,6 +1154,9 @@ document.getElementById('openVariationAudit').addEventListener('click', () => {
 document.getElementById('openPolicyListingAudit').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('policy-listing-audit.html') });
 });
+document.getElementById('openViolationHistory').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('violation-history.html') });
+});
 
 document.getElementById('openListingPreflight').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('listing-preflight.html') });

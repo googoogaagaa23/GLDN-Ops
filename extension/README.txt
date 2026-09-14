@@ -1,4 +1,12 @@
-GLDN Ops v3.12.41
+GLDN Ops v3.12.42
+
+v3.12.42 removed listing history:
+- Open Removed Listing History in the popup, then Scan This eBay Account.
+- Reads Inactive > View Listings and available case explanations without changing listings.
+- Shares exact product incidents through the existing authenticated dashboard, not public GitHub.
+- Repeat on each eBay profile; updated profiles use the combined history during policy checks.
+- Exact ASINs block, closely matching titles need review, and unrelated brands/categories remain separate.
+- Use Refresh Policy Checks on a saved Existing Listings audit after sharing new history.
 
 v3.12.41 all policy audit rows:
 - Rows per page defaults to All, displaying every matching result in one scrollable list.

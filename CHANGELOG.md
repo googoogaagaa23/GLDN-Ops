@@ -1,5 +1,14 @@
 # GLDN Ops Changelog
 
+## v3.12.42 - 2026-09-13
+
+- Added Removed Listing History: read-only Inactive > View Listings collection, exact paired notices, available case explanations, pause/resume, and per-account provenance.
+- Added authenticated shared Policy Incidents storage, deduplicated writes, receipt recovery, verified readback, and cross-profile refresh.
+- Preflight and existing audits incorporate shared history. Same ASIN blocks; close title matches review without inventing a category or brand ban.
+- Shared refresh is checked before Ready-link copy/export. Offline or unsupported dashboard errors stay visible instead of claiming a global update.
+- Preserved combined Block + Review selection, All rows, 200-item approval limits, and unresolved End-batch protection.
+- Verified synthetic multi-page collection, case reading, shared readback and desktop/mobile UI. Live account layout was inspected; full deployed multi-account scan validation is separate.
+
 ## v3.12.41 - 2026-09-13
 
 - Existing Listings Policy Audit now displays All matching rows by default, instead of only 100 per page.

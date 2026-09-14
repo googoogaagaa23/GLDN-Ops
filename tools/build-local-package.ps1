@@ -23,6 +23,7 @@ $extensionFiles = @(
   "sniping-review.html", "sniping-review.css", "sniping-review.js", "background.js",
   "listing-preflight.html", "listing-preflight.css", "listing-preflight-core.js", "listing-preflight.js", "listing-preflight-rules.json", "product-research-output.json",
   "policy-listing-audit.html", "policy-listing-audit.css", "policy-listing-audit-core.js", "policy-listing-audit.js",
+  "violation-history.html", "violation-history.css", "violation-history.js", "violation-history-core.js", "violation-history-reader.js", "violation-history-background.js",
   "order-audit.html", "order-audit.css", "order-audit-core.js", "order-audit-background.js", "order-audit.js",
   "profit-progress.html", "profit-progress.css", "profit-progress.js",
   "popup.html", "popup.js", "styles.css", "themes.css", "theme-page.js", "guide.html", "onboarding.html", "onboarding.js", "universal.js",

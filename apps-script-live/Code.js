@@ -262,7 +262,7 @@ function doPost(e) {
     const syncId = cleanText_(payload.syncId || (payload.record && payload.record.syncId)).slice(0, 180);
     const writeActions = ['sellerLevel', 'accountLimits', 'markShipped', 'taskCompletion', 'amazonSubscribeSaveProfile', 'poshmarkStats', 'ebaySnapshot', 'marketplaceProfit', 'marketplaceProfitBatch', 'ebayMonthlyProfitBatch', 'ebayCostResolutionBatch', 'poshmarkMonthlyProfitBatch', 'poshmarkCostResolutionBatch', 'orderPlacementAuditConfig', 'orderPlacementAuditExpectedBatch', 'orderPlacementAuditAmazonBatch', 'receiptTest'];
 
-    if (writeActions.includes(action) && syncId) {
+    if ((writeActions.includes(action) || action === 'policyIncidentBatch') && syncId) {
       const response = withLock_(() => {
         const duplicate = findSyncReceipt_(syncId);
         if (duplicate) return { ...duplicate, ok: true, duplicate: true, syncId };
@@ -280,6 +280,11 @@ function doPost(e) {
 }
 
 function processDashboardAction_(action, input) {
+  if (action === 'policyIncidentBatch') {
+    if (!input.syncId) throw new Error('Policy history saves require a receipt ID.');
+    return savePolicyIncidents_(input);
+  }
+  if (action === 'policyIncidentRead') return withLock_(() => readPolicyIncidents_(input));
   if (action === 'syncReceiptRead') {
     return readSyncReceipt_(input);
   }
@@ -389,6 +394,75 @@ function processDashboardAction_(action, input) {
     return { ok: true, message: 'Order placement audit loaded.', ...readOrderPlacementAudit_(input) };
   }
   throw new Error('Unsupported action.');
+}
+
+const POLICY_INCIDENT_HEADERS = ['Incident ID', 'eBay Account', 'Item number', 'ASIN', 'Title', 'eBay notice', 'Policy', 'Last seen', 'Record JSON'];
+function policyIncidentSheet_(create) {
+  const ss = getSpreadsheet_();
+  let sheet = ss.getSheetByName('Policy Incidents');
+  if (!sheet && create) {
+    sheet = ss.insertSheet('Policy Incidents');
+    sheet.getRange(1, 1, 1, POLICY_INCIDENT_HEADERS.length).setValues([POLICY_INCIDENT_HEADERS]);
+    sheet.setFrozenRows(1);
+    protectSheet_(sheet, 'GLDN protected policy incident evidence');
+  }
+  if (sheet && JSON.stringify(sheet.getRange(1, 1, 1, POLICY_INCIDENT_HEADERS.length).getValues()[0]) !== JSON.stringify(POLICY_INCIDENT_HEADERS)) throw new Error('Policy Incidents headers do not match. Nothing was overwritten.');
+  return sheet;
+}
+function validatePolicyIncident_(raw) {
+  const value = raw && typeof raw === 'object' ? raw : {};
+  const account = cleanText_(value.account).toLowerCase();
+  const itemId = cleanText_(value.itemId);
+  if (!/^[a-z0-9_.-]{1,100}$/.test(account) || !/^\d{9,15}$/.test(itemId) || !/policy|rights owner|intellectual property/i.test(value.reason || '')) throw new Error('Invalid policy incident identity or eBay notice.');
+  const row = { id: account + ':' + itemId, account, itemId };
+  const limits = { sku:160, asin:10, title:500, reason:1800, policy:250, activity:2000, caseUrl:1000, policyUrl:1000, sourceUrl:1000, computerLabel:80, firstSeenAt:40, lastSeenAt:40, caseReadAt:40, caseReadError:300 };
+  Object.keys(limits).forEach((key) => { row[key] = cleanText_(value[key]).slice(0, limits[key]); });
+  if (row.asin && !/^[A-Z0-9]{10}$/.test(row.asin)) throw new Error('Invalid policy incident ASIN.');
+  ['caseUrl', 'policyUrl', 'sourceUrl'].forEach((key) => {
+    if (row[key] && !/^https:\/\/(?:www\.)?ebay\.com\/(?:ifh\/viewcase\?|help\/policies\/|sh\/lst\/ended\?)/i.test(row[key])) throw new Error('Invalid eBay evidence URL.');
+  });
+  if (!row.title || !row.lastSeenAt || !Number.isFinite(Date.parse(row.lastSeenAt))) throw new Error('Policy incident title or observation time is missing.');
+  return row;
+}
+function savePolicyIncidents_(input) {
+  const records = input.records;
+  if (!Array.isArray(records) || !records.length || records.length > 100) throw new Error('Policy history accepts 1-100 records per batch.');
+  const incoming = records.map(validatePolicyIncident_);
+  const sheet = policyIncidentSheet_(true);
+  const count = Math.max(0, sheet.getLastRow() - 1);
+  const existing = count ? sheet.getRange(2, 1, count, POLICY_INCIDENT_HEADERS.length).getValues() : [];
+  const indices = {};
+  existing.forEach((row, index) => { indices[String(row[0])] = index; });
+  incoming.forEach((record) => {
+    const index = indices[record.id];
+    if (index !== undefined) {
+      const old = validatePolicyIncident_(JSON.parse(existing[index][8]));
+      const newer = record.lastSeenAt >= old.lastSeenAt ? record : old;
+      const older = newer === record ? old : record;
+      record = { ...older, ...newer, firstSeenAt: [old.firstSeenAt, record.firstSeenAt].filter(Boolean).sort()[0],
+        policy: newer.policy || older.policy, activity: newer.activity || older.activity, policyUrl: newer.policyUrl || older.policyUrl,
+        caseReadAt: newer.caseReadAt || older.caseReadAt };
+    }
+    const literal = (v) => /^[=+\-@]/.test(String(v || '')) ? "'" + v : String(v || '');
+    const cells = [record.id, record.account, record.itemId, record.asin, record.title, record.reason, record.policy, record.lastSeenAt, JSON.stringify(record)].map(literal);
+    if (index !== undefined) existing[index] = cells;
+    else { indices[record.id] = existing.length; existing.push(cells); }
+  });
+  if (existing.length > 20000) throw new Error('Policy incident capacity reached. No history was discarded.');
+  sheet.getRange(2, 1, existing.length, POLICY_INCIDENT_HEADERS.length).setNumberFormat('@').setValues(existing);
+  SpreadsheetApp.flush();
+  const revision = Utilities.getUuid();
+  PropertiesService.getScriptProperties().setProperty('GLDN_POLICY_INCIDENT_REVISION', revision);
+  return { ok:true, count:incoming.length, total:existing.length, revision, ids:incoming.map((r) => r.id) };
+}
+function readPolicyIncidents_(input) {
+  const sheet = policyIncidentSheet_(false);
+  const total = sheet ? Math.max(0, sheet.getLastRow() - 1) : 0;
+  const offset = Math.max(0, Math.floor(Number(input.offset) || 0));
+  const count = Math.max(0, Math.min(500, total - offset));
+  const records = count ? sheet.getRange(offset + 2, 9, count, 1).getValues().map((r) => validatePolicyIncident_(JSON.parse(r[0]))) : [];
+  return { ok:true, schemaVersion:1, total, offset, records, nextOffset:offset + count < total ? offset + count : null,
+    revision:PropertiesService.getScriptProperties().getProperty('GLDN_POLICY_INCIDENT_REVISION') || 'empty' };
 }
 
 function orderAuditProfiles_(value) {

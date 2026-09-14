@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Removed Listing History | GLDN Ops</title>
+  <link rel="stylesheet" href="policy-listing-audit.css">
+  <link rel="stylesheet" href="violation-history.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><p class="eyebrow">GLDN OPS / EBAY</p><h1>Removed Listing History</h1></div>
+    <nav class="topbar-actions">
+      <a class="button ghost" href="listing-preflight.html">Listing Policy Check</a>
+      <a class="button ghost" href="policy-listing-audit.html">Existing Listings</a>
+    </nav>
+  </header>
+  <main>
+    <details class="history-guide"><summary>Step-by-step guide</summary>
+      <ol>
+        <li>Use the Chrome profile signed into the eBay store you want to check.</li>
+        <li>Choose Scan This eBay Account. GLDN opens Inactive, follows View Listings, and reads every violation row and available case explanation. No listing is changed.</li>
+        <li>Wait for Shared history verified. Pause and Resume keep completed reads. If sharing fails, choose Sync Shared History after checking your dashboard connection.</li>
+        <li>Repeat the scan on each eBay profile. Every updated GLDN profile using the same dashboard receives the combined history during policy checks.</li>
+        <li>Exact ASIN matches are blocked. Closely matching titles need review and are excluded from Ready links. A related match is a prevention warning, not proof of a policy violation.</li>
+        <li>Use Refresh Policy Checks in an existing saved audit to apply newly shared incidents without reading the whole store again.</li>
+      </ol>
+    </details>
+    <section class="toolbar">
+      <button id="scan" class="button primary">Scan This eBay Account</button>
+      <button id="resume" class="button secondary">Resume</button>
+      <button id="pause" class="button ghost">Pause Safely</button>
+      <button id="sync" class="button secondary">Sync Shared History</button>
+      <label class="search-field"><span>Search shared history</span><input id="search" type="search" placeholder="Item, ASIN, account, policy, or reason"></label>
+    </section>
+    <div id="status" class="status" role="status">Loading saved history...</div>
+    <p id="counts"></p><p id="sharedStatus"></p>
+    <div class="table-wrap">
+      <table><thead><tr><th>Account / Item</th><th>Product / ASIN</th><th>eBay notice</th><th>Case explanation</th><th>Evidence / Last seen</th></tr></thead><tbody id="rows"></tbody></table>
+    </div>
+  </main>
+  <script src="violation-history.js"></script>
+</body>
+</html>

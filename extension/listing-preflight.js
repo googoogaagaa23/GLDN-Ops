@@ -83,6 +83,10 @@
       byId('copyStatus').textContent = 'Pausing safely after the current Amazon product...';
       return;
     }
+    try { await loadHistory(true); } catch (error) {
+      byId('copyStatus').textContent = error.message;
+      return;
+    }
     const input = byId('itemInput').value;
     let rows = core.parseInputRows(input);
     await storageSetLocal({ [LAST_INPUT_KEY]: input });
@@ -344,9 +348,12 @@
   }
 
   async function copyReadyLinks() {
-    const payload = readyPayload();
-    if (!payload) return;
     try {
+      await loadHistory(true);
+      latestResults = core.evaluateRows(latestResults, rulePack);
+      renderResults(latestResults);
+      const payload = readyPayload();
+      if (!payload) return;
       await navigator.clipboard.writeText(payload);
       const count = core.resultsForAction(latestResults, 'clear').length;
       byId('copyStatus').textContent = `Copied ${count.toLocaleString()} ready link${count === 1 ? '' : 's'}. Review and Block items were excluded.`;
@@ -356,9 +363,12 @@
   }
 
   async function copyAndOpenProductHunter() {
-    const payload = readyPayload();
-    if (!payload) return;
     try {
+      await loadHistory(true);
+      latestResults = core.evaluateRows(latestResults, rulePack);
+      renderResults(latestResults);
+      const payload = readyPayload();
+      if (!payload) return;
       await navigator.clipboard.writeText(payload);
       const count = core.resultsForAction(latestResults, 'clear').length;
       const response = await chrome.runtime.sendMessage({ type: 'openEcomSniperPage', page: targetPage });
@@ -414,10 +424,21 @@
     return sources;
   }
 
-  function downloadReadyLinks() {
-    const payload = readyPayload();
-    if (!payload) return;
-    downloadText(`${payload}\n`, `gldn-ready-links-${new Date().toISOString().slice(0, 10)}.txt`, 'text/plain');
+  async function downloadReadyLinks() {
+    try {
+      await loadHistory(true);
+      latestResults = core.evaluateRows(latestResults, rulePack);
+      renderResults(latestResults);
+      const payload = readyPayload();
+      if (!payload) return;
+      downloadText(`${payload}\n`, `gldn-ready-links-${new Date().toISOString().slice(0, 10)}.txt`, 'text/plain');
+    } catch (error) { byId('copyStatus').textContent = error.message; }
+  }
+
+  async function loadHistory(refresh) {
+    const response = await chrome.runtime.sendMessage({ type: 'getEbayViolationHistory', refresh });
+    if (!response?.ok || !Array.isArray(response.records)) throw new Error(response?.error || 'Shared removal history could not be verified. Check the dashboard connection.');
+    rulePack.incidentHistory = response.records;
   }
 
   function downloadText(contents, filename, type) {

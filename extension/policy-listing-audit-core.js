@@ -94,6 +94,7 @@
       validationErrors: pack.validationErrors,
       clearancePolicy: pack.clearancePolicy,
       policyCoverage: pack.policyCoverage,
+      incidentHistory: (pack.incidentHistory || []).map((r) => [r.id, r.asin, r.title, r.reason, r.policy, r.activity]),
       rules: pack.rules.map((rule) => ({
         id: rule.id,
         type: rule.type,

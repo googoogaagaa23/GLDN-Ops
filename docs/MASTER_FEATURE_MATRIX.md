@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-09-13
-Current local manifest: 3.12.41
+Current local manifest: 3.12.42
+
+v3.12.42 adds Removed Listing History with private shared incident storage and additive exact-ASIN / related-title checks. Sixty observed incidents (56 ASINs) from one signed-in account were saved to the existing dashboard and read back exactly; three case explanations were read. Backend version 48 is deployed. Isolated tests prove the scanner and sharing contract; this is not a claim that every live account was scanned or synced.
 
 v3.12.41 displays All matching audit rows by default with optional 100, 250 or 500 row pages. Combined Block + Review selection, native result recovery and set-aside protection are retained. Display size is independent of the 200-item End batch limit. No live listings were ended during release work.
 Current tested Poshmark panel: 3.9.1  

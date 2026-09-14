@@ -49,6 +49,7 @@ function harness(total = 18359) {
       }
     },
     FOUNDATION: { normalizeEbayAccount: (v) => v },
+    refreshViolationHistory: async () => ({ records: [] }),
     identityForComputer: () => ({ computerLabel: '2', ebayAccountLabel: 'FANCYFI' }),
     fetch: async () => ({ ok: true, json: async () => ({ ruleCount: 580 }) }),
     chrome: { runtime: { getURL: (url) => url } },
