@@ -24,13 +24,15 @@ test('saved dashboard setup is checked across every extension lifecycle', () => 
   assert.match(popupJs, /async function initializePopup\(\) \{[\s\S]*?await ensureAutomaticDashboardSetup\(\);/);
 });
 
-test('popup has saved-profile status and a secure one-time connection prompt', () => {
+test('popup has saved-profile status and a pasteable inline connection field', () => {
   assert.match(popupHtml, /id="dashboardAutoSetup"/);
   assert.match(popupHtml, /id="repairDashboardSetup"[^>]*>Connect Dashboard<\/button>/);
   assert.doesNotMatch(popupHtml, /dashboardSetupKey|Save Setup Code|Clear Setup Code/);
-  assert.doesNotMatch(popupJs, /saveDashboardSetup|clearDashboardSetup|dashboardSetupKeyInput/);
+  assert.doesNotMatch(popupJs, /clearDashboardSetup|dashboardSetupKeyInput/);
   assert.match(popupJs, /type: 'seedDashboardSetupFromLocalConfig'/);
-  assert.match(popupJs, /promptAndSaveDashboardSetup\(\)/);
+  assert.match(popupHtml, /id="dashboardConnectionCode" type="password"/);
+  assert.match(popupJs, /async function saveDashboardConnection\(\)/);
+  assert.doesNotMatch(popupJs, /\bU\.|window\.prompt/);
 });
 
 test('installer preserves profile-local dashboard setup and public config stays empty', () => {

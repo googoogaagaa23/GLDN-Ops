@@ -1,5 +1,5 @@
 {
-  "version": "3.12.43",
+  "version": "3.12.44",
   "updated": "2026-09-13",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -44,7 +44,7 @@
       "status": "PARTIAL",
       "summary": "Configure one Chrome profile without guessing its marketplace identity.",
       "prerequisites": ["The credential-free GLDN Ops package is loaded unpacked in the intended Chrome profile.", "The operator knows the Tasks-sheet computer label."],
-      "steps": ["Open the popup and choose only the computer label.", "Confirm the derived marketplace account before saving.", "Click Save Computer.", "Open Status. If the dashboard is not connected in this Chrome profile, click Connect Dashboard once.", "Click Test Connection, then Run Feature Health Check.", "Copy Settings Backup before an update or profile move."],
+      "steps": ["Open the popup and choose only the computer label.", "Confirm the derived marketplace account before saving.", "Click Save Computer.", "Open Status. Click Connect Dashboard, paste your private setup code into the masked field, then choose Save & Test.", "Wait for Dashboard connected securely, then Run Feature Health Check.", "Copy Settings Backup before an update or profile move."],
       "approvalStop": "None. Setup must not start a marketplace workflow.",
       "output": "Saved computer/account mapping, dashboard connection, health report, and settings backup.",
       "recovery": ["If the account is wrong, stop and correct the computer label instead of editing the derived account.", "If the dashboard is not connected, use Connect Dashboard once in that Chrome profile; updates preserve it.", "If dashboard testing fails, copy the full diagnostic report before clearing anything.", "A clean-computer installation is still a final deployment gate."],

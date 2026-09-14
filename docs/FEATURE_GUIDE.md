@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.43. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.44. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -150,8 +150,8 @@ Deterministic lifecycle, status mapping, and pairing isolation checks. Signed-in
 1. Open the popup and choose only the computer label.
 2. Confirm the derived marketplace account before saving.
 3. Click Save Computer.
-4. Open Status. If the dashboard is not connected in this Chrome profile, click Connect Dashboard once.
-5. Click Test Connection, then Run Feature Health Check.
+4. Open Status. Click Connect Dashboard, paste your private setup code into the masked field, then choose Save & Test.
+5. Wait for Dashboard connected securely, then Run Feature Health Check.
 6. Copy Settings Backup before an update or profile move.
 
 ### Approval Stop

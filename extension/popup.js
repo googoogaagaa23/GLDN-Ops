@@ -1968,21 +1968,77 @@ async function ensureAutomaticDashboardSetup({ announce = false } = {}) {
   }
 }
 
-document.getElementById('repairDashboardSetup').addEventListener('click', async () => {
-  const saved = await U.promptAndSaveDashboardSetup();
-  if (!saved?.ok) {
-    setMessage(saved?.error || 'Dashboard setup was not saved.', true);
+let dashboardConnectionBusy = false;
+
+function showDashboardConnectionFields(open) {
+  document.getElementById('dashboardConnectionFields').hidden = !open;
+  document.getElementById('repairDashboardSetup').setAttribute('aria-expanded', String(open));
+  const input = document.getElementById('dashboardConnectionCode');
+  if (open) input.focus();
+  else input.value = '';
+}
+
+async function saveDashboardConnection() {
+  if (dashboardConnectionBusy) return;
+  const input = document.getElementById('dashboardConnectionCode');
+  const feedback = document.getElementById('dashboardConnectionStatus');
+  const key = input.value.trim();
+  if (key.length < 24 || key.length > 512 || /^YOUR_/i.test(key)) {
+    feedback.textContent = 'Enter your complete dashboard setup code (at least 24 characters).';
+    input.focus();
     return;
   }
-  setMessage('Testing the saved dashboard connection...');
-  const tested = await runtimeMessage({ type: 'testDashboard' });
-  if (!tested?.ok) {
-    setMessage(tested?.error || 'The dashboard rejected that setup code.', true);
+  const url = String(globalThis.GLDN_CONFIG?.dashboardUrl || '').trim();
+  if (!url) {
+    feedback.textContent = 'Dashboard URL is missing. Update GLDN Ops before connecting.';
     return;
   }
-  if (dashboardAutoSetupElement) dashboardAutoSetupElement.textContent = 'Dashboard connection ready.';
-  setMessage('Dashboard connected securely.');
-  refresh();
+  dashboardConnectionBusy = true;
+  const controls = ['repairDashboardSetup', 'saveDashboardConnection', 'cancelDashboardConnection'];
+  controls.forEach((id) => { document.getElementById(id).disabled = true; });
+  input.disabled = true;
+  let saved = false;
+  try {
+    feedback.textContent = 'Saving and testing dashboard connection...';
+    await storageSet({ sellerDashboardUrl: url, sellerDashboardKey: key });
+    saved = true;
+    input.value = '';
+    const tested = await runtimeMessage({ type: 'testDashboard' });
+    if (!tested?.ok) throw new Error(tested?.error || 'The connection test failed.');
+    showDashboardConnectionFields(false);
+    if (dashboardAutoSetupElement) dashboardAutoSetupElement.textContent = 'Dashboard connection ready.';
+    feedback.textContent = 'Dashboard connected securely.';
+    setMessage('Dashboard connected securely.');
+    refresh();
+  } catch (error) {
+    const prefix = saved ? 'Code saved in this profile, but connection test failed. ' : 'Setup code was not saved. ';
+    feedback.textContent = prefix + String(error?.message || 'Please retry.').split(key).join('[redacted]');
+    setMessage(feedback.textContent, true);
+  } finally {
+    dashboardConnectionBusy = false;
+    controls.forEach((id) => { document.getElementById(id).disabled = false; });
+    input.disabled = false;
+  }
+}
+
+document.getElementById('repairDashboardSetup').addEventListener('click', () => {
+  document.getElementById('dashboardConnectionStatus').textContent = '';
+  showDashboardConnectionFields(true);
+});
+document.getElementById('saveDashboardConnection').addEventListener('click', saveDashboardConnection);
+document.getElementById('cancelDashboardConnection').addEventListener('click', () => {
+  showDashboardConnectionFields(false);
+  document.getElementById('dashboardConnectionStatus').textContent = '';
+  document.getElementById('repairDashboardSetup').focus();
+});
+document.getElementById('dashboardConnectionCode').addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    return saveDashboardConnection();
+  } else if (event.key === 'Escape' && !dashboardConnectionBusy) {
+    showDashboardConnectionFields(false);
+    document.getElementById('repairDashboardSetup').focus();
+  }
 });
 
 document.getElementById('openDashboard').addEventListener('click', async () => {

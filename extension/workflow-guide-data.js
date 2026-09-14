@@ -1,5 +1,5 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.43",
+  "version": "3.12.44",
   "updated": "2026-09-13",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -77,8 +77,8 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "Open the popup and choose only the computer label.",
         "Confirm the derived marketplace account before saving.",
         "Click Save Computer.",
-        "Open Status. If the dashboard is not connected in this Chrome profile, click Connect Dashboard once.",
-        "Click Test Connection, then Run Feature Health Check.",
+        "Open Status. Click Connect Dashboard, paste your private setup code into the masked field, then choose Save & Test.",
+        "Wait for Dashboard connected securely, then Run Feature Health Check.",
         "Copy Settings Backup before an update or profile move."
       ],
       "approvalStop": "None. Setup must not start a marketplace workflow.",

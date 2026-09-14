@@ -1,4 +1,10 @@
-GLDN Ops v3.12.43
+GLDN Ops v3.12.44
+
+v3.12.44 dashboard connection repair:
+- Connect Dashboard now opens a masked, pasteable field inside the popup.
+- Paste the existing private code, then choose Save & Test.
+- Cancel leaves saved settings untouched. Connection failures remain visible.
+- No marketplace actions or changes to policy scan concurrency.
 
 v3.12.43 stronger pesticide prevention:
 - Blocks botanical plant sprays, rooting treatments, septic/pool chemicals, repellents and disinfecting products.

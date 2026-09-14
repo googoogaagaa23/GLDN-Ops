@@ -1,5 +1,12 @@
 # GLDN Ops Changelog
 
+## v3.12.44 - 2026-09-13
+
+- Fixed Connect Dashboard failing with "U is not defined" before the operator could paste a setup code.
+- Replaced the unavailable popup helper with an inline masked code field, Save & Test, Cancel, and keyboard support.
+- Kept setup codes profile-local and out of public packages and connection error messages; cancellation and invalid input leave saved settings untouched.
+- Added executable connection-handler regression tests and isolated popup-browser checks. Computer 6's actual connection remains operator-verified after updating.
+
 ## v3.12.43 - 2026-09-13
 
 - Strengthened the operator no-pesticide policy to 22 targeted rules covering natural plant oils, rooting compounds, septic/pool treatments, repellents, active ingredients and antimicrobial claims.

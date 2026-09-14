@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-09-13
-Current local manifest: 3.12.43
+Current local manifest: 3.12.44
+
+v3.12.44 repairs the popup Connect Dashboard ReferenceError with a masked inline entry field and Save & Test. Executable handler tests and isolated popup UI checks cover connection success, errors and cancellation. No live Computer 6 connection or marketplace action is claimed.
 
 v3.12.43 adds 22 targeted pesticide operator rules (639 total policy rules) shared with Product Hunter v0.3.4. Observed removal families and spelling/plural/hyphen variants hard-block in preflight and saved-audit reclassification. Empty containers, ordinary tools and nutrition-only fertilizers remain separate. Unit and isolated browser checks are recorded for this release; no live listing changes or all-computer installation are claimed.
 
