@@ -10,7 +10,7 @@ const ext = path.join(root, 'extension');
 
 (async () => {
   const browser = await chromium.launch({ headless: true, channel: 'chrome' });
-  const evidence = path.join(root, 'evidence/policy-audit-v3.12.40');
+  const evidence = path.join(root, 'evidence/policy-audit-v3.12.41');
   fs.mkdirSync(evidence, { recursive: true });
   const results = [];
   const coverage = { initialTotal: 18640, latestTotal: 18641, observedUnique: 3, countChanged: true, duplicatesRemoved: 1, followUpRecommended: true };
@@ -87,6 +87,7 @@ const ext = path.join(root, 'extension');
       assert.equal(await page.locator('[data-filter="flagged"]').getAttribute('class'), 'filter-button active');
       await page.locator('[data-filter="all"]').click();
       assert.equal(await page.locator('#listingRows tr').count(), 3);
+      assert.equal(await page.locator('[data-filter="all"]').evaluate((el) => getComputedStyle(el).backgroundColor), 'rgb(243, 185, 39)', 'active filter stays legible on hover');
       await page.locator('[data-filter="flagged"]').click();
       await page.locator('#listingSearch').fill('Disney');
       assert.equal(await page.locator('#listingRows tr').count(), 1);
@@ -119,10 +120,20 @@ const ext = path.join(root, 'extension');
       assert.equal(await page.locator('#listingSearch').inputValue(), '');
       assert.match(await page.locator('#listingRows').innerText(), /BLOCK/);
       assert.match(await page.locator('#listingRows').innerText(), /REVIEW/);
+      assert.equal(await page.locator('#rangeLabel').innerText(), '1-201 of 201 shown');
+      assert.equal(await page.locator('#listingRows tr').count(), 201);
+      assert.equal(await page.locator('#rowsPerPage').inputValue(), 'all');
+      assert.equal(await page.locator('#nextPage').isVisible(), false);
+      await page.locator('#rowsPerPage').selectOption('100');
       assert.equal(await page.locator('#rangeLabel').innerText(), '1-100 of 201 shown');
       await page.locator('#nextPage').click();
       assert.equal(await page.locator('#rangeLabel').innerText(), '101-200 of 201 shown');
-      await page.locator('#previousPage').click();
+      await page.locator('#rowsPerPage').selectOption('all');
+      assert.equal(await page.locator('#rangeLabel').innerText(), '1-201 of 201 shown');
+      assert.equal(await page.locator('#metricSelected').innerText(), '201');
+      await page.locator('[data-item-id="300000000300"]').scrollIntoViewIfNeeded();
+      assert.equal(await page.locator('[data-item-id="300000000300"]').isVisible(), true);
+      await page.locator('#listingRows tr').first().scrollIntoViewIfNeeded();
       await page.locator('#prepareReview').click();
       assert.equal(await page.locator('#currentReview').isVisible(), true);
       assert.equal(await page.locator('#currentReviewCount').innerText(), '200 exact listings');
@@ -172,7 +183,43 @@ const ext = path.join(root, 'extension');
       assert.equal(await page.locator('#heldBatches').isVisible(), false);
       assert.deepEqual(errors, []);
       await page.screenshot({ path: path.join(evidence, `snapshot-${width}.png`), fullPage: true });
-      results.push({ width, pass: true, checks: ['Block + Review default, both classifications visible', 'All remains available', 'global combined selection clears search and selects all 201 flags across pages', 'no-match excluded', '200-item mixed batch', 'exact approval', '200 ended and 1 remaining', 'manual ending recognized without resubmission', 'set-aside Block batch excluded while Review batch proceeds', 'archived result leaves current Review intact'] });
+      if (width === 1440) {
+        await page.evaluate((audit) => {
+          const listings = Array.from({ length: 19444 }, (_, index) => ({
+            itemId: String(300000100000 + index), title: 'Store listing ' + index,
+            action: index < 58 ? 'block' : index < 184 ? 'review' : 'clear',
+            status: index < 58 ? 'BLOCK' : index < 184 ? 'REVIEW' : 'NO RULE MATCH',
+            reason: 'Fixture classification', matches: []
+          }));
+          window.changeFixture({ pendingPolicyListingEndReview: null, policyListingEndLedger: {}, policyListingEndHistory: {},
+            ebayPolicyListingScanState: { phase: 'complete', active: false, totalListings: listings.length },
+            ebayPolicyListingAudit: { ...audit, reportFingerprint: 'large-fixture', coverage: {}, listings,
+              totalListings: listings.length, summary: { total: listings.length, block: 58, review: 126, clear: 19260 } } });
+        }, audit);
+        const started = Date.now();
+        await page.locator('[data-filter="all"]').click();
+        assert.equal(await page.locator('#listingRows tr').count(), 19444);
+        assert.equal(await page.locator('#rangeLabel').innerText(), '1-19,444 of 19,444 shown');
+        const last = page.locator('[data-item-id="300000119443"]');
+        await last.scrollIntoViewIfNeeded();
+        assert.equal(await last.evaluate((el) => {
+          const rect = el.getBoundingClientRect();
+          const table = el.closest('.table-wrap').getBoundingClientRect();
+          return rect.top >= table.top && rect.bottom <= table.bottom;
+        }), true, 'final row is within the table scroll viewport');
+        const elapsedMs = Date.now() - started;
+        await page.screenshot({ path: path.join(evidence, 'all-19444-last-row.png'), fullPage: true });
+        await page.locator('#listingSearch').fill('Store listing 19443');
+        assert.equal(await page.locator('#listingRows tr').count(), 1);
+        assert.equal(await last.isEnabled(), false, 'no-match rows remain ineligible');
+        await page.locator('#selectAllFlags').click();
+        assert.equal(await page.locator('#listingRows tr').count(), 184);
+        assert.equal(await page.locator('#metricSelected').innerText(), '184');
+        assert.deepEqual(errors, []);
+        results.push({ width, pass: true, largeStoreRows: 19444, renderAndScrollMs: elapsedMs,
+          checks: ['all 19,444 rows rendered', 'last store row reachable without Next', 'search after large render', 'return to 184 combined flags'] });
+      }
+      results.push({ width, pass: true, checks: ['Block + Review default, both classifications visible', 'All rows displayed by default', 'switch from page 2 to All without losing selections', 'last row scrolls into view', 'global combined selection clears search and selects all 201 flags', 'no-match excluded', '200-item mixed batch unchanged', 'exact approval', '200 ended and 1 remaining', 'manual ending recognized without resubmission', 'set-aside Block batch excluded while Review batch proceeds', 'archived result leaves current Review intact'] });
       await page.close();
     }
     fs.writeFileSync(path.join(evidence, 'results.json'), JSON.stringify({ scope: 'Isolated Chrome fixture; no signed-in account or marketplace action', results }, null, 2));

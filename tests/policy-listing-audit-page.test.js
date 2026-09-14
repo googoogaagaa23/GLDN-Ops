@@ -31,6 +31,10 @@ async function page(state) {
   return {
     elements, messages,
     click: (id) => elements[id].handlers.click(),
+    input: (id, value, type = 'change') => {
+      elements[id].value = value;
+      return elements[id].handlers[type]();
+    },
     change: (values) => {
       Object.assign(data, values);
       const changes = Object.fromEntries(Object.entries(values).map(([key, newValue]) => [key, { newValue }]));
@@ -115,12 +119,17 @@ test('combined default displays Block and Review without no-match rows', async (
   assert.match(p.elements.listingRows.innerHTML, />BLOCK</);
   assert.match(p.elements.listingRows.innerHTML, />REVIEW</);
   assert.doesNotMatch(p.elements.listingRows.innerHTML, /NO RULE MATCH/);
-  assert.equal(p.elements.rangeLabel.textContent, '1-100 of 184 shown');
+  assert.equal(p.elements.rangeLabel.textContent, '1-184 of 184 shown');
+  assert.equal((p.elements.listingRows.innerHTML.match(/data-item-id=/g) || []).length, 184);
+  assert.equal(p.elements.rowsPerPage.value, 'all');
+  assert.equal(p.elements.nextPage.hidden, true);
+  assert.equal(p.elements.pageLabel.textContent, 'All rows');
 });
 
 test('58 Block plus 126 Review are selected across both pages and prepared in one exact mixed batch', async () => {
   const p = await page({ phase: 'complete', active: false });
   p.change({ ebayPolicyListingAudit: combinedAudit() });
+  await p.input('rowsPerPage', '100');
   await p.click('selectAllFlags');
   assert.equal(p.elements.metricSelected.textContent, '184');
   await p.click('nextPage');
@@ -148,4 +157,60 @@ test('global combined selection excludes completed and unconfirmed IDs, preservi
   const request = p.messages.find((m) => m.type === 'prepareEbayPolicyListingEndReview');
   assert.equal(request.itemIds.includes(audit.listings[0].itemId), false);
   assert.equal(request.itemIds.includes(audit.listings[58].itemId), false);
+});
+
+test('switching from page two to All displays every row without clearing selections', async () => {
+  const p = await page({ phase: 'complete', active: false });
+  p.change({ ebayPolicyListingAudit: combinedAudit() });
+  await p.input('rowsPerPage', '100');
+  await p.click('selectAllFlags');
+  await p.click('nextPage');
+  assert.equal(p.elements.rangeLabel.textContent, '101-184 of 184 shown');
+  p.elements.resultsTable.scrollTop = 500;
+  await p.input('rowsPerPage', 'all');
+  assert.equal(p.elements.rangeLabel.textContent, '1-184 of 184 shown');
+  assert.equal(p.elements.metricSelected.textContent, '184');
+  assert.equal(p.elements.resultsTable.scrollTop, 0);
+  assert.equal(p.elements.previousPage.hidden, true);
+  assert.equal(p.elements.nextPage.hidden, true);
+  await p.input('rowsPerPage', '100');
+  assert.equal(p.elements.rangeLabel.textContent, '1-100 of 184 shown');
+  assert.equal(p.elements.previousPage.disabled, true);
+  assert.equal(p.elements.nextPage.disabled, false);
+  assert.equal(p.elements.nextPage.hidden, false);
+});
+
+test('250, 500 and All display sizes do not change the 200-item End batch limit', async () => {
+  const p = await page({ phase: 'complete', active: false });
+  const base = combinedAudit();
+  const listings = Array.from({ length: 501 }, (_, i) => ({ ...base.listings[0], itemId: String(300000000100 + i) }));
+  p.change({ ebayPolicyListingAudit: { ...base, listings } });
+  for (const size of ['250', '500']) {
+    await p.input('rowsPerPage', size);
+    assert.equal((p.elements.listingRows.innerHTML.match(/data-item-id=/g) || []).length, Number(size));
+    await p.click('nextPage');
+    assert.match(p.elements.rangeLabel.textContent, new RegExp('^' + (Number(size) + 1) + '-'));
+  }
+  await p.input('rowsPerPage', 'all');
+  p.elements.pageSelection.checked = true;
+  await p.elements.pageSelection.handlers.change();
+  assert.equal(p.elements.metricSelected.textContent, '501');
+  await p.click('prepareReview');
+  const request = p.messages.find((m) => m.type === 'prepareEbayPolicyListingEndReview');
+  assert.equal(request.itemIds.length, 200);
+  assert.equal(p.messages.some((m) => m.type === 'submitEbayPolicyListingEndReview'), false);
+});
+
+test('All handles empty searches and invalid display sizes without losing the audit', async () => {
+  const p = await page({ phase: 'complete', active: false });
+  p.change({ ebayPolicyListingAudit: combinedAudit() });
+  await p.input('listingSearch', 'no such title', 'input');
+  assert.equal(p.elements.rangeLabel.textContent, '0-0 of 0 shown');
+  assert.equal(p.elements.pageLabel.textContent, 'No rows');
+  assert.equal(p.elements.pageSelection.disabled, true);
+  await p.input('rowsPerPage', '0');
+  assert.equal(p.elements.rowsPerPage.value, 'all');
+  await p.input('listingSearch', '', 'input');
+  assert.equal(p.elements.rangeLabel.textContent, '1-184 of 184 shown');
+  assert.equal(p.elements.metricScanned.textContent, '194');
 });

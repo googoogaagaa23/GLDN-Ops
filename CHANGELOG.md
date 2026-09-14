@@ -1,5 +1,12 @@
 # GLDN Ops Changelog
 
+## v3.12.41 - 2026-09-13
+
+- Existing Listings Policy Audit now displays All matching rows by default, instead of only 100 per page.
+- Added a Rows per page selector with 100, 250, 500 and All. Display changes retain selections and reset to the top.
+- Search and classification filters still apply to the full saved audit. Showing all rows does not change the 200-item approval limit.
+- No policy rules or live marketplace actions changed.
+
 ## v3.12.40 - 2026-09-13
 
 - Added the default Block + Review view to Existing Listings Policy Audit.

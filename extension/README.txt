@@ -1,4 +1,10 @@
-GLDN Ops v3.12.40
+GLDN Ops v3.12.41
+
+v3.12.41 all policy audit rows:
+- Rows per page defaults to All, displaying every matching result in one scrollable list.
+- Optional 100, 250 and 500 row pages remain available. Changing display size keeps selections.
+- This is a display change only; exact End batches remain limited to 200 approved listings.
+- Reopen the updated audit to use saved results without rescanning.
 
 v3.12.40 combined policy flags:
 - Block + Review is the default results view, with both classifications visible together.

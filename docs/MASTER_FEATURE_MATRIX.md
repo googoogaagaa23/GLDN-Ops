@@ -1,9 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-09-13
-Current local manifest: 3.12.40
+Current local manifest: 3.12.41
 
-v3.12.40 adds combined Block + Review display and cross-page mixed selection. v3.12.39 native result recovery and set-aside protection are retained. Isolated browser checks pass; no live listings were ended during release work.
+v3.12.41 displays All matching audit rows by default with optional 100, 250 or 500 row pages. Combined Block + Review selection, native result recovery and set-aside protection are retained. Display size is independent of the 200-item End batch limit. No live listings were ended during release work.
 Current tested Poshmark panel: 3.9.1  
 Current tested eBay foundation: 3.11.33  
 Required live browser: existing signed-in Chrome Profile 2 (`F9132 - TE - BULK`) only  

@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.40. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.41. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -847,7 +847,7 @@ The exact ending path is already live-proven in signed-in Profile 2 across 736 p
 1. Open Workflows, Listings, then Scan Existing Listings.
 2. Start or Resume a scan; Refresh Policy Checks reclassifies saved rows with current rules without rescanning.
 3. Inspect matched reasons. Review is not a confirmed violation; ordinary brand names alone are not flags.
-4. The default Block + Review view shows both types together. Select All Block + Review selects both across every page; the header checkbox selects only the visible page.
+4. The default Block + Review view shows both types together. Rows per page defaults to All; choose 100, 250 or 500 for smaller pages. Select All Block + Review selects both across every page; the header checkbox selects the displayed result set.
 5. Use individual checkboxes or Select Filtered Flags for a narrower selection. Already-ended, unconfirmed-batch and no-match items cannot enter a new End batch.
 6. Review Selected on eBay opens up to 200 exact listings together. Inspect this batch before approval.
 7. Either return to GLDN, type the exact displayed phrase and click End Exact Batch, OR use eBay's own End confirmation after reviewing the rows. Do not submit through both paths.
@@ -874,7 +874,7 @@ Exact-ID audit, bulk selection, native batch review, verified ended counts, rema
 
 ### Evidence
 
-v3.12.40 unit and isolated Chrome checks cover combined Block + Review display, 58 plus 126 selected as one 184-item batch, mixed 200-plus-1 batches, and ended/unconfirmed exclusions. Existing native completion recovery is retained. No live End action performed.
+v3.12.41 unit and isolated Chrome checks cover All-row display, optional pagination, preserved selections, combined Block + Review display, mixed 200-plus-1 batches, and ended/unconfirmed exclusions. Existing native completion recovery is retained. No live End action performed.
 
 
 <a id="move99-recovery"></a>

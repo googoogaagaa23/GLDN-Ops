@@ -47,6 +47,15 @@
         <span>Search</span>
         <input id="listingSearch" type="search" placeholder="Title, item number, SKU, ASIN, rule">
       </label>
+      <label class="page-size-field" for="rowsPerPage">
+        <span>Rows per page</span>
+        <select id="rowsPerPage">
+          <option value="100">100</option>
+          <option value="250">250</option>
+          <option value="500">500</option>
+          <option value="all" selected>All</option>
+        </select>
+      </label>
       <div class="filter-group" role="group" aria-label="Classification filter">
         <button class="filter-button active" type="button" data-filter="flagged">Block + Review</button>
         <button class="filter-button" type="button" data-filter="all">All</button>
@@ -88,7 +97,7 @@
       <button id="checkHeldResult" class="button secondary" type="button">Check Saved Batch Result</button>
     </section>
 
-    <section class="table-wrap" aria-label="Policy listing results">
+    <section id="resultsTable" class="table-wrap" aria-label="Policy listing results">
       <table>
         <thead>
           <tr>

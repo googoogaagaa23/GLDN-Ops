@@ -1,0 +1,71 @@
+{
+  "scope": "Isolated Chrome fixture; no signed-in account or marketplace action",
+  "results": [
+    {
+      "width": 1440,
+      "pass": true,
+      "largeStoreRows": 19444,
+      "renderAndScrollMs": 5407,
+      "checks": [
+        "all 19,444 rows rendered",
+        "last store row reachable without Next",
+        "search after large render",
+        "return to 184 combined flags"
+      ]
+    },
+    {
+      "width": 1440,
+      "pass": true,
+      "checks": [
+        "Block + Review default, both classifications visible",
+        "All rows displayed by default",
+        "switch from page 2 to All without losing selections",
+        "last row scrolls into view",
+        "global combined selection clears search and selects all 201 flags",
+        "no-match excluded",
+        "200-item mixed batch unchanged",
+        "exact approval",
+        "200 ended and 1 remaining",
+        "manual ending recognized without resubmission",
+        "set-aside Block batch excluded while Review batch proceeds",
+        "archived result leaves current Review intact"
+      ]
+    },
+    {
+      "width": 900,
+      "pass": true,
+      "checks": [
+        "Block + Review default, both classifications visible",
+        "All rows displayed by default",
+        "switch from page 2 to All without losing selections",
+        "last row scrolls into view",
+        "global combined selection clears search and selects all 201 flags",
+        "no-match excluded",
+        "200-item mixed batch unchanged",
+        "exact approval",
+        "200 ended and 1 remaining",
+        "manual ending recognized without resubmission",
+        "set-aside Block batch excluded while Review batch proceeds",
+        "archived result leaves current Review intact"
+      ]
+    },
+    {
+      "width": 540,
+      "pass": true,
+      "checks": [
+        "Block + Review default, both classifications visible",
+        "All rows displayed by default",
+        "switch from page 2 to All without losing selections",
+        "last row scrolls into view",
+        "global combined selection clears search and selects all 201 flags",
+        "no-match excluded",
+        "200-item mixed batch unchanged",
+        "exact approval",
+        "200 ended and 1 remaining",
+        "manual ending recognized without resubmission",
+        "set-aside Block batch excluded while Review batch proceeds",
+        "archived result leaves current Review intact"
+      ]
+    }
+  ]
+}

@@ -8,7 +8,6 @@
   const LEDGER_KEY = "policyListingEndLedger";
   const RESULT_KEY = "lastPolicyListingEndResult";
   const HISTORY_KEY = "policyListingEndHistory";
-  const PAGE_SIZE = 100;
   const END_BATCH_LIMIT = 200;
   const byId = (id) => document.getElementById(id);
   const elements = {
@@ -27,6 +26,8 @@
     metricEnded: byId("metricEnded"),
     metricSelected: byId("metricSelected"),
     listingSearch: byId("listingSearch"),
+    rowsPerPage: byId("rowsPerPage"),
+    resultsTable: byId("resultsTable"),
     selectAllFlags: byId("selectAllFlags"),
     selectFiltered: byId("selectFiltered"),
     clearSelection: byId("clearSelection"),
@@ -61,6 +62,7 @@
   let endHistory = {};
   let filter = "flagged";
   let page = 1;
+  let pageSize = "all";
   let operationBusy = false;
   const selectedIds = new Set();
 
@@ -152,11 +154,15 @@
     });
   }
 
-  function currentPageRows() {
-    const rows = filteredRows();
-    const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  function effectivePageSize(rowCount) {
+    return pageSize === "all" ? Math.max(1, rowCount) : Number(pageSize);
+  }
+
+  function currentPageRows(rows = filteredRows()) {
+    const size = effectivePageSize(rows.length);
+    const totalPages = Math.max(1, Math.ceil(rows.length / size));
     page = Math.min(Math.max(1, page), totalPages);
-    return rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    return rows.slice((page - 1) * size, page * size);
   }
 
   function scanProgressMessage(state) {
@@ -185,11 +191,12 @@
     const held = heldIds();
     const unavailable = unavailableIds();
     unavailable.forEach((id) => selectedIds.delete(id));
-    const rows = currentPageRows();
     const allRows = filteredRows();
-    const totalPages = allRows.length ? Math.ceil(allRows.length / PAGE_SIZE) : 0;
-    const start = allRows.length ? (page - 1) * PAGE_SIZE + 1 : 0;
-    const end = allRows.length ? Math.min(page * PAGE_SIZE, allRows.length) : 0;
+    const rows = currentPageRows(allRows);
+    const size = effectivePageSize(allRows.length);
+    const totalPages = allRows.length ? Math.ceil(allRows.length / size) : 0;
+    const start = allRows.length ? (page - 1) * size + 1 : 0;
+    const end = allRows.length ? Math.min(page * size, allRows.length) : 0;
     const scanActive = scanState?.active === true && ["scanning", "classifying", "saving"].includes(scanState?.phase);
     const resumable = !scanActive && ["paused", "error"].includes(String(scanState?.phase || "")) && Boolean(scanState?.runId);
     const hasAnyPendingReview = pendingReview?.active === true;
@@ -225,8 +232,11 @@
     elements.prepareReview.disabled = !audit || !selectedIds.size || hasAnyPendingReview || scanActive || operationBusy;
     elements.previousPage.disabled = page <= 1;
     elements.nextPage.disabled = !totalPages || page >= totalPages;
+    elements.previousPage.hidden = pageSize === "all";
+    elements.nextPage.hidden = pageSize === "all";
+    elements.rowsPerPage.value = pageSize;
     elements.rangeLabel.textContent = `${start.toLocaleString()}-${end.toLocaleString()} of ${allRows.length.toLocaleString()} shown`;
-    elements.pageLabel.textContent = `Page ${totalPages ? page : 0} of ${totalPages}`;
+    elements.pageLabel.textContent = pageSize === "all" ? (allRows.length ? "All rows" : "No rows") : `Page ${totalPages ? page : 0} of ${totalPages}`;
 
     const selectableRows = rows.filter((listing) => ["block", "review"].includes(listing.action) && !unavailable.has(String(listing.itemId)));
     elements.pageSelection.disabled = !selectableRows.length || operationBusy;
@@ -397,6 +407,13 @@
     button.addEventListener("click", () => { setFilter(String(button.dataset.filter || "flagged")); render(); });
   });
   elements.listingSearch.addEventListener("input", () => { page = 1; render(); });
+  elements.rowsPerPage.addEventListener("change", () => {
+    const value = elements.rowsPerPage.value;
+    pageSize = ["100", "250", "500"].includes(value) ? value : "all";
+    page = 1;
+    elements.resultsTable.scrollTop = 0;
+    render();
+  });
   elements.selectAllFlags.addEventListener("click", () => {
     const done = unavailableIds();
     (audit?.listings || []).forEach((listing) => {
