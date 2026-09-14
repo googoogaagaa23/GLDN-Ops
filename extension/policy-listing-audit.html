@@ -48,13 +48,14 @@
         <input id="listingSearch" type="search" placeholder="Title, item number, SKU, ASIN, rule">
       </label>
       <div class="filter-group" role="group" aria-label="Classification filter">
-        <button class="filter-button active" type="button" data-filter="all">All</button>
+        <button class="filter-button active" type="button" data-filter="flagged">Block + Review</button>
+        <button class="filter-button" type="button" data-filter="all">All</button>
         <button class="filter-button" type="button" data-filter="block">Block</button>
         <button class="filter-button" type="button" data-filter="review">Review</button>
         <button class="filter-button" type="button" data-filter="clear">No rule match</button>
         <button class="filter-button" type="button" data-filter="ended">Ended</button>
       </div>
-      <button id="selectAllBlock" class="button secondary" type="button">Select All Block</button>
+      <button id="selectAllFlags" class="button secondary" type="button">Select All Block + Review</button>
       <button id="selectFiltered" class="button secondary" type="button">Select Filtered Flags</button>
       <button id="clearSelection" class="button ghost" type="button">Clear Selection</button>
       <button id="downloadAudit" class="button ghost" type="button">Download Audit CSV</button>

@@ -11,7 +11,7 @@ const code = fs.readFileSync(path.join(ext, 'policy-listing-audit.js'), 'utf8');
 async function page(state) {
   const elements = Object.fromEntries([...html.matchAll(/\bid="([^"]+)"/g)].map((match) => [match[1], {
     value: '', textContent: '', innerHTML: '', disabled: false, hidden: false,
-    addEventListener() {}, classList: { toggle() {} }
+    handlers: {}, addEventListener(type, fn) { this.handlers[type] = fn; }, classList: { toggle() {} }
   }]));
   const listeners = [];
   const data = { ebayPolicyListingScanState: state };
@@ -30,6 +30,7 @@ async function page(state) {
   });
   return {
     elements, messages,
+    click: (id) => elements[id].handlers.click(),
     change: (values) => {
       Object.assign(data, values);
       const changes = Object.fromEntries(Object.entries(values).map(([key, newValue]) => [key, { newValue }]));
@@ -95,4 +96,56 @@ test('changing-store results remain visible with a prominent coverage warning', 
   assert.match(p.elements.scanDetail.textContent, /1 repeated rows removed/);
   assert.match(p.elements.listingRows.innerHTML, /Reviewable listing/);
   assert.equal(p.elements.downloadAudit.disabled, false);
+});
+
+function combinedAudit() {
+  const listings = Array.from({ length: 194 }, (_, index) => ({
+    itemId: String(300000000100 + index), title: 'Listing ' + index,
+    action: index < 58 ? 'block' : index < 184 ? 'review' : 'clear',
+    status: index < 58 ? 'BLOCK' : index < 184 ? 'REVIEW' : 'NO RULE MATCH', matches: []
+  }));
+  return { computerLabel: '2', ebayAccountLabel: 'FANCYFI', reportFingerprint: 'combined',
+    scannedAt: '2026-09-13T20:00:00Z', totalListings: listings.length,
+    summary: { total: 194, block: 58, review: 126, clear: 10 }, listings };
+}
+
+test('combined default displays Block and Review without no-match rows', async () => {
+  const p = await page({ phase: 'complete', active: false });
+  p.change({ ebayPolicyListingAudit: combinedAudit() });
+  assert.match(p.elements.listingRows.innerHTML, />BLOCK</);
+  assert.match(p.elements.listingRows.innerHTML, />REVIEW</);
+  assert.doesNotMatch(p.elements.listingRows.innerHTML, /NO RULE MATCH/);
+  assert.equal(p.elements.rangeLabel.textContent, '1-100 of 184 shown');
+});
+
+test('58 Block plus 126 Review are selected across both pages and prepared in one exact mixed batch', async () => {
+  const p = await page({ phase: 'complete', active: false });
+  p.change({ ebayPolicyListingAudit: combinedAudit() });
+  await p.click('selectAllFlags');
+  assert.equal(p.elements.metricSelected.textContent, '184');
+  await p.click('nextPage');
+  assert.equal(p.elements.rangeLabel.textContent, '101-184 of 184 shown');
+  await p.click('prepareReview');
+  const request = p.messages.find((m) => m.type === 'prepareEbayPolicyListingEndReview');
+  assert.equal(request.itemIds.length, 184);
+  assert.equal(request.itemIds[0], '300000000100');
+  assert.equal(request.itemIds.at(-1), '300000000283');
+  assert.equal(p.messages.some((m) => m.type === 'submitEbayPolicyListingEndReview'), false);
+});
+
+test('global combined selection excludes completed and unconfirmed IDs, preserving no-repeat protection', async () => {
+  const p = await page({ phase: 'complete', active: false });
+  const audit = combinedAudit();
+  p.change({
+    ebayPolicyListingAudit: audit,
+    policyListingEndLedger: { combined: { successfulItemIds: [audit.listings[0].itemId] } },
+    policyListingEndHistory: { previous: { runId: 'previous', computerLabel: '2', ebayAccountLabel: 'FANCYFI',
+      phase: 'set-aside', itemIds: [audit.listings[58].itemId] } }
+  });
+  await p.click('selectAllFlags');
+  assert.equal(p.elements.metricSelected.textContent, '182');
+  await p.click('prepareReview');
+  const request = p.messages.find((m) => m.type === 'prepareEbayPolicyListingEndReview');
+  assert.equal(request.itemIds.includes(audit.listings[0].itemId), false);
+  assert.equal(request.itemIds.includes(audit.listings[58].itemId), false);
 });

@@ -1,4 +1,10 @@
-GLDN Ops v3.12.39
+GLDN Ops v3.12.40
+
+v3.12.40 combined policy flags:
+- Block + Review is the default results view, with both classifications visible together.
+- Select All Block + Review selects both categories across every page, excluding ended or unconfirmed items.
+- Mixed batches use the existing exact eBay review and approval flow, up to 200 listings per batch.
+- Individual Block, Review, All, No rule match and Ended views remain available.
 
 v3.12.39 native ending result recovery:
 - Check eBay Result is available even when items were ended directly on eBay.

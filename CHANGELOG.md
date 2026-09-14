@@ -1,5 +1,12 @@
 # GLDN Ops Changelog
 
+## v3.12.40 - 2026-09-13
+
+- Added the default Block + Review view to Existing Listings Policy Audit.
+- Select All Block + Review selects both categories across every results page, not just the visible 100 rows.
+- Mixed batches keep the existing 200-item limit, exact approval, ended-item exclusions and unresolved-batch replay protection.
+- No policy rules or marketplace actions changed. Isolated browser checks cover combined display, cross-page selection and mixed-batch approval.
+
 ## v3.12.39 - 2026-09-13
 
 - Reconcile native eBay ending without requiring the operator to reapprove an already-ended batch.

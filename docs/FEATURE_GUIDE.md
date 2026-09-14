@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.39. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.40. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -847,12 +847,13 @@ The exact ending path is already live-proven in signed-in Profile 2 across 736 p
 1. Open Workflows, Listings, then Scan Existing Listings.
 2. Start or Resume a scan; Refresh Policy Checks reclassifies saved rows with current rules without rescanning.
 3. Inspect matched reasons. Review is not a confirmed violation; ordinary brand names alone are not flags.
-4. Select All Block, individual flags, or Select Filtered Flags across all result pages. No-match rows are excluded.
-5. Review Selected on eBay opens up to 200 exact listings together. Inspect this batch before approval.
-6. Either return to GLDN, type the exact displayed phrase and click End Exact Batch, OR use eBay's own End confirmation after reviewing the rows. Do not submit through both paths.
-7. If you ended directly on eBay, use Check eBay Result in GLDN. No second End approval is needed to check results.
-8. If some results remain unconfirmed, choose Set Aside Batch & Continue. Those exact items stay excluded while you select and review other Block or Review flags.
-9. After verified success, ended counts update and remaining selection stays queued. Each next batch needs fresh approval.
+4. The default Block + Review view shows both types together. Select All Block + Review selects both across every page; the header checkbox selects only the visible page.
+5. Use individual checkboxes or Select Filtered Flags for a narrower selection. Already-ended, unconfirmed-batch and no-match items cannot enter a new End batch.
+6. Review Selected on eBay opens up to 200 exact listings together. Inspect this batch before approval.
+7. Either return to GLDN, type the exact displayed phrase and click End Exact Batch, OR use eBay's own End confirmation after reviewing the rows. Do not submit through both paths.
+8. If you ended directly on eBay, use Check eBay Result in GLDN. No second End approval is needed to check results.
+9. If some results remain unconfirmed, choose Set Aside Batch & Continue. Those exact items stay excluded while you select and review other Block or Review flags.
+10. After verified success, ended counts update and remaining selection stays queued. Each next batch needs fresh approval.
 
 ### Approval Stop
 
@@ -873,7 +874,7 @@ Exact-ID audit, bulk selection, native batch review, verified ended counts, rema
 
 ### Evidence
 
-v3.12.39 unit and isolated Chrome tests cover manual completion without another End click, partial evidence, archived batches, account separation, migration and independent Review continuation. Live native inactive exact-search layout inspected read-only. No live End action performed; M0 result reconciliation remains unverified.
+v3.12.40 unit and isolated Chrome checks cover combined Block + Review display, 58 plus 126 selected as one 184-item batch, mixed 200-plus-1 batches, and ended/unconfirmed exclusions. Existing native completion recovery is retained. No live End action performed.
 
 
 <a id="move99-recovery"></a>

@@ -27,7 +27,7 @@
     metricEnded: byId("metricEnded"),
     metricSelected: byId("metricSelected"),
     listingSearch: byId("listingSearch"),
-    selectAllBlock: byId("selectAllBlock"),
+    selectAllFlags: byId("selectAllFlags"),
     selectFiltered: byId("selectFiltered"),
     clearSelection: byId("clearSelection"),
     downloadAudit: byId("downloadAudit"),
@@ -59,7 +59,7 @@
   let endLedger = {};
   let latestResult = null;
   let endHistory = {};
-  let filter = "all";
+  let filter = "flagged";
   let page = 1;
   let operationBusy = false;
   const selectedIds = new Set();
@@ -146,7 +146,8 @@
     const done = completedIds();
     return (audit?.listings || []).filter((listing) => {
       if (filter === "ended" && !done.has(String(listing.itemId))) return false;
-      if (filter !== "all" && filter !== "ended" && listing.action !== filter) return false;
+      if (filter === "flagged" && !["block", "review"].includes(listing.action)) return false;
+      if (!["all", "ended", "flagged"].includes(filter) && listing.action !== filter) return false;
       return !query || searchText(listing).includes(query);
     });
   }
@@ -217,7 +218,7 @@
     elements.resumeScan.disabled = !resumable || operationBusy || hasAnyPendingReview;
     elements.stopScan.disabled = !scanActive || scanState?.phase === "saving" || scanState?.stopRequested === true;
     elements.discardScan.disabled = scanActive || operationBusy || hasPendingReview || (!audit && !scanState);
-    elements.selectAllBlock.disabled = !audit || scanActive || operationBusy;
+    elements.selectAllFlags.disabled = !audit || scanActive || operationBusy;
     elements.selectFiltered.disabled = !audit || scanActive || operationBusy;
     elements.clearSelection.disabled = !selectedIds.size;
     elements.downloadAudit.disabled = !audit;
@@ -386,20 +387,23 @@
     }
   });
 
+  function setFilter(value) {
+    filter = value;
+    page = 1;
+    document.querySelectorAll("[data-filter]").forEach((button) =>
+      button.classList.toggle("active", button.dataset.filter === filter));
+  }
   document.querySelectorAll("[data-filter]").forEach((button) => {
-    button.addEventListener("click", () => {
-      filter = String(button.dataset.filter || "all");
-      document.querySelectorAll("[data-filter]").forEach((candidate) => candidate.classList.toggle("active", candidate === button));
-      page = 1;
-      render();
-    });
+    button.addEventListener("click", () => { setFilter(String(button.dataset.filter || "flagged")); render(); });
   });
   elements.listingSearch.addEventListener("input", () => { page = 1; render(); });
-  elements.selectAllBlock.addEventListener("click", () => {
+  elements.selectAllFlags.addEventListener("click", () => {
     const done = unavailableIds();
     (audit?.listings || []).forEach((listing) => {
-      if (listing.action === "block" && !done.has(String(listing.itemId))) selectedIds.add(String(listing.itemId));
+      if (["block", "review"].includes(listing.action) && !done.has(String(listing.itemId))) selectedIds.add(String(listing.itemId));
     });
+    elements.listingSearch.value = "";
+    setFilter("flagged");
     render();
   });
   elements.clearSelection.addEventListener("click", () => { selectedIds.clear(); render(); });

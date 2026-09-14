@@ -227,7 +227,8 @@ test('policy audit page exposes selection and exact approval without automatic e
   assert.match(page, /Resume Scan/);
   assert.match(page, /Pause Safely/);
   assert.doesNotMatch(page, /class="audit-only"/);
-  assert.doesNotMatch(page, /id="selectAllBlock"[^>]+hidden/);
+  assert.match(page, /id="selectAllFlags"[^>]*>Select All Block \+ Review/);
+  assert.match(page, /data-filter="flagged">Block \+ Review/);
   assert.doesNotMatch(page, /id="prepareReview"[^>]+hidden/);
   assert.match(page, /Approval required to end/);
   assert.match(page, /Select Filtered Flags/);

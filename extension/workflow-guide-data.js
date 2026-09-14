@@ -1,5 +1,5 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.39",
+  "version": "3.12.40",
   "updated": "2026-09-13",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -550,7 +550,8 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "Open Workflows, Listings, then Scan Existing Listings.",
         "Start or Resume a scan; Refresh Policy Checks reclassifies saved rows with current rules without rescanning.",
         "Inspect matched reasons. Review is not a confirmed violation; ordinary brand names alone are not flags.",
-        "Select All Block, individual flags, or Select Filtered Flags across all result pages. No-match rows are excluded.",
+        "The default Block + Review view shows both types together. Select All Block + Review selects both across every page; the header checkbox selects only the visible page.",
+        "Use individual checkboxes or Select Filtered Flags for a narrower selection. Already-ended, unconfirmed-batch and no-match items cannot enter a new End batch.",
         "Review Selected on eBay opens up to 200 exact listings together. Inspect this batch before approval.",
         "Either return to GLDN, type the exact displayed phrase and click End Exact Batch, OR use eBay's own End confirmation after reviewing the rows. Do not submit through both paths.",
         "If you ended directly on eBay, use Check eBay Result in GLDN. No second End approval is needed to check results.",
@@ -567,7 +568,7 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "Updates preserve native batch evidence, not old approval permission. When updating from v3.12.38, do not Reset or discard the stuck review first. If the extension blocks its own updater, run the existing GLDN Ops installer/update tool, then reload GLDN Ops using Chrome's extension management page and reopen the audit.",
         "Pesticides and aerosol spray cans stay excluded. Specific conditional risks stay Review. No-match is not a policy guarantee."
       ],
-      "evidence": "v3.12.39 unit and isolated Chrome tests cover manual completion without another End click, partial evidence, archived batches, account separation, migration and independent Review continuation. Live native inactive exact-search layout inspected read-only. No live End action performed; M0 result reconciliation remains unverified."
+      "evidence": "v3.12.40 unit and isolated Chrome checks cover combined Block + Review display, 58 plus 126 selected as one 184-item batch, mixed 200-plus-1 batches, and ended/unconfirmed exclusions. Existing native completion recovery is retained. No live End action performed."
     },
     {
       "id": "move99-recovery",
