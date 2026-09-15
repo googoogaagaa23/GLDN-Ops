@@ -436,9 +436,20 @@
   }
 
   async function loadHistory(refresh) {
-    const response = await chrome.runtime.sendMessage({ type: 'getEbayViolationHistory', refresh });
-    if (!response?.ok || !Array.isArray(response.records)) throw new Error(response?.error || 'Shared removal history could not be verified. Check the dashboard connection.');
-    rulePack.incidentHistory = response.records;
+    let history;
+    try {
+      history = await chrome.runtime.sendMessage({ type: 'getEbayViolationHistory', refresh, optional: true });
+      if (!history?.ok || !Array.isArray(history.records)) throw new Error('Shared history unavailable.');
+    } catch (_) {
+      const saved = await storageGetLocal(['gldnViolationHistoryShared', 'gldnViolationHistoryLocal']);
+      const records = globalThis.GLDN_VIOLATION_HISTORY.mergeRecords(rulePack.incidentHistory,
+        saved.gldnViolationHistoryShared?.records, saved.gldnViolationHistoryLocal);
+      history = { records, warning: globalThis.GLDN_VIOLATION_HISTORY.unavailableWarning(records.length) };
+    }
+    rulePack.incidentHistory = history.records;
+    rulePack.incidentHistoryWarning = history.warning || '';
+    byId('historyWarning').textContent = rulePack.incidentHistoryWarning;
+    byId('historyWarning').hidden = !rulePack.incidentHistoryWarning;
   }
 
   function downloadText(contents, filename, type) {

@@ -96,15 +96,16 @@ test('shared store validates scope and writes spreadsheet literals instead of fo
   assert.equal(h.api.readPolicyIncidents_({}).records[0].title,'=IMPORTXML("bad","bad")');
 });
 
-function worker(stored, handler) {
+function worker(stored, handler, overrides = {}) {
   const calls=[], queue=[];
-  const api = { Date, Promise, Map, JSON, GLDN_VIOLATION_HISTORY:history,
+  const api = { Date, Promise, Map, JSON, setTimeout, clearTimeout, GLDN_VIOLATION_HISTORY:history,
+    getDashboardConfig:async()=>({}),
     storageGet:async(keys)=>Object.fromEntries(keys.map((k)=>[k,stored[k]])),
     storageSet:async(values)=>Object.assign(stored,values),
     postToDashboard:async(action,record)=>{calls.push({action,record});return handler(action,record);},
     recordWithSyncId:(action,record)=>({...record,syncId:'test-receipt'}),
     removeQueuedDashboardSync:async()=>{},enqueueDashboardSync:async(...args)=>queue.push(args),
-    releaseWorkflowStart:async()=>{} };
+    releaseWorkflowStart:async()=>{}, ...overrides };
   vm.createContext(api);
   vm.runInContext(fs.readFileSync(require.resolve('../extension/violation-history-background.js'),'utf8'),api);
   return {api,calls,queue};
@@ -134,4 +135,99 @@ test('reader has no marketplace write control and enforces page counts and paire
   assert.equal((source.match(/\.click\(/g)||[]).length,1);
   assert.match(source,/buttons\[0\]\.click/);
   assert.doesNotMatch(source,/fetch\(|XMLHttpRequest|\.submit\(/);
+});
+
+test('policy checks need no dashboard setup, including on a profile with no saved history', async () => {
+  const h = worker({}, async () => { throw new Error('must not call dashboard'); }, {
+    getDashboardConfig: async () => { throw new Error('Dashboard setup code is missing'); }
+  });
+  const result = await h.api.loadPolicyCheckHistory(true);
+  assert.equal(result.ok, true);
+  assert.equal(result.records.length, 0);
+  assert.match(result.warning, /Dashboard connection is optional/);
+  assert.equal(h.calls.length, 0);
+  const rules = {...pack, incidentHistory:result.records, incidentHistoryWarning:result.warning};
+  const checked = preflight.evaluateRows([
+    candidate('Ant Killer Pesticide Granules'), candidate('Spray Paint Aerosol Can'),
+    candidate('Stainless Steel Measuring Spoon Set')
+  ], rules);
+  assert.deepEqual(checked.map(row => row.action), ['block', 'block', 'clear']);
+});
+
+test('offline checks retain local and cached shared incidents without claiming shared verification', async () => {
+  const local = history.normalizeRecord(incident());
+  const shared = history.normalizeRecord(incident({account:'other-store', itemId:'300000000002', sku:Buffer.from('B098765432').toString('base64')}));
+  const stored = {gldnViolationHistoryLocal:[local], gldnViolationHistoryShared:{records:[shared],syncedAt:'2026-01-01T00:00:00Z'}};
+  const h = worker(stored, async () => {throw new Error('network offline');});
+  const result = await h.api.loadPolicyCheckHistory(true);
+  assert.equal(result.records.length, 2);
+  assert.match(result.warning, /2 saved incidents/);
+  assert.equal(stored.gldnViolationHistoryShared.syncedAt, '2026-01-01T00:00:00Z');
+  assert.deepEqual(history.applyHistory([candidate('Renamed item',['B012345678']), candidate('Other item',['B098765432'])],result.records).map(row=>row.action), ['block','block']);
+  await assert.rejects(h.api.refreshViolationHistory(true), /network offline/);
+  await assert.rejects(h.api.syncViolationHistory(), /network offline/);
+});
+
+test('slow shared reads cannot indefinitely block a listing check', async () => {
+  let finish;
+  const response = new Promise(resolve => {finish = resolve;});
+  const h = worker({}, async () => response, {setTimeout:(callback)=>setTimeout(callback,1)});
+  const result = await h.api.loadPolicyCheckHistory(true);
+  assert.equal(result.ok,true);
+  assert.match(result.warning,/unavailable/);
+  finish({schemaVersion:1,ok:true,offset:0,total:0,records:[],nextOffset:null,revision:'empty'});
+  await h.api.refreshViolationHistory(true);
+});
+
+test('a healthy refresh removes the fallback warning and applies new cross-profile incidents', async () => {
+  const record = history.normalizeRecord(incident());
+  const h = worker({},async()=>({schemaVersion:1,ok:true,offset:0,total:1,records:[record],nextOffset:null,revision:'1'}));
+  const result = await h.api.loadPolicyCheckHistory(true);
+  assert.equal(result.warning,'');
+  assert.equal(result.records[0].asin,record.asin);
+});
+
+test('invalid shared responses preserve cached evidence in optional mode but still reject strict sync',async()=>{
+  const record = history.normalizeRecord(incident());
+  const stored = {gldnViolationHistoryShared:{records:[record],syncedAt:'2026-01-01T00:00:00Z'}};
+  const h = worker(stored,async()=>({schemaVersion:999,ok:true,records:[]}));
+  const result = await h.api.loadPolicyCheckHistory(true);
+  assert.equal(result.records[0].asin,record.asin);
+  assert.match(result.warning,/unavailable/);
+  await assert.rejects(h.api.syncViolationHistory());
+});
+
+test('audit warning is saved separately from rule identity and never weakens invalid policy data',()=>{
+  const rules = {...pack, incidentHistoryWarning:history.unavailableWarning(0)};
+  const checked = audit.buildPolicyAudit([{itemId:'300000000003',title:'Ant Killer Granules'}],rules);
+  assert.equal(checked.incidentHistoryWarning,rules.incidentHistoryWarning);
+  assert.equal(audit.rulePackFingerprint(rules),audit.rulePackFingerprint(pack));
+  const result = preflight.evaluateRows([candidate('Stainless Steel Measuring Spoon Set')],{rules:[],incidentHistory:[]});
+  assert.notEqual(result[0].action,'clear');
+});
+
+test('optional history is limited to read-only policy checking, never explicit shared sync',()=>{
+  const source = fs.readFileSync(require.resolve('../extension/background.js'),'utf8');
+  assert.match(source,/message.type === 'syncEbayViolationHistory' \? syncViolationHistory\(\)\s*: message.optional === true \? loadPolicyCheckHistory/);
+  const loader = source.slice(source.indexOf('async function loadListingPreflightRulePack('),source.indexOf('async function currentPolicyListingIdentity('));
+  assert.match(loader,/loadPolicyCheckHistory/);
+  assert.doesNotMatch(loader,/await refreshViolationHistory/);
+});
+
+test('the actual audit rule loader runs without a code and still rejects missing bundled rules',async()=>{
+  const h = worker({},async()=>{throw new Error('must not call dashboard');}, {
+    getDashboardConfig:async()=>{throw new Error('Dashboard setup code is missing');},
+    LISTING_PREFLIGHT:preflight,POLICY_LISTING_AUDIT:audit,
+    chrome:{runtime:{getURL:path=>'https://fixture.test/'+path}},
+    fetch:async()=>({ok:true,json:async()=>pack})
+  });
+  const source=fs.readFileSync(require.resolve('../extension/background.js'),'utf8');
+  vm.runInContext(source.slice(source.indexOf('async function loadListingPreflightRulePack('),source.indexOf('async function currentPolicyListingIdentity(')),h.api);
+  const rules=await h.api.loadListingPreflightRulePack(true);
+  assert.ok(rules.ruleCount >= 639);
+  assert.match(rules.incidentHistoryWarning,/optional/);
+  assert.equal(audit.buildPolicyAudit([{itemId:'300000000004',title:'Rodent Repellent Spray'}],rules).summary.block,1);
+  assert.equal(h.calls.length,0);
+  h.api.fetch=async()=>({ok:true,json:async()=>({rules:[]})});
+  await assert.rejects(h.api.loadListingPreflightRulePack(true),/No reviewed policy rules/);
 });

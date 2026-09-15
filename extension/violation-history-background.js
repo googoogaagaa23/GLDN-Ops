@@ -39,6 +39,26 @@ async function refreshViolationHistory(force = false) {
   return violationRefreshPromise;
 }
 
+// Shared history supplements local policy checks; sync itself still requires verified acknowledgements.
+async function loadPolicyCheckHistory(force = false) {
+  let timer;
+  try {
+    const history = await Promise.race([
+      (async () => {
+        await getDashboardConfig();
+        return refreshViolationHistory(force);
+      })(),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('History refresh timed out.')), 5000); })
+    ]);
+    return { ok: true, records: history.records,
+      warning: history.error ? GLDN_VIOLATION_HISTORY.unavailableWarning(history.records.length) : '' };
+  } catch (_) {
+    const stored = await storageGet([VIOLATION_SHARED, VIOLATION_LOCAL]);
+    const records = GLDN_VIOLATION_HISTORY.mergeRecords(stored[VIOLATION_SHARED]?.records, stored[VIOLATION_LOCAL]);
+    return { ok: true, records, warning: GLDN_VIOLATION_HISTORY.unavailableWarning(records.length) };
+  } finally { clearTimeout(timer); }
+}
+
 async function syncViolationHistory() {
   const stored = await storageGet([VIOLATION_LOCAL]);
   const local = GLDN_VIOLATION_HISTORY.mergeRecords(stored[VIOLATION_LOCAL]);

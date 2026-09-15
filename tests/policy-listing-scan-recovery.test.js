@@ -5,6 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const preflight = require('../extension/listing-preflight-core.js');
 const auditCore = require('../extension/policy-listing-audit-core.js');
+const violationHistory = require('../extension/violation-history-core.js');
 const pack = require('../extension/listing-preflight-rules.json');
 const source = fs.readFileSync(path.join(__dirname, '../extension/background.js'), 'utf8');
 const scanSource = source.slice(source.indexOf('const POLICY_LISTING_AUDIT_STATE_KEY ='), source.indexOf('function mergedPolicyListingEndLedger'));
@@ -35,7 +36,8 @@ function harness(total = 18359) {
   }
   const h = { data, progress: [], tabsCreated: 0, saveFailure: false, classificationHook: null, snapshots: null, pagesRead: [] };
   const context = vm.createContext({
-    console, setTimeout, Date, Promise,
+    console, setTimeout, clearTimeout, Date, Promise,
+    GLDN_VIOLATION_HISTORY: violationHistory,
     VARIATION_SCAN_PAGE_SIZE: 200,
     VARIATION_SCAN_NAVIGATION_DELAY_MS: 0,
     LISTING_PREFLIGHT: { normalizeRulePack: (value) => value },
@@ -45,11 +47,12 @@ function harness(total = 18359) {
         await options.onProgress({ classifiedListings: 0, summary: { total: 0 } });
         if (h.classificationHook) await h.classificationHook();
         await options.onProgress({ classifiedListings: rows.length, summary: { total: rows.length, clear: rows.length, block: 0, review: 0 } });
-        return { totalListings: rows.length, summary: { total: rows.length, clear: rows.length, block: 0, review: 0 }, listings: rows, coverage: metadata.coverage };
+        return { totalListings: rows.length, summary: { total: rows.length, clear: rows.length, block: 0, review: 0 }, listings: rows, coverage: metadata.coverage, incidentHistoryWarning:rules.incidentHistoryWarning };
       }
     },
     FOUNDATION: { normalizeEbayAccount: (v) => v },
-    refreshViolationHistory: async () => ({ records: [] }),
+    getDashboardConfig:async()=>{if(h.dashboardOffline) throw new Error('Dashboard setup code is missing'); return {};},
+    postToDashboard:async()=>({schemaVersion:1,ok:true,offset:0,total:0,records:[],nextOffset:null,revision:'empty'}),
     identityForComputer: () => ({ computerLabel: '2', ebayAccountLabel: 'FANCYFI' }),
     fetch: async () => ({ ok: true, json: async () => ({ ruleCount: 580 }) }),
     chrome: { runtime: { getURL: (url) => url } },
@@ -82,7 +85,13 @@ function harness(total = 18359) {
     closeChromeTab: async () => {},
     recordExtensionLog: async () => {}
   });
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../extension/violation-history-background.js'), 'utf8'), context);
   vm.runInContext(`let policyListingScanPromise = null; let policyListingStopRequested = false;\n${scanSource}`, context);
+  h.useRealRules = () => {
+    context.LISTING_PREFLIGHT = preflight;
+    context.POLICY_LISTING_AUDIT = auditCore;
+    context.fetch = async () => ({ok:true,json:async()=>pack});
+  };
   h.run = () => context.scanEbayPolicyListings({ fresh: false });
   h.status = () => context.getEbayPolicyListingScanStatus();
   h.stop = () => context.stopEbayPolicyListingScan();
@@ -112,6 +121,24 @@ test('daily listing growth no longer aborts, deduplicates shifted rows and bound
   assert.equal(result.coverage.followUpRecommended, true);
   assert.equal(h.data[AUDIT].coverage.countChanged, true);
   assert.equal(h.data[STATE].phase, 'complete');
+});
+
+test('a complete scan without dashboard setup preserves real rules, cached blocks and a non-blocking warning',async()=>{
+  const h=harness(201);
+  h.dashboardOffline=true;
+  h.useRealRules();
+  h.data.gldnViolationHistoryLocal=violationHistory.mergeRecords([{account:'old-store',itemId:'300000999999',
+    title:'Previously removed product',asin:'B012345678',reason:'This listing was removed for violating our Pesticides policy.'}]);
+  h.data[chunkKey(1)].records[0].title='Ant Killer Pesticide Granules';
+  Object.assign(h.data[chunkKey(1)].records[1],{title:'Stainless Measuring Spoon Set',sku:Buffer.from('B012345678').toString('base64')});
+  const result=await h.run();
+  assert.equal(result.ok,true,result.error);
+  assert.equal(result.scannedListings,201);
+  assert.equal(result.summary.block,2);
+  assert.equal(h.data[STATE].phase,'complete');
+  assert.match(h.data[STATE].incidentHistoryWarning,/Dashboard connection is optional/);
+  assert.match(h.data[AUDIT].incidentHistoryWarning,/1 saved incident/);
+  assert.equal(h.tabsCreated,0);
 });
 
 test('listing shrinkage and an explicit end-of-list checkpoint finish without restart', async () => {

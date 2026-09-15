@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.44. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.45. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -882,20 +882,21 @@ The exact ending path is already live-proven in signed-in Profile 2 across 736 p
 
 - The intended eBay account is signed in in this Chrome profile and its computer identity is saved.
 - No other GLDN Ops scan or marketplace review is active.
-- The shared reviewed Listing Preflight rule pack is present.
+- The bundled reviewed Listing Preflight rule pack is present. Dashboard setup is optional for listing checks.
 
 ### Exact Steps
 
 1. Open Workflows, Listings, then Scan Existing Listings.
 2. Start or Resume a scan; Refresh Policy Checks reclassifies saved rows with current rules without rescanning.
-3. Inspect matched reasons. Review is not a confirmed violation; ordinary brand names alone are not flags.
-4. The default Block + Review view shows both types together. Rows per page defaults to All; choose 100, 250 or 500 for smaller pages. Select All Block + Review selects both across every page; the header checkbox selects the displayed result set.
-5. Use individual checkboxes or Select Filtered Flags for a narrower selection. Already-ended, unconfirmed-batch and no-match items cannot enter a new End batch.
-6. Review Selected on eBay opens up to 200 exact listings together. Inspect this batch before approval.
-7. Either return to GLDN, type the exact displayed phrase and click End Exact Batch, OR use eBay's own End confirmation after reviewing the rows. Do not submit through both paths.
-8. If you ended directly on eBay, use Check eBay Result in GLDN. No second End approval is needed to check results.
-9. If some results remain unconfirmed, choose Set Aside Batch & Continue. Those exact items stay excluded while you select and review other Block or Review flags.
-10. After verified success, ended counts update and remaining selection stays queued. Each next batch needs fresh approval.
+3. If shared history is unavailable, the scan still uses built-in rules and saved incidents. The warning means newer incidents from other profiles may be missing, not that the scan is blocked.
+4. Inspect matched reasons. Review is not a confirmed violation; ordinary brand names alone are not flags.
+5. The default Block + Review view shows both types together. Rows per page defaults to All; choose 100, 250 or 500 for smaller pages. Select All Block + Review selects both across every page; the header checkbox selects the displayed result set.
+6. Use individual checkboxes or Select Filtered Flags for a narrower selection. Already-ended, unconfirmed-batch and no-match items cannot enter a new End batch.
+7. Review Selected on eBay opens up to 200 exact listings together. Inspect this batch before approval.
+8. Either return to GLDN, type the exact displayed phrase and click End Exact Batch, OR use eBay's own End confirmation after reviewing the rows. Do not submit through both paths.
+9. If you ended directly on eBay, use Check eBay Result in GLDN. No second End approval is needed to check results.
+10. If some results remain unconfirmed, choose Set Aside Batch & Continue. Those exact items stay excluded while you select and review other Block or Review flags.
+11. After verified success, ended counts update and remaining selection stays queued. Each next batch needs fresh approval.
 
 ### Approval Stop
 
@@ -1018,7 +1019,7 @@ Profile 2 previously reconciled seller extraction from 892 to 1,607. Signed-in P
 
 - Open Listing Policy Check from Workflows > Research.
 - Be signed into Amazon in this Chrome profile when raw Amazon links need to be read.
-- Use signed-in Profile 2 only for a separate approved Discord or Telegram research refresh.
+- Dashboard setup is optional. Without shared history, built-in rules and saved incidents still apply; newer incidents from other profiles may be missing.
 
 ### Exact Steps
 

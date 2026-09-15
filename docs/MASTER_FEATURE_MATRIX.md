@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-09-13
-Current local manifest: 3.12.44
+Last updated: 2026-09-14
+Current local manifest: 3.12.45
+
+v3.12.45 makes dashboard history optional for listing checks. Bundled rules and saved incident evidence remain active when dashboard setup is missing or history is unavailable. The warning records missing cross-profile coverage without claiming a verified sync. Regression and isolated browser checks cover this fallback; exact End approval is unchanged. Computer 6 installation and signed-in marketplace behavior are not claimed as verified.
 
 v3.12.44 repairs the popup Connect Dashboard ReferenceError with a masked inline entry field and Save & Test. Executable handler tests and isolated popup UI checks cover connection success, errors and cancellation. No live Computer 6 connection or marketplace action is claimed.
 

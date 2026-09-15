@@ -1404,7 +1404,9 @@ async function runLocalControlListingPreflight(payload = {}) {
   const ruleResponse = await fetch(chrome.runtime.getURL('listing-preflight-rules.json'), { cache: 'no-store' });
   if (!ruleResponse.ok) throw new Error(`Listing Preflight rules returned ${ruleResponse.status}.`);
   const rulePack = LISTING_PREFLIGHT.normalizeRulePack(await ruleResponse.json());
-  rulePack.incidentHistory = (await refreshViolationHistory(true)).records;
+  const history = await loadPolicyCheckHistory(true);
+  rulePack.incidentHistory = history.records;
+  rulePack.incidentHistoryWarning = history.warning;
   const rows = LISTING_PREFLIGHT.parseInputRows(input);
   if (!rows.length) throw new Error('Listing Preflight did not find any usable rows.');
   const results = LISTING_PREFLIGHT.evaluateRows(rows, rulePack);
@@ -5220,8 +5222,8 @@ async function loadListingPreflightRulePack(forceHistory = false) {
   if (!rulePack.ruleCount) {
     throw new Error('No reviewed policy rules are loaded. Existing listings cannot be classified.');
   }
-  const history = await refreshViolationHistory(forceHistory);
-  return { ...rulePack, incidentHistory: history.records };
+  const history = await loadPolicyCheckHistory(forceHistory);
+  return { ...rulePack, incidentHistory: history.records, incidentHistoryWarning: history.warning };
 }
 
 async function currentPolicyListingIdentity() {
@@ -5387,6 +5389,7 @@ async function runEbayPolicyListingScan(request = {}, sender = {}) {
         rulesFingerprint,
         ruleCount: rulePack.ruleCount,
         page: nextPage,
+        incidentHistoryWarning: rulePack.incidentHistoryWarning,
         nextPage,
         completedPages: Math.max(0, nextPage - 1),
         totalPages: totalPages || null,
@@ -5538,6 +5541,7 @@ async function runEbayPolicyListingScan(request = {}, sender = {}) {
         rulesFingerprint,
         ruleCount: rulePack.ruleCount,
         page: totalPages,
+        incidentHistoryWarning: rulePack.incidentHistoryWarning,
         nextPage: totalPages + 1,
         completedPages: totalPages,
         totalPages,
@@ -7606,6 +7610,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'getEbayViolationHistory' || message.type === 'syncEbayViolationHistory' || message.type === 'stopEbayViolationHistory') {
     const operation = message.type === 'stopEbayViolationHistory' ? stopViolationHistoryScan()
       : message.type === 'syncEbayViolationHistory' ? syncViolationHistory()
+      : message.optional === true ? loadPolicyCheckHistory(message.refresh === true)
       : getViolationHistoryStatus(message.refresh === true);
     return respondToExtensionMessage(operation, sendResponse, 'violation-history');
   }

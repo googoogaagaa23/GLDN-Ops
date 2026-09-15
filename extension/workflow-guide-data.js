@@ -1,6 +1,6 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.44",
-  "updated": "2026-09-13",
+  "version": "3.12.45",
+  "updated": "2026-09-14",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",
@@ -570,11 +570,12 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
       "prerequisites": [
         "The intended eBay account is signed in in this Chrome profile and its computer identity is saved.",
         "No other GLDN Ops scan or marketplace review is active.",
-        "The shared reviewed Listing Preflight rule pack is present."
+        "The bundled reviewed Listing Preflight rule pack is present. Dashboard setup is optional for listing checks."
       ],
       "steps": [
         "Open Workflows, Listings, then Scan Existing Listings.",
         "Start or Resume a scan; Refresh Policy Checks reclassifies saved rows with current rules without rescanning.",
+        "If shared history is unavailable, the scan still uses built-in rules and saved incidents. The warning means newer incidents from other profiles may be missing, not that the scan is blocked.",
         "Inspect matched reasons. Review is not a confirmed violation; ordinary brand names alone are not flags.",
         "The default Block + Review view shows both types together. Rows per page defaults to All; choose 100, 250 or 500 for smaller pages. Select All Block + Review selects both across every page; the header checkbox selects the displayed result set.",
         "Use individual checkboxes or Select Filtered Flags for a narrower selection. Already-ended, unconfirmed-batch and no-match items cannot enter a new End batch.",
@@ -661,7 +662,7 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
       "prerequisites": [
         "Open Listing Policy Check from Workflows > Research.",
         "Be signed into Amazon in this Chrome profile when raw Amazon links need to be read.",
-        "Use signed-in Profile 2 only for a separate approved Discord or Telegram research refresh."
+        "Dashboard setup is optional. Without shared history, built-in rules and saved incidents still apply; newer incidents from other profiles may be missing."
       ],
       "steps": [
         "Open Listing Policy Check; no copied links are required for the page to open.",

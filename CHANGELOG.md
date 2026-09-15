@@ -1,5 +1,12 @@
 # GLDN Ops Changelog
 
+## v3.12.45 - 2026-09-14
+
+- Removed the dashboard setup requirement from Existing Listings scans, saved-audit reclassification, batch validation and Listing Policy Check.
+- Continue with bundled rules and locally saved/cached removal incidents when shared history is missing, offline, invalid or slow; display a coverage warning instead of blocking the workflow.
+- Preserve pesticide, spray-can and IP checks, Ready-only export, exact End approval and strict shared-sync acknowledgements.
+- Added missing-code, offline-cache, timeout, invalid-response, reconnect and isolated browser regression coverage. Remote installation and signed-in marketplace behavior remain separate verification steps.
+
 ## v3.12.44 - 2026-09-13
 
 - Fixed Connect Dashboard failing with "U is not defined" before the operator could paste a setup code.

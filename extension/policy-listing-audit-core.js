@@ -190,6 +190,7 @@
       rulesVersion: pack.version,
       clearanceProfileVersion: pack.clearancePolicy.version,
       ruleCount: pack.ruleCount,
+      incidentHistoryWarning: pack.incidentHistoryWarning,
       scannedAt,
       importedAt: scannedAt,
       computerLabel,
@@ -204,6 +205,7 @@
   function buildPolicyAudit(records, rulePack, metadata = {}, preflight = root.GLDN_LISTING_PREFLIGHT) {
     if (!preflight) throw new Error("Listing Preflight did not load.");
     const pack = preflight.normalizeRulePack(rulePack);
+    pack.incidentHistoryWarning = normalizeText(rulePack?.incidentHistoryWarning);
     if (!pack.rules.length) throw new Error("No reviewed policy rules are loaded. Existing listings cannot be classified.");
     return assemblePolicyAudit(classifyAuditRecords(normalizedAuditRecords(records), pack, preflight), pack, metadata, preflight);
   }
@@ -211,6 +213,7 @@
   async function buildPolicyAuditAsync(records, rulePack, metadata = {}, preflight = root.GLDN_LISTING_PREFLIGHT, options = {}) {
     if (!preflight) throw new Error("Listing Preflight did not load.");
     const pack = preflight.normalizeRulePack(rulePack);
+    pack.incidentHistoryWarning = normalizeText(rulePack?.incidentHistoryWarning);
     if (!pack.rules.length) throw new Error("No reviewed policy rules are loaded. Existing listings cannot be classified.");
     const listings = normalizedAuditRecords(records);
     const batchSize = Math.max(1, Math.min(200, Math.floor(Number(options.batchSize) || 100)));
@@ -331,6 +334,7 @@
       rulesVersion: normalizeText(audit.rulesVersion),
       clearanceProfileVersion: normalizeText(audit.clearanceProfileVersion),
       ruleCount: Number(audit.ruleCount || 0),
+      incidentHistoryWarning: normalizeText(audit.incidentHistoryWarning),
       scannedAt: String(audit.scannedAt || ""),
       computerLabel: normalizeText(audit.computerLabel),
       ebayAccountLabel: normalizeText(audit.ebayAccountLabel).toUpperCase(),

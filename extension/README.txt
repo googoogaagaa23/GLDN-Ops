@@ -1,4 +1,12 @@
-GLDN Ops v3.12.44
+GLDN Ops v3.12.45
+
+v3.12.45 optional dashboard for listing checks:
+- Existing Listings and Listing Policy Check no longer need a dashboard setup code.
+- Built-in rules plus locally saved and cached shared incidents still apply.
+- Missing, offline or slow shared history shows a warning without stopping the check.
+- Newer incidents from other profiles may be missing until shared history reconnects.
+- Explicit Sync Shared History still requires a working dashboard and verified readback.
+- Update & Reload, then reopen the listing check. Bulk End approval is unchanged.
 
 v3.12.44 dashboard connection repair:
 - Connect Dashboard now opens a masked, pasteable field inside the popup.

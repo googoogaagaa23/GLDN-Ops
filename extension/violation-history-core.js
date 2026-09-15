@@ -101,5 +101,10 @@
         reason: [result.matches?.length ? result.reason : '', ...matches.map((m) => m.reason)].filter(Boolean).join(' | ') };
     });
   }
-  return Object.freeze({ clean, safeUrl, asinFromSku, normalizeRecord, mergeRecords, fingerprint, applyHistory });
+  function unavailableWarning(count) {
+    return 'Shared removal history is unavailable. Checking built-in rules and ' + Number(count || 0).toLocaleString()
+      + (Number(count) === 1 ? ' saved incident.' : ' saved incidents.')
+      + ' Newer incidents from other profiles may be missing. Dashboard connection is optional.';
+  }
+  return Object.freeze({ clean, safeUrl, asinFromSku, normalizeRecord, mergeRecords, fingerprint, applyHistory, unavailableWarning });
 });

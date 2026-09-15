@@ -18,6 +18,7 @@
     discardScan: byId("discardScan"),
     scanHeadline: byId("scanHeadline"),
     scanDetail: byId("scanDetail"),
+    historyWarning: byId("historyWarning"),
     auditIdentity: byId("auditIdentity"),
     metricScanned: byId("metricScanned"),
     metricClear: byId("metricClear"),
@@ -205,6 +206,9 @@
       && pendingReview.reviewMode === "native-active-listings-ui";
 
     const summary = audit?.summary || scanState?.classificationSummary || {};
+    const historyWarning = scanActive ? scanState?.incidentHistoryWarning : audit ? audit.incidentHistoryWarning : scanState?.incidentHistoryWarning;
+    elements.historyWarning.textContent = String(historyWarning || "");
+    elements.historyWarning.hidden = !historyWarning;
     elements.metricScanned.textContent = Number(audit?.summary?.total || scanState?.scannedListings || 0).toLocaleString();
     elements.metricClear.textContent = Number(summary.clear || 0).toLocaleString();
     elements.metricReview.textContent = Number(summary.review || 0).toLocaleString();

@@ -7,6 +7,7 @@
 }
 
 [hidden] { display: none !important; }
+.history-warning { margin: 0 0 12px; padding: 10px 14px; border-left: 3px solid #eab308; background: #241e0e; color: #fde68a; font-size: 13px; line-height: 1.5; }
 
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: #090d13; }
