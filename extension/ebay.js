@@ -1196,7 +1196,8 @@
   }
 
   function extractEbayOrderNumber() {
-    const text = document.body?.innerText || "";
+    const inlineNote = document.getElementById?.("gldn-inline-order-note");
+    const text = (document.body?.innerText || "").replace(inlineNote?.innerText || "\u0000", "");
     const standard = text.match(/\b\d{2}-\d{5}-\d{5}\b/);
     if (standard) return standard[0];
     const orderLine = text.match(/\bOrder\s*\n?\s*([A-Z0-9-]{8,})/i);
@@ -1993,7 +1994,9 @@
   }
 
   async function openAndFillAddNote(note) {
-    await navigator.clipboard.writeText(note);
+    const ownerOrderNumber = extractEbayOrderNumber();
+    const ownerUrl = location.href;
+    try { await navigator.clipboard.writeText(note); } catch (_) { /* Native filling does not require clipboard access. */ }
     let textarea = findVisibleNoteTextarea();
     if (!textarea) {
       const editNote = findExistingNoteEditButton();
@@ -2012,6 +2015,7 @@
       textarea = await U.waitFor(findVisibleNoteTextarea, 5000);
     }
     if (!textarea) throw new Error("The eBay note box did not open. Open it manually and try again.");
+    if (!ownerOrderNumber || location.href !== ownerUrl || extractEbayOrderNumber() !== ownerOrderNumber) throw new Error("The eBay order changed. Reopen the note on the intended order.");
     textarea.focus();
     U.setNativeValue(textarea, note);
     textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertFromPaste", data: note }));
@@ -2051,6 +2055,113 @@
     if (noteCandidates.length === 1) return noteCandidates[0];
     if (noteCandidates.length > 1) return null;
     return candidates.length === 1 ? candidates[0] : null;
+  }
+
+  function buildAmazonNoteDraft(payload, order, earnings, now = Date.now()) {
+    if (payload?.source !== "amazon" || !Number.isFinite(payload.total) || payload.total <= 0
+      || !String(payload.profileLabel || "").trim() || !Number.isFinite(earnings)) {
+      throw new Error("Amazon total, profile, or eBay earnings is missing. Correct the note manually or copy Amazon information again.");
+    }
+    const age = now - Date.parse(payload.capturedAt || "");
+    if (!Number.isFinite(age) || age < -60000 || age > 86400000) throw new Error("The copied Amazon information is more than a day old or has no valid date. Copy it again.");
+    const sourceAsins = Array.isArray(payload.asins) ? payload.asins.map(value => String(value).toUpperCase()) : [];
+    const requiredAsins = Array.isArray(order.asins) ? order.asins.map(value => String(value).toUpperCase()) : [];
+    if (sourceAsins.length && requiredAsins.length && (sourceAsins.length !== requiredAsins.length
+      || !requiredAsins.every(asin => sourceAsins.includes(asin)))) throw new Error("The copied Amazon item does not match this eBay order's SKU.");
+    const etas = Array.isArray(payload.etas) ? payload.etas.map(value => U.parseDateToMD(String(value))).filter(Boolean) : [];
+    if (!etas.length) throw new Error("The copied Amazon information has no ETA. Enter the note manually or copy it again.");
+    return `${U.formatMoney(earnings)} - ${U.formatMoney(payload.total)} - ${String(payload.profileLabel).trim()} - ${buildEtaText(etas)}`;
+  }
+
+  function ensureInlineOrderNote() {
+    const id = "gldn-inline-order-note";
+    const existing = document.getElementById(id);
+    const orderNumber = isEbayOrderDetailsPage() ? extractEbayOrderNumber() : "";
+    const ownerUrl = location.href;
+    const urlOrder = new URL(ownerUrl).searchParams.get("orderid");
+    if (!orderNumber || (urlOrder && urlOrder !== orderNumber)) { existing?.remove(); return; }
+    if (existing?.dataset.orderNumber === orderNumber && existing.dataset.orderUrl === ownerUrl) return;
+    existing?.remove();
+    const heading = [...document.querySelectorAll("h1")].find(element => /^Order details$/i.test(element.textContent.trim()));
+    if (!heading) return;
+    const host = document.createElement("section");
+    host.id = id;
+    host.className = "gldn-inline-order-note";
+    host.dataset.orderNumber = orderNumber;
+    host.dataset.orderUrl = ownerUrl;
+    host.setAttribute("aria-label", "GLDN order note");
+    host.innerHTML = `
+      <div class="gldn-inline-note-heading"><strong>GLDN Order Note</strong><span data-note-order></span></div>
+      <label for="gldn-inline-note-text">Editable note</label>
+      <textarea id="gldn-inline-note-text" rows="2" placeholder="eBay earnings - Amazon total - profile - ETA"></textarea>
+      <div class="gldn-inline-note-actions">
+        <button type="button" data-note-action="import">Use copied Amazon info</button>
+        <button type="button" data-note-action="copy">Copy note</button>
+        <button type="button" data-note-action="fill" disabled>Fill eBay note</button>
+      </div>
+      <label class="gldn-inline-note-confirm"><input type="checkbox"> I checked the buyer, address, item, and note for this order.</label>
+      <p role="status">Draft only. eBay Save remains manual; this box does not sync profit.</p>
+    `;
+    heading.insertAdjacentElement("afterend", host);
+    host.querySelector("[data-note-order]").textContent = orderNumber;
+    const textarea = host.querySelector("textarea");
+    const confirm = host.querySelector("input[type='checkbox']");
+    const fill = host.querySelector("[data-note-action='fill']");
+    const status = host.querySelector("[role='status']");
+    textarea.value = extractExistingNote();
+    let busy = false;
+    const stillOwned = () => host.isConnected && location.href === ownerUrl && isEbayOrderDetailsPage() && extractEbayOrderNumber() === orderNumber;
+    const refresh = () => { fill.disabled = busy || !confirm.checked || !textarea.value.trim(); };
+    const importPayload = payload => {
+      if (!stillOwned()) throw new Error("The order changed. Open the intended order first.");
+      textarea.value = buildAmazonNoteDraft(payload, extractEbayOrderIdentity(), extractEbayEarnings());
+      confirm.checked = false;
+      refresh();
+      status.textContent = payload.exactOrderDetails === true
+        ? "Amazon information imported as an editable draft. No note saved or profit synced."
+        : "Checkout estimate imported. Amazon purchase is not confirmed. No note saved or profit synced.";
+    };
+    const run = async action => {
+      if (busy) return;
+      busy = true;
+      host.querySelectorAll("button").forEach(button => { button.disabled = true; });
+      try {
+        if (!stillOwned()) throw new Error("The order changed. Open the intended order first.");
+        await action();
+      } catch (error) { status.textContent = error.message; }
+      finally {
+        busy = false;
+        host.querySelectorAll("button").forEach(button => { button.disabled = false; });
+        refresh();
+      }
+    };
+    textarea.addEventListener("input", () => {
+      confirm.checked = false;
+      const value = textarea.value.trim();
+      if (value.startsWith(U.PAYLOAD_PREFIX)) {
+        try { importPayload(JSON.parse(value.slice(U.PAYLOAD_PREFIX.length))); }
+        catch (error) { textarea.value = ""; status.textContent = error.message; }
+      }
+      refresh();
+    });
+    confirm.addEventListener("change", refresh);
+    host.querySelector("[data-note-action='import']").addEventListener("click", () => run(async () => {
+      importPayload(await readAmazonClipboard(extractEbayOrderIdentity()));
+    }));
+    host.querySelector("[data-note-action='copy']").addEventListener("click", () => run(async () => {
+      if (!textarea.value.trim()) throw new Error("Enter a note first.");
+      await navigator.clipboard.writeText(textarea.value.trim());
+      status.textContent = "Note copied. Nothing saved on eBay.";
+    }));
+    fill.addEventListener("click", () => run(async () => {
+      if (!confirm.checked || !textarea.value.trim()) throw new Error("Review the note and check the confirmation first.");
+      await openAndFillAddNote(textarea.value.trim());
+      // Manual drafts must never inherit a verified profit record or trigger sync.
+      expectedSavedNote = null;
+      expectedProfitRecord = null;
+      previousSavedNote = "";
+      status.textContent = "Filled in eBay. Review and click eBay Save when ready. No profit record will be synced from this draft.";
+    }));
   }
 
   async function prepareNote() {
@@ -12310,6 +12421,7 @@
   });
 
   createPanel();
+  ensureInlineOrderNote();
   installVariationEndApprovalGuard();
   installEbayDailyPanelShortcut();
   installSavedBulkEditDialogWatcher();
@@ -12344,6 +12456,7 @@
   ebayHeartbeatTimer = setInterval(async () => {
     if (extensionContextInvalidated) return;
     try {
+      ensureInlineOrderNote();
       if (lastPanelVisibilityHref !== location.href) {
         lastPanelVisibilityHref = location.href;
         await refreshEbayPanelWorkflowVisibility();

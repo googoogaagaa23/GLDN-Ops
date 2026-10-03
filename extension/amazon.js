@@ -373,8 +373,8 @@
     const cleaned = String(line || "").replace(/\s+/g, " ").trim();
     if (!cleaned) return "";
 
-    // Selected checkout shipment heading: Arriving Jul 2, 2026
-    let match = cleaned.match(/^Arriving\s+(?:[A-Za-z]+,\s*)?([A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?)/i);
+    // Selected checkout shipment headings include "Arriving by Oct 7, 2026".
+    let match = cleaned.match(/^Arriving\s+(?:(?:by|on)\s+)?(?:[A-Za-z]+,\s*)?([A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?)/i);
     if (match) return U.parseDateToMD(match[1]);
 
     // Confirmation page: Tomorrow, July 2 / Today, July 2
@@ -1522,6 +1522,26 @@
     }
   }
 
+  function watchAmazonPreviewEtas(overlay, input) {
+    const pageUrl = location.href;
+    let edited = false;
+    let timer = 0;
+    const stop = () => { observer.disconnect(); clearTimeout(timer); };
+    const refresh = () => {
+      timer = 0;
+      if (!overlay.isConnected || location.href !== pageUrl) { stop(); return; }
+      if (edited) return;
+      const dates = extractCheckoutData().etas || [];
+      if (dates.length) input.value = dates.join(", ");
+    };
+    const observer = new MutationObserver(() => {
+      if (!timer) timer = setTimeout(refresh, 150);
+    });
+    input.addEventListener("input", () => { edited = true; });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    return stop;
+  }
+
   function showAmazonPreview({ profileLabel, total, etas, titles, shippingBlock, marketplaceContext, matchedItems = [], orderEvidence = {} }) {
     document.getElementById("gldn-amazon-preview")?.remove();
     const exactMarketplaceTotal = marketplaceContext ? AUDIT.sumItemCosts(matchedItems) : null;
@@ -1548,7 +1568,7 @@
         </div>
         <div class="gldn-field-row">
           <label class="gldn-label" for="gldn-amazon-etas">ETA</label>
-          <input id="gldn-amazon-etas" class="gldn-text-input" value="${escapeHtml((etas || []).join(", "))}" placeholder="7/2 or 7/2, 7/4">
+          <input id="gldn-amazon-etas" class="gldn-text-input" value="${escapeHtml((etas || []).join(", "))}" placeholder="M/D">
           <div class="gldn-field-help">For multiple item ETAs, separate dates with commas.</div>
         </div>
         <div class="gldn-grid">
@@ -1575,7 +1595,8 @@
     const status = overlay.querySelector(".gldn-modal-status");
     const copyButton = overlay.querySelector("[data-action='copy']");
 
-    const close = () => overlay.remove();
+    const stopEtaAutofill = marketplaceContext ? () => {} : watchAmazonPreviewEtas(overlay, etaInput);
+    const close = () => { stopEtaAutofill(); overlay.remove(); };
     overlay.querySelector(".gldn-close").addEventListener("click", close);
     overlay.querySelector("[data-action='cancel']").addEventListener("click", close);
 

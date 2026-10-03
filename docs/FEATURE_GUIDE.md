@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.45. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.46. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -24,7 +24,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Dashboard and Sync Queue](#dashboard) - **PARTIAL**
 - [Local Update and Rollback](#deployment) - **PARTIAL**
 - [Mark as Shipped](#mark-shipped) - **PARTIAL**
-- [eBay Order Note and Profit](#ebay-note-profit) - **LIVE PASS**
+- [eBay Order Note and Profit](#ebay-note-profit) - **PARTIAL**
 - [eBay Profit Audit](#ebay-monthly-profit) - **PARTIAL LIVE**
 - [Order Placement Audit](#order-placement-audit) - **PARTIAL LIVE**
 - [Seller Level and Tasks Metrics](#seller-metrics) - **LIVE PASS**
@@ -352,25 +352,24 @@ Profile 2 previously completed 3 of 3 orders and read back zero remaining plus e
 
 **Matrix:** E-04, E-05
 
-**Evidence status:** LIVE PASS
+**Evidence status:** PARTIAL
 
-**Purpose:** Match the exact Amazon order item to the eBay SKU, fill the note, and sync one profit row.
+**Purpose:** Draft an eBay note visibly on Order Details, or use the separate exact-order workflow for verified profit.
 
 ### Prerequisites
 
-- The exact Amazon order-details card is open, not checkout or a product page.
-- The matching eBay order has a visible EcomSniper Custom label SKU.
+- Open the matching eBay Order Details page.
+- For automatic profit, use the exact Amazon order-details card and a matching EcomSniper Custom label SKU; checkout information is only a draft.
 
 ### Exact Steps
 
-1. On Amazon order details, click Review & Copy Amazon Info.
-2. Verify order ID, ASIN, item-row cost or Grand Total, ETA, and evidence source.
-3. Click Copy Amazon Info; GLDN Ops saves the reviewed handoff even when browser clipboard access is blocked.
-4. Open the matching eBay order and click Prepare Order Note.
-5. Confirm the decoded ASIN exactly matches the saved Amazon evidence.
-6. Click Fill Add Note Box or Fill Edit Note Box.
-7. Review the real eBay textarea and approve Save only when the note is correct.
-8. After eBay visibly saves, confirm one dashboard profit row.
+1. On Amazon, click Review & Copy Amazon Info. Selected Arriving by/on dates populate ETA, including dates loaded after the review opens; manual ETA edits are preserved.
+2. Verify total, ETA and profile, then click Copy Amazon Info. For verified profit, also verify order ID, exact ASIN and item-cost evidence on Amazon order details.
+3. For a manual draft, use the GLDN Order Note box under the eBay Order details heading, even when the side panel is collapsed. Click Use copied Amazon info or paste the copied information into Editable note.
+4. Edit the note as needed, check the buyer, address and item against Amazon, tick the confirmation, then click Fill eBay note.
+5. Review the native eBay textarea and click Save only when correct. The draft path does not sync profit.
+6. For verified profit instead, use Prepare Order Note in the GLDN panel, confirm the exact ASIN match, and click Fill Add Note Box or Fill Edit Note Box.
+7. Review and manually save the verified note, then confirm one dashboard profit row.
 
 ### Approval Stop
 
@@ -378,18 +377,21 @@ STOP at eBay Save. Saving the note requires explicit action-time approval.
 
 ### Expected Output
 
-Saved eBay note plus one upserted profit row with supplier order, ASIN, cost, profit, and margin evidence.
+An editable note draft with manual eBay Save and no profit sync, or a separately verified saved note plus one upserted profit row.
 
 ### Failure Recovery
 
-- Checkout, product-page, stale, wrong-order, or mismatched-ASIN evidence must fail closed.
-- If no reviewed Amazon handoff is ready, use the visible recovery window to open Amazon Orders and review the exact order.
-- Do not sync profit before eBay Save.
-- An already matching saved note may refresh the same row without another Save.
+- Known mismatched ASINs or copied information older than one day cannot be imported into a draft. Manually review missing ASINs against the buyer, address and item.
+- Across Chrome profiles, paste Copy Amazon Info into Editable note; profile-local saved handoffs are not shared.
+- Changing the eBay order clears the draft and its review checkbox.
+- Checkout, product-page, stale, wrong-order, or mismatched-ASIN evidence remains ineligible for verified profit.
+- If no verified handoff is ready, use Prepare Order Note's recovery window to review the exact Amazon order.
+- eBay Save remains manual; the draft path never syncs profit.
+- An already matching verified saved note may refresh the same profit row without another Save.
 
 ### Evidence
 
-Profile 2 matched an exact Amazon order and ASIN, filled the real eBay note, and later read back one deduplicated profit row. v3.12.16 adds saved-handoff fallback and visible failure recovery coverage.
+Historical Profile 2 proof covers exact-order note and profit sync. v3.12.46 adds executable ETA/draft regressions and synthetic Chrome desktop/mobile checks with zero native Save clicks. The current affected signed-in checkout and eBay order were not available; current-version live validation remains pending.
 
 
 <a id="ebay-monthly-profit"></a>

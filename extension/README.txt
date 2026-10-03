@@ -1,4 +1,12 @@
-GLDN Ops v3.12.45
+GLDN Ops v3.12.46
+
+v3.12.46 Amazon ETA and visible eBay note draft:
+- Amazon's "Arriving by Oct 7, 2026" now fills ETA as 10/7.
+- Late-arriving delivery dates fill the open review without replacing manual edits.
+- eBay Order Details has a GLDN Order Note box even with the side panel collapsed.
+- Use copied Amazon info or enter a note, review the order, then Fill eBay note.
+- eBay Save stays manual. Checkout drafts do not confirm purchases or sync profit.
+- Update & Reload on each profile, then refresh the Amazon and eBay tabs.
 
 v3.12.45 optional dashboard for listing checks:
 - Existing Listings and Listing Policy Check no longer need a dashboard setup code.

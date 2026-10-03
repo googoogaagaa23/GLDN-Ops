@@ -1461,3 +1461,25 @@ html[data-gldn-theme-ready="true"] input[type="range"] {
 @media (max-width: 700px) {
   .gldn-actions-three { grid-template-columns: 1fr; }
 }
+.gldn-inline-order-note {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 12px 0 18px;
+  padding: 14px 0;
+  border-top: 1px solid #aab1bb;
+  border-bottom: 1px solid #aab1bb;
+  color: #20252b;
+  font: 14px/1.4 Arial, sans-serif;
+}
+.gldn-inline-order-note * { box-sizing: border-box; }
+.gldn-inline-note-heading { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 8px; }
+.gldn-inline-note-heading span { color: #59636f; font-size: 12px; }
+.gldn-inline-order-note > label { display: block; margin: 8px 0 4px; }
+.gldn-inline-order-note textarea { display: block; width: 100%; min-height: 62px; resize: vertical; padding: 8px; border: 1px solid #7e8998; border-radius: 4px; background: #fff; color: #20252b; font: inherit; }
+.gldn-inline-note-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.gldn-inline-note-actions button { min-height: 36px; padding: 7px 12px; border: 1px solid #536170; border-radius: 4px; background: #fff; color: #20252b; font: inherit; cursor: pointer; }
+.gldn-inline-note-actions button[data-note-action="fill"] { background: #195fa5; color: #fff; }
+.gldn-inline-note-actions button:disabled { opacity: .5; cursor: default; }
+.gldn-inline-order-note .gldn-inline-note-confirm { display: flex; align-items: flex-start; gap: 7px; }
+.gldn-inline-note-confirm input { flex: 0 0 16px; width: 16px; height: 16px; margin: 2px 0 0; }
+.gldn-inline-order-note p { margin: 8px 0 0; color: #59636f; overflow-wrap: anywhere; }

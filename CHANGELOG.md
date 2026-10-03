@@ -1,5 +1,14 @@
 # GLDN Ops Changelog
 
+## v3.12.46 - 2026-10-03
+
+- Auto-populate Amazon ETA from selected "Arriving by/on" shipment headings, including "Arriving by Oct 7, 2026" as 10/7.
+- Refresh an open Amazon review when delivery text loads late, while preserving manual ETA edits.
+- Add an always-visible editable GLDN Order Note section to eBay Order Details, independent of the collapsed side panel.
+- Allow reviewed checkout information to create a manual note draft without claiming a confirmed purchase or syncing profit. Preserve the separate exact-order verified-profit workflow.
+- Keep eBay Save manual; clear drafts on order navigation and stop native filling if the target order changes. Native filling no longer depends on clipboard permission.
+- Add focused regression tests and synthetic desktop/mobile browser evidence. Signed-in affected-account validation remains pending.
+
 ## v3.12.45 - 2026-09-14
 
 - Removed the dashboard setup requirement from Existing Listings scans, saved-audit reclassification, batch validation and Listing Policy Check.

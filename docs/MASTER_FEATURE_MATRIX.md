@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-09-14
-Current local manifest: 3.12.45
+Last updated: 2026-10-03
+Current local manifest: 3.12.46
+
+v3.12.46 fixes Amazon "Arriving by/on" ETA detection and adds a visible editable note draft on eBay Order Details, even when the GLDN panel is collapsed. Draft imports require operator review, reject known ASIN mismatches and stale evidence, never confirm an Amazon purchase, and never sync profit. Native eBay Save remains manual; order changes clear the draft. Focused regressions and synthetic Chrome desktop/mobile checks pass. The screenshot's signed-in checkout and order were not connected, so this is not a current signed-in LIVE PASS. See evidence/eta-note-v3.12.46/README.md.
 
 v3.12.45 makes dashboard history optional for listing checks. Bundled rules and saved incident evidence remain active when dashboard setup is missing or history is unavailable. The warning records missing cross-profile coverage without claiming a verified sync. Regression and isolated browser checks cover this fallback; exact End approval is unchanged. Computer 6 installation and signed-in marketplace behavior are not claimed as verified.
 
