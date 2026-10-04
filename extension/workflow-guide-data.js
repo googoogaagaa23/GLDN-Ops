@@ -1,6 +1,6 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.46",
-  "updated": "2026-10-03",
+  "version": "3.12.47",
+  "updated": "2026-10-04",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",
@@ -11,6 +11,32 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
     "IMPLEMENTED, LIVE REVIEW PENDING": "The implementation and deterministic data checks pass, but the current signed-in marketplace review still needs to be reached."
   },
   "features": [
+    {
+      "id": "companion-setup",
+      "matrix": "F-02",
+      "title": "Optional Extension Setup",
+      "status": "PARTIAL",
+      "summary": "Open optional eComSniper download and Trackerbot installation/sign-in controls.",
+      "prerequisites": [
+        "Use the Chrome profile where the companion extension belongs."
+      ],
+      "steps": [
+        "Click the GLDN Ops Chrome icon, then Optional Extension Setup.",
+        "Choose Download latest eComSniper, allow optional downloads, and sign in if needed.",
+        "Wait for Chrome-confirmed download completion and use Show downloaded file. Extract the ZIP and use Chrome Load unpacked manually.",
+        "For Trackerbot, choose Open Trackerbot in Chrome Web Store and approve Add to Chrome there.",
+        "Use Open Trackerbot sign-in for its website, then finish any separate extension login in Trackerbot.",
+        "Skip for now opens the feature tour without starting either provider."
+      ],
+      "approvalStop": "Chrome installation approval, verification, and separate extension login remain manual. No marketplace action is authorized.",
+      "output": "A confirmed versioned eComSniper download or an opened official Trackerbot page; opening a page is not installation or sign-in proof.",
+      "recovery": [
+        "A blocked or interrupted download stays unconfirmed. Check the provider tab and Chrome before retrying.",
+        "Passwords are not bundled or persisted by GLDN.",
+        "The setup button remains available after skipping or updating."
+      ],
+      "evidence": "Provider pages were inspected during local development. Executable regression and synthetic UI tests cover behavior; a completed signed-in download and Trackerbot installation are not claimed."
+    },
     {
       "id": "removed-listing-history",
       "matrix": "C-13",
@@ -70,26 +96,26 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
       "status": "PARTIAL",
       "summary": "Configure one Chrome profile without guessing its marketplace identity.",
       "prerequisites": [
-        "The credential-free GLDN Ops package is loaded unpacked in the intended Chrome profile.",
+        "GLDN Ops is installed in the intended Chrome profile.",
         "The operator knows the Tasks-sheet computer label."
       ],
       "steps": [
         "Open the popup and choose only the computer label.",
-        "Confirm the derived marketplace account before saving.",
-        "Click Save Computer.",
-        "Open Status. Click Connect Dashboard, paste your private setup code into the masked field, then choose Save & Test.",
-        "Wait for Dashboard connected securely, then Run Feature Health Check.",
-        "Copy Settings Backup before an update or profile move."
+        "Confirm the derived marketplace account, then click Save Computer.",
+        "The included shared dashboard connection loads automatically. Existing saved connections are kept.",
+        "Open Status and use Test Connection to verify server access; configured settings alone are not a successful connection.",
+        "Use Optional Extension Setup for eComSniper downloads and Trackerbot store/sign-in.",
+        "Run Feature Health Check and copy Settings Backup before a profile move."
       ],
       "approvalStop": "None. Setup must not start a marketplace workflow.",
       "output": "Saved computer/account mapping, dashboard connection, health report, and settings backup.",
       "recovery": [
-        "If the account is wrong, stop and correct the computer label instead of editing the derived account.",
-        "If the dashboard is not connected, use Connect Dashboard once in that Chrome profile; updates preserve it.",
-        "If dashboard testing fails, copy the full diagnostic report before clearing anything.",
-        "A clean-computer installation is still a final deployment gate."
+        "If the account is wrong, correct the computer label instead of editing the derived account.",
+        "Update & Reload restores a missing bundled default. Connect Dashboard remains available for an intentional override.",
+        "Google Access denied requires checking the dashboard deployment; re-entering the same key does not prove access.",
+        "Keep queued records until the dashboard confirms their receipt."
       ],
-      "evidence": "Identity mapping and health diagnostics are live-proven in Profile 2. Saved-profile dashboard setup and credential-free packaging are contract-tested; clean-computer proof remains pending."
+      "evidence": "v3.12.47 regression checks cover fresh-profile seeding, private/saved connection precedence and packaging. The existing endpoint returned Google HTTP 403 during release testing; live dashboard access remains unresolved."
     },
     {
       "id": "panel",

@@ -323,7 +323,13 @@ if ($BuildPackage) {
           $stream = $entry.Open()
           try {
             $reader = [System.IO.StreamReader]::new($stream)
-            $zipText += "`n--- $($entry.FullName) ---`n" + $reader.ReadToEnd()
+            $entryText = $reader.ReadToEnd()
+            if ($entry.FullName.Replace('\', '/') -eq 'GLDN-Ops/extension/dashboard-default.json') {
+              $default = $entryText | ConvertFrom-Json
+              Assert-True ($default.schemaVersion -eq 1 -and $default.publicByOwnerRequest -eq $true -and ([string]$default.dashboardKey).Length -ge 24) "Bundled dashboard default lacks explicit publication marker or key."
+            } else {
+              $zipText += "`n--- $($entry.FullName) ---`n" + $entryText
+            }
           } finally {
             if ($reader) { $reader.Dispose() } else { $stream.Dispose() }
           }

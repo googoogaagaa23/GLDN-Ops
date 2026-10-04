@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.12.46",
+  "version": "3.12.47",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",
@@ -13,6 +13,7 @@
     "clipboardRead",
     "clipboardWrite"
   ],
+  "optional_permissions": ["downloads"],
   "host_permissions": [
     "https://*.ebay.com/*",
     "https://*.amazon.com/*",

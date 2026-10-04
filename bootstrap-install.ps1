@@ -145,8 +145,8 @@ try {
   } elseif ($DashboardSetupCode) {
     New-LocalConfig $extensionRoot $DashboardSetupCode
   } else {
-    Write-Host "Dashboard setup stays in each Chrome profile and is preserved across extension updates."
-    Write-Host "Use Setup > Connect Dashboard once in a new Chrome profile."
+    Write-Host "The bundled dashboard connection loads automatically in new Chrome profiles."
+    Write-Host "Existing saved connections are preserved across extension updates."
   }
 
   $updaterInstaller = Join-Path $resolvedInstallRoot "tools\install-update-agent.ps1"

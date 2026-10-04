@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.47 - 2026-10-04
+
+- Ship Optional Extension Setup in the popup and on fresh installs: eComSniper versioned downloads, Trackerbot's official Chrome Web Store and sign-in.
+- Keep both providers opt-in, downloads permission optional, verification manual, and provider passwords transient.
+- Include the shared dashboard read/write key after the owner's explicit public-publication approval. New profiles seed it automatically; updates preserve saved connections and local overrides.
+- Update both package builders so setup files and dashboard defaults actually reach downloadable releases.
+- Separate configured settings from verified connectivity. The existing dashboard endpoint returned Google HTTP 403 during this release check; bundling its key is not a successful server-connection claim.
+
 ## v3.12.46 - 2026-10-03
 
 - Auto-populate Amazon ETA from selected "Arriving by/on" shipment headings, including "Arriving by Oct 7, 2026" as 10/7.

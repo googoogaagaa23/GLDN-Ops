@@ -14,7 +14,7 @@ GLDN Ops gives fresh Chrome profiles one stable unpacked folder per Windows comp
 8. Confirm **Automatic connection ready** in Status.
 9. Run **Test Connection** and **Run Feature Health Check**.
 
-Use the private GLDN Ops package for installation. It contains the local-only dashboard configuration and seeds every Chrome profile automatically; no dashboard code entry is required. The public source package intentionally excludes that private configuration.
+The GitHub release includes the owner-approved shared dashboard connection. New Chrome profiles configure it automatically; existing saved connections and private local overrides are preserved. No dashboard code entry is normally required. Use Test Connection to verify server access. Open the GLDN popup's Optional Extension Setup button for eComSniper downloads and Trackerbot installation/sign-in.
 
 The computer choice derives the marketplace identity automatically:
 

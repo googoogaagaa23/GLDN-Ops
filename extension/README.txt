@@ -1,4 +1,14 @@
-GLDN Ops v3.12.46
+GLDN Ops v3.12.47
+
+v3.12.47 included dashboard and optional extension setup:
+- New profiles automatically load the owner-approved shared dashboard connection.
+- Existing saved connections and local overrides stay intact through updates.
+- Test Connection verifies server access; configured does not mean synced.
+- Open the GLDN icon > Optional Extension Setup for eComSniper and Trackerbot.
+- Fresh installs open these optional choices; normal updates do not.
+- eComSniper downloads use versioned folders after optional download permission.
+- Trackerbot opens its official store and sign-in; approve Add to Chrome yourself.
+- Provider passwords are not bundled. The shared dashboard key is public by request.
 
 v3.12.46 Amazon ETA and visible eBay note draft:
 - Amazon's "Arriving by Oct 7, 2026" now fills ETA as 10/7.

@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-10-03
-Current local manifest: 3.12.46
+Last updated: 2026-10-04
+Current local manifest: 3.12.47
+
+v3.12.47 publishes Optional Extension Setup and the explicitly owner-approved public dashboard default. Fresh profiles seed the default; saved/private connections win. Popup setup controls, first-install launch and complete packaging have regression coverage. Provider downloads and Trackerbot installation remain user-initiated. Existing dashboard HTTP 403 is an unresolved server-access boundary, not a missing bundled key. This is not a current signed-in end-to-end LIVE PASS.
 
 v3.12.46 fixes Amazon "Arriving by/on" ETA detection and adds a visible editable note draft on eBay Order Details, even when the GLDN panel is collapsed. Draft imports require operator review, reject known ASIN mismatches and stale evidence, never confirm an Amazon purchase, and never sync profit. Native eBay Save remains manual; order changes clear the draft. Focused regressions and synthetic Chrome desktop/mobile checks pass. The screenshot's signed-in checkout and order were not connected, so this is not a current signed-in LIVE PASS. See evidence/eta-note-v3.12.46/README.md.
 

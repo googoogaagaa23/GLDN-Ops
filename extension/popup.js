@@ -1362,6 +1362,10 @@ document.getElementById('openFeatureTour').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
 });
 
+document.getElementById('openCompanionSetup').addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('companion-setup.html') });
+});
+
 document.getElementById('startSnipingWorkflow').addEventListener('click', async () => {
   let reservationToken = '';
   try {
@@ -1953,15 +1957,15 @@ async function ensureAutomaticDashboardSetup({ announce = false } = {}) {
     const response = await runtimeMessage({ type: 'seedDashboardSetupFromLocalConfig' });
     if (!response?.ok) throw new Error(response?.error || 'Automatic dashboard setup failed.');
     if (dashboardAutoSetupElement) {
-      dashboardAutoSetupElement.textContent = response.changed
-        ? 'Dashboard connection restored from this computer.'
-        : 'Dashboard setup code is saved in this Chrome profile.';
+      dashboardAutoSetupElement.textContent = response.source === 'bundled-default'
+        ? 'Default dashboard configured automatically. Use Test Connection to verify access.'
+        : 'Saved dashboard connection is configured. Use Test Connection to verify access.';
     }
-    if (announce) setMessage('Dashboard connection is ready.');
+    if (announce) setMessage('Dashboard configured. Test Connection verifies access.');
     return true;
   } catch (error) {
     if (dashboardAutoSetupElement) {
-      dashboardAutoSetupElement.textContent = 'Not connected. Choose Connect Dashboard once for this Chrome profile.';
+      dashboardAutoSetupElement.textContent = 'Automatic setup could not load. Update & Reload, or use Connect Dashboard to override it.';
     }
     if (announce) setMessage(error.message || 'Dashboard setup is missing.', true);
     return false;

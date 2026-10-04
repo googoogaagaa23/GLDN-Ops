@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.46. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.47. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -17,6 +17,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 ## Feature Index
 
+- [Optional Extension Setup](#companion-setup) - **PARTIAL**
 - [Removed Listing History](#removed-listing-history) - **PARTIAL**
 - [Health & Installations](#ops-health) - **IMPLEMENTED, UNPROVEN**
 - [First-Time Setup](#setup) - **PARTIAL**
@@ -48,6 +49,47 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Diagnostics, Backup, and Interface Settings](#diagnostics) - **PARTIAL**
 - [Feature Tour, Themes, and Universal Access](#onboarding-interface) - **PARTIAL**
 - [Walmart Order Helper](#walmart) - **IMPLEMENTED, UNPROVEN**
+
+<a id="companion-setup"></a>
+## Optional Extension Setup
+
+**Matrix:** F-02
+
+**Evidence status:** PARTIAL
+
+**Purpose:** Open optional eComSniper download and Trackerbot installation/sign-in controls.
+
+### Prerequisites
+
+- Use the Chrome profile where the companion extension belongs.
+
+### Exact Steps
+
+1. Click the GLDN Ops Chrome icon, then Optional Extension Setup.
+2. Choose Download latest eComSniper, allow optional downloads, and sign in if needed.
+3. Wait for Chrome-confirmed download completion and use Show downloaded file. Extract the ZIP and use Chrome Load unpacked manually.
+4. For Trackerbot, choose Open Trackerbot in Chrome Web Store and approve Add to Chrome there.
+5. Use Open Trackerbot sign-in for its website, then finish any separate extension login in Trackerbot.
+6. Skip for now opens the feature tour without starting either provider.
+
+### Approval Stop
+
+Chrome installation approval, verification, and separate extension login remain manual. No marketplace action is authorized.
+
+### Expected Output
+
+A confirmed versioned eComSniper download or an opened official Trackerbot page; opening a page is not installation or sign-in proof.
+
+### Failure Recovery
+
+- A blocked or interrupted download stays unconfirmed. Check the provider tab and Chrome before retrying.
+- Passwords are not bundled or persisted by GLDN.
+- The setup button remains available after skipping or updating.
+
+### Evidence
+
+Provider pages were inspected during local development. Executable regression and synthetic UI tests cover behavior; a completed signed-in download and Trackerbot installation are not claimed.
+
 
 <a id="removed-listing-history"></a>
 ## Removed Listing History
@@ -142,17 +184,17 @@ Deterministic lifecycle, status mapping, and pairing isolation checks. Signed-in
 
 ### Prerequisites
 
-- The credential-free GLDN Ops package is loaded unpacked in the intended Chrome profile.
+- GLDN Ops is installed in the intended Chrome profile.
 - The operator knows the Tasks-sheet computer label.
 
 ### Exact Steps
 
 1. Open the popup and choose only the computer label.
-2. Confirm the derived marketplace account before saving.
-3. Click Save Computer.
-4. Open Status. Click Connect Dashboard, paste your private setup code into the masked field, then choose Save & Test.
-5. Wait for Dashboard connected securely, then Run Feature Health Check.
-6. Copy Settings Backup before an update or profile move.
+2. Confirm the derived marketplace account, then click Save Computer.
+3. The included shared dashboard connection loads automatically. Existing saved connections are kept.
+4. Open Status and use Test Connection to verify server access; configured settings alone are not a successful connection.
+5. Use Optional Extension Setup for eComSniper downloads and Trackerbot store/sign-in.
+6. Run Feature Health Check and copy Settings Backup before a profile move.
 
 ### Approval Stop
 
@@ -164,14 +206,14 @@ Saved computer/account mapping, dashboard connection, health report, and setting
 
 ### Failure Recovery
 
-- If the account is wrong, stop and correct the computer label instead of editing the derived account.
-- If the dashboard is not connected, use Connect Dashboard once in that Chrome profile; updates preserve it.
-- If dashboard testing fails, copy the full diagnostic report before clearing anything.
-- A clean-computer installation is still a final deployment gate.
+- If the account is wrong, correct the computer label instead of editing the derived account.
+- Update & Reload restores a missing bundled default. Connect Dashboard remains available for an intentional override.
+- Google Access denied requires checking the dashboard deployment; re-entering the same key does not prove access.
+- Keep queued records until the dashboard confirms their receipt.
 
 ### Evidence
 
-Identity mapping and health diagnostics are live-proven in Profile 2. Saved-profile dashboard setup and credential-free packaging are contract-tested; clean-computer proof remains pending.
+v3.12.47 regression checks cover fresh-profile seeding, private/saved connection precedence and packaging. The existing endpoint returned Google HTTP 403 during release testing; live dashboard access remains unresolved.
 
 
 <a id="panel"></a>

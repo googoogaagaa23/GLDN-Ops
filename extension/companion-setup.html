@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>GLDN Ops - Optional Extension Setup</title>
+  <link rel="stylesheet" href="companion-setup.css">
+</head>
+<body>
+  <header><img src="icons/icon48.png" width="40" height="40" alt=""><div><h1>GLDN Ops</h1><p>Optional extension setup</p></div><a href="onboarding.html" class="skip">Skip for now</a></header>
+  <main>
+    <section aria-labelledby="ecomTitle">
+      <div class="heading"><span class="number">1</span><h2 id="ecomTitle">eComSniper</h2><span class="optional">Optional</span></div>
+      <div class="actions"><button id="ecomStart" type="button" class="primary">Download latest eComSniper</button><button id="ecomCheck" type="button" hidden>Check again</button><button id="ecomShow" type="button" hidden>Show downloaded file</button></div>
+      <p id="ecomStatus" role="status">Not started</p>
+      <p id="ecomPath" class="path" hidden></p>
+      <form id="ecomLogin" hidden>
+        <div class="fields"><label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label></div>
+        <button type="submit">Sign in to eComSniper</button>
+      </form>
+    </section>
+    <section aria-labelledby="trackerTitle">
+      <div class="heading"><span class="number">2</span><h2 id="trackerTitle">Trackerbot</h2><span class="optional">Optional</span></div>
+      <div class="actions"><button id="trackerStore" type="button" class="primary">Open Trackerbot in Chrome Web Store</button><button id="trackerStart" type="button">Open Trackerbot sign-in</button><button id="trackerCheck" type="button" hidden>Check again</button></div>
+      <p id="trackerStatus" role="status">Not started</p>
+      <form id="trackerLogin" hidden>
+        <div class="fields"><label>Email<input name="email" type="email" autocomplete="username" required></label><label>Password<input name="password" type="password" autocomplete="current-password" required></label></div>
+        <button type="submit">Sign in to Trackerbot</button>
+      </form>
+    </section>
+    <p id="setupError" role="alert" hidden></p>
+  </main>
+  <footer><a href="onboarding.html">Continue to feature tour</a><a href="guide.html">Open guide</a></footer>
+  <script src="companion-setup.js"></script>
+</body>
+</html>

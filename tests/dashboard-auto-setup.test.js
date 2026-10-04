@@ -13,7 +13,8 @@ const installer = fs.readFileSync(path.join(root, 'bootstrap-install.ps1'), 'utf
 test('dashboard operations use saved Chrome-profile setup and migrate legacy local config only when needed', () => {
   assert.match(background, /async function getDashboardConfig\(\)\s*\{[\s\S]*?storageGet[\s\S]*?await seedDashboardSetupFromLocalConfig\(\);[\s\S]*?storageGet/);
   assert.match(background, /source: 'saved-profile'/);
-  assert.match(background, /return \{ ok: true, changed, source: 'private-package' \}/);
+  assert.match(background, /let source = 'private-package'/);
+  assert.match(background, /source = 'bundled-default'/);
   assert.match(background, /Dashboard setup code is missing\. Open GLDN Ops Setup and choose Connect Dashboard\./);
 });
 
@@ -35,9 +36,9 @@ test('popup has saved-profile status and a pasteable inline connection field', (
   assert.doesNotMatch(popupJs, /\bU\.|window\.prompt/);
 });
 
-test('installer preserves profile-local dashboard setup and public config stays empty', () => {
-  assert.match(installer, /Dashboard setup stays in each Chrome profile and is preserved across extension updates\./);
-  assert.match(installer, /Use Setup > Connect Dashboard once in a new Chrome profile\./);
+test('installer preserves saved setup and new profiles use the approved default', () => {
+  assert.match(installer, /bundled dashboard connection loads automatically in new Chrome profiles/);
+  assert.match(installer, /Existing saved connections are preserved across extension updates/);
   assert.doesNotMatch(installer, /Read-Host\s+"Enter the private dashboard setup code/);
   assert.doesNotMatch(installer, /automatic dashboard connection included in this private package/i);
   assert.match(publicConfig, /dashboardKey:\s*""/);

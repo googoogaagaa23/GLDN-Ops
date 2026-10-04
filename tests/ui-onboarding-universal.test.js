@@ -61,6 +61,6 @@ test('panel and review windows expose persisted appearance controls', () => {
 test('first install opens the tour while updates leave the user alone', () => {
   const background = read('extension/background.js');
   assert.match(background, /details\?\.reason === 'install'/);
-  assert.match(background, /gldnOnboardingState/);
+  assert.match(background, /companion-setup\.html/);
   assert.match(background, /onboarding\.html/);
 });

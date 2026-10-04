@@ -35,6 +35,13 @@ $textFiles = Get-ChildItem -LiteralPath $stageRoot -Recurse -File | Where-Object
 }
 foreach ($file in $textFiles) {
   $text = Get-Content -Raw -LiteralPath $file.FullName
+  if ($file.FullName -eq (Join-Path $stageRoot "dashboard-default.json")) {
+    $default = $text | ConvertFrom-Json
+    if ($default.schemaVersion -ne 1 -or $default.publicByOwnerRequest -ne $true -or [string]$default.dashboardKey -match '^YOUR_' -or ([string]$default.dashboardKey).Length -lt 24 -or [string]$default.dashboardUrl -notmatch '^https://script\.google\.com/.+/exec$') {
+      throw "Owner-approved dashboard default is incomplete."
+    }
+    continue
+  }
   if ($text -match $legacyPrivatePattern) {
     throw "Public extension package contains a legacy private dashboard credential in $($file.FullName)."
   }
@@ -47,5 +54,5 @@ if (Test-Path -LiteralPath $zipPath) { Remove-Item -LiteralPath $zipPath -Force 
 Compress-Archive -Path (Join-Path $stageRoot "*") -DestinationPath $zipPath -CompressionLevel Optimal
 Remove-Item -LiteralPath $buildRoot -Recurse -Force
 
-Write-Host "Built credential-free extension package:"
+Write-Host "Built extension package with owner-approved shared dashboard default:"
 Write-Host "  $zipPath"

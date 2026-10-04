@@ -62,7 +62,7 @@ The extension uses the clipboard only for visible workflow actions, such as copy
 
 ## Security
 
-Dashboard sync uses HTTPS and requires a private setup code saved in the local Chrome profile. The Chrome Web Store package should not contain the private setup code.
+Dashboard sync uses HTTPS. Starting with v3.12.47, the owner explicitly authorized publishing the shared dashboard read/write setup code in the public GitHub release. The code is not a confidentiality or access-control boundary against anyone who can download that release. Existing profile connections are preserved. Provider passwords, Google credentials, and unrelated private local configuration are not bundled. The Chrome Web Store route is separate from this owner-requested GitHub distribution.
 
 ## Reviewed eBay Final Actions
 

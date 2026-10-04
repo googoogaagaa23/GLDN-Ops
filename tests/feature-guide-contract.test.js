@@ -112,9 +112,14 @@ test('irreversible workflows contain explicit approval stops', () => {
   assert.match(byId['move99'].approvalStop, /every eBay Submit/i);
 });
 
-test('guides do not claim Web Store or local-helper deployment', () => {
+test('only companion setup references the Web Store and guides do not claim local-helper deployment', () => {
   const combined = `${markdown}\n${html}`;
-  assert.doesNotMatch(combined, /Chrome Web Store|Reload Local Files|start tools\\local-click-helper/i);
+  const otherFeatures = catalog.features.filter((feature) => feature.id !== 'companion-setup');
+  assert.doesNotMatch(JSON.stringify(otherFeatures), /Chrome Web Store/i);
+  const companion = catalog.features.find((feature) => feature.id === 'companion-setup');
+  assert.ok(companion.steps.some((step) => /Trackerbot.*Chrome Web Store.*Add to Chrome/.test(step)));
+  assert.match(companion.approvalStop, /Chrome installation approval.*manual/);
+  assert.doesNotMatch(combined, /Reload Local Files|start tools\\local-click-helper/i);
   assert.match(combined, /No Windows local helper is required/);
   assert.match(combined, /EcomSniper private-page progress remains unreadable|private EcomSniper tab never proves processing completion/i);
 });

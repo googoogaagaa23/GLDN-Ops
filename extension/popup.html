@@ -65,7 +65,7 @@
     .version-pill { display:inline-block; margin-top:5px; padding:3px 7px; border-radius:999px; background:#e2e8f0; color:#334155; font-size:11px; font-weight:700; }
     .quick-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:8px 0 10px; }
     .quick-actions button { margin:0; }
-    #updateExtension, #openFeatureTour, #updaterStatus { grid-column:1 / -1; }
+    #updateExtension, #openCompanionSetup, #openFeatureTour, #updaterStatus { grid-column:1 / -1; }
     #updaterStatus { margin:0; padding:7px 9px; border:1px solid #cbd5e1; border-radius:8px; color:#475569; background:#f8fafc; font-size:11px; line-height:1.35; }
     #updaterStatus.ready { color:#166534; border-color:#86efac; background:#f0fdf4; }
     #updaterStatus.warning { color:#854d0e; border-color:#facc15; background:#fefce8; }
@@ -230,6 +230,7 @@
     <button id="reloadExtension" class="secondary" type="button">Reload Current Files</button>
     <button id="openFeatureGuide" class="secondary" type="button">Open Guide</button>
     <button id="openFeatureTour" class="secondary" type="button">Start Feature Tour</button>
+    <button id="openCompanionSetup" class="secondary" type="button">Optional Extension Setup</button>
     <button id="openOrderPlacementAuditQuick" class="warning" type="button" data-guide-id="order-placement-audit">Open Order Placement Audit</button>
   </div>
 
@@ -605,7 +606,7 @@
 
   <section class="section-card" data-popup-section="status" hidden>
     <h2>Shared dashboard</h2>
-    <p class="hint">The setup code is saved only in this Chrome profile and is never included in public downloads.</p>
+    <p class="hint">The shared dashboard connection is included by default. Existing saved connections are preserved.</p>
     <div id="dashboardAutoSetup" class="current">Checking dashboard connection...</div>
     <div class="button-row">
       <button id="testDashboard" class="secondary" type="button">Test Connection</button>

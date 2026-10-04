@@ -1,5 +1,7 @@
 importScripts(
   'deployment-channel.js',
+  'companion-setup-core.js',
+  'companion-setup-background.js',
   'config.example.js',
   'theme-catalog.js',
   'foundation.js',
@@ -6300,17 +6302,27 @@ async function seedDashboardSetupFromLocalConfig() {
     if (String(stored[DASHBOARD_SECRET_KEY] || '').trim()) {
       return { ok: true, changed: false, source: 'saved-profile' };
     }
-    const response = await fetch(chrome.runtime.getURL('config.js'), { cache: 'no-store' });
-    if (!response.ok) return { ok: false, error: 'Local config.js was not found.' };
-
-    const text = await response.text();
+    const response = await fetch(chrome.runtime.getURL('config.js'), { cache: 'no-store' }).catch(() => null);
+    const text = response?.ok ? await response.text() : '';
     const urlMatch = text.match(/dashboardUrl\s*:\s*["']([^"']+)["']/);
     const keyMatch = text.match(/dashboardKey\s*:\s*["']([^"']+)["']/);
-    const dashboardUrl = cleanWebAppUrl(urlMatch?.[1] || globalThis.GLDN_CONFIG?.dashboardUrl || '');
-    const dashboardKey = String(keyMatch?.[1] || '').trim();
+    let dashboardUrl = cleanWebAppUrl(urlMatch?.[1] || globalThis.GLDN_CONFIG?.dashboardUrl || '');
+    let dashboardKey = String(keyMatch?.[1] || '').trim();
+    let source = 'private-package';
 
     if (!dashboardKey || /^YOUR_/i.test(dashboardKey)) {
-      return { ok: false, error: 'Local config.js does not contain a dashboard setup code.' };
+      const bundledResponse = await fetch(chrome.runtime.getURL('dashboard-default.json'), { cache: 'no-store' });
+      if (!bundledResponse.ok) return { ok: false, error: 'Bundled dashboard connection is unavailable.' };
+      const bundled = await bundledResponse.json();
+      if (bundled.schemaVersion !== 1 || bundled.publicByOwnerRequest !== true) {
+        return { ok: false, error: 'Bundled dashboard connection is invalid.' };
+      }
+      dashboardUrl = cleanWebAppUrl(bundled.dashboardUrl);
+      dashboardKey = String(bundled.dashboardKey || '').trim();
+      if (!dashboardUrl || dashboardKey.length < 24 || /^YOUR_/i.test(dashboardKey)) {
+        return { ok: false, error: 'Bundled dashboard connection is incomplete.' };
+      }
+      source = 'bundled-default';
     }
 
     const changed = stored[DASHBOARD_URL_KEY] !== dashboardUrl || stored[DASHBOARD_SECRET_KEY] !== dashboardKey;
@@ -6320,7 +6332,7 @@ async function seedDashboardSetupFromLocalConfig() {
         [DASHBOARD_SECRET_KEY]: dashboardKey
       });
     }
-    return { ok: true, changed, source: 'private-package' };
+    return { ok: true, changed, source };
   } catch (error) {
     return { ok: false, error: error.message || 'Could not read local config.js.' };
   }
@@ -7293,10 +7305,8 @@ chrome.runtime.onInstalled.addListener((details) => {
   scheduleDashboardRetry();
   scheduleUpdaterCheck();
   if (details?.reason === 'install') {
-    storageGet(['gldnOnboardingState']).then((result) => {
-      if (result.gldnOnboardingState?.status) return;
-      chrome.tabs.create({ url: chrome.runtime.getURL('onboarding.html') });
-    }).catch((error) => {
+    // Optional setup links onward to the existing onboarding.html tour.
+    chrome.tabs.create({ url: chrome.runtime.getURL('companion-setup.html') }).catch((error) => {
       recordExtensionLog({ source: 'onboarding', operation: 'first-install', message: error.message });
     });
   }
