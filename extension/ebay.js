@@ -1996,29 +1996,47 @@
   async function openAndFillAddNote(note) {
     const ownerOrderNumber = extractEbayOrderNumber();
     const ownerUrl = location.href;
+    const assertOwner = () => {
+      if (!ownerOrderNumber || location.href !== ownerUrl || extractEbayOrderNumber() !== ownerOrderNumber) throw new Error("The eBay order changed. Reopen the note on the intended order.");
+    };
+    assertOwner();
     try { await navigator.clipboard.writeText(note); } catch (_) { /* Native filling does not require clipboard access. */ }
+    assertOwner();
     let textarea = findVisibleNoteTextarea();
     if (!textarea) {
-      const editNote = findExistingNoteEditButton();
-      if (editNote) {
-        dispatchFullClick(editNote);
-      } else {
-        const moreActions = U.findVisibleByText("More actions") || U.findVisibleContainingText("More actions");
+      let noteAction = findNativeOrderNoteControl("note") || findExistingNoteEditButton();
+      if (!noteAction) {
+        const moreActions = findNativeOrderNoteControl("more");
         if (!moreActions) throw new Error("I could not find More actions or the existing note's Edit button. Open the eBay note box manually, then press Fill again.");
+        assertOwner();
         dispatchFullClick(moreActions);
 
-        const addNote = await U.waitFor(() => U.findVisibleByText("Add note") || U.findVisibleContainingText("Add note"), 4000);
-        if (!addNote) throw new Error("I opened More actions but could not find Add note. Open Add note manually, then press Fill again.");
-        dispatchFullClick(addNote);
+        noteAction = await U.waitFor(() => { assertOwner(); return findNativeOrderNoteControl("note"); }, 4000);
+        if (!noteAction) throw new Error("I could not find Add order note or Edit order note in More actions. Open the eBay note box manually, then press Fill again.");
       }
+      assertOwner();
+      dispatchFullClick(noteAction);
 
-      textarea = await U.waitFor(findVisibleNoteTextarea, 5000);
+      textarea = await U.waitFor(() => { assertOwner(); return findVisibleNoteTextarea(); }, 5000);
     }
     if (!textarea) throw new Error("The eBay note box did not open. Open it manually and try again.");
-    if (!ownerOrderNumber || location.href !== ownerUrl || extractEbayOrderNumber() !== ownerOrderNumber) throw new Error("The eBay order changed. Reopen the note on the intended order.");
+    assertOwner();
     textarea.focus();
     U.setNativeValue(textarea, note);
     textarea.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertFromPaste", data: note }));
+  }
+
+  function findNativeOrderNoteControl(kind) {
+    const pattern = kind === "more" ? /^more actions$/ : /^(?:add|edit)(?: (?:a|an|the))?(?: order)? note$/;
+    const candidates = [...document.querySelectorAll("button, a, li, [role='button'], [role='menuitem']")]
+      .filter(U.isVisible)
+      .filter(element => !element.disabled && element.getAttribute?.("aria-disabled") !== "true")
+      .filter(element => !element.closest?.("[id^='gldn-'], .gldn-modal-backdrop"))
+      .filter(element => [element.innerText || element.textContent, element.getAttribute?.("aria-label")]
+        .some(label => pattern.test(U.normalizeText(label || ""))));
+    const targets = candidates.filter(element => !candidates.some(other => other !== element && element.contains(other)));
+    if (targets.length > 1) throw new Error("More than one eBay note control is visible. Open the intended order's note box manually, then press Fill again.");
+    return targets[0] || null;
   }
 
   function findExistingNoteEditButton() {
@@ -2046,8 +2064,7 @@
         textarea.getAttribute?.("data-testid"),
         dialog?.innerText
       ].filter(Boolean).join(" "));
-      return signal.includes("add note")
-        || signal.includes("edit note")
+      return /\b(?:add|edit)(?: order)? note\b/.test(signal)
         || signal.includes("note to self")
         || signal.includes("your note");
     });

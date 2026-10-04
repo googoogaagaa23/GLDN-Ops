@@ -369,9 +369,23 @@
     return collected.join(" | ");
   }
 
-  function parseEtaLine(line) {
+  function parseEtaLine(line, now = Date.now()) {
     const cleaned = String(line || "").replace(/\s+/g, " ").trim();
     if (!cleaned) return "";
+
+    const relative = cleaned.match(/^(?:Arriving|Arrives?|Delivery(?: date)?|Estimated delivery|Expected)(?:\s+(?:by|on))?\s*:?\s+(Today|Tomorrow)\b(.*)$/i);
+    if (relative) {
+      const suffix = relative[2].replace(/^\s*,?\s*/, "");
+      const explicitDate = /^(?:[A-Za-z]+,\s*)?(?:[A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?|\d{1,2}\/\d{1,2}(?:\/\d{4})?)$/.test(suffix) ? U.parseDateToMD(suffix) : "";
+      if (explicitDate) return explicitDate;
+      // Resolve only shipment headings, not unselected "Fastest Tomorrow" options.
+      if (suffix && !/^(?:by\s+|between\s+)?\d{1,2}(?::\d{2})?\s*(?:AM|PM)(?:\s*(?:-|to|\u2013|\u2014)\s*\d{1,2}(?::\d{2})?\s*(?:AM|PM))?$/i.test(suffix)) return "";
+      const date = new Date(now);
+      if (!Number.isFinite(date.getTime())) return "";
+      // Calendar arithmetic preserves the local date across DST and year changes.
+      date.setDate(date.getDate() + (/^tomorrow$/i.test(relative[1]) ? 1 : 0));
+      return `${date.getMonth() + 1}/${date.getDate()}`;
+    }
 
     // Selected checkout shipment headings include "Arriving by Oct 7, 2026".
     let match = cleaned.match(/^Arriving\s+(?:(?:by|on)\s+)?(?:[A-Za-z]+,\s*)?([A-Za-z]{3,9}\s+\d{1,2}(?:,\s*\d{4})?)/i);
@@ -392,14 +406,14 @@
     return "";
   }
 
-  function extractAmazonEtas() {
+  function extractAmazonEtas(now = Date.now()) {
     const lines = U.getBodyLines();
     const etas = [];
 
     // Only read selected/final shipment headings. Intentionally ignore
     // alternate choices such as "Amazon Day Monday, Jul 6".
     for (const line of lines) {
-      const eta = parseEtaLine(line);
+      const eta = parseEtaLine(line, now);
       if (eta && !etas.includes(eta)) etas.push(eta);
     }
 

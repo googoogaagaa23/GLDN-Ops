@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.47. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.48. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -433,7 +433,7 @@ An editable note draft with manual eBay Save and no profit sync, or a separately
 
 ### Evidence
 
-Historical Profile 2 proof covers exact-order note and profit sync. v3.12.46 adds executable ETA/draft regressions and synthetic Chrome desktop/mobile checks with zero native Save clicks. The current affected signed-in checkout and eBay order were not available; current-version live validation remains pending.
+Historical Profile 2 proof covers exact-order note and profit sync. v3.12.48 adds local Today/Tomorrow shipment dates and Add/Edit order note menu matching, including already-open menus, nested labels and delayed rendering. Executable regressions and synthetic browser checks make zero native Save clicks. The current affected signed-in checkout and eBay order were not available; current-version live validation remains pending.
 
 
 <a id="ebay-monthly-profit"></a>

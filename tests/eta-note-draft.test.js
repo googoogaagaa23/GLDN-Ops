@@ -33,6 +33,33 @@ test('screenshot wording auto-detects 10/7 and ignores unselected delivery choic
   assert.deepEqual([...sandbox.extractAmazonEtas()], ['10/7']);
 });
 
+test('relative shipment headings use the next local calendar date and ignore alternate options', () => {
+  const lines = ['Arriving Tomorrow 7 AM - 11 AM', 'Fastest Tomorrow 7 AM - 11 AM', 'Tomorrow 4 AM - 8 AM', 'Amazon Day Wednesday, Oct 7', 'Order within 3 hours for delivery tomorrow'];
+  const sandbox = { U: { ...utils(), getBodyLines: () => lines }, Date };
+  vm.runInNewContext(block(amazon, '  function parseEtaLine(', '  function extractCheckoutData('), sandbox);
+  const now = new Date(2026, 9, 4, 23, 45).getTime();
+  for (const line of ['Arriving Tomorrow 7 AM - 11 AM', 'Arriving tomorrow', 'Arrives by tomorrow', 'Delivery date: Tomorrow by 10 PM', 'Arriving Tomorrow 7:30 AM \u2013 11:30 AM']) {
+    assert.equal(sandbox.parseEtaLine(line, now), '10/5', line);
+  }
+  assert.equal(sandbox.parseEtaLine('Arriving Today by 10 PM', now), '10/4');
+  assert.equal(sandbox.parseEtaLine('Arriving Tomorrow, October 8, 2026', now), '10/8');
+  for (const line of lines.slice(1).concat(['Arriving Tomorrow - Friday', 'Arriving Today or Tomorrow', 'Arriving Tomorrow or October 7'])) {
+    assert.equal(sandbox.parseEtaLine(line, now), '', line);
+  }
+  assert.deepEqual([...sandbox.extractAmazonEtas(now)], ['10/5']);
+  assert.equal(sandbox.parseEtaLine('Arriving Tomorrow', NaN), '');
+});
+
+test('tomorrow handles month/year rollover, leap days, DST and local dates instead of UTC dates', () => {
+  const sandbox = { U: utils(), Date };
+  vm.runInNewContext(block(amazon, '  function parseEtaLine(', '  function extractCheckoutData('), sandbox);
+  for (const [parts, expected] of [
+    [[2026, 11, 31, 23, 59], '1/1'], [[2028, 1, 28, 23, 59], '2/29'],
+    [[2028, 1, 29, 23, 59], '3/1'], [[2026, 2, 8, 23, 30], '3/9'],
+    [[2026, 10, 1, 0, 30], '11/2'], [[2026, 9, 4, 23, 30], '10/5']
+  ]) assert.equal(sandbox.parseEtaLine('Arriving Tomorrow 7 AM - 11 AM', new Date(...parts).getTime()), expected);
+});
+
 test('late ETA text fills the open preview but never overwrites a manual correction', () => {
   let callback, refresh, disconnected = false, dates = ['10/7'];
   const sandbox = {
@@ -117,4 +144,79 @@ test('native note fill works without clipboard permission and stops if the order
   sandbox.navigator.clipboard.writeText = async () => { sandbox.location.href += '&new-order=1'; };
   await assert.rejects(sandbox.openAndFillAddNote('wrong-order note'), /order changed/);
   assert.equal(field.value, 'fixture note');
+});
+
+function nativeNoteFixture({ label = 'Add order note', menuOpen = false, delayed = false } = {}) {
+  const state = { menuOpen, dialog: false, clicks: [], waits: 0, field: { value: '', focus() {}, dispatchEvent() {} } };
+  const control = (name, options = {}) => ({
+    innerText: name, textContent: name, disabled: false, visible: true,
+    getAttribute(key) { return key === 'aria-label' ? options.ariaLabel || '' : key === 'aria-disabled' ? options.ariaDisabled || '' : ''; },
+    closest: () => options.injected ? {} : null,
+    contains: other => options.child === other,
+    ...options
+  });
+  const note = control(label);
+  const more = control('More actions');
+  const wrong = control('Add note to buyer message');
+  const own = control('Add order note', { injected: true });
+  const parent = control(label, { child: note });
+  state.controls = [own, wrong, more, parent, note, control('Save')];
+  const sandbox = {
+    location: { href: 'https://www.ebay.com/mesh/ord/details?orderid=11-11111-11111' },
+    navigator: { clipboard: { writeText: async () => {} } },
+    document: { querySelectorAll: () => state.controls },
+    extractEbayOrderNumber: () => '11-11111-11111',
+    findExistingNoteEditButton: () => null,
+    findVisibleNoteTextarea: () => state.dialog ? state.field : null,
+    dispatchFullClick(element) {
+      state.clicks.push(element.innerText);
+      if (element === more) state.menuOpen = !state.menuOpen;
+      if (element === note) state.dialog = true;
+    },
+    U: {
+      normalizeText: text => String(text).toLowerCase().replace(/\s+/g, ' ').trim(),
+      isVisible: element => element.visible && (![note, parent].includes(element) || (state.menuOpen && (!delayed || state.waits >= 3))),
+      setNativeValue: (element, value) => { element.value = value; },
+      waitFor: async callback => { for (let i = 0; i < 4; i++) { state.waits++; const result = callback(); if (result) return result; } return null; }
+    },
+    InputEvent: class {}
+  };
+  vm.runInNewContext(block(ebay, '  async function openAndFillAddNote(', '  function findExistingNoteEditButton('), sandbox);
+  return { sandbox, state, control, note, more };
+}
+
+for (const label of ['Add order note', 'Add note', 'Edit order note', 'Edit note']) {
+  test(`native menu label ${label} opens and fills once without Save`, async () => {
+    const { sandbox, state } = nativeNoteFixture({ label });
+    await sandbox.openAndFillAddNote('80.04 - 75.57 - M8 - 10/5');
+    assert.equal(state.field.value, '80.04 - 75.57 - M8 - 10/5');
+    assert.deepEqual(state.clicks, ['More actions', label]);
+  });
+}
+
+test('an already-open or delayed native note menu is not toggled closed', async () => {
+  const open = nativeNoteFixture({ menuOpen: true });
+  await open.sandbox.openAndFillAddNote('open menu');
+  assert.deepEqual(open.state.clicks, ['Add order note']);
+  const delayed = nativeNoteFixture({ delayed: true });
+  await delayed.sandbox.openAndFillAddNote('delayed menu');
+  assert.equal(delayed.state.field.value, 'delayed menu');
+  assert.deepEqual(delayed.state.clicks, ['More actions', 'Add order note']);
+});
+
+test('native lookup uses accessible names, ignores disabled/injected controls and rejects ambiguity', () => {
+  const { sandbox, state, control } = nativeNoteFixture();
+  const target = control('', { ariaLabel: 'Add order note' });
+  state.controls = [control('Add order note', { injected: true }), control('Add order note', { disabled: true }), control('Add order note', { ariaDisabled: 'true' }), target];
+  assert.equal(sandbox.findNativeOrderNoteControl('note'), target);
+  state.controls.push(control('Add note'));
+  assert.throws(() => sandbox.findNativeOrderNoteControl('note'), /More than one/);
+});
+
+test('a changed order during menu wait stops before clicking or filling its note', async () => {
+  const { sandbox, state } = nativeNoteFixture();
+  sandbox.U.waitFor = async callback => { sandbox.location.href += '&changed=1'; return callback(); };
+  await assert.rejects(sandbox.openAndFillAddNote('wrong note'), /order changed/);
+  assert.deepEqual(state.clicks, ['More actions']);
+  assert.equal(state.field.value, '');
 });

@@ -1,4 +1,11 @@
-GLDN Ops v3.12.47
+GLDN Ops v3.12.48
+
+v3.12.48 relative Amazon dates and eBay note menu:
+- Arriving Tomorrow automatically becomes the next local calendar date.
+- Today, time windows, month/year rollover and daylight-saving changes are handled.
+- Fill eBay note recognizes Add order note and Edit order note as well as Add/Edit note.
+- An already-open menu is reused. The final eBay Save remains manual.
+- Update & Reload, then refresh Amazon and eBay tabs before retrying.
 
 v3.12.47 included dashboard and optional extension setup:
 - New profiles automatically load the owner-approved shared dashboard connection.

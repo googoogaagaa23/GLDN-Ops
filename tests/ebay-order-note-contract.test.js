@@ -134,12 +134,13 @@ test("existing-note Edit selection stays inside the My note section", () => {
   assert.equal(sandbox.extractExistingNote(), "5.68 - 7.16 - f9132 - 6/30");
 });
 
-test("order-note fill copies, opens Add note, fills, and never saves", () => {
+test("order-note fill copies, uses exact native menu controls, fills, and never saves", () => {
   const fillFlow = blockBetween(ebaySource, "async function openAndFillAddNote(note)", "function findVisibleNoteTextarea()");
   assert.match(fillFlow, /navigator\.clipboard\.writeText\(note\)/);
   assert.match(fillFlow, /findExistingNoteEditButton\(\)/);
-  assert.match(fillFlow, /findVisibleByText\("More actions"\)/);
-  assert.match(fillFlow, /findVisibleByText\("Add note"\)/);
+  assert.match(fillFlow, /findNativeOrderNoteControl\("more"\)/);
+  assert.match(fillFlow, /findNativeOrderNoteControl\("note"\)/);
+  assert.match(fillFlow, /assertOwner\(\)/);
   assert.match(fillFlow, /setNativeValue\(textarea, note\)/);
   assert.match(fillFlow, /InputEvent\("input"/);
   assert.doesNotMatch(fillFlow, /findVisibleByText\("Save"\)|dispatchFullClick\([^\n]*Save|\.click\(\)[^\n]*Save/);

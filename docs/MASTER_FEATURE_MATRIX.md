@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-10-04
-Current local manifest: 3.12.47
+Current local manifest: 3.12.48
+
+v3.12.48 resolves selected Amazon Today/Tomorrow shipment headings to local dates and repairs eBay's Add order note / Edit order note menu labels. Already-open menus are reused; ambiguous targets and order changes stop the fill; eBay Save remains manual. Regression and synthetic browser checks cover the screenshot cases. The affected M0 checkout/order is not a current signed-in LIVE PASS. See evidence/relative-eta-note-v3.12.48/README.md.
 
 v3.12.47 publishes Optional Extension Setup and the explicitly owner-approved public dashboard default. Fresh profiles seed the default; saved/private connections win. Popup setup controls, first-install launch and complete packaging have regression coverage. Provider downloads and Trackerbot installation remain user-initiated. Existing dashboard HTTP 403 is an unresolved server-access boundary, not a missing bundled key. This is not a current signed-in end-to-end LIVE PASS.
 

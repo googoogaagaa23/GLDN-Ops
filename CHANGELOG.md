@@ -1,5 +1,12 @@
 # GLDN Ops Changelog
 
+## v3.12.48 - 2026-10-04
+
+- Convert selected Amazon Today/Tomorrow shipment headings, including time windows, to local calendar dates. Preserve explicit dates and ignore unrelated delivery alternatives.
+- Match eBay Add order note / Edit order note plus existing short labels, using native controls and reusing an already-open menu.
+- Reject ambiguous note targets and order changes before menu actions or filling; keep final eBay Save manual.
+- Add date rollover/DST and native-menu regression coverage plus synthetic browser proof. No live purchase or eBay note was saved.
+
 ## v3.12.47 - 2026-10-04
 
 - Ship Optional Extension Setup in the popup and on fresh installs: eComSniper versioned downloads, Trackerbot's official Chrome Web Store and sign-in.
