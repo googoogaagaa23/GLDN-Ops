@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.48. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.49. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -17,6 +17,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 ## Feature Index
 
+- [Unread Customer Messages](#unread-customer-messages) - **PARTIAL**
 - [Optional Extension Setup](#companion-setup) - **PARTIAL**
 - [Removed Listing History](#removed-listing-history) - **PARTIAL**
 - [Health & Installations](#ops-health) - **IMPLEMENTED, UNPROVEN**
@@ -49,6 +50,49 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Diagnostics, Backup, and Interface Settings](#diagnostics) - **PARTIAL**
 - [Feature Tour, Themes, and Universal Access](#onboarding-interface) - **PARTIAL**
 - [Walmart Order Helper](#walmart) - **IMPLEMENTED, UNPROVEN**
+
+<a id="unread-customer-messages"></a>
+## Unread Customer Messages
+
+**Matrix:** E-14
+
+**Evidence status:** PARTIAL
+
+**Purpose:** Collect unread customer conversations and open all pending messages while retaining local Ignore/Restore preferences.
+
+### Prerequisites
+
+- Use the intended signed-in eBay Chrome profile.
+- Update GLDN Ops and refresh open marketplace tabs.
+
+### Exact Steps
+
+1. Open the GLDN icon > Daily > Unread Customer Messages, or use the floating eBay panel button.
+2. Choose Scan Unread Messages. GLDN selects eBay Unread from members and reads pages or automatically loaded rows.
+3. Wait for Complete; an interrupted or unrecognized inbox remains Partial with Resume available.
+4. Choose Ignore on conversations you intentionally set aside, or select rows and Ignore Selected.
+5. Choose Open All Pending to open each remaining conversation in a separate eBay tab, or Open Selected for a subset.
+6. Use Ignored > Restore to return a saved conversation. Scan again to refresh native unread status.
+
+### Approval Stop
+
+Opening conversations is user-initiated and can mark them read on eBay. No sending, deletion, archiving or replies are performed.
+
+### Expected Output
+
+An account-specific saved unread snapshot with pending, ignored and opened counts, and exact customer conversation tabs.
+
+### Failure Recovery
+
+- Ignore is stored only in this Chrome profile, separately for each eBay account.
+- A changed preview returns an ignored thread to pending; an identical preview without a native latest-message ID cannot prove a new message.
+- Complete counts reconcile the native badge where available. Partial counts are only the rows found so far.
+- Finish sign-in or verification in the worker inbox, then Resume. A changed account or conversation stops opening.
+
+### Evidence
+
+Current Profile 2 inbox layout and exact native conversation IDs were inspected. Focused regression tests cover account isolation, all-row retention, paging, Ignore and exact opening. Browser URL policy prevents automated extension-page execution; full signed-in completion is not claimed.
+
 
 <a id="companion-setup"></a>
 ## Optional Extension Setup

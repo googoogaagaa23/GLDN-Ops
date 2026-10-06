@@ -11796,6 +11796,7 @@
       <button type="button" data-action="snapshot" class="gldn-secondary">Scan Sales Snapshot</button>
       <button type="button" data-action="limits" class="gldn-danger">Confirm Listings Under Limit</button>
       <button type="button" data-action="prepare" class="gldn-primary">Prepare Order Note</button>
+      <button type="button" data-action="unread-messages" class="gldn-secondary">Unread Customer Messages</button>
       <button type="button" data-action="policy-listing-audit" class="gldn-warning" hidden>Audit Listing Policies</button>
       <button type="button" data-action="review-move99-scan" class="gldn-warning" hidden>Review Saved Category Scan</button>
       <button type="button" data-action="apply-move99-scan" class="gldn-primary" hidden>Apply Saved Category Scan</button>
@@ -11905,6 +11906,10 @@
       prepareNote().catch(() => {});
     });
     panel.querySelector("[data-action='health']").addEventListener("click", startSellerLevelScan);
+    panel.querySelector("[data-action='unread-messages']").addEventListener("click", async () => {
+      const response = await runtimeMessage({ type: "openExtensionPage", page: "ebay-messages.html", reuse: true });
+      if (!response?.ok) renderStatus(response?.error || "Unread Customer Messages could not open.", "error");
+    });
     panel.querySelector("[data-action='snapshot']").addEventListener("click", startEbaySnapshotScan);
     panel.querySelector("[data-action='policy-listing-audit']").addEventListener("click", () => showPolicyListingAuditLauncher(true));
     limitsButtonElement = panel.querySelector("[data-action='limits']");

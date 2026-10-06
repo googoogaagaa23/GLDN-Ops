@@ -1,4 +1,13 @@
-GLDN Ops v3.12.48
+GLDN Ops v3.12.49
+
+v3.12.49 unread customer messages:
+- Open the GLDN icon > Daily > Unread Customer Messages, or use the eBay panel button.
+- Scan Unread Messages reads the native Unread from members folder without opening conversations.
+- All matching rows are shown. Ignore removes a conversation from the GLDN pending count; Restore reverses it.
+- Open All Pending opens every unignored unread conversation in a separate eBay tab. eBay can mark opened messages read.
+- Ignore preferences are local to the Chrome profile and eBay account; a changed preview returns to pending.
+- Pause/Resume retain completed reads. No reply, delete or archive is performed.
+- A saved count is a snapshot: scan again for current unread status.
 
 v3.12.48 relative Amazon dates and eBay note menu:
 - Arriving Tomorrow automatically becomes the next local calendar date.

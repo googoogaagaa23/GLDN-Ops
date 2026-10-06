@@ -1,5 +1,14 @@
 # GLDN Ops Changelog
 
+## v3.12.49 - 2026-10-05
+
+- Add Unread Customer Messages in the popup Daily controls and floating eBay panel.
+- Scan native Unread from members across pages and automatically loaded rows, deduplicate exact conversation IDs, and reconcile the native unread count where available.
+- Show all found conversations with pending, ignored and opened counts; Open All Pending opens each eligible conversation in a separate tab.
+- Save account-scoped Ignore/Restore preferences locally. Changed message previews return to pending; relative clock changes do not undo an ignore.
+- Verify the signed-in account and exact conversation before opening. Never send, delete, archive or automatically reply. Opening a conversation can mark it read on eBay.
+- Add focused core, native-reader and controller regression tests. Signed-in Profile 2 supplied current layout evidence; extension-page automation is blocked by browser URL policy, so full live completion is not claimed.
+
 ## v3.12.48 - 2026-10-04
 
 - Convert selected Amazon Today/Tomorrow shipment headings, including time windows, to local calendar dates. Preserve explicit dates and ignore unrelated delivery alternatives.

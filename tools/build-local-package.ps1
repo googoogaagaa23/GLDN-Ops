@@ -21,6 +21,7 @@ $extensionFiles = @(
   'workflow-guide-data.js', 'workflow-guide.css', 'workflow-guide.js',
   "manifest.json", "config.example.js", "dashboard-default.json", "theme-catalog.js", "foundation.js", "shared.js", "control-heartbeat.js", "profit-audit.js", "profit-backfill.js", "profit-backfill-background.js", "sniping-audit.js", "subscribe-save.js",
   "companion-setup-core.js", "companion-setup-background.js", "companion-setup-page.js", "companion-setup.html", "companion-setup.js", "companion-setup.css",
+  "ebay-messages-core.js", "ebay-messages-reader.js", "ebay-messages.html", "ebay-messages.js", "ebay-messages.css",
   "sniping-review.html", "sniping-review.css", "sniping-review.js", "background.js",
   "listing-preflight.html", "listing-preflight.css", "listing-preflight-core.js", "listing-preflight.js", "listing-preflight-rules.json", "product-research-output.json",
   "policy-listing-audit.html", "policy-listing-audit.css", "policy-listing-audit-core.js", "policy-listing-audit.js",

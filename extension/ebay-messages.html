@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unread Customer Messages | GLDN Ops</title>
+  <link rel="stylesheet" href="ebay-messages.css">
+</head>
+<body>
+  <header><img src="icons/icon48.png" alt="GLDN Ops"><h1>Unread Customer Messages</h1><span id="version"></span></header>
+  <main>
+    <div class="toolbar">
+      <button id="scan" class="primary">Scan Unread Messages</button>
+      <button id="resume">Resume</button><button id="pause">Pause</button>
+      <button id="inbox">Open eBay Inbox</button>
+      <label>Account<select id="account" aria-label="eBay account"></select></label>
+      <span id="checked"></span>
+    </div>
+    <div id="status" role="status">Loading saved messages...</div>
+    <div class="counts" aria-live="polite"><span><strong id="pendingCount">0</strong> pending</span><span><strong id="ignoredCount">0</strong> ignored</span><span><strong id="openedCount">0</strong> opened</span></div>
+    <div class="toolbar secondary-toolbar">
+      <div class="tabs" role="tablist" aria-label="Message view"><button role="tab" data-view="pending" aria-selected="true">Pending</button><button role="tab" data-view="ignored" aria-selected="false">Ignored</button><button role="tab" data-view="opened" aria-selected="false">Opened</button></div>
+      <input id="search" type="search" placeholder="Customer, item, or message" aria-label="Search messages">
+      <button id="openAll" class="primary">Open All Pending</button>
+      <button id="openSelected">Open Selected</button><button id="ignoreSelected">Ignore Selected</button>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th class="check"><input id="selectAll" type="checkbox" aria-label="Select all shown messages"></th><th>Customer</th><th>Item / Message</th><th>Received</th><th>Actions</th></tr></thead><tbody id="rows"></tbody></table></div>
+  </main>
+  <script src="ebay-messages-core.js"></script><script src="ebay-messages.js"></script>
+</body>
+</html>

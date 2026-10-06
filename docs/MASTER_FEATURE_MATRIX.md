@@ -1,7 +1,13 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-10-04
-Current local manifest: 3.12.48
+Last updated: 2026-10-05
+Current local manifest: 3.12.49
+
+v3.12.49 adds Unread Customer Messages with exact native IDs, account-specific Ignore/Restore, pending counts, all-row display and one-tab-per-conversation Open All. Native unread-count reconciliation supports paginated and infinite-loading layouts. Profile 2's signed-in modern inbox was inspected; browser control cannot visit extension pages, so end-to-end live execution remains a manual validation boundary. No messages were sent, deleted or archived.
+
+| ID | Feature | Expected Result | Implementation | Automated Evidence | Live Evidence | Status | Next Gate |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| E-14 | Unread customer messages | Open all unignored unread member conversations, with local Ignore/Restore | Native member-only scan, stable conversation IDs, complete/partial status, account checks, count reconciliation and separate tabs | Core, native-reader and controller tests | Current Profile 2 inbox and exact conversation structure inspected; extension-page execution cannot be automated under browser URL policy | PARTIAL | Run Scan, Ignore/Restore and Open All in Profile 2; retain the result screenshot |
 
 v3.12.48 resolves selected Amazon Today/Tomorrow shipment headings to local dates and repairs eBay's Add order note / Edit order note menu labels. Already-open menus are reused; ambiguous targets and order changes stop the fill; eBay Save remains manual. Regression and synthetic browser checks cover the screenshot cases. The affected M0 checkout/order is not a current signed-in LIVE PASS. See evidence/relative-eta-note-v3.12.48/README.md.
 

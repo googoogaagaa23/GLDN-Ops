@@ -7962,7 +7962,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'openExtensionPage') {
-    const allowedPages = new Set(['guide.html', 'onboarding.html', 'popup.html', 'ebay-profit.html', 'order-audit.html', 'policy-listing-audit.html', 'profit-progress.html']);
+    const allowedPages = new Set(['guide.html', 'onboarding.html', 'popup.html', 'ebay-profit.html', 'order-audit.html', 'policy-listing-audit.html', 'profit-progress.html', 'ebay-messages.html']);
     const page = String(message.page || '');
     if (!allowedPages.has(page)) {
       sendResponse({ ok: false, error: 'Unknown extension page.' });

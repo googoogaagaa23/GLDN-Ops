@@ -1154,6 +1154,10 @@ document.getElementById('openVariationAudit').addEventListener('click', () => {
 document.getElementById('openPolicyListingAudit').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('policy-listing-audit.html') });
 });
+document.getElementById('openUnreadEbayMessages').addEventListener('click', async () => {
+  const response = await runtimeMessage({ type: 'openExtensionPage', page: 'ebay-messages.html', reuse: true });
+  if (!response?.ok) setMessage(response?.error || 'Unread Customer Messages could not open.');
+});
 document.getElementById('openViolationHistory').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('violation-history.html') });
 });

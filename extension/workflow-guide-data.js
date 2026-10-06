@@ -1,6 +1,6 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.48",
-  "updated": "2026-10-04",
+  "version": "3.12.49",
+  "updated": "2026-10-05",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",
@@ -11,6 +11,34 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
     "IMPLEMENTED, LIVE REVIEW PENDING": "The implementation and deterministic data checks pass, but the current signed-in marketplace review still needs to be reached."
   },
   "features": [
+    {
+      "id": "unread-customer-messages",
+      "matrix": "E-14",
+      "title": "Unread Customer Messages",
+      "status": "PARTIAL",
+      "summary": "Collect unread customer conversations and open all pending messages while retaining local Ignore/Restore preferences.",
+      "prerequisites": [
+        "Use the intended signed-in eBay Chrome profile.",
+        "Update GLDN Ops and refresh open marketplace tabs."
+      ],
+      "steps": [
+        "Open the GLDN icon > Daily > Unread Customer Messages, or use the floating eBay panel button.",
+        "Choose Scan Unread Messages. GLDN selects eBay Unread from members and reads pages or automatically loaded rows.",
+        "Wait for Complete; an interrupted or unrecognized inbox remains Partial with Resume available.",
+        "Choose Ignore on conversations you intentionally set aside, or select rows and Ignore Selected.",
+        "Choose Open All Pending to open each remaining conversation in a separate eBay tab, or Open Selected for a subset.",
+        "Use Ignored > Restore to return a saved conversation. Scan again to refresh native unread status."
+      ],
+      "approvalStop": "Opening conversations is user-initiated and can mark them read on eBay. No sending, deletion, archiving or replies are performed.",
+      "output": "An account-specific saved unread snapshot with pending, ignored and opened counts, and exact customer conversation tabs.",
+      "recovery": [
+        "Ignore is stored only in this Chrome profile, separately for each eBay account.",
+        "A changed preview returns an ignored thread to pending; an identical preview without a native latest-message ID cannot prove a new message.",
+        "Complete counts reconcile the native badge where available. Partial counts are only the rows found so far.",
+        "Finish sign-in or verification in the worker inbox, then Resume. A changed account or conversation stops opening."
+      ],
+      "evidence": "Current Profile 2 inbox layout and exact native conversation IDs were inspected. Focused regression tests cover account isolation, all-row retention, paging, Ignore and exact opening. Browser URL policy prevents automated extension-page execution; full signed-in completion is not claimed."
+    },
     {
       "id": "companion-setup",
       "matrix": "F-02",
