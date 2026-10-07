@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-10-06
-Current local manifest: 3.12.51
+Current local manifest: 3.12.52
+
+v3.12.52 repairs Order Placement Audit readiness and refresh handling. Exact shared demand works in Amazon-only profiles; mismatched builds stop before clearing saved scans, completed uploads require unit-level readback, and partial/shared-scope failures cannot enable Scan. Failed or out-of-order refreshes cannot retain another target's data. Live Google requests returned Access Denied; the signed-in dashboard owner reached Authorization needed. Owner renewal remains required before the shared backend can be declared working. Automated recovery tests are supporting evidence, not signed-in M0/M7 scan completion.
 
 v3.12.51 repairs checkout-wide item capture after read-only M0/M8 AnyDesk diagnosis found dozens of unrelated IDs for one motor. Shipment-scoped IDs, exact checkout cache identity, per-tab confirmation fallback and copy-time rechecks prevent unrelated/stale evidence in drafts. Genuine mismatches still block and report both sides; native Save and verified-profit gates are unchanged. Synthetic desktop/mobile and focused regression checks support the repair. Refreshed signed-in post-fix validation remains pending, not LIVE PASS. See evidence/checkout-note-identity-v3.12.51/README.md.
 

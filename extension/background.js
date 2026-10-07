@@ -1652,7 +1652,12 @@ async function runLocalControlExtensionAction(payload = {}) {
     const stored = await storageGet(['ebayMonthlyProfit']);
     const result = await ORDER_AUDIT_BACKGROUND.seedExpectedFromMonthlyRun(
       stored.ebayMonthlyProfit || null,
-      { monthKey, expectedProfiles: [] },
+      {
+        monthKey, expectedProfiles: [],
+        ...(payload.computerLabel ? { computerLabel: payload.computerLabel } : {}),
+        ...(payload.accountLabel ? { accountLabel: payload.accountLabel } : {}),
+        ...(payload.runKey ? { runKey: payload.runKey } : {})
+      },
       { postToDashboard }
     );
     return { ok: true, action, result };
@@ -1671,10 +1676,6 @@ async function runLocalControlExtensionAction(payload = {}) {
       'lastPreparedNote',
       'latestMarketplaceProfit'
     ]);
-    const monthlyRun = stored.ebayMonthlyProfit || null;
-    if (!monthlyRun || String(monthlyRun.phase || '') !== 'review' || String(monthlyRun.monthKey || '') !== monthKey) {
-      throw new Error('Finish the selected Monthly eBay Profit read before scanning Amazon for this month.');
-    }
     let amazonProfileLabel = String(stored.amazonProfileLabel || '').trim();
     if (!amazonProfileLabel) {
       const candidates = [
@@ -1694,8 +1695,8 @@ async function runLocalControlExtensionAction(payload = {}) {
     }
     const result = await ORDER_AUDIT_BACKGROUND.startAmazonScan({
       monthKey,
-      computerLabel: monthlyRun.computerLabel || stored.computerLabel,
-      accountLabel: monthlyRun.accountLabel || stored.ebayAccountLabel,
+      computerLabel: payload.computerLabel || stored.computerLabel,
+      accountLabel: payload.accountLabel || FOUNDATION.computerAccounts[payload.computerLabel || stored.computerLabel]?.ebayAccountLabel || stored.ebayAccountLabel,
       supplierProfile: amazonProfileLabel
     }, {}, { postToDashboard });
     return { ok: true, action, result };
@@ -1710,9 +1711,8 @@ async function runLocalControlExtensionAction(payload = {}) {
       throw new Error('The order-placement audit requires a valid YYYY-MM month.');
     }
     const stored = await storageGet(['ebayMonthlyProfit', 'computerLabel', 'ebayAccountLabel']);
-    const monthlyRun = stored.ebayMonthlyProfit || {};
-    const computerLabel = String(monthlyRun.computerLabel || stored.computerLabel || '').trim();
-    const accountLabel = String(monthlyRun.accountLabel || stored.ebayAccountLabel || '').trim();
+    const computerLabel = String(payload.computerLabel || stored.computerLabel || '').trim();
+    const accountLabel = String(payload.accountLabel || FOUNDATION.computerAccounts[computerLabel]?.ebayAccountLabel || stored.ebayAccountLabel || '').trim();
     const shared = await ORDER_AUDIT_BACKGROUND.readShared({ computerLabel, accountLabel, monthKey }, { postToDashboard });
     const worker = await ORDER_AUDIT_BACKGROUND.getStatus();
     const metadata = shared.metadata || {};
@@ -6407,8 +6407,10 @@ async function postDashboardRequest(action, record = null) {
   try {
     data = JSON.parse(text);
   } catch (_) {
-    const preview = text.replace(/\s+/g, ' ').slice(0, 180);
-    throw new Error(`Dashboard returned an unexpected response: ${preview || response.status}`);
+    if (response.status === 403 || /Access Denied|You need access|Authorization needed|auth-required|ServiceLogin/i.test(text)) {
+      throw new Error('Google is blocking the shared dashboard. Its owner must renew the existing dashboard authorization or repair web-app access. Re-entering the dashboard key will not fix this. No audit data was loaded.');
+    }
+    throw new Error(`The shared dashboard returned a web page instead of data (HTTP ${response.status}). Check the deployed web app, then refresh. No audit data was loaded.`);
   }
 
   if (!response.ok || !data.ok) {

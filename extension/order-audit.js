@@ -10,6 +10,10 @@
   let filter = "issues";
   let refreshTimer = null;
   let expectedProfilesDirty = false;
+  let monthlyRun = null;
+  let loading = true;
+  let actionBusy = false;
+  let refreshGeneration = 0;
 
   function currentMonthKey() {
     const now = new Date();
@@ -20,7 +24,10 @@
     return new Promise((resolve) => {
       let settled = false;
       const timer = setTimeout(() => {
-        if (!settled) resolve({ ok: false, error: "GLDN Ops did not answer before the timeout." });
+        if (!settled) {
+          settled = true;
+          resolve({ ok: false, error: "GLDN Ops did not answer before the timeout." });
+        }
       }, timeoutMs);
       chrome.runtime.sendMessage(message, (response) => {
         if (settled) return;
@@ -144,6 +151,13 @@
     const metadata = shared?.metadata || {};
     const coverage = profileCoverage();
     const selection = selectedIdentity();
+    const seed = CORE.seedReadiness(monthlyRun, selection);
+    const demand = shared ? CORE.sharedDemandReadiness(shared, selection) : null;
+    $("demandStatus").textContent = loading ? "Checking the selected eBay month..."
+      : demand?.ready ? demand.reason : seed.reason;
+    $("seedExpected").disabled = loading || actionBusy || !shared || !seed.ready;
+    $("seedExpected").title = seed.reason;
+    $("saveExpectedProfiles").disabled = loading || actionBusy || !shared;
     $("identity").textContent = selection.runKey
       ? `Computer ${selection.computerLabel} / ${selection.accountLabel} / ${CORE.monthLabel(selection.monthKey)}`
       : "Choose an audit target.";
@@ -174,7 +188,8 @@
     $("reviewCaption").textContent = metadata.runKey
       ? `${metadata.status || "Audit loaded"}. ${Number(shared?.audit?.findings?.length || 0).toLocaleString()} unit-level findings.`
       : "Build eBay demand to begin.";
-    $("startAmazonScan").disabled = !metadata.runKey || !Number(summary.expectedUnits || 0) || worker?.active === true;
+    $("startAmazonScan").disabled = loading || actionBusy || !demand?.ready || (worker?.summary || worker?.state)?.active === true;
+    $("startAmazonScan").title = demand?.reason || "Shared eBay demand has not been verified.";
     $("downloadAudit").disabled = !shared?.audit?.findings?.length;
     renderFindings();
   }
@@ -193,9 +208,9 @@
     $("workerTitle").textContent = `${local.supplierProfile || "Unnamed Amazon profile"} / ${statusLabel(local.phase)}`;
     $("workerProgress").textContent = local.error || local.pausedReason
       || `${Number(local.pagesScanned || 0)} order-history pages read, ${Number(local.candidateOrders || 0)} matching orders found, ${Number(local.detailsCaptured || 0)} details checked, ${Number(local.purchaseUnits || local.savedPurchaseUnits || 0)} purchase units captured.`;
-    $("resumeAmazonScan").disabled = active || local.phase === "review";
-    $("pauseAmazonScan").disabled = !active;
-    $("resetAmazonScan").disabled = false;
+    $("resumeAmazonScan").disabled = actionBusy || active || local.phase === "review";
+    $("pauseAmazonScan").disabled = actionBusy || !active;
+    $("resetAmazonScan").disabled = actionBusy;
   }
 
   async function persistSelection() {
@@ -205,14 +220,23 @@
   }
 
   async function refresh(options = {}) {
+    const generation = ++refreshGeneration;
     const selection = selectedIdentity();
+    loading = true;
+    clearTimeout(refreshTimer);
     renderShared();
-    const [sharedResponse, workerResponse] = await Promise.all([
+    const [sharedResponse, workerResponse, stored] = await Promise.all([
       selection.runKey ? runtimeMessage({ type: "readOrderPlacementAudit", options: selection }) : Promise.resolve(null),
-      runtimeMessage({ type: "getOrderPlacementAuditAmazon" }, 30000)
+      runtimeMessage({ type: "getOrderPlacementAuditAmazon" }, 30000),
+      storageGet(["ebayMonthlyProfit"])
     ]);
-    if (sharedResponse?.ok) shared = sharedResponse;
-    else if (sharedResponse && options.showErrors !== false) setNotice(sharedResponse.error || "Could not load the shared order audit.", "error");
+    if (generation !== refreshGeneration || selection.runKey !== selectedIdentity().runKey) return;
+    monthlyRun = stored.ebayMonthlyProfit || null;
+    loading = false;
+    const demand = sharedResponse?.ok ? CORE.sharedDemandReadiness(sharedResponse, selection) : null;
+    shared = sharedResponse?.ok && !demand?.invalidIdentity ? sharedResponse : null;
+    if (!shared) setNotice(sharedResponse?.error || demand?.reason || "Could not load the shared order audit.", "error");
+    else if (options.showErrors !== false) setNotice(demand.reason, demand.ready ? "good" : "warn");
     worker = workerResponse?.ok ? workerResponse : null;
     renderShared();
     renderWorker();
@@ -225,16 +249,22 @@
   }
 
   async function runAction(message, workingText, successText) {
+    if (actionBusy) return false;
+    actionBusy = true;
+    const key = selectedIdentity().runKey;
+    renderShared();
+    renderWorker();
     setNotice(workingText);
-    const response = await runtimeMessage(message);
-    if (!response?.ok) {
-      setNotice(response?.error || "The action did not complete.", "error");
+    try {
+      const response = await runtimeMessage(message);
+      if (key === selectedIdentity().runKey) setNotice(response?.ok ? (response.message || successText) : (response?.error || "The action did not complete."), response?.ok ? "good" : "error");
       await refresh({ showErrors: false });
-      return false;
+      return response?.ok === true;
+    } finally {
+      actionBusy = false;
+      renderShared();
+      renderWorker();
     }
-    setNotice(response.message || successText, "good");
-    await refresh({ showErrors: false });
-    return true;
   }
 
   function csvCell(value) {
@@ -312,11 +342,12 @@
     if (ok) expectedProfilesDirty = false;
   });
   $("refreshAudit").addEventListener("click", () => refresh());
+  $("openMonthlyProfit").addEventListener("click", () => chrome.tabs.create({ url: chrome.runtime.getURL("ebay-profit.html") }));
   $("seedExpected").addEventListener("click", async () => {
     const selection = selectedIdentity();
     if (!selection.runKey) return setNotice("Choose a valid eBay computer and month.", "error");
     const expectedProfiles = list($("expectedProfiles").value);
-    if (Number(shared?.summary?.amazonUnits || 0) > 0 && !confirm("Rebuilding eBay demand clears the Amazon profile scans already saved for this audit. Continue?")) return;
+    if ((Number(shared?.summary?.amazonUnits || 0) > 0 || profileCoverage().scanned.length) && !confirm("Rebuilding eBay demand clears the Amazon profile scans already saved for this audit. Continue?")) return;
     const ok = await runAction(
       { type: "seedOrderPlacementAuditExpected", options: { ...selection, expectedProfiles } },
       "Building exact eBay demand from the completed Monthly eBay Profit read...",

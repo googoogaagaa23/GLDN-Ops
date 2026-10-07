@@ -117,6 +117,50 @@
     return [computer, account, monthKey].join("|");
   }
 
+  function seedReadiness(monthlyRun, selection = {}) {
+    const selectedKey = runKey(selection);
+    if (!selectedKey) return { ready: false, reason: "Choose a valid eBay computer and month." };
+    if (!monthlyRun) return {
+      ready: false,
+      reason: `No completed eBay read in this Chrome profile. Use the eBay profile signed into ${text(selection.accountLabel)} to read ${monthLabel(selection.monthKey)} and build its demand once.`
+    };
+    if (runKey(monthlyRun) !== selectedKey || (selection.runKey && selection.runKey !== selectedKey)) return {
+      ready: false,
+      reason: "The saved eBay read belongs to a different computer, account, or month. Select the matching read in the eBay Chrome profile."
+    };
+    if (monthlyRun.phase !== "review") return {
+      ready: false,
+      reason: "The selected Monthly eBay Profit read is not finished. Complete or resume it in the eBay Chrome profile first."
+    };
+    const count = expectedUnitsFromMonthlyRun(monthlyRun).length;
+    return count
+      ? { ready: true, count, reason: `${count.toLocaleString()} exact eBay order unit${count === 1 ? " is" : "s are"} ready to build in this Chrome profile.` }
+      : { ready: false, reason: "The completed eBay read contains no exact SKU-linked order units for this audit." };
+  }
+
+  function sharedDemandReadiness(response, selection = {}) {
+    const selectedKey = runKey(selection);
+    const metadata = response?.metadata || {};
+    const expected = Array.isArray(response?.expected) ? response.expected : [];
+    if (!selectedKey || (selection.runKey && selection.runKey !== selectedKey)
+      || metadata.runKey !== selectedKey || runKey(metadata) !== selectedKey
+      || (response?.runKey && response.runKey !== selectedKey)
+      || expected.some((record) => runKey(record) !== selectedKey || (record.runKey && record.runKey !== selectedKey))) {
+      return { ready: false, invalidIdentity: true, reason: "The shared audit does not match the selected computer, eBay account, and month. Refresh the matching audit before scanning." };
+    }
+    const declaredCount = Number(metadata.expectedUnits || 0);
+    if (!expected.length && !declaredCount) return {
+      ready: false,
+      reason: `No shared eBay demand for ${monthLabel(selection.monthKey)} yet. Build it once in the eBay Chrome profile, then refresh here.`
+    };
+    const keys = expected.map((record) => normalizeExpectedUnit(record)).filter((record) => record.orderNumber && record.asin).map((record) => record.unitKey);
+    if (declaredCount !== expected.length || new Set(keys).size !== declaredCount) return {
+      ready: false,
+      reason: "The shared eBay demand is incomplete. Rebuild it from the completed read in the eBay Chrome profile before scanning Amazon."
+    };
+    return { ready: true, count: expected.length, reason: `Shared eBay demand ready: ${expected.length.toLocaleString()} order unit${expected.length === 1 ? "" : "s"}. No local eBay read is needed in this Amazon profile.` };
+  }
+
   function normalizeExpectedUnit(raw = {}) {
     const identity = shippingIdentity(raw.shippingBlock);
     const asin = normalizeAsin(raw.asin);
@@ -449,6 +493,8 @@
     tokenSimilarity,
     shippingIdentity,
     runKey,
+    seedReadiness,
+    sharedDemandReadiness,
     normalizeExpectedUnit,
     expectedUnitsFromMonthlyRun,
     normalizePurchaseUnit,

@@ -1,5 +1,5 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.51",
+  "version": "3.12.52",
   "updated": "2026-10-06",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -391,6 +391,10 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
       "approvalStop": "None. This workflow is read-only. It never cancels, refunds, marks shipped, purchases, edits, or deletes an eBay or Amazon order. Any corrective marketplace action must be handled separately with its own exact approval.",
       "output": "A shared computer/account/month audit with expected eBay units, Amazon purchase units, scanned-profile coverage, exact same-recipient duplicates, possible different-recipient extras, canceled-order purchases, unmatched demand, source links, and CSV export.",
       "recovery": [
+        "Google Access Denied can mean the dashboard owner must renew the existing Google authorization; entering the same setup key does not fix it.",
+        "Build is available only for a completed read matching the selected computer, account and month. Open Monthly eBay Profit in the eBay Chrome profile if it is missing.",
+        "An Amazon-only profile does not need its own eBay read. Use Refresh Results after the eBay profile builds the shared demand.",
+        "Incomplete or mismatched demand blocks scanning; rebuild it from the exact completed eBay read.",
         "Pause stops at the next Amazon page checkpoint; Resume continues the saved profile scan.",
         "If the inactive worker closes or a page cannot be verified, the checkpoint remains resumable in that same signed-in Chrome profile.",
         "Reset This Profile Scan clears only that Chrome profile's local checkpoint; completed shared results from other profiles remain saved.",

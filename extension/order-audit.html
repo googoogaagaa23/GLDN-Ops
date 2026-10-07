@@ -37,9 +37,12 @@
         <span class="step-number">1</span>
         <div>
           <h2>Build eBay demand</h2>
-          <p>Run this once from the eBay Chrome profile after Monthly eBay Profit has finished reading the same month.</p>
+          <p id="demandStatus">Checking the selected eBay month...</p>
         </div>
-        <button id="seedExpected" class="primary" type="button">Build From Completed eBay Month</button>
+        <div class="step-actions">
+          <button id="seedExpected" class="primary" type="button" disabled>Build From Completed eBay Month</button>
+          <button id="openMonthlyProfit" type="button">Open Monthly eBay Profit</button>
+        </div>
       </div>
       <div class="step">
         <span class="step-number">2</span>
@@ -47,7 +50,7 @@
           <h2>Scan this Amazon profile</h2>
           <p id="amazonProfileText">Name this signed-in Amazon profile in Setup, then scan it here. Repeat from every Amazon Chrome profile used on this computer.</p>
         </div>
-        <button id="startAmazonScan" class="primary" type="button">Scan This Signed-In Amazon Profile</button>
+        <button id="startAmazonScan" class="primary" type="button" disabled>Scan This Signed-In Amazon Profile</button>
       </div>
     </section>
 

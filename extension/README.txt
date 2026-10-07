@@ -1,4 +1,11 @@
-GLDN Ops v3.12.51
+GLDN Ops v3.12.52
+
+v3.12.52 order-audit recovery:
+- Google Access Denied requires the dashboard owner to renew authorization or repair web-app access, not enter the same key again.
+- Build eBay demand once in the eBay Chrome profile for the exact selected computer and month.
+- Amazon-only profiles use that shared demand without a local Monthly eBay Profit read. Refresh Results after building it.
+- Build verifies every demand unit; incomplete or mismatched demand cannot start an Amazon scan.
+- Failed refreshes remove stale results. Orders are never purchased, canceled, refunded, or changed by this audit.
 
 v3.12.51 checkout item identity repair:
 - Checkout IDs and titles come only from current shipment items, excluding recommendations, hidden rows and injected tools.

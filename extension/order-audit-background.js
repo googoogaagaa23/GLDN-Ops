@@ -106,9 +106,9 @@
 
   async function seedExpectedFromMonthlyRun(monthlyRun, options = {}, deps = {}) {
     if (!deps.postToDashboard) throw new Error("The shared dashboard client is unavailable.");
-    if (!monthlyRun || String(monthlyRun.phase || "") !== "review") {
-      throw new Error("Finish the selected Monthly eBay Profit read first. The audit uses its exact eBay order, SKU, quantity, and ship-to evidence.");
-    }
+    const selection = { ...monthlyRun, ...options };
+    const readiness = CORE.seedReadiness(monthlyRun, selection);
+    if (!readiness.ready) throw new Error(readiness.reason);
     const monthKey = CORE.normalizeMonthKey(options.monthKey || monthlyRun.monthKey);
     if (!monthKey || monthKey !== CORE.normalizeMonthKey(monthlyRun.monthKey)) {
       throw new Error("The completed Monthly eBay Profit run does not match the selected audit month.");
@@ -138,6 +138,14 @@
         records: batch
       });
     }
+    const readback = await deps.postToDashboard("orderPlacementAuditRead", {
+      runKey: key, computerLabel: monthlyRun.computerLabel, accountLabel: monthlyRun.accountLabel, monthKey
+    });
+    const sharedReady = CORE.sharedDemandReadiness(readback, selection);
+    const savedKeys = new Set((readback.expected || []).map((record) => CORE.normalizeExpectedUnit(record).unitKey));
+    if (!sharedReady.ready || records.some((record) => !savedKeys.has(record.unitKey))) {
+      throw new Error("The dashboard did not verify the complete eBay demand. Rebuild it from this completed read before scanning Amazon.");
+    }
     return {
       ok: true,
       runKey: key,
@@ -148,18 +156,23 @@
 
   async function readShared(options = {}, deps = {}) {
     if (!deps.postToDashboard) throw new Error("The shared dashboard client is unavailable.");
+    const key = CORE.runKey(options);
+    if (!key || (options.runKey && options.runKey !== key)) throw new Error("Choose a matching eBay computer, account, and month.");
     const response = await deps.postToDashboard("orderPlacementAuditRead", {
-      runKey: String(options.runKey || ""),
+      runKey: key,
       computerLabel: String(options.computerLabel || ""),
       accountLabel: String(options.accountLabel || ""),
       monthKey: String(options.monthKey || "")
     });
+    const demand = CORE.sharedDemandReadiness(response, options);
+    if (demand.invalidIdentity) throw new Error(demand.reason);
     const expected = Array.isArray(response.expected) ? response.expected : [];
     const purchases = Array.isArray(response.purchases) ? response.purchases : [];
     const result = CORE.audit(expected, purchases, { matchWindowDays: options.matchWindowDays });
     return {
       ...response,
       ok: true,
+      demand,
       audit: result,
       summary: CORE.summary(result)
     };
@@ -170,8 +183,8 @@
     const computerLabel = String(options.computerLabel || "").trim();
     const accountLabel = String(options.accountLabel || "").trim().toUpperCase();
     const monthKey = CORE.normalizeMonthKey(options.monthKey);
-    const key = String(options.runKey || CORE.runKey({ computerLabel, accountLabel, monthKey }));
-    if (!key) throw new Error("Choose the eBay computer, account, and month before saving Amazon profiles.");
+    const key = CORE.runKey({ computerLabel, accountLabel, monthKey });
+    if (!key || (options.runKey && options.runKey !== key)) throw new Error("Choose a matching eBay computer, account, and month before saving Amazon profiles.");
     const expectedProfiles = CORE.unique(options.expectedProfiles || []);
     const result = await deps.postToDashboard("orderPlacementAuditConfig", {
       runKey: key,
@@ -198,9 +211,11 @@
     const computerLabel = String(options.computerLabel || stored.computerLabel || "").trim();
     const monthKey = CORE.normalizeMonthKey(options.monthKey);
     const accountLabel = String(options.accountLabel || "").trim().toUpperCase();
-    const key = String(options.runKey || CORE.runKey({ computerLabel, accountLabel, monthKey }));
-    if (!key) throw new Error("Choose the eBay computer, account, and month before scanning this Amazon profile.");
+    const key = CORE.runKey({ computerLabel, accountLabel, monthKey });
+    if (!key || (options.runKey && options.runKey !== key)) throw new Error("Choose a matching eBay computer, account, and month before scanning this Amazon profile.");
     const shared = await deps.postToDashboard("orderPlacementAuditRead", { runKey: key, computerLabel, accountLabel, monthKey });
+    const demand = CORE.sharedDemandReadiness(shared, { computerLabel, accountLabel, monthKey });
+    if (!demand.ready) throw new Error(demand.reason);
     const expected = Array.isArray(shared.expected) ? shared.expected : [];
     if (!expected.length) throw new Error("No eBay demand is saved for this month. Build eBay demand from the completed Monthly eBay Profit read first.");
     const targetAsins = CORE.unique(expected.map((record) => CORE.normalizeAsin(record.asin)).filter(Boolean));

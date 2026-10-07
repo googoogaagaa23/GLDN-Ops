@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.52 - 2026-10-06
+
+- Explain Google dashboard authorization/access failures without dumping HTML into the audit page. Owner renewal is required when Google refuses access; repeating the setup key is not a repair.
+- Show whether exact shared eBay demand is ready. Amazon-only profiles can scan it without a profile-local Monthly eBay Profit run, including through local control.
+- Enable Build only for the selected completed eBay read; reject mismatched computer/account/month before clearing shared scans, and verify all demand units after upload.
+- Reject partial, duplicated, or mismatched shared demand. Clear stale results on failed refresh, ignore out-of-order refreshes, and serialize audit actions.
+- Add Open Monthly eBay Profit and responsive audit controls. Marketplace orders remain unchanged.
+
 ## v3.12.51 - 2026-10-06
 
 - Repair checkout-wide ASIN capture after live M0/M8 inspection showed dozens of IDs for one item. Scope IDs/titles to visible shipment items, excluding recommendations and injected tools.

@@ -15,7 +15,7 @@
 * { box-sizing: border-box; }
 body {
   margin: 0;
-  min-width: 980px;
+  min-width: 320px;
   background: var(--bg);
   color: var(--text);
   font: 14px/1.45 Inter, "Segoe UI", Arial, sans-serif;
@@ -62,7 +62,7 @@ h2 { margin-bottom: 4px; font-size: 17px; letter-spacing: 0; }
 main { padding: 22px 34px 42px; }
 .setup-band {
   display: grid;
-  grid-template-columns: minmax(130px, 190px) minmax(170px, 210px) minmax(300px, 1fr) auto;
+  grid-template-columns: minmax(130px, 190px) minmax(170px, 210px) minmax(220px, 1fr) auto auto;
   gap: 6px 10px;
   align-items: end;
 }
@@ -89,6 +89,8 @@ main { padding: 22px 34px 42px; }
   border-bottom: 1px solid var(--line);
 }
 .step:last-child { border-bottom: 0; }
+.step-actions { display: grid; gap: 8px; }
+.step-actions button { white-space: normal; padding: 9px 12px; }
 .step-number {
   display: grid;
   width: 32px;
@@ -163,4 +165,23 @@ td { max-width: 360px; }
 @media (max-width: 1250px) {
   .metrics { grid-template-columns: repeat(4, 1fr); }
   .metrics div { border-bottom: 1px solid var(--line); }
+}
+@media (max-width: 1000px) {
+  .topbar { display: block; }
+  .identity { margin-top: 12px; text-align: left; white-space: normal; }
+  .setup-band { grid-template-columns: minmax(0, 1fr); }
+  .setup-band label, .setup-band > :not(label) { grid-row: auto; }
+  .worker, .profile-coverage, .review-toolbar { align-items: start; flex-direction: column; }
+  .worker-actions, .toolbar-actions, .filter-group { flex-wrap: wrap; }
+  .profile-chips { justify-content: start; }
+}
+@media (max-width: 650px) {
+  .topbar, main { padding: 18px; }
+  h1 { font-size: 25px; }
+  .step { grid-template-columns: 32px minmax(0, 1fr); gap: 10px; }
+  .step > button, .step-actions { grid-column: 1 / -1; width: 100%; }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metrics div { padding: 12px; }
+  button { overflow-wrap: anywhere; }
+  .table-wrap table { min-width: 880px; }
 }
