@@ -1,7 +1,13 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-10-05
-Current local manifest: 3.12.49
+Last updated: 2026-10-06
+Current local manifest: 3.12.50
+
+v3.12.50 adds Price +$0.10 for one fixed-price listing and simpler popup navigation with tool search. The current signed-in native Revise route, Item title, Item price, Format button and disabled Variations notice were inspected read-only. Deterministic and synthetic UI checks are supporting evidence; no live helper price fill or final revision is claimed. Source sessions are exact-tab, redirect and title checked; repeat preparation is idempotent. eBay Revise it stays manual.
+
+| ID | Feature | Expected Result | Implementation | Automated Evidence | Live Evidence | Status | Next Gate |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| E-15 | Price +$0.10 | Prepare exactly ten cents above one current Item price | Native exact-listing revision, same-tab redirect and title proof, integer cents, session isolation, fixed-price and no-active-variation checks; final revision manual | Core and background tests plus synthetic desktop/mobile browser checks | Read-only user demonstration and current signed-in editor labels inspected; no live price mutation by the agent | PARTIAL | Run the helper on an intended listing and verify only Item price changes before manually revising |
 
 v3.12.49 adds Unread Customer Messages with exact native IDs, account-specific Ignore/Restore, pending counts, all-row display and one-tab-per-conversation Open All. Native unread-count reconciliation supports paginated and infinite-loading layouts. Profile 2's signed-in modern inbox was inspected; browser control cannot visit extension pages, so end-to-end live execution remains a manual validation boundary. No messages were sent, deleted or archived.
 

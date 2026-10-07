@@ -5,6 +5,8 @@ importScripts(
   'config.example.js',
   'theme-catalog.js',
   'foundation.js',
+  'ebay-price-core.js',
+  'ebay-price-background.js',
   'ops-health-core.js',
   'ops-health-background.js',
   'variation-core.js',
@@ -441,7 +443,7 @@ const LOCAL_CONTROL_PLATFORM = Object.freeze({
   ebay: {
     patterns: ['*://*.ebay.com/*'],
     messageType: 'runEbayPageAction',
-    actions: new Set(['show-panel', 'mark-shipped', 'approve-mark-shipped-review', 'approve-ebay-mark-shipped-confirmation', 'cancel-mark-shipped-review', 'seller-level', 'save-seller-level-review', 'sales-snapshot', 'save-sales-snapshot-review', 'listing-limits', 'save-listing-limits-review', 'prepare-order-note', 'start-monthly-profit', 'start-move99-scan', 'start-move99-reverse-scan', 'apply-saved-move99', 'approve-move99-submit'])
+    actions: new Set(['show-panel', 'mark-shipped', 'approve-mark-shipped-review', 'approve-ebay-mark-shipped-confirmation', 'cancel-mark-shipped-review', 'seller-level', 'save-seller-level-review', 'sales-snapshot', 'save-sales-snapshot-review', 'listing-limits', 'save-listing-limits-review', 'prepare-order-note', 'increase-price', 'start-monthly-profit', 'start-move99-scan', 'start-move99-reverse-scan', 'apply-saved-move99', 'approve-move99-submit'])
   },
   poshmark: {
     patterns: ['*://*.poshmark.com/*'],
@@ -461,7 +463,7 @@ const LOCAL_CONTROL_PLATFORM = Object.freeze({
   }
 });
 const LOCAL_CONTROL_CONTENT_FILES = Object.freeze({
-  ebay: ['config.example.js', 'theme-catalog.js', 'foundation.js', 'shared.js', 'control-heartbeat.js', 'profit-audit.js', 'ebay-profit-core.js', 'sniping-audit.js', 'ebay.js'],
+  ebay: ['config.example.js', 'theme-catalog.js', 'foundation.js', 'shared.js', 'control-heartbeat.js', 'profit-audit.js', 'ebay-profit-core.js', 'sniping-audit.js', 'ebay-price-core.js', 'ebay-price-increase.js', 'ebay.js'],
   poshmark: ['config.example.js', 'theme-catalog.js', 'foundation.js', 'shared.js', 'control-heartbeat.js', 'profit-audit.js', 'profit-backfill.js', 'poshmark.js'],
   amazon: ['config.example.js', 'theme-catalog.js', 'foundation.js', 'shared.js', 'control-heartbeat.js', 'profit-audit.js', 'profit-backfill.js', 'sniping-audit.js', 'subscribe-save.js', 'amazon.js']
 });
@@ -1046,6 +1048,8 @@ async function reloadLocalControlTab(payload = {}) {
         'control-heartbeat.js',
         'profit-audit.js',
         'sniping-audit.js',
+        'ebay-price-core.js',
+        'ebay-price-increase.js',
         'ebay.js'
       ]
     });

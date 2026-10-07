@@ -166,7 +166,7 @@ test("Prepare Order Note survives blocked clipboard access and fails visibly", (
 
 test("popup-triggered Prepare Order Note waits for the real page result", () => {
   const messageFlow = blockBetween(ebaySource, 'if (message?.type !== "runEbayPageAction")', "createPanel();");
-  assert.match(messageFlow, /\["approve-move99-submit", "start-monthly-profit", "prepare-order-note"\]/);
+  assert.match(messageFlow, /\["approve-move99-submit", "start-monthly-profit", "prepare-order-note", "increase-price"\]/);
   assert.match(messageFlow, /Promise\.resolve\(action\(\)\)/);
   assert.match(messageFlow, /sendResponse\(\{ ok: false, error:/);
 });

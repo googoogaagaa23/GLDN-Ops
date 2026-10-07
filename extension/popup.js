@@ -39,6 +39,7 @@ const popupSections = [...document.querySelectorAll('[data-popup-section]')];
 const workflowFilterButtons = [...document.querySelectorAll('[data-workflow-filter]')];
 const workflowSections = [...document.querySelectorAll('[data-workflow-group]')];
 const workflowEmptyElement = document.getElementById('workflowEmpty');
+const workflowSearchInput = document.getElementById('workflowSearch');
 const POPUP_TAB_KEY = 'gldnPopupTab';
 const WORKFLOW_GROUP_KEY = 'gldnWorkflowGroup';
 const POPUP_TABS = Object.freeze(['workflows', 'guides', 'status', 'settings']);
@@ -293,17 +294,25 @@ function applyWorkflowFilter(value = activeWorkflowGroup) {
   const workflowsActive = popupTabButtons.some((button) => button.dataset.popupTab === 'workflows'
     && button.getAttribute('aria-selected') === 'true');
   let visibleCount = 0;
+  const query = String(workflowSearchInput?.value || '').trim().toLowerCase();
+  const terms = query.split(/\s+/).filter(Boolean);
   workflowFilterButtons.forEach((button) => {
     button.setAttribute('aria-pressed', String(button.dataset.workflowFilter === activeWorkflowGroup));
   });
   workflowSections.forEach((section) => {
     const available = section.dataset.platformAvailable !== 'false';
-    const visible = workflowsActive && available && section.dataset.workflowGroup === activeWorkflowGroup;
+    const searchable = [...section.querySelectorAll('h2, button')].map(element => element.textContent).join(' ').toLowerCase();
+    const matches = terms.every(term => searchable.includes(term));
+    const visible = workflowsActive && available && (query ? matches : section.dataset.workflowGroup === activeWorkflowGroup);
     section.hidden = !visible;
     if (visible) visibleCount += 1;
   });
-  if (workflowEmptyElement) workflowEmptyElement.hidden = !workflowsActive || visibleCount > 0;
+  if (workflowEmptyElement) {
+    workflowEmptyElement.hidden = !workflowsActive || visibleCount > 0;
+    workflowEmptyElement.textContent = query ? 'No matching tools for this computer.' : 'No workflows are available for this computer in this category.';
+  }
 }
+workflowSearchInput?.addEventListener('input', () => applyWorkflowFilter());
 
 function activatePopupTab(value, { persist = true } = {}) {
   const selected = normalizePopupTab(value);
@@ -1141,6 +1150,7 @@ document.getElementById('openNon99Workflow').addEventListener('click', () => {
 workflowFilterButtons.forEach((button) => {
   button.addEventListener('click', () => {
     if (button.disabled) return;
+    if (workflowSearchInput) workflowSearchInput.value = '';
     applyWorkflowFilter(button.dataset.workflowFilter);
     chrome.storage.local.set({ [WORKFLOW_GROUP_KEY]: activeWorkflowGroup });
     window.scrollTo({ top: 0, behavior: 'smooth' });

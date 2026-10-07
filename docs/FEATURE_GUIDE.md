@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.49. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.50. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -17,6 +17,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 ## Feature Index
 
+- [Price +$0.10](#price-increase) - **PARTIAL**
 - [Unread Customer Messages](#unread-customer-messages) - **PARTIAL**
 - [Optional Extension Setup](#companion-setup) - **PARTIAL**
 - [Removed Listing History](#removed-listing-history) - **PARTIAL**
@@ -50,6 +51,49 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Diagnostics, Backup, and Interface Settings](#diagnostics) - **PARTIAL**
 - [Feature Tour, Themes, and Universal Access](#onboarding-interface) - **PARTIAL**
 - [Walmart Order Helper](#walmart) - **IMPLEMENTED, UNPROVEN**
+
+<a id="price-increase"></a>
+## Price +$0.10
+
+**Matrix:** E-15
+
+**Evidence status:** PARTIAL
+
+**Purpose:** Prepare a ten-cent increase on one exact fixed-price eBay listing.
+
+### Prerequisites
+
+- Use the intended signed-in eBay Chrome profile.
+- Open Order Details, the exact listing, or its native Revise editor.
+- Finish or pause other marketplace workflows and clear Stop.
+
+### Exact Steps
+
+1. Choose Price +$0.10 from Daily or the floating eBay panel.
+2. If an order contains multiple item links, choose the intended listing.
+3. GLDN follows the native Revise route and reads the current Item price.
+4. Check the displayed old and new price; only Item price is prepared.
+5. Review the native listing and click eBay Revise it yourself.
+
+### Approval Stop
+
+GLDN never clicks Revise it, Save, Preview, Continue or final Submit. Final revision remains manual.
+
+### Expected Output
+
+One prepared Item price exactly ten cents above the initial current price, with the old and new amounts visible.
+
+### Failure Recovery
+
+- Repeated clicks resume the same prepared amount rather than increasing again.
+- A reload does not automatically reapply an already-prepared edit; review the native current value.
+- Close helper clears its pending session, not the edited native price.
+- Auctions, active variations, ambiguous fields, changed prices and unverifiable redirects require manual review.
+
+### Evidence
+
+The user's read-only AnyDesk demonstration showed 27.29 after 27.19. Current signed-in native Revise link, title, fixed-price control, disabled variations notice and Item price field were inspected without modification. Deterministic tests and synthetic browser checks support the implementation; a full live helper run and final revision are not claimed.
+
 
 <a id="unread-customer-messages"></a>
 ## Unread Customer Messages
@@ -109,7 +153,7 @@ Current Profile 2 inbox layout and exact native conversation IDs were inspected.
 
 ### Exact Steps
 
-1. Click the GLDN Ops Chrome icon, then Optional Extension Setup.
+1. Click the GLDN Ops Chrome icon > Settings > Optional Extension Setup.
 2. Choose Download latest eComSniper, allow optional downloads, and sign in if needed.
 3. Wait for Chrome-confirmed download completion and use Show downloaded file. Extract the ZIP and use Chrome Load unpacked manually.
 4. For Trackerbot, choose Open Trackerbot in Chrome Web Store and approve Add to Chrome there.

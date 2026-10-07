@@ -1,4 +1,13 @@
-GLDN Ops v3.12.49
+GLDN Ops v3.12.50
+
+v3.12.50 price shortcut and clearer navigation:
+- Open the intended eBay Order Details or listing, then choose Price +$0.10 in Daily or the floating panel.
+- GLDN opens native Revise and prepares ten cents above the current Item price, not the old order price or recommendation.
+- Review the edited price and click eBay Revise it yourself. No other listing field is edited.
+- Repeated clicks resume the same prepared amount. Closing the helper does not undo an edited price.
+- Auctions and active variations are not supported. Stop and running marketplace workflows block edits.
+- Find a tool searches workflow categories. Setup is in Settings, diagnostics in Status, help in Guides.
+- The floating eBay panel keeps the everyday controls visible; other scans are in More tools.
 
 v3.12.49 unread customer messages:
 - Open the GLDN icon > Daily > Unread Customer Messages, or use the eBay panel button.

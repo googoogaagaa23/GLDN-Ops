@@ -6,7 +6,7 @@
   <title>GLDN Ops</title>
   <style>
     * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
-    body { margin: 0; width: 430px; max-height: 600px; overflow-y: auto; padding: 12px; color: #111827; background: #f8fafc; scrollbar-width:thin; scrollbar-color:#64748b transparent; }
+    body { margin: 0; width: 430px; max-width:100vw; max-height: 600px; overflow-y: auto; padding: 12px; color: #111827; background: #f8fafc; scrollbar-width:thin; scrollbar-color:#64748b transparent; }
     body::-webkit-scrollbar, .diagnostic-log::-webkit-scrollbar { width:7px; height:7px; }
     body::-webkit-scrollbar-track, .diagnostic-log::-webkit-scrollbar-track { background:transparent; }
     body::-webkit-scrollbar-thumb, .diagnostic-log::-webkit-scrollbar-thumb { background:rgba(100,116,139,.72); border:2px solid transparent; border-radius:999px; background-clip:padding-box; }
@@ -71,6 +71,8 @@
     #updaterStatus.warning { color:#854d0e; border-color:#facc15; background:#fefce8; }
     #updaterStatus.error { color:#991b1b; border-color:#fca5a5; background:#fff1f2; }
     .popup-nav { position:sticky; top:0; z-index:20; display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; background:rgba(248,250,252,.96); backdrop-filter:blur(10px); }
+    .workflow-search { margin:12px 0 8px; }
+    .workflow-search input { width:100%; min-height:38px; margin:0; }
     .popup-tab { min-height:36px; margin:0; padding:7px 5px; border:1px solid transparent; background:transparent; color:#475569; }
     .popup-tab[aria-selected="true"] { border-color:#1d4ed8; background:#2563eb; color:#fff; }
     .workflow-filter { display:grid; grid-template-columns:repeat(3, 1fr); gap:5px; margin-top:10px; padding:6px; border:1px solid #cbd5e1; border-radius:8px; background:#f1f5f9; }
@@ -218,7 +220,7 @@
     <img class="logo" src="icons/icon48.png" alt="GLDN Ops logo">
     <div>
       <h1>GLDN Ops</h1>
-      <div class="subtitle">Order actions, Seller Level and monthly limits</div>
+      <div class="subtitle">Marketplace operations</div>
       <div id="currentVersion" class="version-pill">Version</div>
     </div>
   </div>
@@ -226,12 +228,6 @@
   <div class="quick-actions" aria-label="Extension utilities">
     <button id="updateExtension" class="primary" type="button">Update &amp; Reload</button>
     <div id="updaterStatus" role="status">Checking automatic updater...</div>
-    <button id="openOpsHealth" class="secondary" type="button">Health &amp; Installations</button>
-    <button id="reloadExtension" class="secondary" type="button">Reload Current Files</button>
-    <button id="openFeatureGuide" class="secondary" type="button">Open Guide</button>
-    <button id="openFeatureTour" class="secondary" type="button">Start Feature Tour</button>
-    <button id="openCompanionSetup" class="secondary" type="button">Optional Extension Setup</button>
-    <button id="openOrderPlacementAuditQuick" class="warning" type="button" data-guide-id="order-placement-audit">Open Order Placement Audit</button>
   </div>
 
   <nav class="popup-nav" role="tablist" aria-label="GLDN Ops sections">
@@ -243,11 +239,16 @@
   <div id="status" role="status" aria-live="polite"></div>
 
   <section class="section-card" data-popup-section="guides" hidden>
+    <button id="openFeatureGuide" class="secondary" type="button">Open Guide</button>
+    <button id="openFeatureTour" class="secondary" type="button">Start Feature Tour</button>
     <h2>Step-by-step workflow guides</h2>
     <p class="hint">Choose any feature to open its exact prerequisites, steps, approval stop, expected result, and recovery instructions.</p>
     <div data-gldn-guide-directory></div>
   </section>
 
+  <div class="workflow-search" data-popup-section="workflows">
+    <input id="workflowSearch" type="search" aria-label="Find a tool" placeholder="Find a tool" autocomplete="off">
+  </div>
   <nav class="workflow-filter" data-popup-section="workflows" aria-label="Workflow category">
     <button type="button" aria-pressed="true" data-workflow-filter="daily">Daily</button>
     <button type="button" aria-pressed="false" data-workflow-filter="listings">Listings</button>
@@ -259,6 +260,8 @@
   <div id="workflowEmpty" class="workflow-empty" data-popup-section="workflows" hidden>No workflows are available for this computer in this category.</div>
 
   <section class="section-card" data-popup-section="settings" hidden>
+    <button id="openCompanionSetup" class="secondary" type="button">Optional Extension Setup</button>
+    <button id="reloadExtension" class="secondary" type="button">Reload Current Files</button>
     <h2>Computer profile</h2>
     <p class="hint">Choose the computer once per Chrome profile. The marketplace account is derived automatically.</p>
     <label for="computer">Computer</label>
@@ -320,6 +323,7 @@
     <button type="button" class="secondary" data-ebay-action="sales-snapshot" data-guide-id="ebay-snapshot">Scan Sales Snapshot</button>
     <button type="button" class="danger" data-ebay-action="listing-limits" data-guide-id="listing-limits">Confirm Listings Under Limit</button>
     <button type="button" class="primary" data-ebay-action="prepare-order-note" data-guide-id="ebay-note-profit">Prepare Order Note</button>
+    <button type="button" class="primary" data-ebay-action="increase-price" data-guide-id="price-increase">Price +$0.10</button>
     <button id="openUnreadEbayMessages" type="button" class="primary" data-guide-id="unread-customer-messages">Unread Customer Messages</button>
   </section>
 
@@ -527,6 +531,8 @@
   </section>
 
   <section class="section-card" data-popup-section="status" hidden>
+    <button id="openOpsHealth" class="secondary" type="button">Health &amp; Installations</button>
+    <button id="openOrderPlacementAuditQuick" class="warning" type="button" data-guide-id="order-placement-audit">Open Order Placement Audit</button>
     <h2>Automation controls</h2>
     <p class="hint">Stop requests finish at the next safe checkpoint. Reset clears any saved unfinished workflow.</p>
     <div class="button-row">

@@ -11792,11 +11792,15 @@
       </div>
       <div class="gldn-panel-identity"></div>
       <button type="button" data-action="mark-shipped" class="gldn-success">Mark as Shipped</button>
-      <button type="button" data-action="health" class="gldn-secondary">Scan Seller Level</button>
-      <button type="button" data-action="snapshot" class="gldn-secondary">Scan Sales Snapshot</button>
-      <button type="button" data-action="limits" class="gldn-danger">Confirm Listings Under Limit</button>
       <button type="button" data-action="prepare" class="gldn-primary">Prepare Order Note</button>
+      <button type="button" data-action="increase-price" class="gldn-primary">Price +$0.10</button>
       <button type="button" data-action="unread-messages" class="gldn-secondary">Unread Customer Messages</button>
+      <details class="gldn-more-tools">
+        <summary>More tools</summary>
+        <button type="button" data-action="health" class="gldn-secondary">Scan Seller Level</button>
+        <button type="button" data-action="snapshot" class="gldn-secondary">Scan Sales Snapshot</button>
+        <button type="button" data-action="limits" class="gldn-danger">Confirm Listings Under Limit</button>
+      </details>
       <button type="button" data-action="policy-listing-audit" class="gldn-warning" hidden>Audit Listing Policies</button>
       <button type="button" data-action="review-move99-scan" class="gldn-warning" hidden>Review Saved Category Scan</button>
       <button type="button" data-action="apply-move99-scan" class="gldn-primary" hidden>Apply Saved Category Scan</button>
@@ -11906,6 +11910,9 @@
       prepareNote().catch(() => {});
     });
     panel.querySelector("[data-action='health']").addEventListener("click", startSellerLevelScan);
+    panel.querySelector("[data-action='increase-price']").addEventListener("click", () => {
+      globalThis.GLDN_EBAY_PRICE_INCREASE.start().catch((error) => renderStatus(error.message, "error"));
+    });
     panel.querySelector("[data-action='unread-messages']").addEventListener("click", async () => {
       const response = await runtimeMessage({ type: "openExtensionPage", page: "ebay-messages.html", reuse: true });
       if (!response?.ok) renderStatus(response?.error || "Unread Customer Messages could not open.", "error");
@@ -12408,6 +12415,7 @@
       "listing-limits": startListingLimitCheck,
       "save-listing-limits-review": saveOpenListingLimitsReview,
       "prepare-order-note": prepareNote,
+      "increase-price": () => globalThis.GLDN_EBAY_PRICE_INCREASE.start(),
       "start-monthly-profit": () => startEbayMonthlyProfitForMonth(message.monthKey),
       "start-move99-scan": () => startMove99Listings("price99"),
       "start-move99-reverse-scan": () => startMove99Listings("non99"),
@@ -12420,7 +12428,7 @@
       return false;
     }
     setEbayPanelWorkflowVisible(true);
-    if (["approve-move99-submit", "start-monthly-profit", "prepare-order-note"].includes(String(message.action || ""))) {
+    if (["approve-move99-submit", "start-monthly-profit", "prepare-order-note", "increase-price"].includes(String(message.action || ""))) {
       Promise.resolve(action())
         .then((result) => sendResponse({ ok: true, accepted: true, result }))
         .catch((error) => {

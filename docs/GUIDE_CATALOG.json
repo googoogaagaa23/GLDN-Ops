@@ -1,6 +1,6 @@
 {
-  "version": "3.12.49",
-  "updated": "2026-10-05",
+  "version": "3.12.50",
+  "updated": "2026-10-06",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",
@@ -11,6 +11,19 @@
     "IMPLEMENTED, LIVE REVIEW PENDING": "The implementation and deterministic data checks pass, but the current signed-in marketplace review still needs to be reached."
   },
   "features": [
+    {
+      "id": "price-increase",
+      "matrix": "E-15",
+      "title": "Price +$0.10",
+      "status": "PARTIAL",
+      "summary": "Prepare a ten-cent increase on one exact fixed-price eBay listing.",
+      "prerequisites": ["Use the intended signed-in eBay Chrome profile.", "Open Order Details, the exact listing, or its native Revise editor.", "Finish or pause other marketplace workflows and clear Stop."],
+      "steps": ["Choose Price +$0.10 from Daily or the floating eBay panel.", "If an order contains multiple item links, choose the intended listing.", "GLDN follows the native Revise route and reads the current Item price.", "Check the displayed old and new price; only Item price is prepared.", "Review the native listing and click eBay Revise it yourself."],
+      "approvalStop": "GLDN never clicks Revise it, Save, Preview, Continue or final Submit. Final revision remains manual.",
+      "output": "One prepared Item price exactly ten cents above the initial current price, with the old and new amounts visible.",
+      "recovery": ["Repeated clicks resume the same prepared amount rather than increasing again.", "A reload does not automatically reapply an already-prepared edit; review the native current value.", "Close helper clears its pending session, not the edited native price.", "Auctions, active variations, ambiguous fields, changed prices and unverifiable redirects require manual review."],
+      "evidence": "The user's read-only AnyDesk demonstration showed 27.29 after 27.19. Current signed-in native Revise link, title, fixed-price control, disabled variations notice and Item price field were inspected without modification. Deterministic tests and synthetic browser checks support the implementation; a full live helper run and final revision are not claimed."
+    },
     {
       "id": "unread-customer-messages",
       "matrix": "E-14",
@@ -31,7 +44,7 @@
       "status": "PARTIAL",
       "summary": "Open optional eComSniper download and Trackerbot installation/sign-in controls.",
       "prerequisites": ["Use the Chrome profile where the companion extension belongs."],
-      "steps": ["Click the GLDN Ops Chrome icon, then Optional Extension Setup.", "Choose Download latest eComSniper, allow optional downloads, and sign in if needed.", "Wait for Chrome-confirmed download completion and use Show downloaded file. Extract the ZIP and use Chrome Load unpacked manually.", "For Trackerbot, choose Open Trackerbot in Chrome Web Store and approve Add to Chrome there.", "Use Open Trackerbot sign-in for its website, then finish any separate extension login in Trackerbot.", "Skip for now opens the feature tour without starting either provider."],
+      "steps": ["Click the GLDN Ops Chrome icon > Settings > Optional Extension Setup.", "Choose Download latest eComSniper, allow optional downloads, and sign in if needed.", "Wait for Chrome-confirmed download completion and use Show downloaded file. Extract the ZIP and use Chrome Load unpacked manually.", "For Trackerbot, choose Open Trackerbot in Chrome Web Store and approve Add to Chrome there.", "Use Open Trackerbot sign-in for its website, then finish any separate extension login in Trackerbot.", "Skip for now opens the feature tour without starting either provider."],
       "approvalStop": "Chrome installation approval, verification, and separate extension login remain manual. No marketplace action is authorized.",
       "output": "A confirmed versioned eComSniper download or an opened official Trackerbot page; opening a page is not installation or sign-in proof.",
       "recovery": ["A blocked or interrupted download stays unconfirmed. Check the provider tab and Chrome before retrying.", "Passwords are not bundled or persisted by GLDN.", "The setup button remains available after skipping or updating."],

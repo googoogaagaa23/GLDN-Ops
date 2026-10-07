@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.50 - 2026-10-06
+
+- Add Price +$0.10 for one fixed-price eBay listing, starting from Order Details, the listing, or its native Revise editor.
+- Follow the exact native Revise route and verify its same-tab redirect and title before preparing the price. Use integer cents and a tab-specific session to prevent duplicate increases on retries.
+- Change only Item price. Auctions, active variations, ambiguous inputs, expired sessions, changed prices, Stop, and concurrent marketplace workflows stop preparation. eBay Revise it remains manual.
+- Add Find a tool search across workflow categories. Move setup, diagnostics and guides into their existing dedicated tabs; shorten the eBay floating panel with More tools.
+- Validate the demonstrated current native editor labels read-only and add deterministic and synthetic desktop/mobile regression checks. No live listing price was changed or saved by GLDN during development.
+
 ## v3.12.49 - 2026-10-05
 
 - Add Unread Customer Messages in the popup Daily controls and floating eBay panel.
