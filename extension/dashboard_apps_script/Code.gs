@@ -496,7 +496,10 @@ function orderAuditSheetRows_(sheet, headers) {
 function orderAuditRewriteRows_(sheet, headers, rows) {
   const bodyRows = Math.max(0, sheet.getLastRow() - 1);
   if (bodyRows) sheet.getRange(2, 1, bodyRows, headers.length).clearContent();
-  if (rows.length) sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  if (rows.length) {
+    sheet.getRange(2, 5, rows.length, 1).setNumberFormat('@');
+    sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
+  }
 }
 
 function orderAuditRemoveRows_(sheet, headers, predicate) {
@@ -532,14 +535,15 @@ function orderAuditUpsertRun_(input) {
     runKey,
     cleanText_(input.computerLabel || previous[2]),
     cleanText_(input.accountLabel || input.ebayAccountLabel || previous[3]).toUpperCase(),
-    cleanText_(input.monthKey || previous[4]),
+    monthKeyFromSheetCell_(input.monthKey || previous[4]),
     expectedProfiles.join(' | '),
     expectedUnits,
     scannedProfiles.join(' | '),
     status
   ];
-  if (found.index >= 0) sheet.getRange(found.index + 2, 1, 1, row.length).setValues([row]);
-  else sheet.appendRow(row);
+  const targetRow = found.index >= 0 ? found.index + 2 : sheet.getLastRow() + 1;
+  sheet.getRange(targetRow, 5, 1, 1).setNumberFormat('@');
+  sheet.getRange(targetRow, 1, 1, row.length).setValues([row]);
   return {
     runKey,
     expectedProfiles,
@@ -596,7 +600,7 @@ function saveOrderPlacementAuditExpectedBatch_(input) {
       runKey,
       cleanText_(record.computerLabel || input.computerLabel),
       cleanText_(record.accountLabel || record.ebayAccountLabel || input.accountLabel).toUpperCase(),
-      cleanText_(record.monthKey || input.monthKey),
+      monthKeyFromSheetCell_(record.monthKey || input.monthKey),
       cleanText_(record.orderNumber),
       cleanText_(record.orderDate),
       cleanText_(record.asin).toUpperCase(),
@@ -610,7 +614,9 @@ function saveOrderPlacementAuditExpectedBatch_(input) {
       cleanText_(record.shippingBlock),
       cleanText_(record.pageUrl)
     ]);
-    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, ORDER_AUDIT_EXPECTED_HEADERS.length).setValues(rows);
+    const startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 5, rows.length, 1).setNumberFormat('@');
+    sheet.getRange(startRow, 1, rows.length, ORDER_AUDIT_EXPECTED_HEADERS.length).setValues(rows);
     return { runKey, count: rows.length };
   });
 }
@@ -636,7 +642,7 @@ function saveOrderPlacementAuditAmazonBatch_(input) {
       runKey,
       cleanText_(record.computerLabel || input.computerLabel),
       cleanText_(input.accountLabel).toUpperCase(),
-      cleanText_(record.monthKey || input.monthKey),
+      monthKeyFromSheetCell_(record.monthKey || input.monthKey),
       cleanText_(record.supplierProfile || supplierProfile),
       cleanText_(record.orderId),
       cleanText_(record.purchaseDate),
@@ -653,7 +659,9 @@ function saveOrderPlacementAuditAmazonBatch_(input) {
       orderAuditProfiles_(record.seenProfiles || [supplierProfile]).join(' | ')
     ]);
     if (rows.length) {
-      sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, ORDER_AUDIT_PURCHASE_HEADERS.length).setValues(rows);
+      const startRow = sheet.getLastRow() + 1;
+      sheet.getRange(startRow, 5, rows.length, 1).setNumberFormat('@');
+      sheet.getRange(startRow, 1, rows.length, ORDER_AUDIT_PURCHASE_HEADERS.length).setValues(rows);
     }
 
     let metadata = orderAuditUpsertRun_(input);
@@ -692,7 +700,7 @@ function readOrderPlacementAudit_(input) {
     runKey,
     computerLabel: cleanText_(runRow[2] || input.computerLabel),
     accountLabel: cleanText_(runRow[3] || input.accountLabel).toUpperCase(),
-    monthKey: cleanText_(runRow[4] || input.monthKey),
+    monthKey: monthKeyFromSheetCell_(runRow[4] || input.monthKey),
     expectedProfiles: orderAuditProfiles_(runRow[5]),
     expectedUnits: Number(runRow[6] || 0),
     scannedProfiles: orderAuditProfiles_(runRow[7]),
@@ -711,7 +719,7 @@ function readOrderPlacementAudit_(input) {
     runKey,
     computerLabel: cleanText_(row[2]),
     accountLabel: cleanText_(row[3]),
-    monthKey: cleanText_(row[4]),
+    monthKey: monthKeyFromSheetCell_(row[4]),
     orderNumber: cleanText_(row[5]),
     orderDate: orderAuditDateText_(row[6]),
     asin: cleanText_(row[7]),
@@ -729,7 +737,7 @@ function readOrderPlacementAudit_(input) {
     runKey,
     computerLabel: cleanText_(row[2]),
     accountLabel: cleanText_(row[3]),
-    monthKey: cleanText_(row[4]),
+    monthKey: monthKeyFromSheetCell_(row[4]),
     supplierProfile: cleanText_(row[5]),
     seenProfiles: orderAuditProfiles_(row[18] || row[5]),
     orderId: cleanText_(row[6]),
