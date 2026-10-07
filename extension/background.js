@@ -6385,22 +6385,34 @@ function dashboardRequestTimeoutMs(action) {
     : DASHBOARD_REQUEST_TIMEOUT_MS;
 }
 
-async function postDashboardRequest(action, record = null) {
+async function postDashboardRequest(action, record = null, attempt = 0) {
   const { url, key } = await getDashboardConfig();
   const syncId = String(record?.syncId || '').trim();
-  const response = await fetchWithTimeout(url, {
-    method: 'POST',
-    redirect: 'follow',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({
-      action,
-      key,
-      record,
-      syncId,
-      extensionVersion: chrome.runtime.getManifest().version,
-      sentAt: new Date().toISOString()
-    })
-  }, dashboardRequestTimeoutMs(action));
+  const canRetryRead = attempt < 2 && ['ping', 'syncReceiptRead', 'orderPlacementAuditRead', 'policyIncidentRead'].includes(action);
+  const requestUrl = new URL(url);
+  // ContentService redirects are one-use; cached redirects can return the dashboard HTML.
+  requestUrl.searchParams.set('_gldnRequest', `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+  let response;
+  try {
+    response = await fetchWithTimeout(requestUrl.href, {
+      method: 'POST',
+      redirect: 'follow',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action,
+        key,
+        record,
+        syncId,
+        extensionVersion: chrome.runtime.getManifest().version,
+        sentAt: new Date().toISOString()
+      })
+    }, dashboardRequestTimeoutMs(action));
+  } catch (error) {
+    if (!canRetryRead) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+    return postDashboardRequest(action, record, attempt + 1);
+  }
 
   const text = await response.text();
   let data;
@@ -6410,7 +6422,13 @@ async function postDashboardRequest(action, record = null) {
     if (response.status === 403 || /Access Denied|You need access|Authorization needed|auth-required|ServiceLogin/i.test(text)) {
       throw new Error('Google is blocking the shared dashboard. Its owner must renew the existing dashboard authorization or repair web-app access. Re-entering the dashboard key will not fix this. No audit data was loaded.');
     }
-    throw new Error(`The shared dashboard returned a web page instead of data (HTTP ${response.status}). Check the deployed web app, then refresh. No audit data was loaded.`);
+    if (canRetryRead) {
+      await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+      return postDashboardRequest(action, record, attempt + 1);
+    }
+    const error = new Error(`The shared dashboard returned a web page instead of data (HTTP ${response.status}). Check the deployed web app, then refresh. No audit data was loaded.`);
+    if (syncId) error.outcomeUnknown = true;
+    throw error;
   }
 
   if (!response.ok || !data.ok) {

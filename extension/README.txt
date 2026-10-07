@@ -1,4 +1,11 @@
-GLDN Ops v3.12.52
+GLDN Ops v3.12.53
+
+v3.12.53 shared audit reliability:
+- Fresh, non-cached dashboard requests avoid reusing Google's one-time response redirects.
+- Date-formatted audit months are repaired on the shared server without discarding existing evidence.
+- Purchases outside matching order date windows are review evidence, not duplicate or extra warnings.
+- Unknown purchase dates require review. In-window duplicate detection remains enabled.
+- Existing marketplace orders and saved scan checkpoints remain unchanged.
 
 v3.12.52 order-audit recovery:
 - Google Access Denied requires the dashboard owner to renew authorization or repair web-app access, not enter the same key again.

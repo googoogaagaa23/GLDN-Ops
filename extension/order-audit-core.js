@@ -426,7 +426,23 @@
 
       supply.forEach((purchaseUnit, index) => {
         if (!available.has(index)) return;
-        const sameRecipient = demand
+        const datedDemand = demand.filter((expectedUnit) => candidateScore(expectedUnit, purchaseUnit, windowDays));
+        if (!datedDemand.length) {
+          const datesKnown = Boolean(isoDate(purchaseUnit.purchaseDate) && demand.some((unit) => isoDate(unit.orderDate)));
+          findings.push({
+            status: datesKnown ? "outside-date-window" : "purchase-date-needs-review",
+            severity: "review",
+            asin,
+            expected: null,
+            purchase: purchaseUnit,
+            match: null,
+            reason: datesKnown
+              ? "This purchase is outside every matching eBay order's date window. It is retained as evidence, not counted as a duplicate or extra purchase for this audit."
+              : "Purchase/order dates could not be verified. This unit needs review and is not counted as a duplicate or extra purchase."
+          });
+          return;
+        }
+        const sameRecipient = datedDemand
           .map((expectedUnit) => ({ expectedUnit, identity: identityMatch(expectedUnit, purchaseUnit) }))
           .filter(({ identity }) => identity.strong)
           .sort((left, right) => Number(right.identity.addressSimilarity || 0) - Number(left.identity.addressSimilarity || 0))[0];
@@ -439,7 +455,7 @@
           match: sameRecipient?.identity || null,
           reason: sameRecipient
             ? "Amazon has more units than eBay demand, and this extra unit strongly matches an eBay recipient/address."
-            : "Amazon has more units than total eBay demand for this ASIN. The recipient differs or could not be verified."
+            : "An Amazon purchase has no unused eBay order unit within its matching date window. The recipient differs or could not be verified."
         });
       });
     });

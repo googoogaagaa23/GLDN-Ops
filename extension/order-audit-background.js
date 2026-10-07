@@ -349,6 +349,7 @@
     for (let batchIndex = 0; batchIndex < batches; batchIndex += 1) {
       const records = purchases.slice(batchIndex * DASHBOARD_BATCH_SIZE, (batchIndex + 1) * DASHBOARD_BATCH_SIZE);
       await deps.postToDashboard("orderPlacementAuditAmazonBatch", {
+        syncId: `${run.runId}:${run.runKey}:${run.supplierProfile}:amazon-batch:${batchIndex}`,
         runKey: run.runKey,
         computerLabel: run.computerLabel,
         accountLabel: run.accountLabel,

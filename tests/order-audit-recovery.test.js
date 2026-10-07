@@ -171,7 +171,7 @@ test('Google denial and non-JSON responses are actionable and never dump raw HTM
   const source = fs.readFileSync(path.join(root, 'extension/background.js'), 'utf8');
   const code = source.slice(source.indexOf('async function postDashboardRequest('), source.indexOf('async function postToDashboard('));
   for (const [status, text] of [[403, '<html>Access Denied SECRET-NONCE</html>'], [200, '<html>Authorization needed SECRET-NONCE</html>'], [502, '<html>upstream unavailable SECRET-NONCE</html>']]) {
-    const context = { getDashboardConfig: async () => ({ url: 'https://script.google.com/fixture/exec', key: 'fixture-key' }),
+    const context = { URL, setTimeout: (callback) => callback(), getDashboardConfig: async () => ({ url: 'https://script.google.com/fixture/exec', key: 'fixture-key' }),
       fetchWithTimeout: async () => ({ ok: status === 200, status, text: async () => text }), dashboardRequestTimeoutMs: () => 100,
       chrome: { runtime: { getManifest: () => ({ version: 'fixture' }) } }
     };
@@ -181,6 +181,72 @@ test('Google denial and non-JSON responses are actionable and never dump raw HTM
       assert.match(error.message, /dashboard|Google/);
       return true;
     });
+  }
+});
+
+test('transient dashboard reads retry with fresh URLs, but authorization failures and writes are not replayed', async () => {
+  const source = fs.readFileSync(path.join(root, 'extension/background.js'), 'utf8');
+  const code = source.slice(source.indexOf('async function postDashboardRequest('), source.indexOf('async function postToDashboard('));
+  const calls = [];
+  let mode = 'transient';
+  const context = {
+    URL, setTimeout: (callback) => callback(), getDashboardConfig: async () => ({ url: 'https://script.google.com/fixture/exec', key: 'fixture-key' }),
+    fetchWithTimeout: async (url) => {
+      calls.push(url);
+      const success = mode === 'transient' && calls.length === 3;
+      return { ok: true, status: 200, text: async () => success ? '{"ok":true}' : mode === 'authorization' ? '<html>Authorization needed</html>' : '<html>GLDN Ops Dashboard</html>' };
+    },
+    dashboardRequestTimeoutMs: () => 100, chrome: { runtime: { getManifest: () => ({ version: 'fixture' }) } }
+  };
+  vm.createContext(context); vm.runInContext(code, context);
+  assert.equal((await context.postDashboardRequest('orderPlacementAuditRead')).ok, true);
+  assert.equal(new Set(calls).size, 3);
+  calls.length = 0; mode = 'authorization';
+  await assert.rejects(context.postDashboardRequest('orderPlacementAuditRead'), /Google is blocking/);
+  assert.equal(calls.length, 1);
+  calls.length = 0; mode = 'write';
+  await assert.rejects(context.postDashboardRequest('orderPlacementAuditAmazonBatch', { syncId: 'same-receipt' }), (error) => error.outcomeUnknown === true);
+  assert.equal(calls.length, 1);
+});
+
+test('Amazon completion batches keep a stable receipt when finishing a saved checkpoint', async () => {
+  const stored = { orderPlacementAuditAmazonScan: {
+    ...selection, runId: 'fixture-run', supplierProfile: 'M7', active: true, phase: 'capture-amazon-details', workerTabId: 42,
+    candidates: [{ orderId: '112-1000000-1000000' }], candidateIndex: 0, purchases: []
+  } };
+  const h = workerHarness(stored);
+  const calls = [];
+  await h.api.handleAmazonDetail({ orderId: '112-1000000-1000000', purchases: [] }, { tab: { id: 42 } }, {
+    postToDashboard: async (action, record) => { calls.push({ action, record }); return { ok: true }; }
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].record.syncId, 'fixture-run:M0|CLICKNCARRY|2026-10:M7:amazon-batch:0');
+  assert.equal(calls[0].record.profileCompleted, true);
+  assert.equal(stored.orderPlacementAuditAmazonScan.phase, 'review');
+});
+
+test('dashboard requests use fresh non-cached redirect URLs without changing write receipt identity', async () => {
+  const source = fs.readFileSync(path.join(root, 'extension/background.js'), 'utf8');
+  const code = source.slice(source.indexOf('async function postDashboardRequest('), source.indexOf('async function postToDashboard('));
+  const calls = [];
+  const context = {
+    URL, getDashboardConfig: async () => ({ url: 'https://script.google.com/fixture/exec?existing=kept', key: 'fixture-key' }),
+    fetchWithTimeout: async (url, options) => { calls.push({ url, options }); return { ok: true, status: 200, text: async () => '{"ok":true}' }; },
+    dashboardRequestTimeoutMs: () => 100, chrome: { runtime: { getManifest: () => ({ version: 'fixture' }) } }
+  };
+  vm.createContext(context); vm.runInContext(code, context);
+  for (let index = 0; index < 2; index++) await context.postDashboardRequest('orderPlacementAuditAmazonBatch', { syncId: 'same-write-receipt', records: [] });
+  assert.notEqual(calls[0].url, calls[1].url);
+  for (const call of calls) {
+    const url = new URL(call.url);
+    assert.equal(url.searchParams.get('existing'), 'kept');
+    assert.ok(url.searchParams.get('_gldnRequest'));
+    assert.equal(call.options.cache, 'no-store');
+    assert.equal(call.options.method, 'POST');
+    const body = JSON.parse(call.options.body);
+    assert.equal(body.syncId, 'same-write-receipt');
+    assert.equal(body.record.syncId, 'same-write-receipt');
+    assert.equal(body.key, 'fixture-key');
   }
 });
 

@@ -1,5 +1,14 @@
 # GLDN Ops Changelog
 
+## v3.12.53 - 2026-10-06
+
+- Give each shared-dashboard request a fresh URL and disable response caching so Google ContentService's one-time redirects are not reused. Write receipt identities remain unchanged.
+- Normalize legacy date-formatted audit months and keep new month cells as text. The live shared server was upgraded without replacing its URL or unrelated automation.
+- Keep older/out-of-window purchases and unknown dates as review evidence instead of falsely labeling them duplicate or extra purchases.
+- Preserve in-window matching, cross-profile deduplication, saved checkpoints, and the read-only marketplace boundary.
+- Retry transient read failures within a bounded limit; writes are never blindly replayed. Amazon completion uses stable receipts to recover a lost response.
+- Add ten regression tests across server month handling, redirect freshness, safe receipt recovery, and date-bounded duplicate warnings.
+
 ## v3.12.52 - 2026-10-06
 
 - Explain Google dashboard authorization/access failures without dumping HTML into the audit page. Owner renewal is required when Google refuses access; repeating the setup key is not a repair.

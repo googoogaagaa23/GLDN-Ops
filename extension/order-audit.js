@@ -131,7 +131,7 @@
     const findings = Array.isArray(shared?.audit?.findings) ? shared.audit.findings : [];
     if (filter === "all") return findings;
     if (filter === "covered") return findings.filter((finding) => ["covered", "canceled-no-amazon-purchase"].includes(finding.status));
-    if (filter === "review") return findings.filter((finding) => ["covered-needs-review", "missing-amazon-purchase"].includes(finding.status));
+    if (filter === "review") return findings.filter((finding) => ["covered-needs-review", "missing-amazon-purchase", "outside-date-window", "purchase-date-needs-review"].includes(finding.status));
     return findings.filter((finding) => [
       "duplicate-same-recipient",
       "possible-extra-different-recipient",

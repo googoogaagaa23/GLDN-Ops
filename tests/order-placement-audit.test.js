@@ -79,6 +79,31 @@ test("an extra Amazon unit for another recipient is possible extra, not an exact
   assert.deepEqual(result.findings.map((finding) => finding.status).sort(), ["covered", "possible-extra-different-recipient"]);
 });
 
+test("older matching-recipient purchases outside the date window never become duplicate warnings", () => {
+  const result = core.audit([expected()], [purchase(), purchase({ orderId: "222-2222222-2222222", purchaseDate: "2026-06-10", unitKey: "" })]);
+  assert.equal(result.statusCounts.covered, 1);
+  assert.equal(result.statusCounts["outside-date-window"], 1);
+  assert.equal(result.statusCounts["duplicate-same-recipient"] || 0, 0);
+  assert.equal(result.statusCounts["possible-extra-different-recipient"] || 0, 0);
+  assert.equal(result.amazonUnits, 2);
+});
+
+test("out-of-window purchases for another recipient and future purchases remain review evidence", () => {
+  for (const purchaseDate of ["2026-06-10", "2026-12-10"]) {
+    const result = core.audit([expected()], [purchase({ purchaseDate, recipient: 'Other', recipientFingerprint: 'other', addressFingerprint: 'elsewhere' })]);
+    assert.equal(result.statusCounts["outside-date-window"], 1);
+    assert.equal(result.statusCounts["possible-extra-different-recipient"] || 0, 0);
+    assert.equal(result.statusCounts["missing-amazon-purchase"], 1);
+  }
+});
+
+test("unknown purchase dates never justify a duplicate or extra purchase warning", () => {
+  const result = core.audit([expected()], [purchase({ purchaseDate: "" })]);
+  assert.equal(result.statusCounts["purchase-date-needs-review"], 1);
+  assert.equal(result.statusCounts["duplicate-same-recipient"] || 0, 0);
+  assert.equal(result.statusCounts["possible-extra-different-recipient"] || 0, 0);
+});
+
 test("two legitimate eBay customers sharing an ASIN consume two purchases without a false duplicate", () => {
   const result = core.audit([
     expected(),

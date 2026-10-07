@@ -1,9 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-10-06
-Current local manifest: 3.12.52
+Current local manifest: 3.12.53
 
-v3.12.52 repairs Order Placement Audit readiness and refresh handling. Exact shared demand works in Amazon-only profiles; mismatched builds stop before clearing saved scans, completed uploads require unit-level readback, and partial/shared-scope failures cannot enable Scan. Failed or out-of-order refreshes cannot retain another target's data. Live Google requests returned Access Denied; the signed-in dashboard owner reached Authorization needed. Owner renewal remains required before the shared backend can be declared working. Automated recovery tests are supporting evidence, not signed-in M0/M7 scan completion.
+v3.12.53 adds fresh non-cached dashboard requests and date-bounded duplicate warnings. The dashboard owner's existing authorization was renewed and production Apps Script version 52 repairs date-formatted audit months. Live M0 / CLICKNCARRY October demand reads back all 143 units; signed-in M7 reads shared demand and captures 38 purchase units. Its final checkpoint was interrupted by intermittent redirected HTML/timeouts, motivating the request-cache fix. Older purchases remain review evidence, not proven duplicates. All-profile completion and the formal Profile 2/video gate are not claimed. Automated recovery tests are supporting evidence.
 
 v3.12.51 repairs checkout-wide item capture after read-only M0/M8 AnyDesk diagnosis found dozens of unrelated IDs for one motor. Shipment-scoped IDs, exact checkout cache identity, per-tab confirmation fallback and copy-time rechecks prevent unrelated/stale evidence in drafts. Genuine mismatches still block and report both sides; native Save and verified-profit gates are unchanged. Synthetic desktop/mobile and focused regression checks support the repair. Refreshed signed-in post-fix validation remains pending, not LIVE PASS. See evidence/checkout-note-identity-v3.12.51/README.md.
 
