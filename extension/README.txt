@@ -1,4 +1,12 @@
-GLDN Ops v3.12.50
+GLDN Ops v3.12.51
+
+v3.12.51 checkout item identity repair:
+- Checkout IDs and titles come only from current shipment items, excluding recommendations, hidden rows and injected tools.
+- A different checkout cannot reuse old IDs or cached amounts. Unknown current IDs require manual item review.
+- Copy stops if the checkout changes after review. True eBay mismatches show expected and copied IDs.
+- The newest reviewed handoff takes priority; failed imports clear the review checkbox.
+- After Update & Reload, refresh both tabs and copy Amazon information again. Old polluted copies are not repaired automatically.
+- Amazon purchase and eBay Save stay manual; checkout drafts do not become verified purchases or sync profit.
 
 v3.12.50 price shortcut and clearer navigation:
 - Open the intended eBay Order Details or listing, then choose Price +$0.10 in Daily or the floating panel.

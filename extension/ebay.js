@@ -1832,9 +1832,11 @@
         && requiredAsins.every((asin) => payloadAsins.includes(asin));
     };
     candidates.sort((left, right) => {
-      const matchDelta = Number(exactAsinMatch(right)) - Number(exactAsinMatch(left));
-      if (matchDelta) return matchDelta;
-      return new Date(right.payload.capturedAt || 0).getTime() - new Date(left.payload.capturedAt || 0).getTime();
+      const ageDelta = Date.parse(right.payload.capturedAt || "") - Date.parse(left.payload.capturedAt || "");
+      if (Number.isFinite(ageDelta) && ageDelta) return ageDelta;
+      const clipboardDelta = Number(right.source === "clipboard") - Number(left.source === "clipboard");
+      if (clipboardDelta) return clipboardDelta;
+      return Number(exactAsinMatch(right)) - Number(exactAsinMatch(left));
     });
     return candidates[0].payload;
   }
@@ -2081,10 +2083,14 @@
     }
     const age = now - Date.parse(payload.capturedAt || "");
     if (!Number.isFinite(age) || age < -60000 || age > 86400000) throw new Error("The copied Amazon information is more than a day old or has no valid date. Copy it again.");
-    const sourceAsins = Array.isArray(payload.asins) ? payload.asins.map(value => String(value).toUpperCase()) : [];
-    const requiredAsins = Array.isArray(order.asins) ? order.asins.map(value => String(value).toUpperCase()) : [];
+    const normalizeAsins = values => [...new Set((Array.isArray(values) ? values : []).map(value => String(value).trim().toUpperCase()).filter(Boolean))];
+    const sourceAsins = normalizeAsins(payload.asins);
+    const requiredAsins = normalizeAsins(order.asins);
     if (sourceAsins.length && requiredAsins.length && (sourceAsins.length !== requiredAsins.length
-      || !requiredAsins.every(asin => sourceAsins.includes(asin)))) throw new Error("The copied Amazon item does not match this eBay order's SKU.");
+      || !requiredAsins.every(asin => sourceAsins.includes(asin)))) {
+      const copied = sourceAsins.slice(0, 4).join(", ") + (sourceAsins.length > 4 ? ` (+${sourceAsins.length - 4} more)` : "");
+      throw new Error(`The copied Amazon item does not match this eBay order's SKU. eBay: ${requiredAsins.join(", ")}. Copied from ${String(payload.profileLabel).trim()}: ${copied}. Review & Copy Amazon Info again on the matching checkout.`);
+    }
     const etas = Array.isArray(payload.etas) ? payload.etas.map(value => U.parseDateToMD(String(value))).filter(Boolean) : [];
     if (!etas.length) throw new Error("The copied Amazon information has no ETA. Enter the note manually or copy it again.");
     return `${U.formatMoney(earnings)} - ${U.formatMoney(payload.total)} - ${String(payload.profileLabel).trim()} - ${buildEtaText(etas)}`;
@@ -2131,8 +2137,9 @@
     const refresh = () => { fill.disabled = busy || !confirm.checked || !textarea.value.trim(); };
     const importPayload = payload => {
       if (!stillOwned()) throw new Error("The order changed. Open the intended order first.");
-      textarea.value = buildAmazonNoteDraft(payload, extractEbayOrderIdentity(), extractEbayEarnings());
       confirm.checked = false;
+      refresh();
+      textarea.value = buildAmazonNoteDraft(payload, extractEbayOrderIdentity(), extractEbayEarnings());
       refresh();
       status.textContent = payload.exactOrderDetails === true
         ? "Amazon information imported as an editable draft. No note saved or profit synced."
@@ -2163,6 +2170,8 @@
     });
     confirm.addEventListener("change", refresh);
     host.querySelector("[data-note-action='import']").addEventListener("click", () => run(async () => {
+      confirm.checked = false;
+      refresh();
       importPayload(await readAmazonClipboard(extractEbayOrderIdentity()));
     }));
     host.querySelector("[data-note-action='copy']").addEventListener("click", () => run(async () => {

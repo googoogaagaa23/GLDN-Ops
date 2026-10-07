@@ -31,6 +31,9 @@ const storageGet = async () => ({lastCopiedAmazonPayload});
 const storageSet = async updates => { if(updates.lastCopiedAmazonPayload) lastCopiedAmazonPayload=updates.lastCopiedAmazonPayload; };
 const renderStatus = () => {};
 const isConfirmationPage = () => false;
+const isCheckoutPage = () => true;
+const extractAmazonAsins = () => [];
+${block(amazon, '  function amazonCheckoutIdentityKey(', '  function scopedTextLines(')}
 const amazonPageLabel = () => 'Checkout';
 const extractCheckoutData = () => ({etas:extractAmazonEtas()});
 const extractExistingNote = () => '';

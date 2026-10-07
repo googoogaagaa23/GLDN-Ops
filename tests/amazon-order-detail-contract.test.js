@@ -139,7 +139,7 @@ test("order-detail copy path never falls back to cached checkout data", () => {
   assert.match(copyFlow, /isAmazonOrderDetailsPage\(\) && !live\.exactOrderDetails/);
   assert.match(copyFlow, /No cached checkout data was used/);
   assert.match(copyFlow, /isAmazonOrderDetailsPage\(\)\s*\? live\.total/);
-  assert.match(copyFlow, /isAmazonOrderDetailsPage\(\)\s*\? live\.asins/);
+  assert.match(copyFlow, /isAmazonOrderDetailsPage\(\)(?: \|\| isCheckoutPage\(\))?\s*\? live\.asins/);
   assert.match(copyFlow, /isAmazonOrderDetailsPage\(\)\s*\? live\.shippingBlock/);
 });
 

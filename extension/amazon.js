@@ -195,8 +195,47 @@
     return null;
   }
 
+  function amazonCheckoutItemRoots() {
+    const roots = [...document.querySelectorAll(
+      "#spc-orders, #ordersContainer, #checkout-items, #order-items, .shipment, .shipment-container, [data-shipment-id], [data-testid='checkout-item'], [data-testid='shipment']"
+    )].filter((element) => U.isVisible(element) && !isInjectedToolUiNode(element));
+    // Some checkout layouts have no stable shipment selector. Use the smallest
+    // container around an actual arrival heading, never the document or body.
+    if (!roots.length) {
+      const headings = [...document.querySelectorAll("h1, h2, h3, h4, legend, div, span")]
+        .filter((element) => U.isVisible(element) && /^arriving\b/i.test(directText(element)) && !isInjectedToolUiNode(element));
+      for (const heading of headings) {
+        let node = heading.parentElement;
+        for (let depth = 0; node && node !== document.body && depth < 5; depth += 1, node = node.parentElement) {
+          if (node.querySelector("[data-asin], a[href*='/dp/'], a[href*='/gp/product/']")) {
+            roots.push(node);
+            break;
+          }
+        }
+      }
+    }
+    return [...new Set(roots)];
+  }
+
+  function isAmazonCheckoutProductNode(element) {
+    if (!U.isVisible(element) || isInjectedToolUiNode(element)) return false;
+    return !element.closest(
+      ".a-carousel-container, header, footer, nav, [id*='recommend' i], [class*='recommend' i], [id*='upsell' i], [class*='upsell' i], [id*='cross-sell' i], [aria-label*='recommend' i]"
+    );
+  }
+
+  function amazonProductNodes(selector) {
+    if (!isCheckoutPage()) return [];
+    const nodes = new Set();
+    for (const root of amazonCheckoutItemRoots()) {
+      if (root.matches(selector)) nodes.add(root);
+      root.querySelectorAll(selector).forEach((node) => nodes.add(node));
+    }
+    return [...nodes].filter(isAmazonCheckoutProductNode);
+  }
+
   function extractAmazonTitles() {
-    const candidates = [...document.querySelectorAll("a[href*='/dp/'], a[href*='/gp/product/']")]
+    const candidates = amazonProductNodes("a[href*='/dp/'], a[href*='/gp/product/']")
       .map((anchor) => (anchor.innerText || anchor.textContent || "").trim())
       .filter((text) => text.length >= 12 && text.length <= 500);
     return [...new Set(candidates)].slice(0, 10);
@@ -204,16 +243,36 @@
 
   function extractAmazonAsins() {
     const values = new Set();
-    [...document.querySelectorAll("[data-asin]")].forEach((element) => {
+    amazonProductNodes("[data-asin]").forEach((element) => {
       const asin = String(element.getAttribute("data-asin") || "").trim().toUpperCase();
       if (/^[A-Z0-9]{10}$/.test(asin)) values.add(asin);
     });
-    [...document.querySelectorAll("a[href*='/dp/'], a[href*='/gp/product/']")].forEach((anchor) => {
+    amazonProductNodes("a[href*='/dp/'], a[href*='/gp/product/']").forEach((anchor) => {
       const href = anchor.href || anchor.getAttribute("href") || "";
       const match = href.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})(?:[/?#]|$)/i);
       if (match) values.add(match[1].toUpperCase());
     });
     return [...values];
+  }
+
+  function amazonCheckoutIdentityKey(url) {
+    try {
+      const parsed = new URL(url);
+      if (!/(^|\.)amazon\.com$/i.test(parsed.hostname)) return "";
+      const pathId = parsed.pathname.match(/\/checkout\/p\/([^/]+)/i)?.[1];
+      const purchaseId = pathId || parsed.searchParams.get("purchaseId") || parsed.searchParams.get("purchaseID");
+      return purchaseId ? `${parsed.origin}/checkout/${purchaseId}` : "";
+    } catch (_) { return ""; }
+  }
+
+  function compatibleAmazonCheckoutCache(live, cached, now = Date.now()) {
+    const key = amazonCheckoutIdentityKey(live.url);
+    const age = now - Date.parse(cached?.capturedAt || "");
+    if (!key || key !== cached?.checkoutIdentityKey || !Number.isFinite(age) || age < -60000 || age > 1800000) return {};
+    const normalize = (values) => [...new Set((values || []).map((value) => String(value).trim().toUpperCase()).filter(Boolean))].sort();
+    const currentAsins = normalize(live.asins), savedAsins = normalize(cached.asins);
+    if (currentAsins.length && savedAsins.length && JSON.stringify(currentAsins) !== JSON.stringify(savedAsins)) return {};
+    return cached;
   }
 
   function scopedTextLines(element) {
@@ -442,7 +501,9 @@
       asins: extractAmazonAsins(),
       shippingBlock: extractShippingBlock(),
       capturedAt: new Date().toISOString(),
-      url: location.href
+      url: location.href,
+      checkoutIdentityKey: amazonCheckoutIdentityKey(location.href),
+      evidenceSource: isCheckoutPage() ? "amazon-checkout-items" : "amazon-page-unverified"
     };
   }
 
@@ -1330,7 +1391,15 @@
     if (!checkoutPage && !confirmationPage) return false;
     const data = extractCheckoutData();
     const stored = await storageGet(["pendingAmazonCheckout"]);
-    const previous = stored.pendingAmazonCheckout || {};
+    const candidate = stored.pendingAmazonCheckout || {};
+    let previous = compatibleAmazonCheckoutCache(data, candidate);
+    if (confirmationPage) {
+      // This per-tab marker prevents another tab's checkout from becoming this
+      // confirmation's purchase evidence.
+      let tabCheckoutKey = "";
+      try { tabCheckoutKey = sessionStorage.getItem("gldnAmazonCheckoutUrl") || ""; } catch (_) {}
+      previous = compatibleAmazonCheckoutCache({ ...data, url: tabCheckoutKey }, candidate);
+    }
 
     if (checkoutPage) {
       const combined = {
@@ -1338,13 +1407,18 @@
         ...data,
         total: data.total ?? previous.total ?? null,
         etas: data.etas.length ? data.etas : (previous.etas || []),
-        titles: data.titles.length ? data.titles : (previous.titles || []),
-        asins: data.asins.length ? data.asins : (previous.asins || []),
-        shippingBlock: data.shippingBlock || previous.shippingBlock || ""
+        titles: data.titles,
+        asins: data.asins,
+        shippingBlock: data.shippingBlock || previous.shippingBlock || "",
+        confirmed: false,
+        exactOrderDetails: false,
+        orderId: "",
+        orderIds: []
       };
       if (combined.total !== null) {
         cachedSnapshot = combined;
         await storageSet({ pendingAmazonCheckout: combined });
+        try { sessionStorage.setItem("gldnAmazonCheckoutUrl", data.url); } catch (_) {}
         renderPassiveStatus(
           `Detected: ${U.formatMoney(combined.total)}${combined.etas.length ? ` / ${combined.etas.join(", ")}` : " / ETA pending"}`,
           "ready"
@@ -1364,6 +1438,8 @@
         titles: data.titles.length ? data.titles : (previous.titles || []),
         asins: data.asins.length ? data.asins : (previous.asins || []),
         shippingBlock: data.shippingBlock || previous.shippingBlock || "",
+        checkoutIdentityKey: previous.checkoutIdentityKey || "",
+        exactOrderDetails: false,
         confirmedAt: new Date().toISOString(),
         confirmationUrl: location.href
       };
@@ -1615,6 +1691,18 @@
     overlay.querySelector("[data-action='cancel']").addEventListener("click", close);
 
     copyButton.addEventListener("click", async () => {
+      if (orderEvidence.url && orderEvidence.url !== location.href) {
+        status.textContent = "The Amazon page changed. Close this review and review the current item again.";
+        return;
+      }
+      if (!marketplaceContext && isCheckoutPage()) {
+        const currentAsins = extractAmazonAsins().sort();
+        const reviewedAsins = [...new Set(titles.amazonAsins || [])].sort();
+        if (JSON.stringify(currentAsins) !== JSON.stringify(reviewedAsins)) {
+          status.textContent = "The checkout items changed. Close this review and review the current items again.";
+          return;
+        }
+      }
       const correctedTotal = marketplaceContext ? AUDIT.sumItemCosts(matchedItems) : U.moneyToNumber(totalInput.value);
       const correctedEtas = etaInput.value
         .split(/[,;]+/)
@@ -1642,6 +1730,7 @@
         capturedAt: new Date().toISOString(),
         confirmed: isConfirmationPage(),
         url: String(orderEvidence.url || location.href),
+        checkoutIdentityKey: amazonCheckoutIdentityKey(orderEvidence.url || location.href),
         orderId: orderIds.length === 1 ? orderIds[0] : "",
         orderIds,
         exactOrderDetails: marketplaceContext
@@ -1713,7 +1802,13 @@
     }
 
     const live = extractCheckoutData();
-    const stored = result.pendingAmazonCheckout || cachedSnapshot || {};
+    const candidate = result.pendingAmazonCheckout || cachedSnapshot || {};
+    let stored = compatibleAmazonCheckoutCache(live, candidate);
+    if (isConfirmationPage()) {
+      let tabCheckoutUrl = "";
+      try { tabCheckoutUrl = sessionStorage.getItem("gldnAmazonCheckoutUrl") || ""; } catch (_) {}
+      stored = compatibleAmazonCheckoutCache({ ...live, url: tabCheckoutUrl }, candidate);
+    }
     const marketplaceContext = activeMarketplaceContext(result.pendingPoshmarkProfitContext);
     if (isAmazonOrderDetailsPage() && !live.exactOrderDetails) {
       renderStatus("I could not verify this exact Amazon order card. No cached checkout data was used.", "error");
@@ -1751,12 +1846,12 @@
       : (live.etas.length ? live.etas : (stored.etas || []));
     const titles = matchedItems.length
       ? matchedItems.map((item) => item.title).filter(Boolean)
-      : isAmazonOrderDetailsPage()
+      : isAmazonOrderDetailsPage() || isCheckoutPage()
       ? live.titles
       : (live.titles.length ? live.titles : (stored.titles || []));
     const asins = matchedItems.length
       ? matchedItems.map((item) => item.asin)
-      : isAmazonOrderDetailsPage()
+      : isAmazonOrderDetailsPage() || isCheckoutPage()
       ? live.asins
       : (live.asins.length ? live.asins : (stored.asins || []));
     const shippingBlock = isAmazonOrderDetailsPage()

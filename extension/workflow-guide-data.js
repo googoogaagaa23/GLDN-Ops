@@ -1,5 +1,5 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.50",
+  "version": "3.12.51",
   "updated": "2026-10-06",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -316,7 +316,7 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "eBay Save remains manual; the draft path never syncs profit.",
         "An already matching verified saved note may refresh the same profit row without another Save."
       ],
-      "evidence": "Historical Profile 2 proof covers exact-order note and profit sync. v3.12.48 adds local Today/Tomorrow shipment dates and Add/Edit order note menu matching, including already-open menus, nested labels and delayed rendering. Executable regressions and synthetic browser checks make zero native Save clicks. The current affected signed-in checkout and eBay order were not available; current-version live validation remains pending."
+      "evidence": "Historical Profile 2 proof covers exact-order note and profit sync. Current read-only M0/M8 diagnosis found dozens of unrelated IDs for one item. v3.12.51 scopes shipment IDs, isolates checkout/tab caches, rechecks Copy, normalizes duplicates and preserves true mismatch blocking. Focused and synthetic desktop/mobile checks pass with zero native Save or profit sync. Refresh both tabs after updating and copy again; old polluted handoffs are not repaired. Refreshed signed-in post-fix validation remains pending."
     },
     {
       "id": "ebay-monthly-profit",

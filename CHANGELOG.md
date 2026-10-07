@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.51 - 2026-10-06
+
+- Repair checkout-wide ASIN capture after live M0/M8 inspection showed dozens of IDs for one item. Scope IDs/titles to visible shipment items, excluding recommendations and injected tools.
+- Isolate cached values by exact recent checkout identity and confirmation fallback by the current tab. Never reuse cached checkout item IDs or titles.
+- Recheck items/navigation when copying, normalize duplicate IDs and report both sides of true eBay mismatches.
+- Prefer the newest reviewed handoff; failed imports clear approval. Manual Save and verified-profit boundaries remain intact.
+- Add focused and synthetic desktop/mobile regression checks. Live diagnosis was read-only; no purchase or note was saved.
+
 ## v3.12.50 - 2026-10-06
 
 - Add Price +$0.10 for one fixed-price eBay listing, starting from Order Details, the listing, or its native Revise editor.

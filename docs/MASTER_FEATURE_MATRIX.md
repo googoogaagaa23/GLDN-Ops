@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-10-06
-Current local manifest: 3.12.50
+Current local manifest: 3.12.51
+
+v3.12.51 repairs checkout-wide item capture after read-only M0/M8 AnyDesk diagnosis found dozens of unrelated IDs for one motor. Shipment-scoped IDs, exact checkout cache identity, per-tab confirmation fallback and copy-time rechecks prevent unrelated/stale evidence in drafts. Genuine mismatches still block and report both sides; native Save and verified-profit gates are unchanged. Synthetic desktop/mobile and focused regression checks support the repair. Refreshed signed-in post-fix validation remains pending, not LIVE PASS. See evidence/checkout-note-identity-v3.12.51/README.md.
 
 v3.12.50 adds Price +$0.10 for one fixed-price listing and simpler popup navigation with tool search. The current signed-in native Revise route, Item title, Item price, Format button and disabled Variations notice were inspected read-only. Deterministic and synthetic UI checks are supporting evidence; no live helper price fill or final revision is claimed. Source sessions are exact-tab, redirect and title checked; repeat preparation is idempotent. eBay Revise it stays manual.
 

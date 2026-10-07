@@ -1,0 +1,24 @@
+[
+  {
+    "viewport": "desktop",
+    "onlyCurrentAsin": true,
+    "onlyCurrentTitle": true,
+    "matchingDraft": true,
+    "reviewRequired": true,
+    "realMismatchBlocked": true,
+    "changedCheckoutBlocked": true,
+    "savedNotes": 0,
+    "errors": []
+  },
+  {
+    "viewport": "mobile",
+    "onlyCurrentAsin": true,
+    "onlyCurrentTitle": true,
+    "matchingDraft": true,
+    "reviewRequired": true,
+    "realMismatchBlocked": true,
+    "changedCheckoutBlocked": true,
+    "savedNotes": 0,
+    "errors": []
+  }
+]
