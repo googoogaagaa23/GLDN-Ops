@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.12.53",
+  "version": "3.12.54",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",
@@ -90,6 +90,8 @@
         "sniping-audit.js",
         "ebay-price-core.js",
         "ebay-price-increase.js",
+        "offer-review-core.js",
+        "offer-review-launcher.js",
         "ebay.js"
       ],
       "css": [

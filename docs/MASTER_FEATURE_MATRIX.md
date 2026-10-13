@@ -1,7 +1,13 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-10-06
-Current local manifest: 3.12.53
+Last updated: 2026-10-12
+Current local manifest: 3.12.54
+
+v3.12.54 implements read-only Offer Review: exact native offer scope, SKU/ASIN Amazon reader, full Left for others pagination, official US fee estimates and editable counteroffers. The user demonstrated the manual workflow and the actual public feedback page reconciled 149 positive entries and IDs. Unit and desktop/mobile synthetic tests verify the new helper on 205 entries across two pages with zero submissions. Published through GitHub and the stable updater at the user's request. Full signed-in Profile 2/video verification remains pending; this is not a live-account pass.
+
+| ID | Feature | Expected Result | Implementation | Automated Evidence | Live Evidence | Status | Next Gate |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| E-16 | Offer Review | Estimated offer/counteroffer profit and full feedback-left counts | Read-only background tabs, exact SKU/ASIN, official dated US fee presets, category exceptions explicit, partial/complete feedback evidence, final submission manual | Core/source-scope tests and desktop/mobile synthetic 205-entry scan with zero marketplace submissions | Manual AnyDesk workflow observed; public buyer feedback DOM and 149 IDs inspected; full new-helper account run not claimed | PARTIAL | Signed-in read-only new-helper run with exact SKU, Amazon price, feedback counts and formal video proof; published at user request with this gate pending |
 
 v3.12.53 adds fresh non-cached dashboard requests and date-bounded duplicate warnings. The dashboard owner's existing authorization was renewed and production Apps Script version 52 repairs date-formatted audit months. Live M0 / CLICKNCARRY October demand reads back all 143 units; signed-in M7 reads shared demand and captures 38 purchase units. Its final checkpoint was interrupted by intermittent redirected HTML/timeouts, motivating the request-cache fix. Older purchases remain review evidence, not proven duplicates. All-profile completion and the formal Profile 2/video gate are not claimed. Automated recovery tests are supporting evidence.
 

@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.53. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.54. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -17,6 +17,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 ## Feature Index
 
+- [Offer Review](#offer-review) - **PARTIAL**
 - [Price +$0.10](#price-increase) - **PARTIAL**
 - [Unread Customer Messages](#unread-customer-messages) - **PARTIAL**
 - [Optional Extension Setup](#companion-setup) - **PARTIAL**
@@ -51,6 +52,51 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Diagnostics, Backup, and Interface Settings](#diagnostics) - **PARTIAL**
 - [Feature Tour, Themes, and Universal Access](#onboarding-interface) - **PARTIAL**
 - [Walmart Order Helper](#walmart) - **IMPLEMENTED, UNPROVEN**
+
+<a id="offer-review"></a>
+## Offer Review
+
+**Matrix:** E-16
+
+**Evidence status:** PARTIAL
+
+**Purpose:** Compare a buyer offer and your editable counteroffer against Amazon cost, official US eBay fee estimates, and all feedback left for others.
+
+### Prerequisites
+
+- Use the intended signed-in eBay Chrome profile.
+- Open one native Offer Received page with a pending buyer offer.
+- Confirm the Store plan, fee category, advertising rate, and estimated costs.
+
+### Exact Steps
+
+1. Choose GLDN Offer Review on the native offer page, or GLDN icon > Daily > Offer Review.
+2. GLDN opens read-only background tabs to resolve the listing SKU, read its exact Amazon item, and scan the buyer's Left for others feedback.
+3. If SKU matching is unavailable, enter the exact SKU, ASIN, or Amazon item link and choose Read Amazon. An operator-supplied match is not independently verified against the listing.
+4. Wait for Complete on feedback. Partial means only the entries found so far; Scan all feedback pages restarts from the beginning.
+5. Confirm the fee category and account-specific fees; enter Amazon tax/shipping and estimated buyer tax. Blank values are visibly excluded or assumed zero.
+6. Adjust Your counteroffer to compare estimated profit and margin. Copy counteroffer amount and Return to eBay offer, then submit manually.
+
+### Approval Stop
+
+GLDN never accepts, declines, counters, blocks a buyer, purchases an item, or changes a listing. Final marketplace submission is manual.
+
+### Expected Output
+
+An offer-specific review with timestamped Amazon evidence, fee breakdown, estimated profit, and complete/partial positive, neutral, negative counts and percentages plus non-positive comments.
+
+### Failure Recovery
+
+- Sign-in or verification requires operator action in the relevant reader tab.
+- Pause stops readers and preserves captured results; restart a partial feedback scan to verify full coverage.
+- Different buyers, changed offers/titles/quantities, Amazon variation changes, skipped feedback pages and duplicate feedback IDs stop the relevant reader.
+- Fee presets cover named common category groups; exceptions require a confirmed custom rate and per-order fee. Rates older than 45 days warn to check the official source.
+- Saved reviews expire after fifteen minutes and restored Amazon prices are labeled with their original capture time.
+
+### Evidence
+
+Read-only AnyDesk demonstration captured a $25 offer, $23.99 Amazon item, buyer Left for others inspection, and manual $28 counteroffer. The actual public buyer page reconciled 149 positive entries, 149 native IDs, and disabled next-page signal. Unit and synthetic desktop/mobile tests cover full 205-entry paging and zero submissions. Full new-helper signed-in Profile 2/video verification remains pending.
+
 
 <a id="price-increase"></a>
 ## Price +$0.10

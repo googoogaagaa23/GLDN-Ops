@@ -1,4 +1,14 @@
-GLDN Ops v3.12.53
+GLDN Ops v3.12.54
+
+v3.12.54 Offer Review:
+- Open one pending eBay offer, then GLDN Offer Review or GLDN icon > Daily > Offer Review.
+- Readers open background tabs in the same Chrome profile. A private SKU lookup may open before the Amazon item. No EcomSniper control is invoked.
+- An exact SKU/ASIN is required; unavailable matching needs the operator's exact SKU or Amazon item link, not a title-based guess.
+- All Left for others feedback pages are read with complete/partial counts and native-ID reconciliation. Neutral is included in the percentage denominator.
+- Counteroffers remain your choice. Official US fee presets and editable costs produce an estimate, never guaranteed earnings.
+- Confirm Store plan/category, ads, taxes, shipping and applicable surcharges. Category exceptions use a custom confirmed rate. Other listing costs can be entered separately.
+- Copy counteroffer amount and return to eBay to submit manually. No accept, decline, counter, block, purchase or listing change is automated.
+- Automated and desktop/mobile fixture checks passed. Full signed-in new-helper/video validation remains pending; no live-account pass is claimed.
 
 v3.12.53 shared audit reliability:
 - Fresh, non-cached dashboard requests avoid reusing Google's one-time response redirects.

@@ -23,6 +23,7 @@ $extensionFiles = @(
   "companion-setup-core.js", "companion-setup-background.js", "companion-setup-page.js", "companion-setup.html", "companion-setup.js", "companion-setup.css",
   "ebay-messages-core.js", "ebay-messages-reader.js", "ebay-messages.html", "ebay-messages.js", "ebay-messages.css",
   "ebay-price-core.js", "ebay-price-background.js", "ebay-price-increase.js",
+  "offer-review-core.js", "offer-review-background.js", "offer-review-reader.js", "offer-review-launcher.js", "offer-review.html", "offer-review.css", "offer-review.js",
   "sniping-review.html", "sniping-review.css", "sniping-review.js", "background.js",
   "listing-preflight.html", "listing-preflight.css", "listing-preflight-core.js", "listing-preflight.js", "listing-preflight-rules.json", "product-research-output.json",
   "policy-listing-audit.html", "policy-listing-audit.css", "policy-listing-audit-core.js", "policy-listing-audit.js",

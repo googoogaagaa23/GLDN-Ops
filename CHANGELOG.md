@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.54 - 2026-10-12
+
+- Add Offer Review on pending native eBay offers and in Daily. Read-only background tabs resolve the exact listing SKU/ASIN, read its Amazon product price, and scan all buyer feedback left for others.
+- Add dated official US eBay fee presets, editable counteroffer and cost assumptions, per-order fee, buyer tax in fee bases, optional advertising, performance/international fees and confirmed Top Rated Plus discount. Category exceptions require explicit custom fee input.
+- Retain distinct identical feedback comments using native IDs, reconcile every page/range/total, and show complete versus partial counts and percentages. No automated buyer judgment or marketplace submission is performed.
+- Guard source offer/buyer/title/quantity, exact Amazon ASIN and selected variation; missing matches/costs remain explicit. Repeat readers, pause, and short-lived local saved reviews never claim current evidence after a failed refresh.
+- Add unit and synthetic desktop/mobile checks. The actual public feedback layout was inspected, but full signed-in new-helper and formal video validation remain pending. Published through GitHub and the updater at the user's request without claiming a live-account pass.
+
 ## v3.12.53 - 2026-10-06
 
 - Give each shared-dashboard request a fresh URL and disable response caching so Google ContentService's one-time redirects are not reused. Write receipt identities remain unchanged.

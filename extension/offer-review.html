@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Offer Review - GLDN Ops</title><link rel="stylesheet" href="themes.css"><link rel="stylesheet" href="offer-review.css"></head>
+<body><header><img src="icons/icon48.png" alt="GLDN Ops"><div><span>GLDN OPS / EBAY</span><h1>Offer Review</h1></div><output id="version"></output></header>
+<main><div class="toolbar"><button id="refresh">Refresh offer</button><button id="readBoth" class="primary">Read Amazon &amp; buyer feedback</button><button id="pause">Pause</button><button id="return">Return to eBay offer</button></div>
+<p id="status" role="status">Loading offer...</p>
+<section class="identity"><h2 id="title">No offer loaded</h2><div id="identity"></div></section>
+<div class="columns"><section><h2>Profit estimate</h2><div class="price-grid">
+<label>Buyer offer / item ($)<input id="buyerOffer" readonly></label>
+<label>Your counteroffer / item ($)<input id="sale" type="number" min="0.01" step="0.01"></label>
+<label>Quantity<input id="quantity" type="number" min="1" max="999" step="1"></label>
+</div><div class="result"><div><span>At buyer offer</span><output id="offerProfit">--</output></div><div><span>At your counteroffer</span><output id="counterProfit">--</output></div><div><span>Counteroffer margin</span><output id="margin">--</output></div></div>
+<div class="fields"><label>Amazon one-time price / item ($)<input id="cost" type="number" min="0" step="0.01"></label>
+<label>Amazon tax / order ($)<input id="amazonTax" type="number" min="0" step="0.01" placeholder="Unknown"></label>
+<label>Amazon shipping / order ($)<input id="amazonShipping" type="number" min="0" step="0.01" placeholder="Unknown"></label>
+<label>Buyer-paid shipping / order ($)<input id="buyerShipping" type="number" min="0" step="0.01" placeholder="Unknown"></label>
+<label>Buyer sales tax (%)<input id="buyerTax" type="number" min="0" max="100" step="0.01" placeholder="Unknown"></label>
+<label>Other costs / order ($)<input id="other" type="number" min="0" step="0.01" value="0"></label>
+<label>Store plan (confirm)<select id="plan"><option value="">Not confirmed</option><option>None</option><option>Starter</option><option>Basic</option><option>Premium</option><option>Anchor</option><option>Enterprise</option></select></label>
+<label>Fee category<select id="category"><option value="">Not confirmed</option></select></label>
+<label>Advertising rate (%)<input id="adRate" type="number" min="0" max="100" step="0.01" placeholder="Unknown"></label>
+<label>Performance surcharge<select id="surcharge"><option value="">Not confirmed</option><option value="0">None</option><option value="5">Very High INAD: 5%</option><option value="6">Below Standard / prolonged INAD: 6%</option><option value="7">Prolonged Below Standard: 7%</option></select></label>
+<label>International fee (%)<input id="international" type="number" min="0" max="100" step="0.01" value="0"></label>
+<label class="check"><input id="topRatedPlus" type="checkbox">Confirmed Top Rated Plus listing</label>
+<label class="custom" hidden>Confirmed custom fee (%)<input id="customRate" type="number" min="0" max="100" step="0.01"></label>
+<label class="custom" hidden>Custom per-order fee ($)<input id="customOrderFee" type="number" min="0" step="0.01" value="0.40"></label></div>
+<table class="breakdown"><tbody id="breakdown"></tbody></table><p id="assumptions" class="warning"></p>
+<button id="copy">Copy counteroffer amount</button><p class="boundary">Estimate only. Marketplace submission remains manual.</p>
+<p class="sources"><a id="feeSource" target="_blank" rel="noreferrer">Official eBay fees</a> / <a id="adSource" target="_blank" rel="noreferrer">Advertising fees</a> / <span id="checked"></span></p>
+</section><section><h2>Amazon match</h2><div class="match-tools"><label>Exact SKU, ASIN, or Amazon item URL<input id="match" autocomplete="off"></label><button id="readAmazon">Read Amazon</button></div>
+<p id="amazonStatus">Not read</p><a id="amazonLink" target="_blank" rel="noreferrer" hidden>Open matched Amazon item</a><p id="amazonTitle"></p><p id="delivery"></p>
+<h2 class="separated">Buyer feedback left for others</h2><div class="toolbar"><button id="readFeedback">Scan all feedback pages</button><button id="showFeedback">Open feedback tab</button></div>
+<p id="feedbackStatus">Not scanned</p><div class="feedback-counts"><div class="positive">Positive<output id="positive">--</output></div><div class="neutral">Neutral<output id="neutral">--</output></div><div class="negative">Negative<output id="negative">--</output></div></div>
+<h3>Negative &amp; neutral comments</h3><div id="comments"></div></section></div></main>
+<script src="theme-catalog.js"></script><script src="theme-page.js"></script><script src="offer-review-core.js"></script><script src="offer-review.js"></script></body></html>

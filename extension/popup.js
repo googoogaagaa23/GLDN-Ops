@@ -1168,6 +1168,11 @@ document.getElementById('openUnreadEbayMessages').addEventListener('click', asyn
   const response = await runtimeMessage({ type: 'openExtensionPage', page: 'ebay-messages.html', reuse: true });
   if (!response?.ok) setMessage(response?.error || 'Unread Customer Messages could not open.');
 });
+document.getElementById('openOfferReview').addEventListener('click', async () => {
+  const response = await runtimeMessage({ type: 'offerReviewOpen' });
+  if (!response?.ok) setMessage(response?.error || 'Offer Review could not open.', true);
+});
+
 document.getElementById('openViolationHistory').addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('violation-history.html') });
 });
