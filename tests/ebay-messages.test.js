@@ -55,15 +55,17 @@ test('more than 100 messages are retained and eligible', () => {
   assert.equal(core.pending(core.reconcile(account([]), rows, true)).length, 350);
 });
 
-function readerHarness({count=2, owner='test-store', loading=false} = {}) {
+function readerHarness({count=2, owner='test-store', loading=false, nextLabel='', nextDisabled=false, scroll=true, genericUnread=false} = {}) {
   const element = (text='', attrs={}) => ({innerText:text, textContent:text, dataset:{}, disabled:false,
     classList:{contains:name => (attrs.class || '').split(' ').includes(name)}, getAttribute:key=>attrs[key] ?? null,
     getClientRects:()=>[{}], closest:()=>null, contains:()=>false, querySelector:()=>null, querySelectorAll:()=>[],
     click(){this.clicked=true;}});
   const badge = element(String(count));
   const menu = element('Unread from members' + count, {'aria-checked':'true'});
-  menu.querySelector = selector => selector === '.badge' ? badge : null;
-  const scroller = {clientHeight:800, scrollHeight:1500, scrollTop:0, dispatchEvent(){this.scrolled=true;}};
+  menu.querySelector = selector => selector.includes('.badge') ? badge : null;
+  const generic = element('Unread', {'aria-checked':'true'});
+  const next = element('', {'aria-label':nextLabel, 'aria-disabled':String(nextDisabled)});
+  const scroller = {...element('Message list'), clientHeight:800, scrollHeight:1500, scrollTop:0, dispatchEvent(){this.scrolled=true;}};
   const cards = [row(), row('2', {buyer:'buyer-two'})].map(value => {
     const card = element('', {class:'message-button unread', 'data-conversation-id':value.id});
     card.querySelector = selector => selector.includes('.sender') ? element(value.buyer)
@@ -76,8 +78,8 @@ function readerHarness({count=2, owner='test-store', loading=false} = {}) {
   const link = {href:'https://www.ebay.com/usr/' + owner};
   const header = {querySelector:()=>owner ? link : null};
   const doc = {body:{innerText:'Messages'}, createElement:()=>element(),
-    querySelector:selector => selector.includes('#gh,') ? header : selector.includes('.skeleton') ? loading ? {} : null : selector.includes('messages-inbox') ? scroller : null,
-    querySelectorAll:selector => selector.startsWith('button,') ? [menu] : selector.startsWith('[data-conversation-id]') ? cards : []};
+    querySelector:selector => selector.includes('#gh,') ? header : selector.includes('messages-inbox') ? scroll ? scroller : null : null,
+    querySelectorAll:selector => selector.startsWith('button,') ? [...(genericUnread ? [generic] : []), menu, ...(nextLabel ? [next] : [])] : selector.startsWith('[data-conversation-id]') ? cards : selector.startsWith('.skeleton') && loading ? [element('Loading')] : []};
   const context = {GLDN_EBAY_MESSAGES:core, document:doc, location:{href:core.INBOX_URL}, URL, Event:class{}};
   vm.runInNewContext(read('ebay-messages-reader.js'), context);
   return {page:context.GLDN_EBAY_MESSAGES_PAGE, cards, scroller};
@@ -87,13 +89,50 @@ test('modern unread-member rows use exact native IDs, subject, preview and count
   assert.equal(snapshot.rows.length, 2);
   assert.equal(snapshot.rows[0].preview, 'Thank you');
   assert.equal(snapshot.expected, 2);
-  assert.equal(snapshot.next, false);
+  assert.equal(snapshot.next, true);
 });
-test('modern infinite lists continue until the unread badge count is reconciled', () => {
+test('modern infinite lists use overlapping scroll steps instead of skipping to the bottom', () => {
   const h = readerHarness({count:250});
   assert.equal(h.page('snapshot').next, true);
   assert.equal(h.page('next').infinite, true);
-  assert.equal(h.scroller.scrollTop, 1500);
+  assert.equal(h.scroller.scrollTop, 640);
+  assert.equal(h.page('next').probe, false);
+  assert.equal(h.scroller.scrollTop, 700);
+  assert.equal(h.page('next').probe, true);
+});
+test('reaching the badge count does not skip a remaining native next page', () => {
+  const h = readerHarness({nextLabel:'Go to next page',scroll:false});
+  assert.equal(h.page('snapshot').next, true);
+  assert.equal(h.page('next').kind, 'paged');
+});
+test('disabled icon-only pagination is positive native end evidence', () => {
+  const snapshot = readerHarness({nextLabel:'Go to next page',nextDisabled:true,scroll:false}).page('snapshot');
+  assert.equal(snapshot.next, false);
+  assert.equal(snapshot.coverage.endVerified, true);
+});
+test('a missing pager and unrecognized scroller never prove completion', () => {
+  const snapshot = readerHarness({scroll:false}).page('snapshot');
+  assert.equal(snapshot.coverage.endVerified, false);
+  assert.equal(core.scanCoverage(snapshot.rows,snapshot).complete,false);
+});
+test('unread-member badge is preferred over another generic unread control', () => {
+  assert.equal(readerHarness({genericUnread:true}).page('snapshot').expected, 2);
+});
+test('zero badge does not turn a still-rendered old list into an empty complete scan', () => {
+  assert.throws(() => readerHarness({count:0}).page('snapshot'), /still updating/);
+});
+test('customer preview wording cannot masquerade as an empty inbox notice', () => {
+  const h=readerHarness();h.scroller.innerText='No unread messages';
+  assert.equal(h.page('snapshot').empty,false);
+  assert.equal(h.page('snapshot').coverage.endVerified,false);
+});
+test('coverage needs the selected unread folder, identified rows, end evidence and exact count', () => {
+  const snapshot = {unreadOnly:true,expected:1,next:false,coverage:{endVerified:true}};
+  assert.equal(core.scanCoverage([row()],snapshot).complete,true);
+  for (const change of [{unreadOnly:false},{next:true},{expected:2},{coverage:{endVerified:false}}]) {
+    assert.equal(core.scanCoverage([row()],{...snapshot,...change}).complete,false);
+  }
+  assert.equal(core.scanCoverage([row()],snapshot,1).complete,false);
 });
 test('reader excludes eBay system notifications', () => {
   const h = readerHarness();
@@ -113,9 +152,9 @@ test('opening rejects changed previews before clicking the native conversation',
   assert.ok(h.cards[0].clicked);
 });
 
-async function deskHarness(pages = [[row(), row('2')]]) {
+async function deskHarness(pages = [[row(), row('2')]], options = {}) {
   const elements = new Map(), tabs = new Map(), calls = [];
-  const store = {[core.STORAGE_KEY]:{accounts:{},selectedAccount:'',scan:null}};
+  const store = {[core.STORAGE_KEY]:options.saved || {accounts:{},selectedAccount:'',scan:null}};
   let index=0;
   function element(id) {
     if (elements.has(id)) return elements.get(id);
@@ -132,10 +171,10 @@ async function deskHarness(pages = [[row(), row('2')]]) {
       const [action,data]=args.args;calls.push([action,data]);
       if(action==='prepare')return [{result:{ready:true}}];
       if(action==='unread')return [{result:{selected:true}}];
-      if(action==='next'){index++;return [{result:{advanced:true}}];}
+      if(action==='next'){if(options.next)return [{result:options.next()}];index++;return [{result:{advanced:true,kind:'paged'}}];}
       if(action==='open'||action==='verify-open')return [{result:{opened:true}}];
       return [{result:{account:'test-store',rows:pages[index],allRows:pages[index],unknown:0,signature:'page-'+index,
-        expected:null,next:index<pages.length-1,unreadOnly:true}}];
+        expected:null,next:index<pages.length-1,unreadOnly:true,coverage:{kind:'paged',endVerified:index===pages.length-1},...options.snapshot?.(index)}}];
     }}};
   const context={chrome,GLDN_EBAY_MESSAGES:core,document:{getElementById:element,querySelectorAll:()=>[]},Date,Set,URL,setTimeout:fn=>setImmediate(fn)};
   await vm.runInNewContext(read('ebay-messages.js'),context);
@@ -147,6 +186,40 @@ test('desk scans multiple pages and shows the full pending count', async () => {
   assert.equal(h.elements.get('pendingCount').textContent,2);
   assert.equal(h.store[core.STORAGE_KEY].scan.phase,'complete');
   assert.equal(h.calls.filter(c=>c[0]==='next').length,1);
+});
+test('desk visits later pages even when the first batch already matches the unread badge', async () => {
+  const h=await deskHarness([[row()],[]],{snapshot:()=>({expected:1})});await h.click('scan');
+  assert.equal(h.calls.filter(c=>c[0]==='next').length,1);
+  assert.equal(h.store[core.STORAGE_KEY].scan.pages,2);
+  assert.equal(h.store[core.STORAGE_KEY].scan.phase,'complete');
+});
+test('unknown end and mismatched counts are partial scans, never false complete zero', async () => {
+  for (const snapshot of [{coverage:{kind:'unknown',endVerified:false}},{expected:3}]) {
+    const h=await deskHarness([[row()]],{snapshot:()=>snapshot});await h.click('scan');
+    assert.equal(h.store[core.STORAGE_KEY].scan.phase,'error');
+    assert.equal(h.store[core.STORAGE_KEY].accounts['test-store'].complete,false);
+  }
+});
+test('a genuine native empty unread folder still completes without scanning unrelated read messages', async () => {
+  const h=await deskHarness([[]],{snapshot:()=>({expected:0,empty:true,coverage:{kind:'empty',endVerified:true}})});await h.click('scan');
+  assert.equal(h.store[core.STORAGE_KEY].scan.phase,'complete');
+  assert.equal(h.elements.get('pendingCount').textContent,0);
+});
+test('old complete scans lose their unproven complete label without losing rows or ignores', async () => {
+  const old=core.ignore({...account([row()]),complete:true},'1');delete old.coverageVersion;
+  const h=await deskHarness(undefined,{saved:{accounts:{'test-store':old},selectedAccount:'test-store',scan:{phase:'complete',message:'Complete'}}});
+  assert.equal(h.store[core.STORAGE_KEY].accounts['test-store'].complete,false);
+  assert.equal(h.store[core.STORAGE_KEY].accounts['test-store'].rows.length,1);
+  assert.equal(h.elements.get('ignoredCount').textContent,1);
+  assert.equal(h.store[core.STORAGE_KEY].scan.phase,'paused');
+});
+test('resuming the same saved batch does not increment the checked batch count again', async () => {
+  let finish=false;
+  const h=await deskHarness([[row()]],{next:()=>({advanced:false,endVerified:false}),snapshot:()=>({next:!finish,coverage:{kind:'paged',endVerified:finish}})});
+  await h.click('scan');assert.equal(h.store[core.STORAGE_KEY].scan.pages,1);
+  finish=true;await h.click('resume');
+  assert.equal(h.store[core.STORAGE_KEY].scan.phase,'complete');
+  assert.equal(h.store[core.STORAGE_KEY].scan.pages,1);
 });
 test('desk Ignore/Restore updates counts without eBay mutations', async () => {
   const h=await deskHarness();await h.click('scan');

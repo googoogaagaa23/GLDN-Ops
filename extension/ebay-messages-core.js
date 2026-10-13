@@ -5,6 +5,7 @@
 })(typeof globalThis === 'object' ? globalThis : this, () => {
   'use strict';
   const STORAGE_KEY = 'gldnEbayUnreadMessages';
+  const COVERAGE_VERSION = 2;
   const INBOX_URL = 'https://www.ebay.com/cnt/ViewMessage?group_type=CORE';
   const text = (value) => String(value || '').replace(/\s+/g, ' ').trim();
   const accountKey = (value) => text(value).toLowerCase();
@@ -74,7 +75,17 @@
       if (!complete && previous && fingerprint(previous) === fingerprint(row)) row.openedAt = previous.openedAt || '';
       if (ignored[row.id] && ignored[row.id].fingerprint !== fingerprint(row)) delete ignored[row.id];
     }
-    return { ...account, rows: merged, ignored, complete, scannedAt: now };
+    return { ...account, rows: merged, ignored, complete, coverageVersion:COVERAGE_VERSION, scannedAt: now };
   }
-  return { STORAGE_KEY, INBOX_URL, text, accountKey, hash, messageUrl, urlId, normalizeRow, fingerprint, mergeRows, isIgnored, pending, ignore, restore, reconcile };
+  function scanCoverage(rows, snapshot, unknown = 0) {
+    if (!snapshot.unreadOnly) return {complete:false, reason:'The native unread-member folder is not selected.'};
+    if (unknown) return {complete:false, reason:unknown + ' unread rows could not be identified.'};
+    if (snapshot.next) return {complete:false, reason:'More inbox batches remain.'};
+    if (!snapshot.coverage?.endVerified) return {complete:false, reason:'The end of the eBay message list could not be verified.'};
+    if (snapshot.expected !== null && snapshot.expected !== undefined && rows.length !== snapshot.expected) {
+      return {complete:false, reason:'Found ' + rows.length + ' unread customer conversations, but eBay reports ' + snapshot.expected + '. Scan again to verify the count.'};
+    }
+    return {complete:true, reason:snapshot.coverage.reason || 'Verified end of the message list.'};
+  }
+  return { STORAGE_KEY, COVERAGE_VERSION, INBOX_URL, text, accountKey, hash, messageUrl, urlId, normalizeRow, fingerprint, mergeRows, isIgnored, pending, ignore, restore, reconcile, scanCoverage };
 });

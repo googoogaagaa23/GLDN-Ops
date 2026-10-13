@@ -23,18 +23,23 @@
     return owner;
   }
   const rowSelector = '[data-conversation-id], [data-thread-id], [data-message-id], [data-testid="conversation-list-item"], [data-testid="message-list-item"], .msg-conversation-item, .msg-conversation-card, .msg-conversation-list-item, .conversation-list-item, [role="option"], tr';
+  const inboxElement = () => document.querySelector('[data-testid="messages-inbox"], .msg-conversation-list, table[aria-label="Message Inbox"]');
   function rowElements() {
-    const inbox = document.querySelector('[data-testid="messages-inbox"], .msg-conversation-list, table[aria-label="Message Inbox"]') || document;
+    const inbox = inboxElement() || document;
     const candidates = [...inbox.querySelectorAll(rowSelector)].filter(visible).filter((el) => !el.closest('[id^="gldn"]'));
     return candidates.filter((el) => !candidates.some((child) => child !== el && el.contains(child)));
   }
   const unreadLabel = (el) => /^unread(?: from members)?(?:\s*\(?\d+\)?)?$/i.test(label(el));
-  function unreadControl() { return controls().find((el) => unreadLabel(el) && !el.disabled); }
+  function unreadControls() {
+    const matches = controls().filter(unreadLabel);
+    const members = matches.filter((el) => /^unread from members/i.test(label(el)));
+    return members.length ? members : matches;
+  }
+  function unreadControl() { return unreadControls().find((el) => !el.disabled); }
+  const selected = (el) => el.getAttribute('aria-selected') === 'true' || el.getAttribute('aria-pressed') === 'true' ||
+    el.getAttribute('aria-checked') === 'true' || el.classList.contains('selected') || el.classList.contains('active') || !!el.querySelector('input:checked');
   function selectedUnread() {
-    return controls().some((el) => unreadLabel(el) && (
-      el.getAttribute('aria-selected') === 'true' || el.getAttribute('aria-pressed') === 'true' ||
-      el.getAttribute('aria-checked') === 'true' || el.classList.contains('selected') || el.classList.contains('active') ||
-      el.querySelector('input:checked')));
+    return unreadControls().some(selected);
   }
   function readRow(el, unreadOnly) {
     const memberLink = [...el.querySelectorAll('a[href*="/usr/"]')].find(visible);
@@ -56,10 +61,26 @@
       unread: !readMarker && (unreadMarker || unreadOnly), url: link, pageUrl: location.href,
       member: !!buyer && !system && el.dataset.senderRole !== 'seller' });
   }
-  function nextControl() {
-    const matches = controls().filter((el) => !el.disabled && el.getAttribute('aria-disabled') !== 'true' &&
-      (/^(next|next page|load more|show more)$/i.test(label(el)) || /^(next|next page)$/i.test(el.getAttribute('aria-label') || '') || el.getAttribute('rel') === 'next'));
-    return matches.filter((el) => !matches.some((child) => child !== el && el.contains(child)))[0] || null;
+  function nextControls() {
+    const names = /^(?:(?:go|navigate) to (?:the )?)?next(?: page)?$|^(?:load|show) more(?: messages| conversations)?$/i;
+    const matches = controls().filter((el) => !el.closest('.msg-content-view, [data-testid="conversation-detail"], [data-testid="messages-thread"]') &&
+      (names.test(label(el)) || names.test(el.getAttribute('aria-label') || '') || el.getAttribute('rel') === 'next'));
+    return matches.filter((el) => !matches.some((child) => child !== el && el.contains(child)));
+  }
+  const disabled = (el) => !!el.disabled || el.getAttribute('aria-disabled') === 'true' || el.classList.contains('disabled');
+  function nextControl() { return nextControls().find((el) => !disabled(el)) || null; }
+  function scrollerElement() {
+    const inbox = inboxElement();
+    if (!inbox) return null;
+    const candidates = [inbox, ...inbox.querySelectorAll('.app-infinite-scroll, [role="listbox"], [data-testid="messages-inbox"]')];
+    let parent = inbox.parentElement;
+    for (let depth = 0; parent && parent !== document.body && depth < 6; depth++, parent = parent.parentElement) candidates.push(parent);
+    return candidates.find((el) => {
+      if (!(el.clientHeight > 0)) return false;
+      const explicit = el.classList?.contains('app-infinite-scroll');
+      const style = typeof getComputedStyle === 'function' ? getComputedStyle(el) : null;
+      return explicit || /auto|scroll/.test(style?.overflowY || '') || (!style && el.scrollHeight > el.clientHeight);
+    }) || null;
   }
   function snapshot(options = {}) {
     const owner = checkPage();
@@ -68,19 +89,33 @@
     const rows = elements.map((el) => readRow(el, unreadOnly));
     const unread = rows.filter((row) => row.member && row.unread && row.id);
     const unknown = rows.filter((row) => row.unread && (!row.id || !row.buyer)).length;
-    const body = document.body?.innerText || '';
-    const empty = /no (?:unread )?(?:messages|conversations)|you have no messages|your inbox is empty|no results found/i.test(body);
-    if (document.querySelector('.skeleton, [role="progressbar"], .skeleton-avatar')) throw new Error('The eBay message list is still loading.');
+    const inbox = inboxElement();
+    const listText = inbox ? label(inbox) : document.body?.innerText || '';
+    const empty = !elements.length && /no (?:unread )?(?:messages|conversations)|you have no messages|your inbox is empty|no results found/i.test(listText);
+    const loading = [...document.querySelectorAll('.skeleton, [role="progressbar"], .skeleton-avatar, [aria-busy="true"]')].some(visible);
+    if (loading) throw new Error('The eBay message list is still loading.');
     if (!elements.length && !empty) throw new Error('The message list is still loading or its layout is not recognized. Open the inbox and Resume.');
     const hasUnreadSignals = unreadOnly || rows.some((row) => row.unread) || elements.some((el) => el.hasAttribute('data-unread') || el.classList.contains('read') || el.querySelector('.card__content-read'));
     if (elements.length && !hasUnreadSignals && !options.forOpen) throw new Error('Unread status could not be verified. Select Unread in eBay, then Resume.');
-    const signature = CORE.hash(JSON.stringify(rows.map((row) => [row.id, CORE.fingerprint(row), row.unread])));
-    const badge = unreadControl()?.querySelector('.badge');
-    const expected = unreadOnly && badge && /^\d[\d,]*$/.test(label(badge)) ? Number(label(badge).replace(/,/g, '')) : null;
-    const scroller = document.querySelector('[data-testid="messages-inbox"].app-infinite-scroll');
-    const more = !!nextControl() || (scroller && (expected !== null ? unread.length < expected : scroller.scrollHeight > scroller.clientHeight + scroller.scrollTop + 5));
+    if (unreadOnly && rows.some((row) => row.member && !row.unread) && !options.forOpen) throw new Error('The unread-member folder is still updating.');
+    const filter = unreadControls().find(selected);
+    const badge = filter?.querySelector('.badge, [data-testid="unread-count"]');
+    const badgeText = badge ? label(badge) : label(filter).replace(/^unread(?: from members)?\s*\(?/i, '').replace(/\)$/, '');
+    const expected = unreadOnly && /^\d[\d,]*$/.test(badgeText) ? Number(badgeText.replace(/,/g, '')) : null;
+    if (expected === 0 && elements.length && !options.forOpen) throw new Error('The unread count and message list are still updating.');
+    const scroller = scrollerElement();
+    const scroll = scroller ? {position:Math.round(scroller.scrollTop), size:scroller.scrollHeight, viewport:scroller.clientHeight,
+      atBottom:scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 5} : null;
+    const next = nextControl(), paging = nextControls();
+    const pager = document.querySelector('nav[aria-label*="pagination" i], [data-testid="pagination"], .pagination, .pager');
+    const pageRange = label(pager).match(/page\s+(\d+)\s+of\s+(\d+)/i);
+    const endVerified = !next && (empty || paging.some(disabled) || (pageRange && Number(pageRange[1]) === Number(pageRange[2])));
+    const coverage = {kind:paging.length || pageRange ? 'paged' : scroller ? 'scroll' : empty ? 'empty' : 'unknown',
+      endVerified:!!endVerified, reason:empty ? 'Native empty unread folder.' : endVerified ? 'Native last-page confirmation.' : ''};
+    const signature = CORE.hash(JSON.stringify([unreadOnly, rows.map((row) => [row.id, CORE.fingerprint(row), row.unread]), scroll?.position]));
+    const more = !!next || (!!scroller && !endVerified);
     return { account: owner, rows: unread, allRows: rows.filter((row) => row.member && row.id), unknown, signature,
-      expected, next:!!more, pageUrl: location.href, unreadOnly };
+      expected, next:!!more, pageUrl: location.href, unreadOnly, empty, coverage, scroll };
   }
   globalThis.GLDN_EBAY_MESSAGES_PAGE = function (action, args = {}) {
     if (action === 'prepare') {
@@ -112,12 +147,14 @@
     }
     if (action === 'next') {
       const target = nextControl();
-      if (target) { target.click(); return { advanced:true }; }
-      const scroller = document.querySelector('[data-testid="messages-inbox"].app-infinite-scroll');
-      if (!scroller) return { advanced:false };
-      scroller.scrollTop = scroller.scrollHeight;
+      if (target) { target.click(); return { advanced:true, kind:'paged' }; }
+      if (nextControls().some(disabled)) return { advanced:false, endVerified:true };
+      const scroller = scrollerElement();
+      if (!scroller) return { advanced:false, endVerified:snapshot({forOpen:true}).coverage.endVerified };
+      const probe = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 5;
+      scroller.scrollTop = Math.min(Math.max(0, scroller.scrollHeight - scroller.clientHeight), scroller.scrollTop + Math.max(1, Math.floor(scroller.clientHeight * .8)));
       scroller.dispatchEvent(new Event('scroll', {bubbles:true}));
-      return { advanced:true, infinite:true };
+      return { advanced:true, infinite:true, kind:'scroll', probe };
     }
     if (action === 'open') {
       const matches = rowElements().filter((el) => readRow(el, selectedUnread()).id === args.row.id);

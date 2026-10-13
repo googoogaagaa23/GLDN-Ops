@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
 Last updated: 2026-10-12
-Current local manifest: 3.12.54
+Current local manifest: 3.12.55
+
+v3.12.55 fixes unread-message coverage. Missing navigation can no longer report Complete; native next/last-page signals and overlapping scrolling traverse paged, lazy and virtual lists. Exact unread counts, stable folder loading and confirmed terminal states gate completion. Older complete labels are downgraded without discarding messages or ignores. Synthetic browser tests read 75 conversations across three pages, all 125 virtual/lazy conversations, and open an exact later-page conversation while preserving an ignore. The reported account's current signed-in end-to-end result is not verified; publication and fixture checks are not a LIVE PASS.
 
 v3.12.54 implements read-only Offer Review: exact native offer scope, SKU/ASIN Amazon reader, full Left for others pagination, official US fee estimates and editable counteroffers. The user demonstrated the manual workflow and the actual public feedback page reconciled 149 positive entries and IDs. Unit and desktop/mobile synthetic tests verify the new helper on 205 entries across two pages with zero submissions. Published through GitHub and the stable updater at the user's request. Full signed-in Profile 2/video verification remains pending; this is not a live-account pass.
 
@@ -23,7 +25,7 @@ v3.12.49 adds Unread Customer Messages with exact native IDs, account-specific I
 
 | ID | Feature | Expected Result | Implementation | Automated Evidence | Live Evidence | Status | Next Gate |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| E-14 | Unread customer messages | Open all unignored unread member conversations, with local Ignore/Restore | Native member-only scan, stable conversation IDs, complete/partial status, account checks, count reconciliation and separate tabs | Core, native-reader and controller tests | Current Profile 2 inbox and exact conversation structure inspected; extension-page execution cannot be automated under browser URL policy | PARTIAL | Run Scan, Ignore/Restore and Open All in Profile 2; retain the result screenshot |
+| E-14 | Unread customer messages | Open all unignored unread member conversations, with local Ignore/Restore | Native member-only scan, stable conversation IDs, verified last-page/scroll end, complete/partial status, account checks, count reconciliation and separate tabs | Core/reader/controller tests plus three-page, 125-row virtual/lazy, unknown-layout, empty-folder and later-page opening browser fixtures | Historical Profile 2 inbox and exact conversation structure inspected; current reported account end-to-end scan is not verified | PARTIAL | Run the updated scan in the intended signed-in account and verify native unread coverage, Ignore/Restore and Open All |
 
 v3.12.48 resolves selected Amazon Today/Tomorrow shipment headings to local dates and repairs eBay's Add order note / Edit order note menu labels. Already-open menus are reused; ambiguous targets and order changes stop the fill; eBay Save remains manual. Regression and synthetic browser checks cover the screenshot cases. The affected M0 checkout/order is not a current signed-in LIVE PASS. See evidence/relative-eta-note-v3.12.48/README.md.
 

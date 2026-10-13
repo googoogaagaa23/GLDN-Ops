@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.55 - 2026-10-12
+
+- Fix early unread-message completion: missing pagination or a scrolling-container selector no longer counts as the end of the inbox.
+- Recognize icon-only native next-page labels and disabled last-page controls; read lazy/virtual lists in overlapping scroll steps without jumping over conversations.
+- Wait for stable unread-member results, prefer the member-folder count over generic unread controls, and verify the native count after reaching the end of the list.
+- Keep uncertain or changed-count scans Partial, preserve saved messages and Ignore/Restore preferences, and invalidate earlier unproven Complete labels.
+- Preserve exact later-page conversation opening and accurate resume batch counts. Add native-reader unit checks and real-DOM synthetic browser coverage on desktop/mobile. No current signed-in live pass is claimed.
+
 ## v3.12.54 - 2026-10-12
 
 - Add Offer Review on pending native eBay offers and in Daily. Read-only background tabs resolve the exact listing SKU/ASIN, read its Amazon product price, and scan all buyer feedback left for others.

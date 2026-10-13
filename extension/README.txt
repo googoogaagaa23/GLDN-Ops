@@ -1,4 +1,12 @@
-GLDN Ops v3.12.54
+GLDN Ops v3.12.55
+
+v3.12.55 unread-message coverage:
+- Read every native message page and scroll lazy/virtual lists in overlapping viewport steps.
+- Complete requires positive end-of-list evidence and an unchanged reconciled unread count when eBay supplies one. Missing controls never prove an empty inbox.
+- Wait for the unread-member folder to settle before counting; a zero badge with stale visible messages cannot complete.
+- Older complete labels require rechecking. Existing saved messages and per-account Ignore/Restore preferences are preserved.
+- Open Selected can locate a conversation on a later page or scrolling batch. No sending, deletion, archiving or replies are automated.
+- Synthetic browser checks cover three native pages, 125 virtual/lazy-loaded messages, later-page opening, unknown layouts and genuine empty folders. Current signed-in end-to-end validation remains pending.
 
 v3.12.54 Offer Review:
 - Open one pending eBay offer, then GLDN Offer Review or GLDN icon > Daily > Offer Review.

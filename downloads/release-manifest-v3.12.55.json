@@ -1,0 +1,48 @@
+{
+    "schemaVersion":  1,
+    "version":  "3.12.55",
+    "generatedAt":  "2026-10-13T02:48:50.2775678Z",
+    "files":  [
+                  {
+                      "path":  "downloads/GLDN-Ops-extension-v3.12.55.zip",
+                      "sha256":  "7D9D26859C7686630EEE04CB8A2A3283AD851F769D3347D51C1F38E44B7A0053"
+                  },
+                  {
+                      "path":  "downloads/GLDN-Ops-local-v3.12.55.zip",
+                      "sha256":  "7B15A230E9C4D76AEB919982450E79619BE8E3B27E1F195C7EFFC246ABEB3FFA"
+                  },
+                  {
+                      "path":  "downloads/GLDN-Ops-latest.zip",
+                      "sha256":  "7B15A230E9C4D76AEB919982450E79619BE8E3B27E1F195C7EFFC246ABEB3FFA"
+                  },
+                  {
+                      "path":  "downloads/GLDN-Ops-Setup.exe",
+                      "sha256":  "ACD17FF330FBD30C73A519B5727EC16AE09FB6265CC37503373FFC572D57471E"
+                  },
+                  {
+                      "path":  "downloads/GLDN-Product-Hunter-v0.3.4.zip",
+                      "sha256":  "3223E1EF9C2716538615B17AB5C9E5F845577D23C34CD6FE1040D3BC7DBBB05D"
+                  },
+                  {
+                      "path":  "downloads/GLDN-Product-Hunter-v0.3.4.sha256.txt",
+                      "sha256":  "9755B18935D94798AAD75C754CE061A51F3E2DD05467BAB99796FFFBD39A0C21"
+                  },
+                  {
+                      "path":  "bootstrap-install.ps1",
+                      "sha256":  "5C922F8BA57A70438A6E94E83B5CC1C4B54BD5108DB93D2684827ACAC36B03A6"
+                  },
+                  {
+                      "path":  "install-latest.ps1",
+                      "sha256":  "E7899ED5086051CE26ADE83933841C2689EB1FB572A917C8C31BDBD253F5E73F"
+                  },
+                  {
+                      "path":  "releases/v3.12.55.md",
+                      "sha256":  "5ACFB2C116694521E943FD25ECCDA0446CDEDE62FC47BC5ADED9C87F5F07EC65"
+                  },
+                  {
+                      "path":  "releases/GLDN-Product-Hunter-v0.3.4.md",
+                      "sha256":  "DA38BF0AC8344915416B06D0C04B6ED58C9A8F4B94E4625C76549E6DBD3F3331"
+                  }
+              ],
+    "publishLast":  "downloads/latest.json"
+}

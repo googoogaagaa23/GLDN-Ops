@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.54. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.55. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -176,12 +176,13 @@ An account-specific saved unread snapshot with pending, ignored and opened count
 
 - Ignore is stored only in this Chrome profile, separately for each eBay account.
 - A changed preview returns an ignored thread to pending; an identical preview without a native latest-message ID cannot prove a new message.
-- Complete counts reconcile the native badge where available. Partial counts are only the rows found so far.
+- Complete requires a verified last page or settled scroll end, plus native unread-count reconciliation where available. Missing pagination stays Partial. Inbox batches include scrolling loads, not just numbered pages.
+- Older Complete labels need a fresh full scan; saved messages and ignores remain unchanged.
 - Finish sign-in or verification in the worker inbox, then Resume. A changed account or conversation stops opening.
 
 ### Evidence
 
-Current Profile 2 inbox layout and exact native conversation IDs were inspected. Focused regression tests cover account isolation, all-row retention, paging, Ignore and exact opening. Browser URL policy prevents automated extension-page execution; full signed-in completion is not claimed.
+Historical Profile 2 inbox layout and native conversation IDs were inspected. v3.12.55 core/reader/controller tests and desktop/mobile real-DOM synthetic browser checks cover 75 messages across three native pages, 125-row virtual/lazy lists, later-page exact opening, Ignore preservation, unknown layouts and genuine empty folders. The current reported account's signed-in completion is not claimed.
 
 
 <a id="companion-setup"></a>
