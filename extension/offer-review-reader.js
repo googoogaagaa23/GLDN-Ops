@@ -4,7 +4,15 @@
   const visible = e => e && !e.closest('[hidden], [aria-hidden="true"]') && e.getClientRects().length > 0;
   const label = e => C.text(e?.innerText || e?.textContent || e?.getAttribute('aria-label'));
   const elements = selector => [...document.querySelectorAll(selector)].filter(visible).filter(e => !e.closest('[id^="gldn-"]'));
-  const body = () => document.body?.innerText || '';
+  const body = () => {
+    if (!document.getElementById('gldn-offer-inline')) return document.body?.innerText || '';
+    const walker = document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT), text = [];
+    while (walker.nextNode()) {
+      const parent = walker.currentNode.parentElement;
+      if (parent && visible(parent) && !parent.closest('[id^="gldn-"],script,style')) text.push(walker.currentNode.textContent);
+    }
+    return text.join(' ');
+  };
   function guard() {
     if (/pardon our interruption|verify yourself|security check|sign in to your account/i.test(body())) throw new Error('Sign-in or verification is required in the reader tab.');
   }
@@ -23,9 +31,9 @@
     const waiting = body().match(/([^\s]+)\s+is waiting for your response/i)?.[1]?.toLowerCase();
     const user = waiting && users.includes(waiting) ? waiting : (users.length === 1 ? users[0] : '');
     if (!user) throw new Error('One exact buyer feedback link could not be identified.');
-    const price = body().match(/Buyer offer:\s*\$?([\d,]+\.\d{2})/i)?.[1];
+    const price = body().match(/Buyer offer:\s*\$?\s*([\d,]+\.\d{2})/i)?.[1];
     const quantity = Number(body().match(/Quantity:\s*(\d+)/i)?.[1] || 1);
-    const listing = body().match(/Buy It Now:\s*\$?([\d,]+\.\d{2})/i)?.[1];
+    const listing = body().match(/Buy It Now:\s*\$?\s*([\d,]+\.\d{2})/i)?.[1];
     if (C.cents(price,false) === null || !itemLink) throw new Error('Offer price or exact listing link is missing.');
     const sku = body().match(/Custom label\s*\(SKU\)\s*:?\s*([A-Za-z0-9+/=_-]+)/i)?.[1] || '';
     return {...identity, user, price, quantity, listing, title:label(itemLink), sku, asin:C.asin(sku),
@@ -87,6 +95,7 @@
       return {changed:false};
     }
     const table = document.querySelector('#feedback-cards');
+    if (elements('[aria-label="Loading"], [alt="Loading"], [role="progressbar"], [aria-busy="true"]').length) throw new Error('The feedback table is still loading.');
     const total = body().match(/([\d,]+) Feedback left(?:\s*\(viewing\s*([\d,]+)\s*[-\u2013]\s*([\d,]+)\))?/i);
     if (!total || !table) throw new Error('The feedback table is still loading or unrecognized.');
     const rows = [...table.querySelectorAll('tbody tr')].filter(visible).filter(row => row.querySelector('td:nth-child(3)'));
@@ -97,12 +106,14 @@
         seller:label(row.querySelector('.card__from') || row.querySelector('td:nth-child(2)')),when:label(row.querySelector('td:nth-child(3)'))};
     });
     const next = document.querySelector('#next-page') || elements('button, a').find(e => e.getAttribute('aria-label') === 'Next page');
+    if (!next && Number(total[1].replace(/,/g,'')) > 0) throw new Error('The native feedback pagination could not be recognized.');
     const canNext = Boolean(next && !next.disabled && next.getAttribute('aria-disabled') !== 'true');
     if (action === 'feedback-next') {
       if (!canNext) throw new Error('No next feedback page is available.');
       next.click(); return {changed:true};
     }
-    return {user:args.user,left:true,total:Number(total[1].replace(/,/g,'')), start:Number((total[2] || '0').replace(/,/g,'')),
+    const size = elements('button, a').find(e => /feedback ratings per page/.test(e.getAttribute('aria-label') || '') && (e.getAttribute('selected') === 'true' || e.getAttribute('aria-current') === 'true'));
+    return {user:args.user,left:true,total:Number(total[1].replace(/,/g,'')), pageSize:size ? Number(label(size)) : null, start:Number((total[2] || '0').replace(/,/g,'')),
       end:Number((total[3] || '0').replace(/,/g,'')),rows:entries,next:canNext};
   }
   rootReader();

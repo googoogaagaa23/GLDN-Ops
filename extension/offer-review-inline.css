@@ -1,0 +1,15 @@
+:host{display:block;font:13px Arial,sans-serif;color:#222;background:#fff;letter-spacing:0}
+header{padding:12px 0;gap:10px;border-top:1px solid #d8dcdf;background:#fff}
+header img{width:26px;height:26px}header h2{font-size:17px;margin:0}header output{margin-left:auto}
+main{max-width:none;padding:0}#status{margin:10px 0;padding:9px 12px;font-size:12px}
+.identity{padding:0 0 10px;margin-bottom:14px}#identity{font-size:12px}
+.columns{grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px}
+.columns>section+section{padding-left:24px}.columns h2{font-size:15px;margin-bottom:10px}
+.price-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 70px}
+.inline-basics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
+input,select{height:35px;padding:7px;font-size:13px}button{font-size:12px;padding:8px 10px}
+.result,.feedback-counts{padding:10px 0;gap:10px}.result output,.feedback-counts output{font-size:20px;margin-top:4px}
+.separated{margin-top:20px}details{padding:10px 0;border-bottom:1px solid #d8dcdf}
+summary{cursor:pointer;font-size:12px;font-weight:600;line-height:1.6}details[open]>summary{margin-bottom:10px}
+.fields{margin:10px 0}.warning{margin:10px 0}#amazonTitle{margin:8px 0}#delivery{font-size:12px}
+@media(max-width:720px){.columns{grid-template-columns:1fr;gap:18px}.columns>section+section{border-left:0;padding:18px 0 0}.price-grid{grid-template-columns:1fr 1fr}.price-grid label:last-child{grid-column:1/-1;width:80px}.match-tools{grid-template-columns:1fr}header{flex-wrap:wrap}header button{margin-left:auto}.result output,.feedback-counts output{font-size:18px}}

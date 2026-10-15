@@ -1,4 +1,13 @@
-GLDN Ops v3.12.55
+GLDN Ops v3.12.56
+
+v3.12.56 inline offers and feedback repair:
+- Open a pending native eBay offer to see Offer insights directly on the page. Separate view remains optional.
+- Amazon cost, estimated profit and buyer feedback use read-only background tabs in the same Chrome profile and window, scoped to that offer.
+- Scan every native Left for others page, waiting for loading to settle. Header ranges no longer have to equal the readable rating count.
+- When totals differ, show All pages read plus the readable count and eBay header count. Percentages use only readable positive, neutral and negative ratings.
+- Unknown ratings, duplicate IDs, skipped ranges, changed buyers and unreadable pages remain partial errors, never invented results.
+- Confirm applicable fee and cost assumptions. Accept, counteroffer, decline and purchase remain manual.
+- Update & Reload, then refresh the eBay offer tab. Full signed-in end-to-end/video verification remains pending.
 
 v3.12.55 unread-message coverage:
 - Read every native message page and scroll lazy/virtual lists in overlapping viewport steps.

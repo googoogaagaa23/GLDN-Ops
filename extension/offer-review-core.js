@@ -107,8 +107,11 @@
   function addFeedback(state, page) {
     if (!page.left || page.user !== state.user) throw new Error('Feedback view or buyer changed.');
     if (!Number.isInteger(page.total) || page.total < 0 || (state.total !== null && state.total !== page.total)) throw new Error('Feedback total changed; restart the scan.');
-    if (page.start !== state.rows.length + 1 && page.total !== 0) throw new Error('Feedback pages are repeated, skipped, or out of order.');
-    if (page.rows.length !== (page.total === 0 ? 0 : page.end - page.start + 1)) throw new Error('Some feedback rows could not be read.');
+    const through = state.through ?? state.rows.length;
+    if (!Number.isInteger(page.start) || !Number.isInteger(page.end) || page.start < 0 || page.end < page.start || page.end > page.total) throw new Error('Feedback page range is invalid.');
+    if (page.start !== through + 1 && page.total !== 0) throw new Error('Feedback pages are repeated, skipped, or out of order.');
+    if (page.rows.length !== (page.total === 0 ? 0 : page.end - page.start + 1) && page.settled !== true) throw new Error('Some feedback rows could not be read.');
+    if (!page.rows.length && page.total > 0) throw new Error('No readable ratings were found on this non-empty feedback page.');
     if (page.rows.some(r => !['positive','neutral','negative'].includes(r.rating))) throw new Error('A feedback rating is unknown.');
     const ids = new Set(state.rows.map(r => r.id).filter(Boolean));
     const pageIds = page.rows.map(r => r.id).filter(Boolean);
@@ -116,14 +119,17 @@
     if (new Set(pageIds).size !== pageIds.length) throw new Error('Duplicate feedback IDs within a page.');
     if (page.rows.some(r => r.id && ids.has(r.id))) throw new Error('Repeated feedback IDs; restart the scan.');
     const rows = [...state.rows, ...page.rows];
-    const complete = rows.length === page.total && !page.next;
-    return {...state, rows, total:page.total, pages:state.pages + 1, complete};
+    const pagesComplete = page.end === page.total && !page.next;
+    const complete = pagesComplete && rows.length === page.total;
+    return {...state, rows, total:page.total, through:page.end, pages:state.pages + 1, pagesComplete, complete};
   }
   function feedbackSummary(state) {
     const counts = {positive:0,neutral:0,negative:0};
     for (const r of state.rows) counts[r.rating]++;
     const total = state.rows.length;
-    return {...counts, total, percentages:Object.fromEntries(Object.entries(counts).map(([k,v]) => [k,total ? v / total * 100 : null])), complete:state.complete === true};
+    return {...counts, total, reported:state.total, difference:state.total === null ? null : state.total - total,
+      pagesComplete:state.pagesComplete === true || state.complete === true,
+      percentages:Object.fromEntries(Object.entries(counts).map(([k,v]) => [k,total ? v / total * 100 : null])), complete:state.complete === true};
   }
   const api = Object.freeze({CHECKED,SOURCES,CATEGORIES,text,url,offer,asin,feedbackUser,cents,percent,estimate,addFeedback,feedbackSummary});
   root.GLDN_OFFER = api;

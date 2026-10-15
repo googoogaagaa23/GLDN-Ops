@@ -54,7 +54,9 @@ function strictPack(rules = [], overrides = {}) {
 }
 
 function publishedPack() {
-  return JSON.parse(fs.readFileSync(path.join(ROOT, 'extension', 'listing-preflight-rules.json'), 'utf8'));
+  const pack = JSON.parse(fs.readFileSync(path.join(ROOT, 'extension', 'listing-preflight-rules.json'), 'utf8'));
+  // Keyword fixtures are independent of today's date; expiry is tested separately.
+  return {...pack, clearancePolicy:{...pack.clearancePolicy, maxAgeDays:3650}};
 }
 
 const COMPLETE_HUMAN_ATTESTATIONS = [
@@ -407,6 +409,11 @@ test('clearance profile freshness is enforced', () => {
   const policy = strictPack().clearancePolicy;
   assert.equal(core.policyProfileIsStale(policy, new Date('2026-09-01T00:00:00.000Z')), false);
   assert.equal(core.policyProfileIsStale({ ...policy, maxAgeDays: 1 }, new Date('2026-09-02T00:00:00.000Z')), true);
+  const pack = publishedPack();
+  pack.clearancePolicy = {...pack.clearancePolicy, reviewedAt:'2000-01-01', maxAgeDays:45};
+  const results = core.evaluateRows(core.parseInputRows('Stainless Steel Spoon Set\nAnt Killer Pesticide Granules'),pack);
+  assert.deepEqual(results.map(row => row.action),['review','block']);
+  assert.match(results[0].reason,/stale/i);
 });
 
 test('popup opens Product Hunter and the paste-first policy check directly', () => {

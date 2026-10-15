@@ -113,7 +113,8 @@ test('full-hub rebuild preserves the newer pesticide prevention refresh', () => 
 test('old saved Ready pesticides are rechecked before export and copy-history writes', () => {
   const oldReady = blockedTitles.map((title, i) => ({ title, asin: `B${String(i).padStart(9, '0')}`, status: hunter.STATUS.READY }));
   const ordinary = { title: 'Empty Trigger Pump Spray Bottle', asin: 'B999999999', status: hunter.STATUS.READY };
-  const selected = hunter.recheckReadyProducts([...oldReady, ordinary], pack, hunterPolicy);
+  const fixture = {...pack,clearancePolicy:{...pack.clearancePolicy,maxAgeDays:3650}};
+  const selected = hunter.recheckReadyProducts([...oldReady, ordinary], fixture, hunterPolicy);
   assert.deepEqual(selected, [ordinary]);
   assert.equal(hunter.recheckReadyProducts([ordinary], { ...pack, rules: [] }, hunterPolicy).length, 0);
   assert.throws(() => hunter.recheckReadyProducts([ordinary], pack, {}), /Nothing can be copied/);

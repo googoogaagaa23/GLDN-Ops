@@ -51,11 +51,12 @@ const samples = [
 ];
 
 test('preflight and existing-listing audit use the same stronger, targeted IP decisions', () => {
+  const fixture = {...pack,clearancePolicy:{...pack.clearancePolicy,maxAgeDays:3650}};
   for (const [title, expected] of samples) {
     const row = { title, input: title, hasProductEvidence: true, asins: ['B012345678'] };
-    const result = core.evaluateRows([row], pack)[0];
+    const result = core.evaluateRows([row], fixture)[0];
     assert.equal(result.action, expected, title);
-    const existing = audit.buildPolicyAudit([{ itemId: '300000000001', title }], pack, {}, core);
+    const existing = audit.buildPolicyAudit([{ itemId: '300000000001', title }], fixture, {}, core);
     assert.equal(existing.listings[0].action, expected, `existing: ${title}`);
     if (expected !== 'clear') assert.equal(core.copyAmazonLinkPayload([result]), '', 'review and block links cannot enter the bulk handoff');
   }

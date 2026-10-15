@@ -88,13 +88,29 @@ test('zero feedback has no fabricated percentage and is complete only with nativ
   const s = C.addFeedback(initial(),{user:'buyer',left:true,total:0,start:0,end:0,rows:[],next:false});
   assert.equal(s.complete,true); assert.equal(C.feedbackSummary(s).percentages.negative,null);
 });
+test('settled native ranges can differ from readable row counts without stopping pagination',() => {
+  const first=Array.from({length:189},(_,i)=>row(String(i+1)));
+  const last=Array.from({length:38},(_,i)=>row(String(i+190),i===12?'negative':'positive'));
+  let s=C.addFeedback(initial(),{user:'buyer',left:true,total:235,start:1,end:200,rows:first,next:true,settled:true});
+  assert.equal(s.through,200);assert.equal(s.pagesComplete,false);
+  s=C.addFeedback(s,{user:'buyer',left:true,total:235,start:201,end:235,rows:last,next:false,settled:true});
+  assert.equal(s.pagesComplete,true);assert.equal(s.complete,false);
+  const summary=C.feedbackSummary(s);assert.equal(summary.total,227);assert.equal(summary.difference,8);
+  assert.equal(summary.negative,1);assert.ok(Math.abs(summary.percentages.negative-100/227)<.001);
+});
+test('a short unsettled page and invalid ranges remain errors, not fabricated missing ratings',()=>{
+  const page={user:'buyer',left:true,total:2,start:1,end:2,rows:[row('1')],next:false};
+  assert.throws(()=>C.addFeedback(initial(),page),/could not be read/);
+  assert.throws(()=>C.addFeedback(initial(),{...page,end:3,settled:true}),/range/);
+  assert.throws(()=>C.addFeedback(initial(),{...page,rows:[],settled:true}),/No readable/);
+});
 test('launcher requires the exact native offer tab and rejects website/iframe/other-extension senders',async () => {
   let listener,opened=[];
   const offer = 'https://www.ebay.com/bo/seller/reviewOffer/123456789012?threadId=123';
   const chrome = {runtime:{id:'gldn',getURL:p=>'chrome-extension://gldn/'+p,onMessage:{addListener:f=>{listener=f;}}},
     tabs:{query:async args=>args.url ? [] : [{id:2,url:offer}],create:async data=>{opened.push(data);return {id:3};}}};
   vm.runInNewContext(source('offer-review-background.js'),{chrome,GLDN_OFFER:C,Number});
-  const send = sender => new Promise(r=>listener({type:'offerReviewOpen'},sender,r));
+  const send = sender => new Promise(r=>listener({type:'offerReviewOpen',mode:'window'},sender,r));
   for (const sender of [{id:'other',tab:{id:2,url:offer}},{id:'gldn',frameId:1,tab:{id:2,url:offer}},{id:'gldn',url:'https://evil.test/'}]) assert.equal((await send(sender)).ok,false);
   assert.equal(opened.length,0);
   assert.equal((await send({id:'gldn',frameId:0,tab:{id:2,url:offer}})).ok,true);

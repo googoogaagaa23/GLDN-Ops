@@ -1,21 +1,29 @@
-(async () => {
+globalThis.GLDN_OFFER_START = async () => {
   'use strict';
-  const C = globalThis.GLDN_OFFER, $ = id => document.getElementById(id);
+  const host = globalThis.GLDN_OFFER_HOST;
+  const dom = host?.root || document;
+  const C = globalThis.GLDN_OFFER, $ = id => dom.getElementById(id);
+  const tabs = host ? {get:id => host.call('tab-get',{tabId:id}),update:id => host.call('activate',{tabId:id})} : chrome.tabs;
   const fields = ['sale','quantity','cost','amazonTax','amazonShipping','buyerShipping','buyerTax','other','plan','category','adRate','surcharge','international','customRate','customOrderFee'];
   const esc = value => String(value ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money = n => (n < 0 ? '-$' : '$') + (Math.abs(n) / 100).toFixed(2);
   const sourceParam = new URLSearchParams(location.search).get('source');
-  const sourceId = /^\d+$/.test(sourceParam || '') ? Number(sourceParam) : NaN;
-  const deskId = (await chrome.tabs.getCurrent())?.id;
+  const sourceId = host ? host.sourceId : /^\d+$/.test(sourceParam || '') ? Number(sourceParam) : NaN;
+  const deskId = host ? host.sourceId : (await chrome.tabs.getCurrent())?.id;
   const storageKey = 'gldnOfferReview:' + deskId;
   let state = {source:null,workers:{},feedback:null}, running = false, busy = false;
+  let saving = Promise.resolve();
   const notice = (message,error = false) => { $('status').textContent = message; $('status').classList.toggle('error',error); };
   const delay = ms => new Promise(r => setTimeout(r,ms));
-  const save = async () => chrome.storage.session.set({[storageKey]:{...state,inputs:inputs(),savedAt:Date.now()}});
+  const save = () => {
+    const value = structuredClone({...state,readerVersion:chrome.runtime.getManifest().version,inputs:inputs(),savedAt:Date.now()});
+    saving = saving.catch(() => {}).then(() => host ? host.call('state-set',{value}) : chrome.storage.session.set({[storageKey]:value}));
+    return saving;
+  };
   function inputs() { return {...Object.fromEntries(fields.map(id => [id,$(id).value])),topRatedPlus:$('topRatedPlus').checked}; }
   function calculation() {
     $('feeSource').href = ['None','Starter'].includes($('plan').value) ? C.SOURCES.selling : C.SOURCES.store;
-    document.querySelectorAll('.custom').forEach(e => { e.hidden = $('category').value !== 'custom'; });
+    dom.querySelectorAll('.custom').forEach(e => { e.hidden = $('category').value !== 'custom'; });
     try {
       const values = inputs(), result = C.estimate(values), offered = C.estimate({...values,sale:$('buyerOffer').value});
       $('offerProfit').textContent = money(offered.profit); $('counterProfit').textContent = money(result.profit);
@@ -37,8 +45,10 @@
     if (!state.feedback) return;
     const s = C.feedbackSummary(state.feedback);
     for (const rating of ['positive','neutral','negative']) $(rating).textContent = s[rating] + ' / ' + (s.percentages[rating] === null ? '--' : s.percentages[rating].toFixed(1) + '%');
-    $('feedbackStatus').textContent = (s.complete ? 'Complete' : 'Partial') + ': ' + s.total + ' of ' + (state.feedback.total ?? '?') + ' feedback entries | ' + state.feedback.pages + ' pages' + (state.feedback.error ? ' | ' + state.feedback.error : '');
-    $('comments').innerHTML = state.feedback.rows.filter(r => r.rating !== 'positive').map(r => '<div class="comment"><strong class="' + esc(r.rating) + '">' + esc(r.rating) + '</strong>' + esc(r.comment) + '<small>' + esc(r.seller + ' | ' + r.when) + '</small></div>').join('') || '<p class="boundary">' + (s.complete ? 'No negative or neutral entries in this completed scan.' : 'No negative or neutral entries found so far.') + '</p>';
+    $('feedbackStatus').textContent = s.pagesComplete && !s.complete
+      ? 'All pages read: ' + s.total + ' readable ratings | eBay reports ' + state.feedback.total + ' | ' + state.feedback.pages + ' pages. Header total differs; percentages use the readable ratings.'
+      : (s.complete ? 'Complete' : 'Partial') + ': ' + s.total + ' of ' + (state.feedback.total ?? '?') + ' feedback entries | ' + state.feedback.pages + ' pages' + (state.feedback.error ? ' | ' + state.feedback.error : '');
+    $('comments').innerHTML = state.feedback.rows.filter(r => r.rating !== 'positive').map(r => '<div class="comment"><strong class="' + esc(r.rating) + '">' + esc(r.rating) + '</strong>' + esc(r.comment) + '<small>' + esc(r.seller + ' | ' + r.when) + '</small></div>').join('') || '<p class="boundary">' + (s.pagesComplete ? 'No negative or neutral entries among the readable ratings in this scan.' : 'No negative or neutral entries found so far.') + '</p>';
   }
   function controls() {
     for (const id of ['readBoth','readAmazon','readFeedback']) $(id).disabled = busy || !state.source;
@@ -47,11 +57,14 @@
   }
   async function page(tabId,action,args = {}) {
     if (!running && action !== 'offer') throw new Error('Paused.');
+    if (host) return host.call('read',{tabId,action,args});
     await chrome.scripting.executeScript({target:{tabId},files:['offer-review-core.js','offer-review-reader.js']});
     if (!running && action !== 'offer') throw new Error('Paused.');
-    const results = await chrome.scripting.executeScript({target:{tabId},func:(action,args) => globalThis.GLDN_OFFER_READER(action,args),args:[action,args]});
-    if (!results[0]?.result) throw new Error('The reader tab did not respond.');
-    return results[0].result;
+    const results = await chrome.scripting.executeScript({target:{tabId},func:(action,args) => {
+      try { return {ok:true,data:globalThis.GLDN_OFFER_READER(action,args)}; } catch(e) { return {ok:false,error:e.message}; }
+    },args:[action,args]});
+    if (!results[0]?.result?.ok) throw new Error(results[0]?.result?.error || 'The reader tab did not respond.');
+    return results[0].result.data;
   }
   async function waitPage(tabId,action,args,predicate = () => true) {
     const deadline = Date.now() + 30000;
@@ -59,7 +72,7 @@
     while (Date.now() < deadline) {
       if (!running) throw new Error('Paused. Results captured so far are retained.');
       try {
-        const tab = await chrome.tabs.get(tabId);
+        const tab = await tabs.get(tabId);
         if (tab.status === 'complete') {
           const snapshot = await page(tabId,action,args);
           if (predicate(snapshot)) return snapshot;
@@ -73,21 +86,32 @@
     }
     throw new Error(last);
   }
-  async function worker(kind,url) {
+  async function createReader(kind,url,active = false,reset = false) {
+    if (host) return host.call('worker',{kind,url,active,reset});
+    const owner = await tabs.get(sourceId);
+    return chrome.tabs.create({url,active,openerTabId:deskId,...(Number.isInteger(owner.windowId) ? {windowId:owner.windowId} : {})});
+  }
+  async function worker(kind,url,reset = false) {
     if (!running) throw new Error('Paused.');
     const id = state.workers[kind];
     if (id) {
       try {
-        const tab = await chrome.tabs.get(id);
-        if (tab.openerTabId === deskId && tab.url === url) return id;
+        const tab = await tabs.get(id);
+        if (tab.openerTabId === deskId && tab.url === url) {
+          if (reset) {
+            if (host) await createReader(kind,url,false,true);
+            else await tabs.update(id,{url,active:false});
+          }
+          return id;
+        }
       } catch { /* A closed reader is replaced, never an unrelated tab. */ }
     }
-    const tab = await chrome.tabs.create({url,active:false,openerTabId:deskId});
+    const tab = await createReader(kind,url);
     state.workers[kind] = tab.id; await save(); return tab.id;
   }
   async function verifySource() {
     if (!Number.isInteger(sourceId) || sourceId < 0) throw new Error('Open GLDN Offer Review from one eBay Offer Received page.');
-    const tab = await chrome.tabs.get(sourceId);
+    const tab = await tabs.get(sourceId);
     const key = C.offer(tab.url)?.key;
     if (!key || (state.source && key !== state.source.key)) throw new Error('The originating eBay offer changed. Open a new review from that offer.');
     const current = await page(sourceId,'offer');
@@ -97,6 +121,7 @@
   async function capture() {
     state.source = null;
     state.source = await verifySource();
+    if (host) host.source = state.source;
     const s = state.source;
     for (const id of ['cost','amazonTax','amazonShipping','buyerShipping','buyerTax','category','adRate','surcharge','customRate']) $(id).value = '';
     $('other').value = '0'; $('international').value = '0'; $('topRatedPlus').checked = false;
@@ -136,22 +161,31 @@
     const user = state.source.user;
     state.feedback = {user,total:null,rows:[],pages:0,complete:false}; feedbackRender();
     try {
-      const id = await worker('feedback',state.source.feedbackUrl);
+      const id = await worker('feedback',state.source.feedbackUrl,true);
       await waitPage(id,'feedback-left',{user});
-      await waitPage(id,'feedback',{user});
+      const settledPage = async predicate => {
+        let previous = '';
+        return waitPage(id,'feedback',{user},snapshot => {
+          if (!predicate(snapshot)) { previous = ''; return false; }
+          const signature = JSON.stringify([snapshot.total,snapshot.start,snapshot.end,snapshot.next,snapshot.rows]);
+          const settled = signature === previous; previous = signature;
+          snapshot.settled = settled; return settled;
+        });
+      };
+      await settledPage(() => true);
       const size = await page(id,'feedback-size',{user});
       if (size.changed) await delay(700);
-      let snapshot = await waitPage(id,'feedback',{user},p => (p.start === 1 || p.total === 0) && (!size.changed || p.rows.length === Math.min(200,p.total)));
+      let snapshot = await settledPage(p => (p.start === 1 || p.total === 0) && (!size.changed || p.end === Math.min(200,p.total)));
       while (running) {
         state.feedback = C.addFeedback(state.feedback,snapshot); feedbackRender(); await save();
-        if (state.feedback.complete) break;
+        if (state.feedback.pagesComplete) break;
         if (!snapshot.next) throw new Error('eBay ended pagination before all entries were read.');
         if (state.feedback.pages >= 500) throw new Error('500 pages reached. The scan remains partial.');
         await page(id,'feedback-next',{user});
-        const nextStart = state.feedback.rows.length + 1;
-        snapshot = await waitPage(id,'feedback',{user},p => p.start === nextStart);
+        const nextStart = state.feedback.through + 1;
+        snapshot = await settledPage(p => p.start === nextStart);
       }
-      if (!state.feedback.complete) throw new Error('Paused. Feedback scan is partial.');
+      if (!state.feedback.pagesComplete) throw new Error('Paused. Feedback scan is partial.');
     } catch(e) { state.feedback.error = e.message; feedbackRender(); await save(); throw e; }
   }
   async function run(which) {
@@ -181,14 +215,14 @@
     try { state = {source:null,workers:{},feedback:null}; await capture(); notice('Offer refreshed.'); } catch(e) { notice(e.message,true); }
   });
   $('return').addEventListener('click',async () => {
-    try { await verifySource(); await chrome.tabs.update(sourceId,{active:true}); } catch(e) { notice(e.message,true); }
+    try { await verifySource(); await tabs.update(sourceId,{active:true}); } catch(e) { notice(e.message,true); }
   });
   $('showFeedback').addEventListener('click',async () => {
     try {
       const id = state.workers.feedback;
-      const tab = id ? await chrome.tabs.get(id) : null;
-      if (tab && C.feedbackUser(tab.url) === state.source.user) await chrome.tabs.update(id,{active:true});
-      else await chrome.tabs.create({url:state.source.feedbackUrl});
+      const tab = id ? await tabs.get(id) : null;
+      if (tab && C.feedbackUser(tab.url) === state.source.user) await tabs.update(id,{active:true});
+      else await createReader('feedback',state.source.feedbackUrl,true);
     } catch(e) { notice(e.message,true); }
   });
   $('copy').addEventListener('click',async () => {
@@ -197,12 +231,13 @@
     } catch(e) { notice(e.message,true); }
   });
   window.addEventListener('beforeunload',() => { running = false; });
+  host?.root.host.addEventListener('gldn-offer-dispose',() => { running = false; });
   controls();
   try {
-    const saved = (await chrome.storage.session.get(storageKey))[storageKey];
+    const saved = host ? await host.call('state-get') : (await chrome.storage.session.get(storageKey))[storageKey];
     await capture();
     if (saved?.source?.key === state.source.key && saved.source.user === state.source.user
-      && saved.source.price === state.source.price && saved.source.quantity === state.source.quantity && saved.source.title === state.source.title && Date.now() - saved.savedAt < 15 * 60000) {
+      && saved.readerVersion === chrome.runtime.getManifest().version && saved.source.price === state.source.price && saved.source.quantity === state.source.quantity && saved.source.title === state.source.title && Date.now() - saved.savedAt < 15 * 60000) {
       state = {...saved};
       for (const [id,value] of Object.entries(saved.inputs || {})) if (fields.includes(id)) $(id).value = value;
       $('topRatedPlus').checked = saved.inputs?.topRatedPlus === true;
@@ -213,7 +248,9 @@
         $('amazonLink').href = 'https://www.amazon.com/dp/' + state.amazon.asin; $('amazonLink').hidden = false;
       }
       feedbackRender(); calculation(); notice('Saved review restored. Refresh readers for current prices.');
+      if (!state.feedback?.pagesComplete) await run('feedback');
     } else await run('both');
     controls();
   } catch(e) { notice(e.message,true); }
-})();
+};
+if (!globalThis.GLDN_OFFER_HOST) globalThis.GLDN_OFFER_START();

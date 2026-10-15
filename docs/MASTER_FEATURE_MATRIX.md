@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-10-12
-Current local manifest: 3.12.55
+Last updated: 2026-10-15
+Current local manifest: 3.12.56
+
+v3.12.56 puts Offer insights directly on native pending eBay offers, with an optional separate view. The reported public buyer page was inspected across both 200-per-page ranges: the header reported 235 entries while 227 distinct readable ratings were exposed (222 positive, 4 neutral, 1 negative). Native loading markers and range boundaries now gate pagination; all-pages-read and exact total reconciliation are separate states. Synthetic desktop/mobile real-extension-API checks reproduce those ranges and counts, verify same-source-tab/window ownership, retained native controls, no separate review tab, failed refresh clearing and navigation rebinding. Both separate-view fixture sizes also pass. No current signed-in end-to-end/video gate is claimed; publication at user request is not LIVE PASS.
 
 v3.12.55 fixes unread-message coverage. Missing navigation can no longer report Complete; native next/last-page signals and overlapping scrolling traverse paged, lazy and virtual lists. Exact unread counts, stable folder loading and confirmed terminal states gate completion. Older complete labels are downgraded without discarding messages or ignores. Synthetic browser tests read 75 conversations across three pages, all 125 virtual/lazy conversations, and open an exact later-page conversation while preserving an ignore. The reported account's current signed-in end-to-end result is not verified; publication and fixture checks are not a LIVE PASS.
 
@@ -9,7 +11,7 @@ v3.12.54 implements read-only Offer Review: exact native offer scope, SKU/ASIN A
 
 | ID | Feature | Expected Result | Implementation | Automated Evidence | Live Evidence | Status | Next Gate |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| E-16 | Offer Review | Estimated offer/counteroffer profit and full feedback-left counts | Read-only background tabs, exact SKU/ASIN, official dated US fee presets, category exceptions explicit, partial/complete feedback evidence, final submission manual | Core/source-scope tests and desktop/mobile synthetic 205-entry scan with zero marketplace submissions | Manual AnyDesk workflow observed; public buyer feedback DOM and 149 IDs inspected; full new-helper account run not claimed | PARTIAL | Signed-in read-only new-helper run with exact SKU, Amazon price, feedback counts and formal video proof; published at user request with this gate pending |
+| E-16 | Offer Review | Native-page estimated profit, Amazon evidence and all-page feedback-left counts | Shadow-DOM inline view, restricted source-bound bridge, same-window read-only tabs, exact SKU/ASIN, official dated US fee presets, explicit header-total mismatches, final submission manual | Core/source-scope tests; desktop/mobile separate 205-entry scan and inline 227-readable/235-reported scan with zero submissions | Reported public buyer's two pages and 227 native IDs inspected; full signed-in helper run not claimed | PARTIAL | Signed-in read-only new-helper run with exact SKU, Amazon price, feedback counts and formal video proof; published at user request with this gate pending |
 
 v3.12.53 adds fresh non-cached dashboard requests and date-bounded duplicate warnings. The dashboard owner's existing authorization was renewed and production Apps Script version 52 repairs date-formatted audit months. Live M0 / CLICKNCARRY October demand reads back all 143 units; signed-in M7 reads shared demand and captures 38 purchase units. Its final checkpoint was interrupted by intermittent redirected HTML/timeouts, motivating the request-cache fix. Older purchases remain review evidence, not proven duplicates. All-profile completion and the formal Profile 2/video gate are not claimed. Automated recovery tests are supporting evidence.
 

@@ -1,5 +1,14 @@
 # GLDN Ops Changelog
 
+## v3.12.56 - 2026-10-15
+
+- Show Offer insights directly on the native pending eBay offer: exact Amazon match, editable estimated profit and all-page buyer feedback. Keep an optional separate view.
+- Fix feedback scans that stopped at zero when native page ranges and readable rating counts differ. Follow native range boundaries, wait for loading to settle, and preserve distinct native IDs.
+- Show all-pages-read coverage separately from total reconciliation. Percentages use readable ratings and explicitly flag differing eBay header totals; no unavailable rating is inferred.
+- Bind inline readers and saved results to the source offer, buyer, tab and window. Only owned inactive tabs can read the matching listing, Amazon item and buyer feedback.
+- Test both inline and separate views at desktop/mobile sizes, including mismatched totals, delayed loading, failed price refresh and source changes. Marketplace submission remains manual. Signed-in end-to-end/video validation is not claimed.
+- Reset repeat feedback scans to page one and serialize saved snapshots. Make keyword fixtures independent of wall-clock expiry without changing production policy freshness safeguards.
+
 ## v3.12.55 - 2026-10-12
 
 - Fix early unread-message completion: missing pagination or a scrolling-container selector no longer counts as the end of the inbox.

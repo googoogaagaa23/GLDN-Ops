@@ -1,6 +1,6 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.55",
-  "updated": "2026-10-12",
+  "version": "3.12.56",
+  "updated": "2026-10-15",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",
@@ -16,22 +16,22 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
       "matrix": "E-16",
       "title": "Offer Review",
       "status": "PARTIAL",
-      "summary": "Compare a buyer offer and your editable counteroffer against Amazon cost, official US eBay fee estimates, and all feedback left for others.",
+      "summary": "See Amazon cost, estimated counteroffer profit and all-page buyer feedback directly on the native eBay offer page.",
       "prerequisites": [
         "Use the intended signed-in eBay Chrome profile.",
         "Open one native Offer Received page with a pending buyer offer.",
         "Confirm the Store plan, fee category, advertising rate, and estimated costs."
       ],
       "steps": [
-        "Choose GLDN Offer Review on the native offer page, or GLDN icon > Daily > Offer Review.",
-        "GLDN opens read-only background tabs to resolve the listing SKU, read its exact Amazon item, and scan the buyer's Left for others feedback.",
+        "Open a pending native Offer Received page; Offer insights appears inline. GLDN icon > Daily > Offer Review returns to this section; Separate view is optional.",
+        "GLDN opens read-only background tabs in the same Chrome profile and window to resolve the listing SKU, read its exact Amazon item, and scan the buyer's Left for others feedback.",
         "If SKU matching is unavailable, enter the exact SKU, ASIN, or Amazon item link and choose Read Amazon. An operator-supplied match is not independently verified against the listing.",
-        "Wait for Complete on feedback. Partial means only the entries found so far; Scan all feedback pages restarts from the beginning.",
-        "Confirm the fee category and account-specific fees; enter Amazon tax/shipping and estimated buyer tax. Blank values are visibly excluded or assumed zero.",
-        "Adjust Your counteroffer to compare estimated profit and margin. Copy counteroffer amount and Return to eBay offer, then submit manually."
+        "Wait for Complete or All pages read. A header-total mismatch is shown explicitly, with percentages based on readable ratings. Partial means coverage is unfinished; Scan all feedback pages restarts from the beginning.",
+        "Confirm the Store plan, fee category and advertising rate. Expand Fee and cost settings for Amazon tax/shipping, estimated buyer tax and other costs. Blank values are visibly excluded or assumed zero.",
+        "Adjust Your counteroffer to compare estimated profit and margin. Copy amount and use eBay's unchanged native controls to submit manually."
       ],
       "approvalStop": "GLDN never accepts, declines, counters, blocks a buyer, purchases an item, or changes a listing. Final marketplace submission is manual.",
-      "output": "An offer-specific review with timestamped Amazon evidence, fee breakdown, estimated profit, and complete/partial positive, neutral, negative counts and percentages plus non-positive comments.",
+      "output": "An inline offer-specific review with timestamped Amazon evidence, expandable fee settings, estimated profit, and positive/neutral/negative counts and percentages plus comments. All-page coverage and header-total reconciliation are labeled separately.",
       "recovery": [
         "Sign-in or verification requires operator action in the relevant reader tab.",
         "Pause stops readers and preserves captured results; restart a partial feedback scan to verify full coverage.",
@@ -39,7 +39,7 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "Fee presets cover named common category groups; exceptions require a confirmed custom rate and per-order fee. Rates older than 45 days warn to check the official source.",
         "Saved reviews expire after fifteen minutes and restored Amazon prices are labeled with their original capture time."
       ],
-      "evidence": "Read-only AnyDesk demonstration captured a $25 offer, $23.99 Amazon item, buyer Left for others inspection, and manual $28 counteroffer. The actual public buyer page reconciled 149 positive entries, 149 native IDs, and disabled next-page signal. Unit and synthetic desktop/mobile tests cover full 205-entry paging and zero submissions. Full new-helper signed-in Profile 2/video verification remains pending."
+      "evidence": "The reported public buyer's two native pages exposed 227 distinct ratings (222 positive, 4 neutral, 1 negative), despite a 235-entry header. Unit tests and synthetic desktop/mobile real-extension-API checks reproduce that mismatch, delayed loading, same-tab/window reader ownership, source navigation and zero marketplace submissions. Separate-view fixtures also cover 205 entries. Full new-helper signed-in Profile 2/video verification remains pending."
     },
     {
       "id": "price-increase",

@@ -146,7 +146,7 @@ test('policy checks need no dashboard setup, including on a profile with no save
   assert.equal(result.records.length, 0);
   assert.match(result.warning, /Dashboard connection is optional/);
   assert.equal(h.calls.length, 0);
-  const rules = {...pack, incidentHistory:result.records, incidentHistoryWarning:result.warning};
+  const rules = {...pack, clearancePolicy:{...pack.clearancePolicy,maxAgeDays:3650}, incidentHistory:result.records, incidentHistoryWarning:result.warning};
   const checked = preflight.evaluateRows([
     candidate('Ant Killer Pesticide Granules'), candidate('Spray Paint Aerosol Can'),
     candidate('Stainless Steel Measuring Spoon Set')

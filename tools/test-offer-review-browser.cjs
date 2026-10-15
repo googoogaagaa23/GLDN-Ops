@@ -36,7 +36,7 @@ async function main() {
         if(method==='current')return{id:100};
         if(method==='get'){const p=tabs.get(args);if(!p)throw Error('Tab closed');return{id:args,url:p.url(),status:'complete',openerTabId:args===1?undefined:100};}
         if(method==='create'){const id=nextId++,p=await context.newPage();tabs.set(id,p);created.push(args.url);await p.goto(args.url);return{id};}
-        if(method==='update')return{id:args.id};
+        if(method==='update'){if(args.url)await tabs.get(args.id).goto(args.url);return{id:args.id};}
       });
       await ui.exposeFunction('fixtureScript',async(data)=>{
         const p=tabs.get(data.target.tabId);if(!p)throw Error('Missing tab');
@@ -57,6 +57,10 @@ async function main() {
       assert.match(await ui.locator('#negative').textContent(),/^2 /);
       assert.equal(await ui.locator('#comments .comment').count(),3);
       assert.equal(await ui.locator('#cost').inputValue(),'23.99');
+      await ui.locator('#readFeedback').click();
+      await ui.waitForFunction(()=>document.querySelector('#feedbackStatus')?.textContent.startsWith('Complete'),{timeout:20000});
+      await ui.waitForFunction(()=>!document.querySelector('#readFeedback').disabled);
+      assert.match(await ui.locator('#feedbackStatus').textContent(),/205 of 205.*2 pages/);
       assert.equal(created.length,3);
       assert.ok(created.some(u=>u.endsWith('/dp/B089Q55SS7')));
       await ui.locator('#sale').fill('28'); await ui.locator('#category').selectOption('general');
@@ -84,7 +88,7 @@ async function main() {
       await ui.goto(pathToFileURL(path.join(ext,'offer-review.html')).href);
       await ui.waitForFunction(()=>document.querySelector('#status').textContent.includes('Open GLDN Offer Review'));
       assert.equal(created.length,3,'A review without an originating tab cannot start readers');
-      results.push({viewport,feedback:205,pages:2,positive:202,neutral:1,negative:2,counterProfit:'-$1.07',submissionCount:0,sourceChangeBlocked:true,failedRefreshClearsPrice:true,missingSourceBlocked:true});
+      results.push({viewport,feedback:205,pages:2,positive:202,neutral:1,negative:2,repeatScan:true,counterProfit:'-$1.07',submissionCount:0,sourceChangeBlocked:true,failedRefreshClearsPrice:true,missingSourceBlocked:true});
       await context.close();
     }
     fs.writeFileSync(path.join(output,'fixture-results.json'),JSON.stringify({scope:'Synthetic fixtures only; no marketplace writes or real account data',results},null,2)+'\n');

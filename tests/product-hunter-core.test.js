@@ -9,6 +9,8 @@ const projectRoot = path.resolve(__dirname, '..');
 const core = require(path.join(projectRoot, 'product-hunter-extension', 'hunter-core.js'));
 const policy = require(path.join(projectRoot, 'product-hunter-extension', 'policy-core.js'));
 const rulePack = JSON.parse(fs.readFileSync(path.join(projectRoot, 'product-hunter-extension', 'policy-rules.json'), 'utf8'));
+// Classification fixtures exclude wall-clock expiry, which has dedicated policy tests.
+rulePack.clearancePolicy.maxAgeDays = 3650;
 const seedProfile = {
   approvedSeeds: rulePack.clearancePolicy.readyPhrases,
   profileVersion: rulePack.clearancePolicy.version

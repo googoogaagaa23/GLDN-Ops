@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.55. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.56. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -60,7 +60,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 **Evidence status:** PARTIAL
 
-**Purpose:** Compare a buyer offer and your editable counteroffer against Amazon cost, official US eBay fee estimates, and all feedback left for others.
+**Purpose:** See Amazon cost, estimated counteroffer profit and all-page buyer feedback directly on the native eBay offer page.
 
 ### Prerequisites
 
@@ -70,12 +70,12 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 ### Exact Steps
 
-1. Choose GLDN Offer Review on the native offer page, or GLDN icon > Daily > Offer Review.
-2. GLDN opens read-only background tabs to resolve the listing SKU, read its exact Amazon item, and scan the buyer's Left for others feedback.
+1. Open a pending native Offer Received page; Offer insights appears inline. GLDN icon > Daily > Offer Review returns to this section; Separate view is optional.
+2. GLDN opens read-only background tabs in the same Chrome profile and window to resolve the listing SKU, read its exact Amazon item, and scan the buyer's Left for others feedback.
 3. If SKU matching is unavailable, enter the exact SKU, ASIN, or Amazon item link and choose Read Amazon. An operator-supplied match is not independently verified against the listing.
-4. Wait for Complete on feedback. Partial means only the entries found so far; Scan all feedback pages restarts from the beginning.
-5. Confirm the fee category and account-specific fees; enter Amazon tax/shipping and estimated buyer tax. Blank values are visibly excluded or assumed zero.
-6. Adjust Your counteroffer to compare estimated profit and margin. Copy counteroffer amount and Return to eBay offer, then submit manually.
+4. Wait for Complete or All pages read. A header-total mismatch is shown explicitly, with percentages based on readable ratings. Partial means coverage is unfinished; Scan all feedback pages restarts from the beginning.
+5. Confirm the Store plan, fee category and advertising rate. Expand Fee and cost settings for Amazon tax/shipping, estimated buyer tax and other costs. Blank values are visibly excluded or assumed zero.
+6. Adjust Your counteroffer to compare estimated profit and margin. Copy amount and use eBay's unchanged native controls to submit manually.
 
 ### Approval Stop
 
@@ -83,7 +83,7 @@ GLDN never accepts, declines, counters, blocks a buyer, purchases an item, or ch
 
 ### Expected Output
 
-An offer-specific review with timestamped Amazon evidence, fee breakdown, estimated profit, and complete/partial positive, neutral, negative counts and percentages plus non-positive comments.
+An inline offer-specific review with timestamped Amazon evidence, expandable fee settings, estimated profit, and positive/neutral/negative counts and percentages plus comments. All-page coverage and header-total reconciliation are labeled separately.
 
 ### Failure Recovery
 
@@ -95,7 +95,7 @@ An offer-specific review with timestamped Amazon evidence, fee breakdown, estima
 
 ### Evidence
 
-Read-only AnyDesk demonstration captured a $25 offer, $23.99 Amazon item, buyer Left for others inspection, and manual $28 counteroffer. The actual public buyer page reconciled 149 positive entries, 149 native IDs, and disabled next-page signal. Unit and synthetic desktop/mobile tests cover full 205-entry paging and zero submissions. Full new-helper signed-in Profile 2/video verification remains pending.
+The reported public buyer's two native pages exposed 227 distinct ratings (222 positive, 4 neutral, 1 negative), despite a 235-entry header. Unit tests and synthetic desktop/mobile real-extension-API checks reproduce that mismatch, delayed loading, same-tab/window reader ownership, source navigation and zero marketplace submissions. Separate-view fixtures also cover 205 entries. Full new-helper signed-in Profile 2/video verification remains pending.
 
 
 <a id="price-increase"></a>

@@ -10,6 +10,8 @@ const projectRoot = path.resolve(__dirname, '..');
 const extensionRoot = path.join(projectRoot, 'product-hunter-extension');
 const listingPreflight = require(path.join(projectRoot, 'extension', 'listing-preflight-core.js'));
 const shippedRulePack = JSON.parse(fs.readFileSync(path.join(extensionRoot, 'policy-rules.json'), 'utf8'));
+// This worker fixture tests workflow decisions, not wall-clock policy expiry.
+shippedRulePack.clearancePolicy.maxAgeDays = 3650;
 const shippedSeedProfile = {
   approvedSeeds: shippedRulePack.clearancePolicy.readyPhrases,
   profileVersion: shippedRulePack.clearancePolicy.version
@@ -129,7 +131,7 @@ function createHarness() {
     clearTimeout() {},
     fetch: async () => ({
       ok: true,
-      json: async () => JSON.parse(fs.readFileSync(path.join(extensionRoot, 'policy-rules.json'), 'utf8'))
+      json: async () => clone(shippedRulePack)
     })
   });
   context.globalThis = context;

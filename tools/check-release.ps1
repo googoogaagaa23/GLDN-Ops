@@ -48,6 +48,8 @@ $requiredFiles = @(
   "extension\offer-review-core.js",
   "extension\offer-review-background.js",
   "extension\offer-review-reader.js",
+  "extension\offer-review-inline.js",
+  "extension\offer-review-inline.css",
   "extension\offer-review-launcher.js",
   "extension\offer-review.html",
   "extension\offer-review.css",
