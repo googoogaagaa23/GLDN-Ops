@@ -1,6 +1,6 @@
 {
-  "version": "3.12.56",
-  "updated": "2026-10-15",
+  "version": "3.12.57",
+  "updated": "2026-10-17",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",
@@ -11,6 +11,19 @@
     "IMPLEMENTED, LIVE REVIEW PENDING": "The implementation and deterministic data checks pass, but the current signed-in marketplace review still needs to be reached."
   },
   "features": [
+    {
+      "id": "orders-left",
+      "matrix": "E-17",
+      "title": "Orders left to place",
+      "status": "PARTIAL",
+      "summary": "Count orders without a saved note, excluding canceled orders, and group them by weekday and order date directly on eBay Orders.",
+      "prerequisites": ["Use the intended signed-in eBay Chrome profile.", "Update GLDN Ops, then refresh the native Orders tab.", "Choose the eBay status, search and period filters that should be included."],
+      "steps": ["Open eBay Orders. The Orders left to place section appears automatically under the heading.", "Wait for All pages read. GLDN reads the current filters across every available page in inactive helper tabs without moving the visible page.", "Read each weekday/date group. An order with any saved note is excluded, and canceled/cancelled orders are ignored. Several items in one order count once.", "Notes, dates or status hidden by the list are checked on the exact native order details. No note is created or edited.", "Saving a note or changing visible cancellation status refreshes the count. Use Recount for changes made elsewhere or a fresh all-page read.", "Stop leaves partial results. If eBay requires sign-in or verification, use Open reader, finish it manually, then Recount."],
+      "approvalStop": "This counter never purchases, cancels, ships or changes orders and never edits or saves an order note. Only order navigation, pagination and the native More actions menu are read.",
+      "output": "A total and oldest-first weekday/date groups such as Thursday, 10/15 50 orders left. Partial reads show lower-bound counts and unresolved evidence, never a verified empty backlog.",
+      "recovery": ["The count follows current eBay filters, not orders outside the selected period or status.", "Any saved note is the placed marker, even if it is not a GLDN profit note. An unsaved draft is not a saved note.", "Missing note/status/date evidence, changed totals, repeated/skipped pages, unknown navigation or a background restart keeps the result partial.", "The weekday comes from the actual order date and year. Prior-year groups include the year explicitly.", "State stays in this Chrome profile and is not shared with the dashboard. Recount after account or filter changes."],
+      "evidence": "Core and background tests cover unique order counts, dates, cancellation and note rules, source ownership, sender rejection and partial completion. Synthetic real-extension desktop/mobile Chromium checks read three pages, resolve hidden notes in exact details, count nine mixed orders and 235 larger-set orders, update a saved-note change, retain the visible source page and make zero marketplace submissions. Signed-in Profile 2 validation remains pending because that profile was not exposed through browser control."
+    },
     {
       "id": "offer-review",
       "matrix": "E-16",

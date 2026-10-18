@@ -9,6 +9,8 @@ importScripts(
   'ebay-price-background.js',
   'offer-review-core.js',
   'offer-review-background.js',
+  'orders-left-core.js',
+  'orders-left-background.js',
   'ops-health-core.js',
   'ops-health-background.js',
   'variation-core.js',
@@ -465,7 +467,7 @@ const LOCAL_CONTROL_PLATFORM = Object.freeze({
   }
 });
 const LOCAL_CONTROL_CONTENT_FILES = Object.freeze({
-  ebay: ['config.example.js', 'theme-catalog.js', 'foundation.js', 'shared.js', 'control-heartbeat.js', 'profit-audit.js', 'ebay-profit-core.js', 'sniping-audit.js', 'ebay-price-core.js', 'ebay-price-increase.js', 'offer-review-core.js', 'offer-review-inline.js', 'offer-review-launcher.js', 'ebay.js'],
+  ebay: ['config.example.js', 'theme-catalog.js', 'foundation.js', 'shared.js', 'control-heartbeat.js', 'profit-audit.js', 'ebay-profit-core.js', 'sniping-audit.js', 'ebay-price-core.js', 'ebay-price-increase.js', 'offer-review-core.js', 'offer-review-inline.js', 'offer-review-launcher.js', 'orders-left-core.js', 'orders-left-reader.js', 'orders-left.js', 'ebay.js'],
   poshmark: ['config.example.js', 'theme-catalog.js', 'foundation.js', 'shared.js', 'control-heartbeat.js', 'profit-audit.js', 'profit-backfill.js', 'poshmark.js'],
   amazon: ['config.example.js', 'theme-catalog.js', 'foundation.js', 'shared.js', 'control-heartbeat.js', 'profit-audit.js', 'profit-backfill.js', 'sniping-audit.js', 'subscribe-save.js', 'amazon.js']
 });

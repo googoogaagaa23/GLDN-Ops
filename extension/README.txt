@@ -1,4 +1,14 @@
-GLDN Ops v3.12.56
+GLDN Ops v3.12.57
+
+v3.12.57 orders left to place:
+- Open eBay Orders. Orders left to place appears under the heading and automatically reads every page in the current eBay filters.
+- Only orders without any saved note are counted. Canceled/cancelled orders are ignored; multiple items in one order count once.
+- Dates use the native order date and its actual weekday, for example Thursday, 10/15 50 orders left. Older years are shown explicitly.
+- If the list hides notes or dates, exact order details are checked in an inactive tab. Your visible order page is not moved.
+- Visible saved-note and cancellation changes refresh the count. Recount checks every page again; Stop leaves clearly partial results.
+- Missing evidence, unknown pagination or sign-in failures never claim a complete zero. Open reader is available when verification needs attention.
+- No order is purchased, canceled, shipped or edited, and no note is written or transmitted to the dashboard by this counter.
+- Update & Reload, then refresh the eBay Orders tab. Current signed-in Profile 2 validation remains pending.
 
 v3.12.56 inline offers and feedback repair:
 - Open a pending native eBay offer to see Offer insights directly on the page. Separate view remains optional.

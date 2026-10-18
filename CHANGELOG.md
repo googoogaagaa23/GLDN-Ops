@@ -1,5 +1,14 @@
 # GLDN Ops Changelog
 
+## v3.12.57 - 2026-10-17
+
+- Add Orders left to place directly on the eBay Orders page, grouped by native order date with full weekday and month/day labels.
+- Count unique orders with no saved note; exclude canceled/cancelled orders and any existing note regardless of its wording. Multi-item orders count once.
+- Automatically read all native pages in the current eBay filters, starting from page one in an inactive owned reader without navigating the visible page.
+- Check exact order details when note, date or cancellation evidence is not exposed in the list. More actions may be opened read-only; no note, order, shipment or purchase is changed.
+- Update visible saved-note/cancellation changes, offer Recount/Stop, and show explicit partial coverage when paging, note evidence or sign-in cannot be verified. Keep helper state inside the current Chrome profile.
+- Add unit and isolated real-extension desktop/mobile checks covering multi-page reads, 235 orders, multi-item deduplication, saved notes, cancellation spelling, hidden-note detail fallback, calendar dates, empty results and unknown navigation. Signed-in Profile 2 verification remains pending.
+
 ## v3.12.56 - 2026-10-15
 
 - Show Offer insights directly on the native pending eBay offer: exact Amazon match, editable estimated profit and all-page buyer feedback. Keep an optional separate view.

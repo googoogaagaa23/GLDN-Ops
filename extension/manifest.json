@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "GLDN Ops",
-  "version": "3.12.56",
+  "version": "3.12.57",
   "description": "Workflow assistant for internal marketplace operations.",
   "permissions": [
     "storage",
@@ -93,6 +93,9 @@
         "offer-review-core.js",
         "offer-review-inline.js",
         "offer-review-launcher.js",
+        "orders-left-core.js",
+        "orders-left-reader.js",
+        "orders-left.js",
         "ebay.js"
       ],
       "css": [

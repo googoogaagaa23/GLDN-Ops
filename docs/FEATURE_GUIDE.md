@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.56. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.57. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -17,6 +17,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 ## Feature Index
 
+- [Orders left to place](#orders-left) - **PARTIAL**
 - [Offer Review](#offer-review) - **PARTIAL**
 - [Price +$0.10](#price-increase) - **PARTIAL**
 - [Unread Customer Messages](#unread-customer-messages) - **PARTIAL**
@@ -52,6 +53,51 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Diagnostics, Backup, and Interface Settings](#diagnostics) - **PARTIAL**
 - [Feature Tour, Themes, and Universal Access](#onboarding-interface) - **PARTIAL**
 - [Walmart Order Helper](#walmart) - **IMPLEMENTED, UNPROVEN**
+
+<a id="orders-left"></a>
+## Orders left to place
+
+**Matrix:** E-17
+
+**Evidence status:** PARTIAL
+
+**Purpose:** Count orders without a saved note, excluding canceled orders, and group them by weekday and order date directly on eBay Orders.
+
+### Prerequisites
+
+- Use the intended signed-in eBay Chrome profile.
+- Update GLDN Ops, then refresh the native Orders tab.
+- Choose the eBay status, search and period filters that should be included.
+
+### Exact Steps
+
+1. Open eBay Orders. The Orders left to place section appears automatically under the heading.
+2. Wait for All pages read. GLDN reads the current filters across every available page in inactive helper tabs without moving the visible page.
+3. Read each weekday/date group. An order with any saved note is excluded, and canceled/cancelled orders are ignored. Several items in one order count once.
+4. Notes, dates or status hidden by the list are checked on the exact native order details. No note is created or edited.
+5. Saving a note or changing visible cancellation status refreshes the count. Use Recount for changes made elsewhere or a fresh all-page read.
+6. Stop leaves partial results. If eBay requires sign-in or verification, use Open reader, finish it manually, then Recount.
+
+### Approval Stop
+
+This counter never purchases, cancels, ships or changes orders and never edits or saves an order note. Only order navigation, pagination and the native More actions menu are read.
+
+### Expected Output
+
+A total and oldest-first weekday/date groups such as Thursday, 10/15 50 orders left. Partial reads show lower-bound counts and unresolved evidence, never a verified empty backlog.
+
+### Failure Recovery
+
+- The count follows current eBay filters, not orders outside the selected period or status.
+- Any saved note is the placed marker, even if it is not a GLDN profit note. An unsaved draft is not a saved note.
+- Missing note/status/date evidence, changed totals, repeated/skipped pages, unknown navigation or a background restart keeps the result partial.
+- The weekday comes from the actual order date and year. Prior-year groups include the year explicitly.
+- State stays in this Chrome profile and is not shared with the dashboard. Recount after account or filter changes.
+
+### Evidence
+
+Core and background tests cover unique order counts, dates, cancellation and note rules, source ownership, sender rejection and partial completion. Synthetic real-extension desktop/mobile Chromium checks read three pages, resolve hidden notes in exact details, count nine mixed orders and 235 larger-set orders, update a saved-note change, retain the visible source page and make zero marketplace submissions. Signed-in Profile 2 validation remains pending because that profile was not exposed through browser control.
+
 
 <a id="offer-review"></a>
 ## Offer Review
