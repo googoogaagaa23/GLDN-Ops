@@ -4,7 +4,7 @@ const path = require('node:path');
 const {pathToFileURL} = require('node:url');
 const {chromium} = require('playwright');
 const root = path.resolve(__dirname,'..'), ext = path.join(root,'extension');
-const output = path.join(root,'.test-tmp','offer-review-v3.12.60');
+const output = path.join(root,'.test-tmp','offer-review-v3.12.61');
 const offerUrl = 'https://www.ebay.com/bo/seller/reviewOffer/123456789012?threadId=123';
 const offerHTML = '<h1>Offer Received</h1><p>buyer is waiting for your response.</p><a href="https://www.ebay.com/itm/123456789012">Exact product title</a><a href="https://feedback.ebay.com/fdbk/feedback_profile/buyer">buyer (137)</a><p>Buyer offer: $25.00</p><p>Buy It Now: $29.59</p><p>Quantity: 1</p><button onclick="window.submitted++">Accept offer</button><script>window.submitted=0</script>';
 const listingHTML = '<table><thead><tr><th>Item</th><th>Custom label (SKU)</th></tr></thead><tbody><tr><td><a href="https://www.ebay.com/itm/123456789012">Exact product title</a></td><td>QjA4OVE1NVNTNw==</td></tr></tbody></table>';
@@ -46,7 +46,7 @@ async function main() {
       });
       await ui.addInitScript(()=>{
         const storage={get:async(keys,callback)=>{const result=keys==='storePlan'?{storePlan:'Premium'}:await window.fixtureStorage('get',keys);callback?.(result);return result;},set:async(value)=>window.fixtureStorage('set',null,value)};
-        window.chrome={runtime:{getManifest:()=>({version:'3.12.60'})},storage:{local:storage,session:storage,onChanged:{addListener:()=>{}}},
+        window.chrome={runtime:{getManifest:()=>({version:'3.12.61'})},storage:{local:storage,session:storage,onChanged:{addListener:()=>{}}},
           tabs:{getCurrent:()=>window.fixtureTabs('current'),get:id=>window.fixtureTabs('get',id),create:args=>window.fixtureTabs('create',args),update:(id,args)=>window.fixtureTabs('update',{id,...args})},
           scripting:{executeScript:data=>window.fixtureScript({...data,functionText:data.func?.toString(),func:undefined})}};
       });
@@ -58,7 +58,7 @@ async function main() {
       assert.equal(await ui.locator('#comments .comment').count(),3);
       assert.equal(await ui.locator('#cost').inputValue(),'23.99');
       await ui.locator('#sale').fill('32');await ui.locator('#cost').fill('21.99');await ui.locator('#plan').selectOption('');
-      assert.equal(await ui.locator('#counterProfit').textContent(),'$5.26');assert.match(await ui.locator('#estimateBasis').textContent(),/Preliminary.*assumed/);
+      assert.equal(await ui.locator('#counterProfit').textContent(),'$5.55');assert.match(await ui.locator('#estimateBasis').textContent(),/Preliminary.*Premium Store \(default\)/);
       await ui.locator('#readFeedback').click();
       await ui.waitForFunction(()=>document.querySelector('#feedbackStatus')?.textContent.startsWith('Complete'),{timeout:20000});
       await ui.waitForFunction(()=>!document.querySelector('#readFeedback').disabled);

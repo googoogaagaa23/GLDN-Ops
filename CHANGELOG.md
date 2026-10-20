@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.61 - 2026-10-19
+
+- Separate Amazon's native Prime Member Price and Regular Price buying options before reading a cost. Use the configured Prime-member assumption and exclude other sizes, used offers, subscriptions, unit prices and crossed-out list prices.
+- Fix the reported clock layout with $21.99 Prime, $26.95 regular and $28.99 for another size. Duplicate primary-price IDs in different buying options no longer create a false ambiguity; conflicts within the chosen option still stop the read.
+- Default preliminary estimates to Premium Store fees per operator preference. Preserve explicit plan/category overrides and label unknown costs and assumptions.
+- Show the price basis in the Amazon evidence and profit estimate. A Join Prime prompt is a visible warning, not proof of membership, and never causes enrollment or a purchase.
+- Add 26 real-DOM price cases and desktop/mobile inline/separate checks. Signed-in M0 verification remains pending; no marketplace action is submitted.
+
 ## v3.12.60 - 2026-10-19
 
 - Fix false Offer insights ownership failures when browser opener metadata disappears or reader/source tabs move between windows. Use the existing token-scoped reader registry and normal/incognito checks; new readers use the source's current window.

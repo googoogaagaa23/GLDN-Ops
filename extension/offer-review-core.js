@@ -63,10 +63,10 @@
       throw new Error('Enter a valid per-item price, Amazon cost, and quantity.');
     }
     const assumedPlan = text(input.plan) === '', assumedCategory = text(input.category) === '';
-    const plan = assumedPlan ? 'None' : input.plan, category = assumedCategory ? 'general' : input.category;
+    const plan = assumedPlan ? 'Premium' : input.plan, category = assumedCategory ? 'general' : input.category;
     if (!['None','Starter','Basic','Premium','Anchor','Enterprise'].includes(plan)) throw new Error('Choose a valid Store plan.');
     if (!CATEGORIES[category]) throw new Error('Choose a valid fee category.');
-    if (assumedPlan) warnings.push('Store plan unconfirmed: no Store / Starter fees used');
+    if (assumedPlan) warnings.push('Premium Store fees used by default; confirm the category and actual Store plan');
     if (assumedCategory) warnings.push('Category unconfirmed: most-category fees used; exceptions may cost more');
     const moneyInput = (key, label) => {
       if (text(input[key]) === '') { warnings.push(label + ' excluded (not entered)'); return 0; }

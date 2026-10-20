@@ -1,5 +1,5 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.60",
+  "version": "3.12.61",
   "updated": "2026-10-19",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
@@ -60,7 +60,7 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "GLDN opens read-only background tabs in the same Chrome profile to resolve the listing SKU, read its exact Amazon item, and scan the buyer's Left for others feedback. Moving source or reader windows does not change saved ownership.",
         "If SKU matching is unavailable, enter the exact SKU, ASIN, or Amazon item link and choose Read Amazon. An operator-supplied match is not independently verified against the listing. If no verifiable purchase price is available, enter Amazon one-time price manually.",
         "Wait for Complete or All pages read. A header-total mismatch is shown explicitly, with percentages based on readable ratings. Partial means coverage is unfinished; Scan all feedback pages restarts from the beginning.",
-        "A preliminary profit estimate uses visibly labeled no Store/Starter and most-category assumptions when those choices are blank. Select actual Store/category and advertising rate to refine it. Expand Fee and cost settings for tax, shipping and other costs; missing values remain disclosed.",
+        "A preliminary estimate uses Premium Store and most-category defaults plus the exact-ASIN Prime buying-option price when available, per the configured membership assumption. Review the price basis and any Join Prime warning. Select actual Store/category and advertising rate to refine it. Expand Fee and cost settings for tax, shipping and other costs; missing values remain disclosed.",
         "Adjust Your counteroffer to compare estimated profit and margin. Copy amount and use eBay's unchanged native controls to submit manually."
       ],
       "approvalStop": "GLDN never accepts, declines, counters, blocks a buyer, purchases an item, or changes a listing. Final marketplace submission is manual.",
@@ -70,12 +70,12 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "Saved source/token/reader IDs define ownership, not transient opener or window metadata. Wrong tokens, unrelated tabs and normal/incognito crossings remain rejected.",
         "Pause stops readers and preserves captured results; restart a partial feedback scan to verify full coverage.",
         "Different buyers, changed offers/titles/quantities, Amazon variation changes, skipped feedback pages and duplicate feedback IDs stop the relevant reader.",
-        "Amazon prices come from primary purchase-price components, not unit, list, subscription or recommendation prices. Ambiguous or unavailable prices require manual entry.",
+        "Amazon Prime and regular buying options are read separately; prices from other sizes, unit/list labels, subscriptions, used offers and recommendations are excluded. Conflicts inside the chosen option or unavailable prices require manual entry. Prime membership is configured, not independently verified; a Join Prime prompt stays visible as a warning and never triggers enrollment.",
         "An explicit manual cost survives a failed refresh only for the same offer/ASIN and is labeled Manual Amazon price. Failed automatic prices and mismatched items still clear.",
-        "Fee presets cover named common category groups; exceptions require a confirmed custom rate and per-order fee. Blank plan/category use labeled defaults; invalid values never silently fall back. Rates older than 45 days warn to check the official source.",
+        "Fee presets cover named common category groups; exceptions require a confirmed custom rate and per-order fee. Blank plan/category use labeled Premium Store and most-category defaults; invalid values never silently fall back. Rates older than 45 days warn to check the official source.",
         "Saved reviews expire after fifteen minutes and restored Amazon prices are labeled with their original capture time."
       ],
-      "evidence": "Core/source-scope tests and fifteen real-DOM price cases cover saved reader ownership after opener/window changes, profile and item boundaries, modern primary purchase prices, unavailable/ambiguous prices and preliminary fee defaults. Desktop/mobile inline fixtures move source and reader windows, reuse the same reader IDs, calculate the reported manual-cost example, preserve manual costs after a failed same-item refresh, reject mismatched manual costs and read 227 ratings against a 235-entry header. Separate fixtures cover 205 ratings. All are synthetic and submit nothing. Current signed-in validation of the reported offer and formal video proof remain pending."
+      "evidence": "Core/source-scope tests and 26 real-DOM price cases cover configured Prime/regular options, duplicate primary price IDs, the reported clock/other-size layout, membership warnings, saved reader ownership, exact ASIN/profile boundaries and Premium fee defaults. Desktop/mobile inline fixtures move source and reader windows, reuse the same reader IDs, calculate preliminary profit, preserve manual costs after a failed same-item refresh, reject mismatched manual costs and read 227 ratings against a 235-entry header. Separate fixtures cover 205 ratings. All are synthetic and submit nothing. The affected M0 offer is not exposed by the connected browser; signed-in validation and formal video proof remain pending."
     },
     {
       "id": "price-increase",

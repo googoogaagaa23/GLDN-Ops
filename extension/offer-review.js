@@ -28,8 +28,8 @@ globalThis.GLDN_OFFER_START = async () => {
       const values = inputs(), result = C.estimate(values), offered = C.estimate({...values,sale:$('buyerOffer').value});
       $('offerProfit').textContent = money(offered.profit); $('counterProfit').textContent = money(result.profit);
       $('margin').textContent = result.margin.toFixed(1) + '%';
-      const unknown = !!state.manualCost || result.assumedPlan || result.assumedCategory || result.warnings.some(w => /excluded|assumed/.test(w));
-      $('estimateBasis').textContent = (unknown ? 'Preliminary estimate' : 'Estimate') + (state.manualCost ? ' | Manual Amazon price' : '') + ' | ' + (result.assumedPlan ? 'No Store / Starter (assumed)' : result.plan) + ' | ' + C.CATEGORIES[result.category] + (result.assumedCategory ? ' (assumed)' : '');
+      const unknown = !!state.manualCost || !!state.amazon?.primeAssumed || result.assumedPlan || result.assumedCategory || result.warnings.some(w => /excluded|assumed/.test(w));
+      $('estimateBasis').textContent = (unknown ? 'Preliminary estimate' : 'Estimate') + (state.manualCost ? ' | Manual Amazon price' : state.amazon?.priceBasis ? ' | ' + state.amazon.priceBasis : '') + ' | ' + (result.assumedPlan ? 'Premium Store (default)' : result.plan) + ' | ' + C.CATEGORIES[result.category] + (result.assumedCategory ? ' (assumed)' : '');
       $('estimateBasis').dataset.preliminary = String(unknown);
       $('offerProfit').className = offered.profit < 0 ? 'negative' : unknown ? 'neutral' : 'positive';
       $('counterProfit').className = result.profit < 0 ? 'negative' : unknown ? 'neutral' : 'positive';
@@ -37,7 +37,7 @@ globalThis.GLDN_OFFER_START = async () => {
         ['Variable final value fee',result.variable],['Top Rated Plus discount',-result.discount],['Per-order fee',result.orderFee],
         ['Performance surcharge',result.surcharge],['International fee',result.international],['Advertising estimate',result.ads],['Other costs',result.other]];
       $('breakdown').innerHTML = rows.map(([name,n]) => '<tr><td>' + esc(name) + '</td><td>' + money(n) + '</td></tr>').join('');
-      $('assumptions').textContent = result.warnings.join(' | ');
+      $('assumptions').textContent = [...result.warnings,...(!state.manualCost && state.amazon?.priceWarning ? [state.amazon.priceWarning] : [])].join(' | ');
     } catch(e) {
       $('offerProfit').textContent = '--'; $('counterProfit').textContent = '--'; $('margin').textContent = '--';
       $('estimateBasis').textContent = 'Awaiting valid price and costs'; $('estimateBasis').removeAttribute('data-preliminary');
@@ -135,7 +135,7 @@ globalThis.GLDN_OFFER_START = async () => {
     $('title').textContent = s.title; $('identity').textContent = 'Buyer: ' + s.user + ' | Item ' + s.itemId + ' | Listing $' + s.listing + ' | Offer $' + s.price;
     $('buyerOffer').value = s.price; $('sale').value = s.price; $('quantity').value = s.quantity; $('match').value = s.asin || s.sku;
     const settings = await chrome.storage.local.get('storePlan');
-    $('plan').value = ['None','Starter','Basic','Premium','Anchor','Enterprise'].includes(settings.storePlan) ? settings.storePlan : '';
+    $('plan').value = ['Premium','Anchor','Enterprise'].includes(settings.storePlan) ? settings.storePlan : '';
     if (s.promoted) $('adRate').value = '';
     calculation(); await save();
   }
@@ -155,9 +155,9 @@ globalThis.GLDN_OFFER_START = async () => {
       if (state.source.asin && state.source.asin !== asin) throw new Error('The entered Amazon item differs from this listing SKU.');
       $('amazonStatus').textContent = 'Reading ' + asin + '...';
       const id = await worker('amazon','https://www.amazon.com/dp/' + asin);
-      const product = await waitPage(id,'amazon',{asin});
+      const product = await waitPage(id,'amazon',{asin,primeMember:true});
       state.manualCost = null; state.amazon = product; $('cost').value = product.price;
-      $('amazonStatus').textContent = (state.source.asin ? 'Listing SKU match: ' : 'Operator-supplied ASIN (listing match unverified): ') + asin + ' | $' + product.price + ' item price | ' + new Date(product.capturedAt).toLocaleTimeString();
+      $('amazonStatus').textContent = (state.source.asin ? 'Listing SKU match: ' : 'Operator-supplied ASIN (listing match unverified): ') + asin + ' | $' + product.price + ' | ' + (product.priceBasis || 'One-time purchase price') + ' | ' + new Date(product.capturedAt).toLocaleTimeString() + (product.priceWarning ? ' | ' + product.priceWarning : '');
       $('amazonTitle').textContent = product.title; $('delivery').textContent = [product.availability,product.delivery].filter(Boolean).join(' | ');
       $('amazonLink').href = 'https://www.amazon.com/dp/' + asin; $('amazonLink').hidden = false;
       calculation(); await save();
@@ -255,7 +255,7 @@ globalThis.GLDN_OFFER_START = async () => {
       $('topRatedPlus').checked = saved.inputs?.topRatedPlus === true;
       $('match').value = saved.source.asin || saved.source.sku || '';
       if (state.amazon) {
-        $('amazonStatus').textContent = 'Saved price $' + state.amazon.price + ' | Checked ' + new Date(state.amazon.capturedAt).toLocaleString();
+        $('amazonStatus').textContent = 'Saved price $' + state.amazon.price + ' | ' + (state.amazon.priceBasis || 'One-time purchase price') + ' | Checked ' + new Date(state.amazon.capturedAt).toLocaleString() + (state.amazon.priceWarning ? ' | ' + state.amazon.priceWarning : '');
         $('amazonTitle').textContent = state.amazon.title; $('delivery').textContent = [state.amazon.availability,state.amazon.delivery].filter(Boolean).join(' | ');
         $('amazonLink').href = 'https://www.amazon.com/dp/' + state.amazon.asin; $('amazonLink').hidden = false;
       }

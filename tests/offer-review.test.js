@@ -15,7 +15,7 @@ test('official general Store estimate includes one per-order fee and advertising
 });
 test('no Store and Starter use the standard rate, not the Store discount',() => {
   for (const plan of ['None','Starter']) assert.equal(C.estimate({...base,plan}).variable,381);
-  assert.equal(C.estimate({...base,plan:''}).variable,381);
+  assert.equal(C.estimate({...base,plan:''}).variable,356);
 });
 test('tax is excluded from revenue but included in eBay and ad fee bases',() => {
   const r = C.estimate({...base,buyerTax:'6.25',buyerShipping:'2',amazonTax:'1.50',amazonShipping:'3'});
@@ -54,10 +54,10 @@ test('category-specific thresholds and custom per-order fee are explicit',() => 
 test('blank fee selections produce a labeled preliminary estimate instead of blank profit',()=>{
   const input={...base,sale:'32',cost:'21.99',plan:'',category:'',adRate:''};
   const result=C.estimate(input),buyer=C.estimate({...input,sale:'20'});
-  assert.equal(result.profit,526);assert.equal(buyer.profit,-511);
-  assert.equal(result.plan,'None');assert.equal(result.category,'general');
+  assert.equal(result.profit,555);assert.equal(buyer.profit,-493);
+  assert.equal(result.plan,'Premium');assert.equal(result.category,'general');
   assert.equal(result.assumedPlan,true);assert.equal(result.assumedCategory,true);
-  assert.ok(result.warnings.some(value=>/Store plan unconfirmed/.test(value)));
+  assert.ok(result.warnings.some(value=>/Premium Store fees used by default/.test(value)));
   assert.ok(result.warnings.some(value=>/Category unconfirmed/.test(value)));
   assert.ok(result.warnings.some(value=>/Advertising rate assumed/.test(value)));
   const selected={...base,sale:'32',cost:'21.99',plan:'Anchor',category:'general',adRate:'4.2'};

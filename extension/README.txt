@@ -1,4 +1,12 @@
-GLDN Ops v3.12.60
+GLDN Ops v3.12.61
+
+v3.12.61 Prime prices and Premium Store defaults:
+- Offer estimates default to Premium Store fees. Anchor/Enterprise settings are retained; explicit choices remain editable.
+- Amazon prices are read from the exact item's Prime buying option per the configured membership assumption, not the regular price or another size.
+- The price basis stays visible in Amazon evidence and estimated profit. Join Prime on the reader is flagged so the purchasing profile can be checked; membership is not automatically verified.
+- Unknown taxes, shipping, ads and other expenses remain disclosed. No Prime enrollment, buying-option change, offer response or purchase is automated.
+- Update & Reload, refresh the native eBay offer, then Refresh Amazon + feedback.
+- Automated desktop/mobile and 26 real-DOM price cases pass. Signed-in M0 verification remains pending.
 
 v3.12.60 Offer insights ownership, prices and profit:
 - Saved reader ownership survives lost opener metadata and same-profile window moves. Exact offer, buyer, ASIN and profile checks remain enforced.
