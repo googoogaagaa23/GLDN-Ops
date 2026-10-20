@@ -1,6 +1,8 @@
 (function(root,factory){const api=factory();root.GLDN_ORDERS_LEFT=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;})(globalThis,()=>{
   'use strict';
+  const PAGE_LIMIT=5,SCAN_VERSION=2,KEYWORDS=Object.freeze(['Add Tracking','Check']);
   const text=value=>String(value??'').replace(/\s+/g,' ').trim();
+  const keywordMatches=value=>KEYWORDS.filter((keyword,index)=>(index===0?/\badd\s+tracking\b/i:/\bcheck\b/i).test(text(value)));
   function ordersUrl(value){
     try{const u=new URL(value);return u.protocol==='https:'&&!u.port&&!u.username&&!u.password&&/(^|\.)ebay\.com$/i.test(u.hostname)&&/^\/sh\/ord\/?$/.test(u.pathname)?u:null;}catch{return null;}
   }
@@ -37,15 +39,17 @@
     return `${weekday}, ${m}/${d}${y===now.getFullYear()?'':'/'+y}`;
   }
   function summary(rows,now=new Date()){
-    const groups=new Map(),unique=new Map();let canceled=0,noted=0,unknown=0,pending=0;
+    const groups=new Map(),unique=new Map(),keywordRows=new Map(KEYWORDS.map(keyword=>[keyword,[]]));let canceled=0,noted=0,unknown=0,pending=0,keywordUnknown=0;
     for(const row of rows||[])if(/^\d{2}-\d{5}-\d{5}$/.test(row.id||''))unique.set(row.id,row);
     for(const row of unique.values()){
       if(row.canceled===true){canceled++;continue;}
+      if(row.canceled!==false||!Array.isArray(row.keywords))keywordUnknown++;
+      else for(const keyword of KEYWORDS)if(row.keywords.includes(keyword))keywordRows.get(keyword).push({id:row.id,date:date(row.date,now),url:orderUrl(row.url)?.id===row.id?row.url:''});
       if(row.note==='present'){noted++;continue;}
       if(row.note!=='none'||row.canceled!==false||!date(row.date,now)){unknown++;continue;}
       pending++;groups.set(row.date,(groups.get(row.date)||0)+1);
     }
-    return {checked:unique.size,pending,canceled,noted,unknown,groups:[...groups].sort(([a],[b])=>a.localeCompare(b)).map(([date,count])=>({date,count,label:`${dateLabel(date,now)} ${count} ${count===1?'order':'orders'} left`}))};
+    return {checked:unique.size,pending,canceled,noted,unknown,keywordUnknown,keywords:KEYWORDS.map(keyword=>({keyword,count:keywordRows.get(keyword).length,orders:keywordRows.get(keyword).sort((a,b)=>a.date.localeCompare(b.date)||a.id.localeCompare(b.id))})),groups:[...groups].sort(([a],[b])=>a.localeCompare(b)).map(([date,count])=>({date,count,label:`${dateLabel(date,now)} ${count} ${count===1?'order':'orders'} left`}))};
   }
   function append(state,page){
     if(!page||!Array.isArray(page.rows))throw Error('The eBay order rows could not be read.');
@@ -58,12 +62,15 @@
       if(total&&start!==(state.through||0)+1)throw Error('Order pages were skipped or repeated.');
       state.total=total;state.through=end;
     }
-    const signature=page.rows.map(row=>row.id).join('|');
+    const signature=JSON.stringify([page.range||null,page.rows.map(row=>row.id)]);
     if(state.signatures.includes(signature))throw Error('The same order page appeared twice.');
     state.signatures.push(signature);state.pages++;
-    for(const row of page.rows){if(!/^\d{2}-\d{5}-\d{5}$/.test(row.id||''))throw Error('An order number is missing.');state.rows[row.id]=row;}
+    for(const row of page.rows){
+      if(!/^\d{2}-\d{5}-\d{5}$/.test(row.id||''))throw Error('An order number is missing.');
+      const previous=state.rows[row.id];state.rows[row.id]={...row,...(Array.isArray(row.keywords)?{keywords:[...new Set([...(previous?.keywords||[]),...row.keywords])]}:{})};
+    }
     state.account ||= page.account;
     return state;
   }
-  return Object.freeze({text,ordersUrl,scope,orderUrl,date,dateLabel,summary,append});
+  return Object.freeze({PAGE_LIMIT,SCAN_VERSION,KEYWORDS,text,keywordMatches,ordersUrl,scope,orderUrl,date,dateLabel,summary,append});
 });

@@ -1,4 +1,12 @@
-GLDN Ops v3.12.61
+GLDN Ops v3.12.62
+
+v3.12.62 Five-page Orders and keyword checks:
+- Orders left to place starts at page one and reads up to five pages under the current eBay filters. Five-page results are labeled, not claimed as the entire history.
+- Add Tracking and Check have separate counts and expandable date/order links. Keyword checks include orders with notes; canceled orders are ignored.
+- Keyword scans use visible native order text, case-insensitive whole words/phrases, and count each order once. Hidden text, injected GLDN content and unsaved drafts do not count.
+- Native numbered links, icon arrows, offset links and a lazy footer recovery improve page advancement. The visible Orders tab is not navigated or scrolled by the scan.
+- Update & Reload, refresh eBay Orders, then Recount. No note, shipment, cancellation or purchase is changed.
+- Automated checks pass; signed-in M0 completion remains pending.
 
 v3.12.61 Prime prices and Premium Store defaults:
 - Offer estimates default to Premium Store fees. Anchor/Enterprise settings are retained; explicit choices remain editable.

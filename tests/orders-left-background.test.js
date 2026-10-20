@@ -3,7 +3,7 @@ const C=require('../extension/orders-left-core.js');
 function harness(options={}){
   const url='https://www.ebay.com/sh/ord/?filter=status:ALL_ORDERS',store={},calls=[],tabs=new Map([[2,{id:2,url,status:'complete',windowId:17}]]);
   let listener,next=3;
-  const snapshot={account:'seller',rows:[{id:'01-00001-00001',url:'https://www.ebay.com/sh/ord/details?orderid=01-00001-00001',date:'2026-10-15',note:'none',canceled:false}],range:{start:1,end:1,total:1},first:true,terminal:true,hasNext:false};
+  const snapshot={account:'seller',rows:[{id:'01-00001-00001',url:'https://www.ebay.com/sh/ord/details?orderid=01-00001-00001',date:'2026-10-15',note:'none',canceled:false,keywords:[]}],range:{start:1,end:1,total:1},first:true,terminal:true,hasNext:false};
   const writes=[];
   const chrome={runtime:{id:'gldn',onMessage:{addListener:fn=>listener=fn}},storage:{session:{
     get:async key=>({[key]:structuredClone(store[key])}),set:async value=>{writes.push(structuredClone(value));Object.assign(store,structuredClone(value));},remove:async keys=>{for(const key of Array.isArray(keys)?keys:[keys])delete store[key];}}},
@@ -113,7 +113,9 @@ test('a timed-out helper response is awaited without piling up duplicate script 
   for(let n=0;n<150&&!h.writes.some(value=>value['gldnOrdersLeft:2']?.attention);n++)await new Promise(resolve=>setTimeout(resolve,3));
   assert.ok(release);assert.ok(h.writes.some(value=>value['gldnOrdersLeft:2']?.attention));assert.equal(workerReads,1);
   assert.equal((await h.send('status')).result.busy,true);
-  release();const result=await h.finish();assert.equal(result.complete,true);assert.equal(workerReads,2);
+  release();const result=await h.finish();assert.equal(result.complete,true);
+  // Resolution can occur just before or during the retry; both require stable snapshots afterward.
+  assert.ok(workerReads>=2&&workerReads<=3,'Only stable-snapshot confirmation reads are allowed after resolution');
 });
 test('an absent packaged reader is repaired once instead of injecting it on every snapshot',async()=>{
   let missing=true;
@@ -122,4 +124,37 @@ test('an absent packaged reader is repaired once instead of injecting it on ever
   }});
   await h.send('start');const result=await h.finish();assert.equal(result.complete,true);
   assert.equal(h.calls.filter(call=>call[0]==='script'&&call[1].files).length,1);
+});
+
+test('five-page scans stop at page five, keep keyword matches on noted orders and never read page six',async()=>{
+  let current=1,nextClicks=0;
+  const h=harness({onScript:(request,tabs,store,snapshot)=>{
+    if(request.target.tabId===2||request.files)return;
+    if(request.args?.[0]==='next'){current++;nextClicks++;return [{result:{ok:true,data:{changed:true}}}];}
+    if(request.args?.[0]==='read')return [{result:{ok:true,data:{...structuredClone(snapshot),rows:[{...snapshot.rows[0],id:'01-00001-'+String(current).padStart(5,'0'),url:'https://www.ebay.com/sh/ord/details?orderid=01-00001-'+String(current).padStart(5,'0'),note:current===2?'present':'none',keywords:current===5?['Add Tracking','Check']:['Check']}],range:{start:current,end:current,total:8},first:current===1,terminal:false,hasNext:true}}}];
+  }});
+  await h.send('start',h.sender,{pageLimit:100});const result=await h.finish();
+  assert.equal(result.complete,true);assert.equal(result.limited,true);assert.equal(result.pages,5);assert.equal(result.pageLimit,5);assert.equal(nextClicks,4);
+  assert.equal(result.summary.pending,4);assert.equal(result.summary.noted,1);
+  assert.deepEqual(result.summary.keywords.map(value=>value.count),[1,5]);assert.match(result.message,/First 5 pages read/);
+  h.snapshot.rows[0].id='01-00001-00006';await h.send('visible');assert.equal(h.calls.filter(call=>call[0]==='create').length,1);
+});
+
+test('missing keyword evidence cannot falsely report a complete scan',async()=>{
+  const h=harness();delete h.snapshot.rows[0].keywords;await h.send('start');const result=await h.finish();
+  assert.equal(result.complete,false);assert.equal(result.summary.keywordUnknown,1);assert.match(result.error,/keyword\/status/);
+});
+
+test('a later starting page reveals lazy navigation before returning to the native first page',async()=>{
+  let stage=0;
+  const h=harness({onScript:(request,tabs,store,snapshot)=>{
+    if(request.target.tabId===2||request.files)return;
+    const action=request.args?.[0];
+    if(action==='reveal-pagination'){stage=1;return [{result:{ok:true,data:{changed:true}}}];}
+    if(action==='first'){stage=2;return [{result:{ok:true,data:{changed:true}}}];}
+    if(action==='read')return [{result:{ok:true,data:{...structuredClone(snapshot),first:stage===2,canFirst:stage===1,canPrevious:false}}}];
+  }});
+  await h.send('start');const result=await h.finish();assert.equal(result.complete,true);assert.equal(stage,2);
+  const actions=h.calls.filter(call=>call[0]==='script'&&call[1].target.tabId!==2).map(call=>call[1].args?.[0]);
+  assert.ok(actions.indexOf('reveal-pagination')<actions.indexOf('first'));
 });

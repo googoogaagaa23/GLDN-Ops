@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.61. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.62. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -61,7 +61,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 **Evidence status:** PARTIAL
 
-**Purpose:** Count orders without a saved note, excluding canceled orders, and group them by weekday and order date directly on eBay Orders.
+**Purpose:** Read the first five Orders pages for note-free order totals and separate Add Tracking / Check matches, excluding cancellations.
 
 ### Prerequisites
 
@@ -72,11 +72,12 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 ### Exact Steps
 
 1. Open eBay Orders. The Orders left to place section appears automatically under the heading.
-2. Wait for All pages read. GLDN reads the current filters across every available page in inactive helper tabs without moving the visible page.
-3. Read each weekday/date group. An order with any saved note is excluded, and canceled/cancelled orders are ignored. Several items in one order count once.
-4. Notes, dates or status hidden by the list are checked on the exact native order details. No note is created or edited.
-5. Saving a note or changing visible cancellation status refreshes the count. Use Recount for changes made elsewhere or a fresh all-page read.
-6. Stop leaves partial results. If eBay requires sign-in or verification, use Open reader, finish it manually, then Recount.
+2. Wait for First 5 pages read or a verified earlier end. GLDN starts at page one and reads up to five pages under current filters in inactive helper tabs, without moving the visible page.
+3. Read each weekday/date group. An order with any saved note is excluded from orders left, and canceled/cancelled orders are ignored. Several items in one order count once.
+4. Expand Add Tracking or Check for separate keyword counts and date/order links. Keyword results include noted orders but exclude cancellations, hidden text and unsaved drafts. Opening a review link makes no order changes.
+5. Notes, dates or status hidden by the list are checked on the exact native order details. No note is created or edited.
+6. Saving a note or changing visible cancellation status refreshes the count. Use Recount for changes elsewhere or a fresh first-five-page scan.
+7. Stop leaves partial results. If eBay requires sign-in or verification, use Open reader, finish it manually, then Recount.
 
 ### Approval Stop
 
@@ -84,22 +85,24 @@ This counter never purchases, cancels, ships or changes orders and never edits o
 
 ### Expected Output
 
-A total and oldest-first weekday/date groups such as Thursday, 10/15 50 orders left. Partial reads show lower-bound counts and unresolved evidence, never a verified empty backlog.
+A first-five-page total, oldest-first weekday/date groups such as Thursday, 10/15 50 orders left, and separate Add Tracking / Check order links. Partial reads show lower-bound counts and unresolved evidence, never a verified empty backlog.
 
 ### Failure Recovery
 
-- The count follows current eBay filters, not orders outside the selected period or status.
+- The scan includes the first five native pages under current filters, not later pages or orders outside the selected period/status. If fewer pages exist, the verified end completes the scan early.
 - Any saved note is the placed marker, even if it is not a GLDN profit note. An unsaved draft is not a saved note.
+- Keyword matching uses visible native order text, case-insensitive phrases/whole words and one count per order. Check does not match checkbox, checkout or checked. Keyword counts are separate from note-free orders-left totals.
+- Native numbered, icon-arrow and same-filter offset links are supported. A lazy footer can be revealed once in the owned reader; the visible Orders page is never scrolled by that recovery.
 - Switching tabs or moving the source or reader between windows in the same browser profile does not stop the saved run. Stable order rows can be read while other page resources load.
 - A remounted summary reconnects to its active read. Discarded readers reload once. If the browser freezes a reader, use Open reader to let it resume.
 - Slow browser responses have a thirty-second allowance. A pending request is reused rather than repeatedly queued. Partial failures wait for an explicit Recount instead of automatically restarting.
-- Missing note/status/date evidence, changed totals, repeated/skipped pages, unknown navigation or a background restart keeps the result partial.
+- Missing note/status/date/keyword evidence, changed totals, repeated/skipped pages, unknown navigation or a background restart keeps the result partial. Older scans are recounted for the new scope.
 - The weekday comes from the actual order date and year. Prior-year groups include the year explicitly.
 - State stays in this Chrome profile and is not shared with the dashboard. Recount after account or filter changes.
 
 ### Evidence
 
-Core/background tests cover counting rules, saved reader ownership, sender rejection, startup before a delayed identity response, pending-read deduplication, missing-reader repair and partial completion. Synthetic real-extension desktop/mobile Chromium checks count nine mixed orders, 235 orders and 1,501 orders across eight pages, resolve hidden notes, detect fresh saved-note changes and make zero marketplace submissions. Recovery checks hold resources loading, delay a response eleven seconds, switch tabs/windows, remount the summary and verify partial errors do not cause retry floods. M0's signed-in 1,501-result native list was observed through AnyDesk; completed signed-in count verification remains pending.
+Core/background tests cover first-five-page completion without a sixth-page read, keyword/deduplication/cancellation rules, safe review links, saved reader ownership, response reuse and incomplete evidence. Synthetic real-extension desktop/mobile Chromium checks read nine mixed orders over three pages, 235 over three pages and the first 1,000 of 1,501 orders over five pages. Native numbered, icon, same-filter offset and lazy-footer pagination are covered. Keyword tests exclude hidden/injected/draft text and include noted orders. Existing held-resource, eleven-second response, window move, remount, saved-note refresh and partial/no-retry-flood checks remain covered with zero marketplace submissions. The affected signed-in M0 list is not exposed by the connected browser; signed-in completion remains pending.
 
 
 <a id="offer-review"></a>

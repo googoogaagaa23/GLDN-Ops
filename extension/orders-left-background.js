@@ -39,7 +39,7 @@
   function view(state){
     if(!state)return null;
     const summary=C.summary(Object.values(state.rows));
-    return {scope:state.scope,busy:state.busy,complete:state.complete,pages:state.pages,checkedAt:state.checkedAt||0,updatedAt:state.updatedAt,
+    return {scope:state.scope,busy:state.busy,complete:state.complete,pages:state.pages,pageLimit:state.pageLimit,scanVersion:state.scanVersion,limited:state.limited===true,checkedAt:state.checkedAt||0,updatedAt:state.updatedAt,
       message:state.message,error:state.error||'',attention:state.attention===true,summary,hasReader:!!(state.detail||state.index)};
   }
   async function owned(state,id){
@@ -74,8 +74,8 @@
     await chrome.storage.session.set({[marker(tab.id)]:{owner:state.owner,run:state.run,kind}});await save(state);
     await chrome.tabs.update(tab.id,{url,active:false});return tab.id;
   }
-  async function settled(state,id,action,args={},predicate=()=>true){
-    const until=Date.now()+90000;let previous='',reloaded=false,error=action==='detail'?'The order details have not exposed a saved-note status yet.':'The eBay order list has not exposed readable rows yet.';
+  async function settled(state,id,action,args={},predicate=()=>true,maxMs=90000){
+    const until=Date.now()+maxMs;let previous='',reloaded=false,error=action==='detail'?'The order details have not exposed a saved-note status yet.':'The eBay order list has not exposed readable rows yet.';
     while(Date.now()<until){
       await check(state);
       try{
@@ -113,9 +113,14 @@
       state.account=identity.account;await save(state);await check(state);
       const id=await worker(state,'index',state.url);
       let page=await settled(state,id,'read');
+      let firstFooterRevealed=false;
       for(let attempts=0;!page.first;attempts++){
         if(attempts>=100)throw Error('The first order page could not be reached.');
         const action=page.canFirst?'first':page.canPrevious?'previous':'';
+        if(!action&&!firstFooterRevealed){
+          firstFooterRevealed=true;await read(id,'reveal-pagination');
+          page=await settled(state,id,'read',{},value=>value.first||value.canFirst||value.canPrevious,10000);continue;
+        }
         if(!action)throw Error('Go to page one in eBay, then recount to include earlier pages.');
         const old=JSON.stringify(page);await read(id,action);
         page=await settled(state,id,'read',{},next=>JSON.stringify(next)!==old);
@@ -124,7 +129,7 @@
         await check(state);
         C.append(state,page);state.message='Reading order notes';state.updatedAt=Date.now();await save(state);
         for(const row of page.rows){
-          if(row.canceled===true||row.note==='present'||row.note==='none'&&row.canceled===false&&row.date)continue;
+          if(row.canceled===true||row.canceled===false&&(row.note==='present'||row.note==='none'&&row.date))continue;
           try{
             const parsed=C.orderUrl(row.url);if(!parsed||parsed.id!==row.id)throw Error('The order detail link could not be verified.');
             const progress=C.summary(Object.values(state.rows));
@@ -136,11 +141,17 @@
           }catch(e){if(!state.busy||/account changed|filters changed|sign-in|verification/i.test(e.message))throw e;state.readErrors=(state.readErrors||0)+1;}
           state.updatedAt=Date.now();await save(state);
         }
-        if(page.terminal){
-          if(page.range&&page.range.end!==page.range.total)throw Error('eBay ended pagination before its reported order range was finished.');
-          const summary=C.summary(Object.values(state.rows));state.complete=summary.unknown===0;
-          state.error=summary.unknown?`${summary.unknown} orders still need their note, status or date checked.`:'';
-          state.message=state.complete?'All pages read':'Partial read';break;
+        if(!page.terminal&&!page.hasNext&&state.pages<state.pageLimit){
+          state.message='Loading native page navigation';state.updatedAt=Date.now();await save(state);
+          const samePage=JSON.stringify([page.range,page.rows.map(row=>row.id)]);
+          await read(id,'reveal-pagination');
+          page=await settled(state,id,'read',{},value=>JSON.stringify([value.range,value.rows.map(row=>row.id)])===samePage&&(value.hasNext||value.terminal),10000);
+        }
+        if(page.terminal||state.pages>=state.pageLimit){
+          if(page.terminal&&page.range&&page.range.end!==page.range.total)throw Error('eBay ended pagination before its reported order range was finished.');
+          const summary=C.summary(Object.values(state.rows));state.complete=summary.unknown===0&&summary.keywordUnknown===0;state.limited=!page.terminal;
+          state.error=summary.unknown||summary.keywordUnknown?`${summary.unknown} orders need note/date verification; ${summary.keywordUnknown} need keyword/status verification.`:'';
+          state.message=state.complete?(state.limited?'First 5 pages read':'All pages read (within 5-page scan)'):'Partial read';break;
         }
         if(!page.hasNext)throw Error('The last order page could not be verified. This count is partial.');
         if(state.pages>=500||Object.keys(state.rows).length>=25000)throw Error('The read limit was reached; the count remains partial. Narrow the eBay period and recount.');
@@ -159,10 +170,10 @@
   }
   async function start(tab){
     const old=tasks.get(tab.id)||(await chrome.storage.session.get(key(tab.id)))[key(tab.id)];
-    if(old?.busy&&tasks.has(tab.id)&&old.scope===C.scope(tab.url))return view(old);
+    if(old?.busy&&tasks.has(tab.id)&&old.scope===C.scope(tab.url)&&old.scanVersion===C.SCAN_VERSION&&old.pageLimit===C.PAGE_LIMIT)return view(old);
     if(old){old.busy=false;await cleanup(old);}
     const state={owner:tab.id,windowId:tab.windowId,incognito:Boolean(tab.incognito),scope:C.scope(tab.url),url:tab.url,account:'',run:crypto.randomUUID(),
-      busy:true,complete:false,message:'Reading all order pages',rows:{},pages:0,total:null,through:0,signatures:[],updatedAt:Date.now()};
+      busy:true,complete:false,message:'Reading first 5 order pages and keywords',scanVersion:C.SCAN_VERSION,pageLimit:C.PAGE_LIMIT,limited:false,rows:{},pages:0,total:null,through:0,signatures:[],updatedAt:Date.now()};
     tasks.set(tab.id,state);await save(state);pump(state).catch(()=>{});return view(state);
   }
   chrome.runtime.onMessage.addListener((message,sender,respond)=>{
@@ -188,8 +199,8 @@
         if(state.account&&page.account&&state.account!==page.account)throw Error('The signed-in eBay account changed.');
         if(page.range&&state.total!==null&&page.range.total!==state.total)return start(tab);
         for(const row of page.rows){
-          const old=state.rows[row.id];if(!old)return start(tab);
-          state.rows[row.id]={...old,...(row.note!=='unknown'?{note:row.note}:{}),...(row.canceled!==null?{canceled:row.canceled}:{}),...(row.date?{date:row.date}:{})};
+          const old=state.rows[row.id];if(!old){if(state.limited)continue;return start(tab);}
+          state.rows[row.id]={...old,...(row.note!=='unknown'?{note:row.note}:{}),...(row.canceled!==null?{canceled:row.canceled}:{}),...(row.date?{date:row.date}:{}),...(Array.isArray(row.keywords)?{keywords:row.keywords}:{})};
         }
         state.updatedAt=Date.now();await save(state);return view(state);
       }

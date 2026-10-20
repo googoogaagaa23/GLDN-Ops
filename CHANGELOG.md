@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.62 - 2026-10-20
+
+- Scan the first five native eBay Orders pages, or all available pages when fewer exist, for the selected filters. Label the five-page boundary instead of presenting it as the entire order history.
+- Recognize numbered page controls, native icon-arrow classes and exact same-filter offset links in addition to next/previous labels. Reveal a lazily loaded page footer once in the owned background reader without moving the visible Orders page.
+- Add separate case-insensitive Add Tracking and whole-word Check order counts, with date/order links for review. Include noted orders in keyword results, exclude canceled orders, merge multi-item matches and count each order once per keyword.
+- Ignore hidden/injected text and unsaved editable drafts in keyword scans. Unsaved drafts cannot masquerade as saved order notes.
+- Add five-page, keyword and pagination regressions plus desktop/mobile real-extension fixtures. The affected signed-in M0 list is not exposed by the connected browser; live completion remains pending and no marketplace action is submitted.
+
 ## v3.12.61 - 2026-10-19
 
 - Separate Amazon's native Prime Member Price and Regular Price buying options before reading a cost. Use the configured Prime-member assumption and exclude other sizes, used offers, subscriptions, unit prices and crossed-out list prices.

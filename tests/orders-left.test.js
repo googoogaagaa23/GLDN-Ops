@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const C=require('../extension/orders-left-core.js'),now=new Date(2026,9,17,12);
-const row=(n,extra={})=>({id:`01-00001-${String(n).padStart(5,'0')}`,date:'2026-10-15',note:'none',canceled:false,...extra});
+const row=(n,extra={})=>({id:`01-00001-${String(n).padStart(5,'0')}`,url:`https://www.ebay.com/sh/ord/details?orderid=01-00001-${String(n).padStart(5,'0')}`,date:'2026-10-15',note:'none',canceled:false,keywords:[],...extra});
 const state=()=>({rows:{},total:null,through:0,pages:0,signatures:[],account:'seller'});
 const page=(rows,range)=>({rows,range,account:'seller'});
 test('order dates use strict native calendar dates, local relative days and year rollover',()=>{
@@ -25,6 +25,28 @@ test('any existing note excludes an order without inspecting or interpreting its
 test('50 orders produce the requested full weekday and date label',()=>{
   const result=C.summary(Array.from({length:50},(_,n)=>row(n+1)),now);
   assert.equal(result.groups[0].label,'Thursday, 10/15 50 orders left');
+});
+
+test('keyword scans match whole words and the tracking phrase, not checkboxes or checkout',()=>{
+  assert.deepEqual(C.keywordMatches('ADD\u00a0TRACKING - Please Check, check!'),['Add Tracking','Check']);
+  assert.deepEqual(C.keywordMatches('Checkbox checked checkout checking tracking added'),[]);
+  assert.deepEqual(C.keywordMatches('Need to check\nAdd\nTracking'),['Add Tracking','Check']);
+});
+
+test('keyword counts include noted orders once, exclude canceled orders and keep exact safe review links',()=>{
+  const rows=[row(1,{keywords:['Add Tracking','Check']}),row(1,{keywords:['Add Tracking','Check']}),row(2,{note:'present',keywords:['Check']}),row(3,{canceled:true,keywords:['Add Tracking','Check']}),row(4,{keywords:['Check'],url:'https://evil.test/'}),row(5,{keywords:['Check'],canceled:null})];
+  const result=C.summary(rows,now);
+  assert.equal(result.pending,2);assert.equal(result.keywordUnknown,1);
+  assert.deepEqual(result.keywords.map(value=>[value.keyword,value.count]),[['Add Tracking',1],['Check',3]]);
+  assert.equal(result.keywords[1].orders[2].url,'');
+  assert.equal(C.summary([row(6,{keywords:undefined})],now).keywordUnknown,1);
+});
+
+test('multi-item orders appearing on different pages merge keyword evidence without double counting',()=>{
+  const run=state();C.append(run,page([row(1,{keywords:['Check']})],{start:1,end:1,total:2}));
+  C.append(run,page([row(1,{keywords:['Add Tracking']})],{start:2,end:2,total:2}));
+  const result=C.summary(Object.values(run.rows),now);assert.equal(result.pending,1);
+  assert.deepEqual(result.keywords.map(value=>value.count),[1,1]);
 });
 test('orders scope preserves filters and rejects lookalike hosts or order-detail pages',()=>{
   const url='https://www.ebay.com/sh/ord/?filter=status:ALL_ORDERS&period=90_DAYS&offset=200';

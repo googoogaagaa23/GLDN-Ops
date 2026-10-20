@@ -16,7 +16,15 @@
   const all=(selector,root=document)=>[...root.querySelectorAll(selector)].filter(visible);
   const controls=root=>all('button,a,[role="button"],[role="menuitem"]',root);
   const signal=el=>C.text(el.getAttribute('aria-label')||el.getAttribute('title')||text(el));
-  const disabled=el=>el.disabled||el.getAttribute('aria-disabled')==='true'||el.classList.contains('disabled');
+  const disabled=el=>el.disabled||el.getAttribute('aria-disabled')==='true'||el.classList.contains('disabled')||!!el.closest('[aria-disabled="true"],.pagination__item--disabled');
+  function keywords(row){
+    const walker=document.createTreeWalker(row,NodeFilter.SHOW_TEXT),parts=[];
+    while(walker.nextNode()){
+      const parent=walker.currentNode.parentElement;
+      if(parent&&visible(parent)&&!parent.closest('script,style,textarea,input,[contenteditable="true"]'))parts.push(walker.currentNode.textContent);
+    }
+    return C.keywordMatches(parts.join(' '));
+  }
   function account(){
     const link=document.querySelector('#gh .gh-identity a[href*="/usr/"],#gh-ug a[href*="/usr/"],header a[href*="myworld.ebay.com/"]');
     if(link){try{return decodeURIComponent(new URL(link.href).pathname.split('/').filter(Boolean).pop()).toLowerCase();}catch{}}
@@ -43,6 +51,7 @@
     const candidate=cells(row)(/^(?:private |order |my )?notes?$/i)||all('[data-testid="order-note"],.order-note,.orderNote,.private-note',row)[0];
     const cell=visible(candidate)?candidate:null;
     if(cell){
+      if(all('textarea,input,[contenteditable="true"]',cell).length)return 'unknown';
       const content=text(cell).replace(/^(?:my |order |private )?notes?\s*:?\s*/i,'').replace(/\b(?:edit|delete|add(?: (?:a|an|private|order))* note)\b/gi,'').trim();
       if(content&&!/^(?:no notes?|--|-)$/i.test(content))return 'present';
       if(!all('textarea,input',cell).length)return 'none';
@@ -84,13 +93,21 @@
     }
     return best;
   }
-  function navigation(){
-    const nodes=controls(document);
-    const next=nodes.find(el=>/^(?:(?:go|navigate) to (?:the )?)?next(?: page)?$/i.test(signal(el))||el.getAttribute('rel')==='next');
-    const previous=nodes.find(el=>/^(?:(?:go|navigate) to (?:the )?)?previous(?: page)?$/i.test(signal(el))||el.getAttribute('rel')==='prev');
-    const first=nodes.find(el=>/^(?:(?:go|navigate) to )?(?:page )?1$|^first(?: page)?$/i.test(signal(el))&&!!el.closest('nav,[class*="pagination"],[aria-label*="agination"]'));
-    const page=all('[aria-current="page"],.pagination__item--current').map(text).find(value=>/^\d+$/.test(value));
-    return {next,previous,first,page:page?Number(page):null};
+  function navigation(range){
+    const roots=all('nav[aria-label*="agination"],[role="navigation"][aria-label*="agination"],.pagination,[class*="pagination"]');
+    const nodes=roots.length?[...new Set(roots.flatMap(root=>[...(root.matches('button,a,[role="button"],[role="menuitem"]')?[root]:[]),...controls(root)]))]:controls(document);
+    const number=el=>Number(signal(el).match(/^(?:(?:go|navigate) to (?:the )?)?(?:page )?(\d+)(?:,? current page)?$/i)?.[1])||null;
+    const current=all('[aria-current="page"],.pagination__item--current').map(number).find(Boolean);
+    const page=current||(range?.start===1?1:range&&range.end>range.start?Math.ceil(range.start/(range.end-range.start+1)):null);
+    const nativeOffset=offset=>nodes.find(el=>{
+      if(!roots.length||el.tagName!=='A'||C.scope(el.href)!==C.scope(location.href))return false;
+      const value=new URL(el.href).searchParams.get('offset');return value!==null&&/^\d+$/.test(value)&&Number(value)===offset;
+    });
+    const find=(direction,classes,rel)=>nodes.find(el=>el.matches(classes)||el.getAttribute('rel')===rel||new RegExp('^(?:(?:go|navigate) to (?:the )?)?'+direction+'(?: (?:search|results?))?(?: page)?(?:,? page \\d+)?$','i').test(signal(el))&&(roots.length||/\bpage\b/i.test(signal(el))));
+    const next=find('next','.pagination__next','next')||(roots.length&&page?nodes.find(el=>number(el)===page+1):null)||(range&&range.end<range.total?nativeOffset(range.end):null);
+    const previous=find('previous','.pagination__previous,.pagination__prev','prev')||(roots.length&&page&&page>1?nodes.find(el=>number(el)===page-1):null);
+    const first=nodes.find(el=>/^first(?: page)?$/i.test(signal(el))||number(el)===1&&!!el.closest('nav,[class*="pagination"],[aria-label*="agination"]'))||(range&&range.start>1?nativeOffset(0):null);
+    return {next,previous,first,page};
   }
   function snapshot(){
     if(!C.ordersUrl(location.href))throw Error('Open the eBay Orders page.');guard();
@@ -106,12 +123,12 @@
     for(const {anchor,parsed} of links){
       if(!visible(anchor))continue;
       const row=container(anchor,parsed.id,ancestry);if(!row){unknownIds++;continue;}
-      let values=rowValues.get(row);if(!values){values={date:orderDate(row),note:note(row),canceled:canceled(row)};rowValues.set(row,values);}
-      rows.set(parsed.id,{id:parsed.id,url:parsed.url,...values});
+      let values=rowValues.get(row);if(!values){values={date:orderDate(row),note:note(row),canceled:canceled(row),keywords:keywords(row)};rowValues.set(row,values);}
+      rows.set(parsed.id,{id:parsed.id,url:parsed.url,...values,keywords:[...new Set([...(rows.get(parsed.id)?.keywords||[]),...values.keywords])]});
     }
     const body=text(document.body),match=body.match(/\b(?:Results?|Orders?)\s*:?\s*([\d,]+)\s*[-\u2013]\s*([\d,]+)\s+(?:of|out of)\s+([\d,]+)/i);
     const range=match?{start:Number(match[1].replace(/,/g,'')),end:Number(match[2].replace(/,/g,'')),total:Number(match[3].replace(/,/g,''))}:null;
-    const nav=navigation(),empty=!rows.size&&/\b(?:no (?:matching )?orders? (?:found|to show|available)|there are no (?:matching )?orders?)\b/i.test(body);
+    const nav=navigation(range),empty=!rows.size&&/\b(?:no (?:matching )?orders? (?:found|to show|available)|there are no (?:matching )?orders?)\b/i.test(body);
     if(!rows.size&&!empty)throw Error('The order list is still loading or its layout is not recognized.');
     return {scope:C.scope(location.href),account:account(),rows:[...rows.values()],unknownIds,range,empty,page:nav.page,
       hasNext:!!nav.next&&!disabled(nav.next),terminal:empty||!!nav.next&&disabled(nav.next)||!!range&&range.end===range.total&&!nav.next,
@@ -146,8 +163,11 @@
       }
       if(action==='read')return snapshot();
       if(action==='detail')return detail(args.id,args.openMenu===true);
+      if(action==='reveal-pagination'){
+        snapshot();window.scrollTo(0,document.scrollingElement?.scrollHeight||document.documentElement.scrollHeight);return {changed:true};
+      }
       if(!['first','previous','next'].includes(action))throw Error('Unknown order-count reader action.');
-      snapshot();const control=navigation()[action];if(!control||disabled(control))throw Error('The requested native order page is unavailable.');
+      const page=snapshot(),control=navigation(page.range)[action];if(!control||disabled(control))throw Error('The requested native order page is unavailable.');
       if(control.tagName==='A'&&control.href&&C.scope(control.href)!==C.scope(location.href))throw Error('The pagination control changes the order filters.');
       control.click();return {changed:true};
     }finally{cache=null;}
