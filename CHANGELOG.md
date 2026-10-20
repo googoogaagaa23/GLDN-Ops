@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.60 - 2026-10-19
+
+- Fix false Offer insights ownership failures when browser opener metadata disappears or reader/source tabs move between windows. Use the existing token-scoped reader registry and normal/incognito checks; new readers use the source's current window.
+- Calculate preliminary profit when Store plan/category are unconfirmed using visibly labeled no Store/Starter and most-category assumptions. Keep category exceptions, ads, tax, shipping and unknown costs explicit; invalid values still fail.
+- Read primary Amazon purchase prices from modern apex/buy-box and legacy layouts without confusing unit, list, subscription, used-offer or recommendation prices. Keep exact ASIN/variation and ambiguous-price safeguards.
+- Preserve an explicitly entered manual cost across a failed refresh only for the same offer and ASIN, clearly labeled Manual Amazon price. Failed automatic prices and mismatched items still clear.
+- Add ownership/default-fee regressions, fifteen real-DOM Amazon-price cases, and desktop/mobile inline/separate-view checks. Signed-in verification of the reported offer remains pending; no marketplace action is submitted.
+
 ## v3.12.59 - 2026-10-19
 
 - Start the Orders-left run before waiting on browser script responses. Check source account identity without first traversing every visible order, and retain usable status/Stop/Recount controls during startup.

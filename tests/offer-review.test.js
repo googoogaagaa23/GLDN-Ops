@@ -15,7 +15,7 @@ test('official general Store estimate includes one per-order fee and advertising
 });
 test('no Store and Starter use the standard rate, not the Store discount',() => {
   for (const plan of ['None','Starter']) assert.equal(C.estimate({...base,plan}).variable,381);
-  assert.throws(() => C.estimate({...base,plan:''}));
+  assert.equal(C.estimate({...base,plan:''}).variable,381);
 });
 test('tax is excluded from revenue but included in eBay and ad fee bases',() => {
   const r = C.estimate({...base,buyerTax:'6.25',buyerShipping:'2',amazonTax:'1.50',amazonShipping:'3'});
@@ -49,7 +49,25 @@ test('category-specific thresholds and custom per-order fee are explicit',() => 
   assert.equal(C.estimate({...base,category:'watches',sale:'6000'}).variable,31500);
   assert.equal(C.estimate({...base,category:'custom',customRate:'8',customOrderFee:'0'}).orderFee,0);
   assert.throws(() => C.estimate({...base,category:'custom',customRate:''}));
-  assert.throws(() => C.estimate({...base,category:''}));
+  assert.equal(C.estimate({...base,category:''}).variable,C.estimate(base).variable);
+});
+test('blank fee selections produce a labeled preliminary estimate instead of blank profit',()=>{
+  const input={...base,sale:'32',cost:'21.99',plan:'',category:'',adRate:''};
+  const result=C.estimate(input),buyer=C.estimate({...input,sale:'20'});
+  assert.equal(result.profit,526);assert.equal(buyer.profit,-511);
+  assert.equal(result.plan,'None');assert.equal(result.category,'general');
+  assert.equal(result.assumedPlan,true);assert.equal(result.assumedCategory,true);
+  assert.ok(result.warnings.some(value=>/Store plan unconfirmed/.test(value)));
+  assert.ok(result.warnings.some(value=>/Category unconfirmed/.test(value)));
+  assert.ok(result.warnings.some(value=>/Advertising rate assumed/.test(value)));
+  const selected={...base,sale:'32',cost:'21.99',plan:'Anchor',category:'general',adRate:'4.2'};
+  assert.equal(C.estimate(selected).profit,421);assert.equal(C.estimate({...selected,sale:'20'}).profit,-577);
+});
+test('confirmed plans and category exceptions override defaults and invalid settings never fall back',()=>{
+  const result=C.estimate(base);assert.equal(result.assumedPlan,false);assert.equal(result.assumedCategory,false);
+  assert.notEqual(C.estimate({...base,category:'media'}).profit,C.estimate({...base,category:''}).profit);
+  for(const changes of [{plan:'Unknown'},{category:'Unknown'},{category:'custom',customRate:''}])assert.throws(()=>C.estimate({...base,...changes}));
+  assert.throws(()=>C.estimate({...base,cost:''}),/Amazon one-time price/);
 });
 test('bad currency, percentages, and quantities cannot generate profitable-looking results',() => {
   for (const sale of ['','-1','Infinity','1e4','28.001','1,23.99']) assert.throws(() => C.estimate({...base,sale}));

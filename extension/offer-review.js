@@ -22,13 +22,15 @@ globalThis.GLDN_OFFER_START = async () => {
   };
   function inputs() { return {...Object.fromEntries(fields.map(id => [id,$(id).value])),topRatedPlus:$('topRatedPlus').checked}; }
   function calculation() {
-    $('feeSource').href = ['None','Starter'].includes($('plan').value) ? C.SOURCES.selling : C.SOURCES.store;
+    $('feeSource').href = ['', 'None','Starter'].includes($('plan').value) ? C.SOURCES.selling : C.SOURCES.store;
     dom.querySelectorAll('.custom').forEach(e => { e.hidden = $('category').value !== 'custom'; });
     try {
       const values = inputs(), result = C.estimate(values), offered = C.estimate({...values,sale:$('buyerOffer').value});
       $('offerProfit').textContent = money(offered.profit); $('counterProfit').textContent = money(result.profit);
       $('margin').textContent = result.margin.toFixed(1) + '%';
-      const unknown = result.warnings.some(w => /excluded|assumed/.test(w));
+      const unknown = !!state.manualCost || result.assumedPlan || result.assumedCategory || result.warnings.some(w => /excluded|assumed/.test(w));
+      $('estimateBasis').textContent = (unknown ? 'Preliminary estimate' : 'Estimate') + (state.manualCost ? ' | Manual Amazon price' : '') + ' | ' + (result.assumedPlan ? 'No Store / Starter (assumed)' : result.plan) + ' | ' + C.CATEGORIES[result.category] + (result.assumedCategory ? ' (assumed)' : '');
+      $('estimateBasis').dataset.preliminary = String(unknown);
       $('offerProfit').className = offered.profit < 0 ? 'negative' : unknown ? 'neutral' : 'positive';
       $('counterProfit').className = result.profit < 0 ? 'negative' : unknown ? 'neutral' : 'positive';
       const rows = [['Sale revenue (tax excluded)',result.revenue],['Buyer tax included in fee base',result.buyerTax],['Amazon cost incl. entered tax / shipping',result.supplier],
@@ -38,6 +40,7 @@ globalThis.GLDN_OFFER_START = async () => {
       $('assumptions').textContent = result.warnings.join(' | ');
     } catch(e) {
       $('offerProfit').textContent = '--'; $('counterProfit').textContent = '--'; $('margin').textContent = '--';
+      $('estimateBasis').textContent = 'Awaiting valid price and costs'; $('estimateBasis').removeAttribute('data-preliminary');
       $('breakdown').replaceChildren(); $('assumptions').textContent = e.message;
     }
   }
@@ -80,7 +83,7 @@ globalThis.GLDN_OFFER_START = async () => {
         }
       } catch(e) {
         last = e.message;
-        if (/different item|variation changed|different buyer|verification|Wrong active/i.test(last)) throw e;
+        if (/different item|variation changed|different buyer|verification|Wrong active|current offer|originating.*changed|browser profile/i.test(last)) throw e;
       }
       await delay(450);
     }
@@ -97,7 +100,7 @@ globalThis.GLDN_OFFER_START = async () => {
     if (id) {
       try {
         const tab = await tabs.get(id);
-        if (tab.openerTabId === deskId && tab.url === url) {
+        if ((host || tab.openerTabId === deskId) && tab.url === url) {
           if (reset) {
             if (host) await createReader(kind,url,false,true);
             else await tabs.update(id,{url,active:false});
@@ -119,6 +122,7 @@ globalThis.GLDN_OFFER_START = async () => {
     return current;
   }
   async function capture() {
+    state.manualCost = null;
     state.source = null;
     state.source = await verifySource();
     if (host) host.source = state.source;
@@ -136,7 +140,9 @@ globalThis.GLDN_OFFER_START = async () => {
     calculation(); await save();
   }
   async function readAmazon() {
-    state.amazon = null; $('cost').value = ''; $('amazonLink').hidden = true;
+    const requestedAsin = C.asin($('match').value) || state.source.asin;
+    const manual = state.manualCost?.key === state.source.key && state.manualCost.asin === requestedAsin && requestedAsin && (!state.source.asin || state.source.asin === requestedAsin) && C.cents(state.manualCost.value) !== null ? state.manualCost : null;
+    state.manualCost = manual; state.amazon = null; $('cost').value = manual?.value || ''; $('amazonLink').hidden = true;
     $('amazonTitle').textContent = ''; $('delivery').textContent = ''; calculation();
     try {
       let asin = C.asin($('match').value) || state.source.asin;
@@ -150,12 +156,12 @@ globalThis.GLDN_OFFER_START = async () => {
       $('amazonStatus').textContent = 'Reading ' + asin + '...';
       const id = await worker('amazon','https://www.amazon.com/dp/' + asin);
       const product = await waitPage(id,'amazon',{asin});
-      state.amazon = product; $('cost').value = product.price;
+      state.manualCost = null; state.amazon = product; $('cost').value = product.price;
       $('amazonStatus').textContent = (state.source.asin ? 'Listing SKU match: ' : 'Operator-supplied ASIN (listing match unverified): ') + asin + ' | $' + product.price + ' item price | ' + new Date(product.capturedAt).toLocaleTimeString();
       $('amazonTitle').textContent = product.title; $('delivery').textContent = [product.availability,product.delivery].filter(Boolean).join(' | ');
       $('amazonLink').href = 'https://www.amazon.com/dp/' + asin; $('amazonLink').hidden = false;
       calculation(); await save();
-    } catch(e) { $('amazonStatus').textContent = e.message; await save(); throw e; }
+    } catch(e) { $('amazonStatus').textContent = e.message + (manual ? ' | Using your manual price $' + manual.value : ''); calculation(); await save(); throw e; }
   }
   async function scanFeedback() {
     const user = state.source.user;
@@ -204,9 +210,15 @@ globalThis.GLDN_OFFER_START = async () => {
   $('checked').textContent = 'Rates checked ' + C.CHECKED;
   $('feeSource').href = C.SOURCES.store; $('adSource').href = C.SOURCES.ads;
   for (const [value,name] of Object.entries(C.CATEGORIES)) $('category').add(new Option(name,value));
-  for (const id of fields) $(id).addEventListener('input',() => { calculation(); save().catch(() => {}); });
+  for (const id of fields) $(id).addEventListener('input',() => {
+    if (id === 'cost') {
+      const asin = C.asin($('match').value) || state.source?.asin;
+      state.manualCost = asin && state.source && C.cents($('cost').value) !== null ? {key:state.source.key,asin,value:$('cost').value} : null;
+    }
+    calculation(); save().catch(() => {});
+  });
   $('topRatedPlus').addEventListener('change',() => { calculation(); save().catch(() => {}); });
-  $('plan').addEventListener('change',() => { $('feeSource').href = ['None','Starter'].includes($('plan').value) ? C.SOURCES.selling : C.SOURCES.store; });
+  $('plan').addEventListener('change',() => { $('feeSource').href = ['', 'None','Starter'].includes($('plan').value) ? C.SOURCES.selling : C.SOURCES.store; });
   $('readBoth').addEventListener('click',() => run('both'));
   $('readAmazon').addEventListener('click',() => run('amazon'));
   $('readFeedback').addEventListener('click',() => run('feedback'));

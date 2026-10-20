@@ -3,7 +3,7 @@
   const CHECKED = '2026-10-12';
   const SOURCES = Object.freeze({
     selling: 'https://www.ebay.com/help/selling/fees-credits-invoices/selling-fees?id=4822',
-    store: 'https://www.ebay.com/help/selling/fees-credits-invoices/store-fees?id=4809',
+    store: 'https://www.ebay.com/help/selling/fees-credits-invoices/store-selling-fees?id=4809',
     ads: 'https://www.ebay.com/help/selling/listings/listing-tips/promoted-listings?id=4164',
     discount: 'https://www.ebay.com/help/policies/selling-policies/seller-standards-policy?id=4347'
   });
@@ -58,11 +58,16 @@
     const warnings = [];
     const quantity = Number(input.quantity);
     const sale = cents(input.sale, false), cost = cents(input.cost);
+    if (cost === null) throw new Error('Enter the Amazon one-time price to calculate profit.');
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999 || sale === null || cost === null) {
       throw new Error('Enter a valid per-item price, Amazon cost, and quantity.');
     }
-    if (!['None','Starter','Basic','Premium','Anchor','Enterprise'].includes(input.plan)) throw new Error('Confirm the Store plan.');
-    if (!CATEGORIES[input.category]) throw new Error('Confirm the fee category.');
+    const assumedPlan = text(input.plan) === '', assumedCategory = text(input.category) === '';
+    const plan = assumedPlan ? 'None' : input.plan, category = assumedCategory ? 'general' : input.category;
+    if (!['None','Starter','Basic','Premium','Anchor','Enterprise'].includes(plan)) throw new Error('Choose a valid Store plan.');
+    if (!CATEGORIES[category]) throw new Error('Choose a valid fee category.');
+    if (assumedPlan) warnings.push('Store plan unconfirmed: no Store / Starter fees used');
+    if (assumedCategory) warnings.push('Category unconfirmed: most-category fees used; exceptions may cost more');
     const moneyInput = (key, label) => {
       if (text(input[key]) === '') { warnings.push(label + ' excluded (not entered)'); return 0; }
       const n = cents(input[key]); if (n === null) throw new Error(label + ' is invalid.'); return n;
@@ -76,9 +81,9 @@
     const base = revenue + buyerTax;
     const supplier = cost * quantity + moneyInput('amazonTax', 'Amazon tax') + moneyInput('amazonShipping', 'Amazon shipping');
     const other = moneyInput('other', 'Other costs');
-    const store = !['None','Starter'].includes(input.plan), cap = (store ? 250000 : 750000) * quantity;
+    const store = !['None','Starter'].includes(plan), cap = (store ? 250000 : 750000) * quantity;
     let variable;
-    switch (input.category) {
+    switch (category) {
       case 'general': variable = tiers(base, [[cap,store ? 12.7 : 13.6],[Infinity,2.35]]); break;
       case 'media': variable = tiers(base, [[cap,15.3],[Infinity,2.35]]); break;
       case 'electronics': variable = tiers(base, [[cap,store ? 9.35 : 13.6],[Infinity,2.35]]); break;
@@ -92,16 +97,16 @@
       }
     }
     const discount = input.topRatedPlus === true ? Math.round(variable * 0.1) : 0;
-    const orderFee = input.category === 'custom' ? cents(input.customOrderFee) : (base <= 1000 ? 30 : 40);
+    const orderFee = category === 'custom' ? cents(input.customOrderFee) : (base <= 1000 ? 30 : 40);
     if (orderFee === null) throw new Error('Enter the custom per-order fee.');
     const surcharge = Math.round(base * rateInput('surcharge', 'Performance surcharge') / 100);
     const international = Math.round(base * rateInput('international', 'International fee') / 100);
     const ads = Math.round(base * rateInput('adRate', 'Advertising rate') / 100);
     const fee = variable - discount + orderFee + surcharge + international;
     const profit = revenue - supplier - fee - ads - other;
-    warnings.push('Fee category and listing-specific discounts require confirmation');
+    warnings.push('Listing-specific discounts and category exceptions may change fees');
     if (Date.now() - Date.parse(CHECKED + 'T00:00:00Z') > 45 * 86400000) warnings.push('Fee schedule is older than 45 days; check official rates');
-    return {revenue, buyerTax, base, supplier, variable, discount, orderFee, surcharge, international, fee, ads, other,
+    return {plan, category, assumedPlan, assumedCategory, revenue, buyerTax, base, supplier, variable, discount, orderFee, surcharge, international, fee, ads, other,
       profit, margin:revenue ? profit / revenue * 100 : 0, warnings, checked:CHECKED};
   }
   function addFeedback(state, page) {

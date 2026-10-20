@@ -1,4 +1,13 @@
-GLDN Ops v3.12.59
+GLDN Ops v3.12.60
+
+v3.12.60 Offer insights ownership, prices and profit:
+- Saved reader ownership survives lost opener metadata and same-profile window moves. Exact offer, buyer, ASIN and profile checks remain enforced.
+- A valid sale price and Amazon cost now produce a preliminary estimate without mandatory Store/category confirmation. Assumed no Store/Starter and most-category fees are labeled.
+- Select the actual Store/category and enter ads, tax, shipping and other costs to refine the estimate. Unknown costs remain explicit, not verified zero expenses.
+- Amazon reading supports primary purchase prices in apex/buy-box layouts and ignores unit, list, subscription and recommendation prices.
+- An explicit manual Amazon price remains after a failed same-item refresh and is labeled manual. Automatic stale prices and different items are never reused.
+- Update & Reload, refresh the native offer, then Refresh Amazon + feedback. No accept, counteroffer, decline or purchase is automated.
+- Desktop/mobile synthetic checks pass; signed-in verification of the reported offer is still pending.
 
 v3.12.59 orders-left response timeout repair:
 - Start responds before reading the order table. The source tab supplies account identity; order rows are read in the background helper.

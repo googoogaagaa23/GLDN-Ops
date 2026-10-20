@@ -37,7 +37,7 @@ test('website, iframe and other-extension inline senders cannot obtain a bridge'
   }
   assert.equal(h.calls.length,0);
 });
-test('inline readers are inactive, owned by the source tab and pinned to its window',async()=>{
+test('inline readers are inactive and created in the source window with saved offer ownership',async()=>{
   const h=bridge(),{result}=await h.mount();
   const response=await h.action(result.token,'worker',{kind:'amazon',url:'https://www.amazon.com/dp/B089Q55SS7'});
   assert.equal(response.ok,true);
@@ -66,13 +66,51 @@ test('repeat feedback scans restart only the owned exact buyer reader',async()=>
   assert.equal((await h.action(result.token,'worker',{kind:'amazon',url:'https://www.amazon.com/dp/B089Q55SS7',reset:true})).ok,false);
   assert.equal(h.calls.filter(call=>call[0]==='create').length,1);
 });
-test('wrong tokens, unrelated tabs and changed reader ownership are rejected',async()=>{
+test('wrong tokens, unrelated tabs and expired offer ownership are rejected',async()=>{
   const h=bridge(),{result}=await h.mount();
   assert.equal((await h.action('wrong','state-get')).ok,false);
   assert.equal((await h.action(result.token,'tab-get',{tabId:999})).ok,false);
   const worker=(await h.action(result.token,'worker',{kind:'amazon',url:'https://www.amazon.com/dp/B089Q55SS7'})).result;
-  h.tabs.get(worker.id).windowId=99;
+  await h.mount();
   assert.equal((await h.action(result.token,'read',{tabId:worker.id,action:'amazon',args:{asin:'B089Q55SS7'}})).ok,false);
+});
+test('saved Amazon and feedback readers survive window moves and lost or changed opener metadata',async()=>{
+  const h=bridge(),{result}=await h.mount();
+  for(const [kind,url,action,args] of [
+    ['amazon','https://www.amazon.com/dp/B089Q55SS7','amazon',{asin:'B089Q55SS7'}],
+    ['feedback',h.offer.feedbackUrl,'feedback',{user:'buyer'}]
+  ]){
+    const worker=(await h.action(result.token,'worker',{kind,url})).result;
+    h.tabs.get(worker.id).windowId=99;delete h.tabs.get(worker.id).openerTabId;
+    assert.equal((await h.action(result.token,'tab-get',{tabId:worker.id})).ok,true);
+    assert.equal((await h.action(result.token,'read',{tabId:worker.id,action,args})).ok,true);
+    h.tabs.get(worker.id).openerTabId=987;
+    assert.equal((await h.action(result.token,'read',{tabId:worker.id,action,args})).ok,true);
+    assert.equal((await h.action(result.token,'worker',{kind,url})).result.id,worker.id);
+  }
+  assert.equal(h.calls.filter(call=>call[0]==='create').length,2);
+});
+test('new readers follow the current source window after it moves',async()=>{
+  const h=bridge(),{result}=await h.mount();h.tabs.get(2).windowId=31;
+  const worker=(await h.action(result.token,'worker',{kind:'amazon',url:'https://www.amazon.com/dp/B089Q55SS7'})).result;
+  assert.equal(worker.windowId,31);assert.equal(worker.openerTabId,2);
+});
+test('moving tabs never permits cross-profile or unrelated Amazon and feedback reads',async()=>{
+  const h=bridge(),{result}=await h.mount();
+  const worker=(await h.action(result.token,'worker',{kind:'amazon',url:'https://www.amazon.com/dp/B089Q55SS7'})).result;
+  h.tabs.get(worker.id).incognito=true;
+  assert.equal((await h.action(result.token,'read',{tabId:worker.id,action:'amazon',args:{asin:'B089Q55SS7'}})).ok,false);
+  h.tabs.get(worker.id).incognito=false;h.tabs.get(worker.id).url='https://www.amazon.com/dp/B000000000';
+  assert.equal((await h.action(result.token,'read',{tabId:worker.id,action:'amazon',args:{asin:'B089Q55SS7'}})).ok,false);
+  const feedback=(await h.action(result.token,'worker',{kind:'feedback',url:h.offer.feedbackUrl})).result;
+  h.tabs.get(feedback.id).url='https://feedback.ebay.com/fdbk/feedback_profile/other';
+  assert.equal((await h.action(result.token,'read',{tabId:feedback.id,action:'feedback',args:{user:'buyer'}})).ok,false);
+  h.tabs.get(2).incognito=true;
+  assert.equal((await h.action(result.token,'state-get')).ok,false);
+});
+test('the inline UI trusts its validated bridge rather than rechecking transient opener links',()=>{
+  assert.match(read('offer-review.js'),/\(host \|\| tab\.openerTabId === deskId\)/);
+  assert.doesNotMatch(read('offer-review-background.js'),/worker\.openerTabId|worker\.windowId/);
 });
 test('a changed native buyer or offer stops inline reads before creating a worker',async()=>{
   for(const field of ['user','price','title','quantity']) {

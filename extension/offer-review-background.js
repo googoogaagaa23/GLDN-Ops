@@ -20,7 +20,7 @@
     if (!key || key !== C.offer(tab.url).key) throw new Error('The originating eBay offer changed.');
     if (message.op === 'mount') {
       const offer = await source(tab.id);
-      const scope = {key,token:crypto.randomUUID(),source:offer,workers:{},windowId:liveTab.windowId};
+      const scope = {key,token:crypto.randomUUID(),source:offer,workers:{},incognito:Boolean(liveTab.incognito)};
       await chrome.storage.session.set({[scopeKey(tab.id)]:scope});
       bundle ||= Promise.all(['offer-review.html','offer-review.css','offer-review-inline.css'].map(async file => {
         const response = await fetch(chrome.runtime.getURL(file));
@@ -32,6 +32,7 @@
     }
     const scope = (await chrome.storage.session.get(scopeKey(tab.id)))[scopeKey(tab.id)];
     if (!scope || scope.token !== message.token || scope.key !== key) throw new Error('This inline review is no longer attached to the current offer.');
+    if (Boolean(scope.incognito) !== Boolean(liveTab.incognito)) throw new Error('The originating browser profile changed.');
     if (message.op === 'tab-get' && message.tabId === tab.id) return liveTab;
     const offer = await source(tab.id);
     if (message.op === 'read' && message.tabId === tab.id && message.action === 'offer') {
@@ -41,7 +42,7 @@
     const owned = async id => {
       if (!Object.values(scope.workers).some(worker => worker.id === id)) throw new Error('This reader tab does not belong to the current offer.');
       const worker = await chrome.tabs.get(id);
-      if (worker.openerTabId !== tab.id || worker.windowId !== scope.windowId) throw new Error('The reader tab ownership changed.');
+      if (Boolean(worker.incognito) !== Boolean(scope.incognito)) throw new Error('The offer reader changed browser profiles.');
       return worker;
     };
     if (message.op === 'start') {
@@ -79,7 +80,7 @@
           }
         } catch { /* A closed or changed reader is never reused. */ }
       }
-      const worker = await chrome.tabs.create({url,active:message.active === true,openerTabId:tab.id,windowId:scope.windowId});
+      const worker = await chrome.tabs.create({url,active:message.active === true,openerTabId:tab.id,windowId:liveTab.windowId});
       scope.workers[kind] = {id:worker.id,url}; await chrome.storage.session.set({[scopeKey(tab.id)]:scope}); return worker;
     }
     if (message.op === 'read') {

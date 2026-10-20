@@ -9,15 +9,15 @@
 <label>Buyer offer / item ($)<input id="buyerOffer" readonly></label>
 <label>Your counteroffer / item ($)<input id="sale" type="number" min="0.01" step="0.01"></label>
 <label>Quantity<input id="quantity" type="number" min="1" max="999" step="1"></label>
-</div><div class="result"><div><span>At buyer offer</span><output id="offerProfit">--</output></div><div><span>At your counteroffer</span><output id="counterProfit">--</output></div><div><span>Counteroffer margin</span><output id="margin">--</output></div></div>
+</div><div class="result"><div><span>At buyer offer</span><output id="offerProfit">--</output></div><div><span>At your counteroffer</span><output id="counterProfit">--</output></div><div><span>Counteroffer margin</span><output id="margin">--</output></div><p id="estimateBasis" class="estimate-basis" aria-live="polite">Awaiting Amazon price</p></div>
 <div class="fields"><label>Amazon one-time price / item ($)<input id="cost" type="number" min="0" step="0.01"></label>
 <label>Amazon tax / order ($)<input id="amazonTax" type="number" min="0" step="0.01" placeholder="Unknown"></label>
 <label>Amazon shipping / order ($)<input id="amazonShipping" type="number" min="0" step="0.01" placeholder="Unknown"></label>
 <label>Buyer-paid shipping / order ($)<input id="buyerShipping" type="number" min="0" step="0.01" placeholder="Unknown"></label>
 <label>Buyer sales tax (%)<input id="buyerTax" type="number" min="0" max="100" step="0.01" placeholder="Unknown"></label>
 <label>Other costs / order ($)<input id="other" type="number" min="0" step="0.01" value="0"></label>
-<label>Store plan (confirm)<select id="plan"><option value="">Not confirmed</option><option>None</option><option>Starter</option><option>Basic</option><option>Premium</option><option>Anchor</option><option>Enterprise</option></select></label>
-<label>Fee category<select id="category"><option value="">Not confirmed</option></select></label>
+<label>Store plan<select id="plan"><option value="">Default: no Store</option><option>None</option><option>Starter</option><option>Basic</option><option>Premium</option><option>Anchor</option><option>Enterprise</option></select></label>
+<label>Fee category<select id="category"><option value="">Default: general</option></select></label>
 <label>Advertising rate (%)<input id="adRate" type="number" min="0" max="100" step="0.01" placeholder="Unknown"></label>
 <label>Performance surcharge<select id="surcharge"><option value="">Not confirmed</option><option value="0">None</option><option value="5">Very High INAD: 5%</option><option value="6">Below Standard / prolonged INAD: 6%</option><option value="7">Prolonged Below Standard: 7%</option></select></label>
 <label>International fee (%)<input id="international" type="number" min="0" max="100" step="0.01" value="0"></label>

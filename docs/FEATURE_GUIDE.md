@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.59. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.60. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -115,15 +115,15 @@ Core/background tests cover counting rules, saved reader ownership, sender rejec
 
 - Use the intended signed-in eBay Chrome profile.
 - Open one native Offer Received page with a pending buyer offer.
-- Confirm the Store plan, fee category, advertising rate, and estimated costs.
+- A valid sale price, quantity and Amazon cost are needed. Store/category can remain on the labeled preliminary defaults.
 
 ### Exact Steps
 
 1. Open a pending native Offer Received page; Offer insights appears inline. GLDN icon > Daily > Offer Review returns to this section; Separate view is optional.
-2. GLDN opens read-only background tabs in the same Chrome profile and window to resolve the listing SKU, read its exact Amazon item, and scan the buyer's Left for others feedback.
-3. If SKU matching is unavailable, enter the exact SKU, ASIN, or Amazon item link and choose Read Amazon. An operator-supplied match is not independently verified against the listing.
+2. GLDN opens read-only background tabs in the same Chrome profile to resolve the listing SKU, read its exact Amazon item, and scan the buyer's Left for others feedback. Moving source or reader windows does not change saved ownership.
+3. If SKU matching is unavailable, enter the exact SKU, ASIN, or Amazon item link and choose Read Amazon. An operator-supplied match is not independently verified against the listing. If no verifiable purchase price is available, enter Amazon one-time price manually.
 4. Wait for Complete or All pages read. A header-total mismatch is shown explicitly, with percentages based on readable ratings. Partial means coverage is unfinished; Scan all feedback pages restarts from the beginning.
-5. Confirm the Store plan, fee category and advertising rate. Expand Fee and cost settings for Amazon tax/shipping, estimated buyer tax and other costs. Blank values are visibly excluded or assumed zero.
+5. A preliminary profit estimate uses visibly labeled no Store/Starter and most-category assumptions when those choices are blank. Select actual Store/category and advertising rate to refine it. Expand Fee and cost settings for tax, shipping and other costs; missing values remain disclosed.
 6. Adjust Your counteroffer to compare estimated profit and margin. Copy amount and use eBay's unchanged native controls to submit manually.
 
 ### Approval Stop
@@ -137,14 +137,17 @@ An inline offer-specific review with timestamped Amazon evidence, expandable fee
 ### Failure Recovery
 
 - Sign-in or verification requires operator action in the relevant reader tab.
+- Saved source/token/reader IDs define ownership, not transient opener or window metadata. Wrong tokens, unrelated tabs and normal/incognito crossings remain rejected.
 - Pause stops readers and preserves captured results; restart a partial feedback scan to verify full coverage.
 - Different buyers, changed offers/titles/quantities, Amazon variation changes, skipped feedback pages and duplicate feedback IDs stop the relevant reader.
-- Fee presets cover named common category groups; exceptions require a confirmed custom rate and per-order fee. Rates older than 45 days warn to check the official source.
+- Amazon prices come from primary purchase-price components, not unit, list, subscription or recommendation prices. Ambiguous or unavailable prices require manual entry.
+- An explicit manual cost survives a failed refresh only for the same offer/ASIN and is labeled Manual Amazon price. Failed automatic prices and mismatched items still clear.
+- Fee presets cover named common category groups; exceptions require a confirmed custom rate and per-order fee. Blank plan/category use labeled defaults; invalid values never silently fall back. Rates older than 45 days warn to check the official source.
 - Saved reviews expire after fifteen minutes and restored Amazon prices are labeled with their original capture time.
 
 ### Evidence
 
-The reported public buyer's two native pages exposed 227 distinct ratings (222 positive, 4 neutral, 1 negative), despite a 235-entry header. Unit tests and synthetic desktop/mobile real-extension-API checks reproduce that mismatch, delayed loading, same-tab/window reader ownership, source navigation and zero marketplace submissions. Separate-view fixtures also cover 205 entries. Full new-helper signed-in Profile 2/video verification remains pending.
+Core/source-scope tests and fifteen real-DOM price cases cover saved reader ownership after opener/window changes, profile and item boundaries, modern primary purchase prices, unavailable/ambiguous prices and preliminary fee defaults. Desktop/mobile inline fixtures move source and reader windows, reuse the same reader IDs, calculate the reported manual-cost example, preserve manual costs after a failed same-item refresh, reject mismatched manual costs and read 227 ratings against a 235-entry header. Separate fixtures cover 205 ratings. All are synthetic and submit nothing. Current signed-in validation of the reported offer and formal video proof remain pending.
 
 
 <a id="price-increase"></a>

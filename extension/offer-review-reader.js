@@ -65,17 +65,38 @@
     const selected = document.querySelector('#ASIN')?.value;
     if (selected && C.asin(selected) !== args.asin) throw new Error('The selected Amazon variation changed.');
     const title = label(document.querySelector('#productTitle'));
-    const selectors = ['#corePriceDisplay_desktop_feature_div .a-price:not(.a-text-price) .a-offscreen', '#corePrice_feature_div .a-price:not(.a-text-price) .a-offscreen', '#priceblock_ourprice', '#priceblock_dealprice'];
-    let prices = [];
-    for (const selector of selectors) {
-      prices = [...document.querySelectorAll(selector)].filter(e => visible(e.closest('.a-price') || e))
-        .map(e => C.cents(label(e),false)).filter(n => n !== null);
-      if (prices.length) break;
-    }
-    const unique = [...new Set(prices)];
-    if (!title || unique.length !== 1) throw new Error('One current Amazon product price could not be read. Enter the one-time purchase price.');
     if (document.querySelector('#snsAccordionRowMiddle [aria-checked="true"], #snsAccordionRowMiddle input:checked')) throw new Error('Subscribe & Save is selected. Confirm a one-time purchase price manually.');
-    return {asin:args.asin,title,price:(unique[0] / 100).toFixed(2),url:location.href,capturedAt:Date.now(),
+    const excluded = '[id^="gldn-"],#snsAccordionRowMiddle,#usedBuyBox,#moreBuyingChoices_feature_div,.a-carousel,.pricePerUnit,.price-per-unit,.a-price-unit,.basisPrice,.a-text-price,.a-text-strike';
+    const priceValue = element => {
+      const box = element.closest('.a-price') || element;
+      if (!visible(box) || !visible(element) || element.closest(excluded)) return null;
+      const amount = C.cents(label(element),false);
+      if (amount !== null) return amount;
+      const symbol = label(box.querySelector('.a-price-symbol'));
+      const whole = label(box.querySelector('.a-price-whole')).replace(/[.,]$/,'');
+      const fraction = label(box.querySelector('.a-price-fraction'));
+      return /^(?:\$|US\$)$/.test(symbol) && /^\d[\d,]*$/.test(whole) && /^\d{2}$/.test(fraction) ? C.cents(whole + '.' + fraction,false) : null;
+    };
+    const roots = ['#corePriceDisplay_desktop_feature_div','#corePrice_feature_div','#apex_desktop','#desktop_buybox','#buybox'].map(selector=>document.querySelector(selector)).filter(Boolean);
+    const tiers = [
+      '#apex-pricetopay-accessibility-label,.priceToPay .a-offscreen,.apexPriceToPay .a-offscreen,.apex-pricetopay-value .a-offscreen',
+      '.priceToPay,.apexPriceToPay,.apex-pricetopay-value',
+      '.a-price[data-a-size="xl"] .a-offscreen,.a-price[data-a-size="l"] .a-offscreen',
+      '.a-price:not(.a-text-price):not(.a-price-unit):not([data-a-size="mini"]):not([data-a-size="small"]) .a-offscreen'
+    ];
+    let price = null;
+    // Prefer semantic purchase-price markers over unit, list and alternative-offer prices.
+    for (const selector of tiers) {
+      const prices = [...new Set(roots.flatMap(root=>[...root.querySelectorAll(selector)]).map(priceValue).filter(value=>value !== null))];
+      if (prices.length > 1) throw new Error('The primary Amazon purchase price is ambiguous. Enter the one-time purchase price.');
+      if (prices.length === 1) { price = prices[0]; break; }
+    }
+    if (price === null) {
+      const legacy = [...new Set([...document.querySelectorAll('#priceblock_ourprice,#priceblock_dealprice,#price_inside_buybox,#newBuyBoxPrice')].map(priceValue).filter(value=>value !== null))];
+      if (legacy.length === 1) price = legacy[0];
+    }
+    if (!title || price === null) throw new Error('One current Amazon product price could not be read. Enter the one-time purchase price.');
+    return {asin:args.asin,title,price:(price / 100).toFixed(2),url:location.href,capturedAt:Date.now(),
       delivery:label(document.querySelector('#deliveryBlockMessage, #mir-layout-DELIVERY_BLOCK')), availability:label(document.querySelector('#availability'))};
   }
   function feedback(args, action) {

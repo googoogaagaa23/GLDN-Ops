@@ -7,19 +7,19 @@
 Run Setup once on each Windows computer. Load the stable extension folder once
 in every intended Chrome profile. Later updates use **Update & Reload**.
 
-SHA-256: 595344D74D7CA038F301C38F2BC9F0200804CC8C23303EBF141430BE4DC2EC06
+SHA-256: CA07A9CF72673F527D06179F22BDF31C343B8B37C311F010E79AB8A7B1884849
 
 ## Current extension package
 
-- [Download GLDN Ops v3.12.59](./GLDN-Ops-extension-v3.12.59.zip)
+- [Download GLDN Ops v3.12.60](./GLDN-Ops-extension-v3.12.60.zip)
 
-SHA-256: 835DA369D9DF91ABBF8DD8996ECF2933BA7F56444C8EBC5E844BF9A486445569
+SHA-256: F5F4572F154F064155CEC642A237B8A27D105D7F7A37C976191D46ADA48CD864
 
 ## Current full local bundle
 
-- [Download the GLDN Ops v3.12.59 local bundle](./GLDN-Ops-local-v3.12.59.zip)
+- [Download the GLDN Ops v3.12.60 local bundle](./GLDN-Ops-local-v3.12.60.zip)
 
-SHA-256: AAF50CAE09AD72771C2AA10952CDD1CBAE941D0709AAEA598F897617B9793A3C
+SHA-256: 78EF22D5D880EC4E0D93AE09216FFFEF63E8010010091B9FCEE48E8C61E7C578
 
 ## Standalone Product Hunter
 
@@ -34,4 +34,4 @@ brand name alone does not stop a product. It sends no candidate directly to
 Bulk Poster and does not list or approve products for eBay.
 
 The complete machine-readable file list is in
-[release-manifest-v3.12.59.json](./release-manifest-v3.12.59.json).
+[release-manifest-v3.12.60.json](./release-manifest-v3.12.60.json).
