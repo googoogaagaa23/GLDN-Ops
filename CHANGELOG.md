@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.58 - 2026-10-19
+
+- Fix Orders left to place timing out at zero checked while the native order table is already rendered. Inject the reader immediately and require stable native results instead of waiting for the browser's entire page load.
+- Keep reads bound to saved source/run/helper identities rather than transient opener and window metadata. Switching tabs or moving a tab between windows in the same browser profile no longer invalidates the count.
+- Reconnect a remounted summary to its active read. Reload a discarded helper once, expose Open reader when the browser freezes it, and bound unresponsive script injection with actionable partial-read errors.
+- Preserve exact account/filter/order and normal/incognito checks, all-page reconciliation, any-note exclusion and canceled-order exclusion. No marketplace changes are made.
+- Add seven regression tests plus isolated real-extension desktop/mobile checks for held page resources, tab switching, window moves, remount recovery and zero marketplace submissions. The affected signed-in browser is not currently exposed; live-account verification remains pending.
+
 ## v3.12.57 - 2026-10-17
 
 - Add Orders left to place directly on the eBay Orders page, grouped by native order date with full weekday and month/day labels.

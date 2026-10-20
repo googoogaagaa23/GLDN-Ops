@@ -3,11 +3,14 @@
   const C=globalThis.GLDN_ORDERS_LEFT,key=id=>'gldnOrdersLeft:'+id,marker=id=>'gldnOrdersLeftWorker:'+id;
   const tasks=new Map();
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  function bounded(promise,message,ms=10000){
+    let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),ms);})]).finally(()=>clearTimeout(timer));
+  }
   async function read(id,action='read',args={}){
-    await chrome.scripting.executeScript({target:{tabId:id},files:['orders-left-core.js','orders-left-reader.js']});
-    const result=await chrome.scripting.executeScript({target:{tabId:id},func:(action,args)=>{
+    await bounded(chrome.scripting.executeScript({target:{tabId:id},injectImmediately:true,files:['orders-left-core.js','orders-left-reader.js']}),'The reader tab did not respond to script loading.');
+    const result=await bounded(chrome.scripting.executeScript({target:{tabId:id},injectImmediately:true,func:(action,args)=>{
       try{return {ok:true,data:globalThis.GLDN_ORDERS_LEFT_READER(action,args)};}catch(e){return {ok:false,error:e.message};}
-    },args:[action,args]});
+    },args:[action,args]}),'The reader tab did not respond to the order read.');
     if(!result[0]?.result?.ok)throw Error(result[0]?.result?.error||'The order reader did not respond.');
     return result[0].result.data;
   }
@@ -23,12 +26,15 @@
     if(!state)return null;
     const summary=C.summary(Object.values(state.rows));
     return {scope:state.scope,busy:state.busy,complete:state.complete,pages:state.pages,checkedAt:state.checkedAt||0,updatedAt:state.updatedAt,
-      message:state.message,error:state.error||'',summary,hasReader:!!(state.detail||state.index)};
+      message:state.message,error:state.error||'',attention:state.attention===true,summary,hasReader:!!(state.detail||state.index)};
   }
   async function owned(state,id){
     if(![state.index,state.detail].includes(id))throw Error('This tab does not belong to the order count.');
     const tab=await chrome.tabs.get(id);
-    if(tab.openerTabId!==state.owner||tab.windowId!==state.windowId)throw Error('The order reader changed windows or owners.');
+    const proof=(await chrome.storage.session.get(marker(id)))[marker(id)];
+    const kind=id===state.index?'index':'detail';
+    if(!proof||proof.owner!==state.owner||proof.run!==state.run||proof.kind!==kind)throw Error('The saved order-reader identity no longer matches this count.');
+    if(Boolean(tab.incognito)!==Boolean(state.incognito))throw Error('The order reader changed browser profiles.');
     return tab;
   }
   async function cleanup(state){
@@ -41,7 +47,9 @@
   async function check(state){
     if(!state.busy||tasks.get(state.owner)!==state)throw Error('The order count was stopped.');
     const owner=await chrome.tabs.get(state.owner);
-    if(C.scope(owner.url)!==state.scope||owner.windowId!==state.windowId)throw Error('The eBay Orders tab or its filters changed.');
+    if(C.scope(owner.url)!==state.scope)throw Error('The eBay Orders tab or its filters changed.');
+    if(Boolean(owner.incognito)!==Boolean(state.incognito))throw Error('The eBay Orders tab changed browser profiles.');
+    state.windowId=owner.windowId;
   }
   async function worker(state,kind,url){
     await check(state);
@@ -49,28 +57,37 @@
     if(old){await owned(state,old);await chrome.tabs.update(old,{url,active:false});return old;}
     const tab=await chrome.tabs.create({url:'about:blank',active:false,windowId:state.windowId,openerTabId:state.owner});
     state[kind]=tab.id;
-    await chrome.storage.session.set({[marker(tab.id)]:{owner:state.owner,run:state.run}});await save(state);
+    await chrome.storage.session.set({[marker(tab.id)]:{owner:state.owner,run:state.run,kind}});await save(state);
     await chrome.tabs.update(tab.id,{url,active:false});return tab.id;
   }
   async function settled(state,id,action,args={},predicate=()=>true){
-    const until=Date.now()+35000;let previous='',error='The eBay order reader did not finish loading.';
+    const until=Date.now()+90000;let previous='',reloaded=false,error=action==='detail'?'The order details have not exposed a saved-note status yet.':'The eBay order list has not exposed readable rows yet.';
     while(Date.now()<until){
       await check(state);
       try{
         const tab=await owned(state,id);
-        if(tab.status==='complete'){
-          const page=await read(id,action,args);
-          if(state.account&&page.account&&state.account!==page.account)throw Error('The signed-in eBay account changed.');
-          if(predicate(page)){
-            const signature=JSON.stringify(page);
-            if(signature===previous)return page;
-            previous=signature;
-          }else previous='';
+        if(tab.discarded&&!reloaded){reloaded=true;await chrome.tabs.reload(id);previous='';}
+        if(tab.frozen){state.attention=true;state.message='The browser paused the background reader. Open reader to let it continue.';error=state.message;state.updatedAt=Date.now();await save(state);await pause(1000);continue;}
+        state.attention=false;
+        const matches=url=>action==='detail'?C.orderUrl(url)?.id===args.id:C.scope(url)===state.scope;
+        if(!matches(tab.url)){
+          if(/signin\.|\/splashui\/|\/captcha\b/i.test(tab.url||''))throw Error('eBay needs sign-in or verification in the reader tab.');
+          if(matches(tab.pendingUrl)||/^about:blank(?:#.*)?$/.test(tab.url||'')){await pause(450);continue;}
+          throw Error('The order reader navigated away from the selected orders or order details.');
         }
-      }catch(e){error=e.message;if(/different order|filters changed|account changed|verification|sign-in/i.test(error))throw e;}
+        // A rendered native table is usable while unrelated page resources load.
+        const page=await read(id,action,args);
+        if(action==='read'&&page.scope&&page.scope!==state.scope)throw Error('The reader order filters changed.');
+        if(state.account&&page.account&&state.account!==page.account)throw Error('The signed-in eBay account changed.');
+        if(predicate(page)){
+          const signature=JSON.stringify(page);
+          if(signature===previous)return page;
+          previous=signature;
+        }else{previous='';error=action==='detail'?'The order note status is still unavailable.':'The native order page has not advanced to the expected results.';}
+      }catch(e){previous='';error=e.message;if(/different order|filters changed|account changed|verification|sign-in|saved order-reader|browser profiles|navigated away|No tab with|Tab closed/i.test(error))throw e;}
       await pause(450);
     }
-    throw Error(error);
+    throw Error(error+' Use Open reader to inspect eBay, then Recount to retry.');
   }
   async function pump(state){
     try{
@@ -113,7 +130,7 @@
       }
     }catch(e){state.complete=false;state.error=e.message;state.message=state.busy?'Partial read':'Stopped';}
     finally{
-      state.busy=false;state.updatedAt=Date.now();state.checkedAt=Date.now();
+      state.busy=false;state.attention=false;state.updatedAt=Date.now();state.checkedAt=Date.now();
       if(tasks.get(state.owner)===state){
         if(state.complete)await cleanup(state);
         await save(state);tasks.delete(state.owner);
@@ -124,7 +141,7 @@
     const old=tasks.get(tab.id)||(await chrome.storage.session.get(key(tab.id)))[key(tab.id)];
     if(old?.busy&&tasks.has(tab.id)&&old.scope===C.scope(tab.url))return view(old);
     if(old){old.busy=false;await cleanup(old);}
-    const first=await read(tab.id),state={owner:tab.id,windowId:tab.windowId,scope:C.scope(tab.url),url:tab.url,account:first.account,run:crypto.randomUUID(),
+    const first=await read(tab.id),state={owner:tab.id,windowId:tab.windowId,incognito:Boolean(tab.incognito),scope:C.scope(tab.url),url:tab.url,account:first.account,run:crypto.randomUUID(),
       busy:true,complete:false,message:'Reading all order pages',rows:{},pages:0,total:null,through:0,signatures:[],updatedAt:Date.now()};
     tasks.set(tab.id,state);await save(state);pump(state).catch(()=>{});return view(state);
   }

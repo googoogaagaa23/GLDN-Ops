@@ -91,7 +91,7 @@
     const range=match?{start:Number(match[1].replace(/,/g,'')),end:Number(match[2].replace(/,/g,'')),total:Number(match[3].replace(/,/g,''))}:null;
     const nav=navigation(),empty=!rows.size&&/\b(?:no (?:matching )?orders? (?:found|to show|available)|there are no (?:matching )?orders?)\b/i.test(body);
     if(!rows.size&&!empty)throw Error('The order list is still loading or its layout is not recognized.');
-    return {account:account(),rows:[...rows.values()],unknownIds,range,empty,page:nav.page,
+    return {scope:C.scope(location.href),account:account(),rows:[...rows.values()],unknownIds,range,empty,page:nav.page,
       hasNext:!!nav.next&&!disabled(nav.next),terminal:empty||!!nav.next&&disabled(nav.next)||!!range&&range.end===range.total&&!nav.next,
       first:empty||range?.start===1||nav.page===1||!!nav.previous&&disabled(nav.previous),canFirst:!!nav.first&&!disabled(nav.first),canPrevious:!!nav.previous&&!disabled(nav.previous)};
   }

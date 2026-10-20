@@ -1,4 +1,12 @@
-GLDN Ops v3.12.57
+GLDN Ops v3.12.58
+
+v3.12.58 orders-left loading and tab recovery:
+- The native order table can be read while unrelated page resources are still loading.
+- Switching tabs or moving the Orders tab to another window in the same browser profile does not stop the saved read.
+- A remounted summary reconnects to the active count. Discarded reader tabs reload once; frozen readers show Open reader for attention.
+- Exact order, account, current filters, saved-note and cancellation checks remain in place. Incomplete reads never become a verified zero.
+- Update & Reload, refresh eBay Orders, then choose Recount if an old partial result is still shown.
+- Isolated real-extension desktop/mobile recovery tests pass. Current signed-in verification remains pending.
 
 v3.12.57 orders left to place:
 - Open eBay Orders. Orders left to place appears under the heading and automatically reads every page in the current eBay filters.

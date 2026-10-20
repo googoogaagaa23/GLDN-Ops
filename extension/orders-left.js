@@ -25,7 +25,7 @@
     const details=[state.message,`${s.checked} orders checked across ${state.pages} ${state.pages===1?'page':'pages'}`,`${s.noted} with notes`,`${s.canceled} canceled`,s.unknown?`${s.unknown} awaiting verification`:'','Current eBay filters',state.checkedAt?'Checked '+new Date(state.checkedAt).toLocaleTimeString():'',state.error].filter(Boolean);
     const status=root.querySelector('.status');status.textContent=details.join(' | ');status.classList.toggle('error',!!state.error);
     root.getElementById('stop').hidden=!busy;root.getElementById('refresh').disabled=busy;
-    root.getElementById('show').hidden=!state.error||!state.hasReader;
+    root.getElementById('show').hidden=!(state.error||state.attention)||!state.hasReader;
     host.dataset.complete=String(state.complete);host.dataset.pending=String(s.pending);
   }
   async function request(op){
@@ -47,7 +47,8 @@
         if(!(await call('eligible'))?.eligible){clearInterval(timer);return;}
         host?.remove();scope=current;lastSignal='';haveState=false;if(!mount())return;
         const saved=await call('status');
-        if(saved?.complete&&Date.now()-saved.checkedAt<120000){render(saved);await request('visible');}
+        if(saved?.busy){render(saved);}
+        else if(saved?.complete&&Date.now()-saved.checkedAt<120000){render(saved);await request('visible');}
         else await request('start');
       }
       if(!host?.isConnected||polling)return;polling=true;
