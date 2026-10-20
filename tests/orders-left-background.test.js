@@ -12,7 +12,7 @@ function harness(options={}){
       update:async(id,value)=>{Object.assign(tabs.get(id),value);options.onUpdate?.(tabs.get(id),tabs,store);calls.push(['update',id,structuredClone(value)]);return tabs.get(id);},
       reload:async id=>{tabs.get(id).discarded=false;calls.push(['reload',id]);},
       remove:async id=>{tabs.delete(id);calls.push(['remove',id]);},onRemoved:{addListener:()=>{}}},
-    scripting:{executeScript:async request=>{calls.push(['script',request]);options.onScript?.(request,tabs,store);return request.files?[]:[{result:{ok:true,data:structuredClone(snapshot)}}];}}};
+    scripting:{executeScript:async request=>{calls.push(['script',request]);const override=options.onScript?.(request,tabs,store,snapshot);return override!==undefined?override:request.files?[]:[{result:{ok:true,data:structuredClone(snapshot)}}];}}};
   vm.runInNewContext(fs.readFileSync(require.resolve('../extension/orders-left-background.js'),'utf8'),{chrome,GLDN_ORDERS_LEFT:C,crypto,structuredClone,Date,Map,Number,Promise,clearTimeout,setTimeout:(fn,ms)=>setTimeout(fn,ms>=10000?200:0)});
   const sender={id:'gldn',frameId:0,tab:tabs.get(2)};
   const send=(op,identity=sender,extra={})=>new Promise(resolve=>listener({type:'ordersLeft',op,...extra},identity,resolve));
@@ -91,4 +91,35 @@ test('a frozen reader exposes Open reader attention and resumes without losing t
   let probes=0;
   const h=harness({onGet:tab=>{if(tab.id!==2)tab.frozen=probes++===0;}});await h.send('start');const result=await h.finish();
   assert.equal(result.complete,true);assert.ok(h.writes.some(value=>value['gldnOrdersLeft:2']?.attention));
+});
+test('starting acknowledges the run before a delayed identity read and never scans source orders',async()=>{
+  let release,identityCalls=0;
+  const hold=new Promise(resolve=>{release=resolve;});
+  const h=harness({onScript:(request,tabs,store,snapshot)=>{
+    if(request.target.tabId===2&&request.args?.[0]==='identity'&&identityCalls++===0)return hold.then(()=>[{result:{ok:true,data:{account:snapshot.account}}}]);
+  }});
+  const first=await h.send('start');assert.equal(first.ok,true);assert.equal(first.result.busy,true);assert.equal(first.result.summary.checked,0);
+  const again=await h.send('start');assert.equal(again.result.busy,true);assert.equal(identityCalls,1);
+  assert.equal(h.calls.filter(call=>call[0]==='create').length,0);
+  release();const result=await h.finish();assert.equal(result.complete,true);
+  assert.ok(h.calls.filter(call=>call[0]==='script'&&call[1].target.tabId===2).every(([,request])=>request.args?.[0]==='identity'));
+});
+test('a timed-out helper response is awaited without piling up duplicate script reads',async()=>{
+  let release,workerReads=0;
+  const h=harness({onScript:(request,tabs,store,snapshot)=>{
+    if(request.target.tabId!==2&&request.args?.[0]==='read'&&workerReads++===0)return new Promise(resolve=>{release=()=>resolve([{result:{ok:true,data:structuredClone(snapshot)}}]);});
+  }});
+  await h.send('start');
+  for(let n=0;n<150&&!h.writes.some(value=>value['gldnOrdersLeft:2']?.attention);n++)await new Promise(resolve=>setTimeout(resolve,3));
+  assert.ok(release);assert.ok(h.writes.some(value=>value['gldnOrdersLeft:2']?.attention));assert.equal(workerReads,1);
+  assert.equal((await h.send('status')).result.busy,true);
+  release();const result=await h.finish();assert.equal(result.complete,true);assert.equal(workerReads,2);
+});
+test('an absent packaged reader is repaired once instead of injecting it on every snapshot',async()=>{
+  let missing=true;
+  const h=harness({onScript:request=>{
+    if(request.target.tabId!==2&&request.args?.[0]==='read'&&missing){missing=false;return [{result:{ok:false,missing:true}}];}
+  }});
+  await h.send('start');const result=await h.finish();assert.equal(result.complete,true);
+  assert.equal(h.calls.filter(call=>call[0]==='script'&&call[1].files).length,1);
 });

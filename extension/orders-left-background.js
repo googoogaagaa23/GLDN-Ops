@@ -1,18 +1,32 @@
 (()=>{
   'use strict';
   const C=globalThis.GLDN_ORDERS_LEFT,key=id=>'gldnOrdersLeft:'+id,marker=id=>'gldnOrdersLeftWorker:'+id;
-  const tasks=new Map();
+  const tasks=new Map(),reads=new Map();
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-  function bounded(promise,message,ms=10000){
+  function bounded(promise,message,ms=30000){
     let timer;return Promise.race([promise,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error(message)),ms);})]).finally(()=>clearTimeout(timer));
   }
-  async function read(id,action='read',args={}){
-    await bounded(chrome.scripting.executeScript({target:{tabId:id},injectImmediately:true,files:['orders-left-core.js','orders-left-reader.js']}),'The reader tab did not respond to script loading.');
-    const result=await bounded(chrome.scripting.executeScript({target:{tabId:id},injectImmediately:true,func:(action,args)=>{
+  async function execute(id,action,args){
+    const invoke=()=>chrome.scripting.executeScript({target:{tabId:id},injectImmediately:true,func:(action,args)=>{
+      if(typeof globalThis.GLDN_ORDERS_LEFT_READER!=='function')return {ok:false,missing:true};
       try{return {ok:true,data:globalThis.GLDN_ORDERS_LEFT_READER(action,args)};}catch(e){return {ok:false,error:e.message};}
-    },args:[action,args]}),'The reader tab did not respond to the order read.');
+    },args:[action,args]});
+    let result=await invoke();
+    if(result[0]?.result?.missing){
+      await chrome.scripting.executeScript({target:{tabId:id},injectImmediately:true,files:['orders-left-core.js','orders-left-reader.js']});
+      result=await invoke();
+    }
     if(!result[0]?.result?.ok)throw Error(result[0]?.result?.error||'The order reader did not respond.');
     return result[0].result.data;
+  }
+  async function read(id,action='read',args={}){
+    const signature=JSON.stringify([action,args]);let pending=reads.get(id);
+    if(pending&&pending.signature!==signature)throw Error('The previous order read is still running. Wait for it to finish, then Recount.');
+    if(!pending){
+      pending={signature,promise:execute(id,action,args)};reads.set(id,pending);
+      pending.promise.then(()=>{if(reads.get(id)===pending)reads.delete(id);},()=>{if(reads.get(id)===pending)reads.delete(id);});
+    }
+    return bounded(pending.promise,'The reader tab did not respond to the order read.');
   }
   async function source(sender){
     if(sender.id!==chrome.runtime.id||(sender.frameId||0)!==0||!Number.isInteger(sender.tab?.id)||!C.ordersUrl(sender.tab.url))throw Error('The count must start from this eBay Orders tab.');
@@ -65,8 +79,8 @@
     while(Date.now()<until){
       await check(state);
       try{
-        const tab=await owned(state,id);
-        if(tab.discarded&&!reloaded){reloaded=true;await chrome.tabs.reload(id);previous='';}
+        const tab=id===state.owner&&action==='identity'?await chrome.tabs.get(id):await owned(state,id);
+        if(id!==state.owner&&tab.discarded&&!reloaded){reloaded=true;await chrome.tabs.reload(id);previous='';}
         if(tab.frozen){state.attention=true;state.message='The browser paused the background reader. Open reader to let it continue.';error=state.message;state.updatedAt=Date.now();await save(state);await pause(1000);continue;}
         state.attention=false;
         const matches=url=>action==='detail'?C.orderUrl(url)?.id===args.id:C.scope(url)===state.scope;
@@ -84,13 +98,19 @@
           if(signature===previous)return page;
           previous=signature;
         }else{previous='';error=action==='detail'?'The order note status is still unavailable.':'The native order page has not advanced to the expected results.';}
-      }catch(e){previous='';error=e.message;if(/different order|filters changed|account changed|verification|sign-in|saved order-reader|browser profiles|navigated away|No tab with|Tab closed/i.test(error))throw e;}
+      }catch(e){previous='';error=e.message;if(/different order|filters changed|account changed|verification|sign-in|saved order-reader|browser profiles|navigated away|No tab with|Tab closed/i.test(error))throw e;
+        if(/did not respond|still running/.test(error)){state.attention=true;state.message='Waiting for the eBay reader. Open reader if the browser has paused it.';state.updatedAt=Date.now();await save(state);}
+      }
       await pause(450);
     }
     throw Error(error+' Use Open reader to inspect eBay, then Recount to retry.');
   }
   async function pump(state){
     try{
+      await check(state);
+      const identity=await settled(state,state.owner,'identity');
+      if(identity.scope&&identity.scope!==state.scope)throw Error('The eBay order filters changed.');
+      state.account=identity.account;await save(state);await check(state);
       const id=await worker(state,'index',state.url);
       let page=await settled(state,id,'read');
       for(let attempts=0;!page.first;attempts++){
@@ -141,7 +161,7 @@
     const old=tasks.get(tab.id)||(await chrome.storage.session.get(key(tab.id)))[key(tab.id)];
     if(old?.busy&&tasks.has(tab.id)&&old.scope===C.scope(tab.url))return view(old);
     if(old){old.busy=false;await cleanup(old);}
-    const first=await read(tab.id),state={owner:tab.id,windowId:tab.windowId,incognito:Boolean(tab.incognito),scope:C.scope(tab.url),url:tab.url,account:first.account,run:crypto.randomUUID(),
+    const state={owner:tab.id,windowId:tab.windowId,incognito:Boolean(tab.incognito),scope:C.scope(tab.url),url:tab.url,account:'',run:crypto.randomUUID(),
       busy:true,complete:false,message:'Reading all order pages',rows:{},pages:0,total:null,through:0,signatures:[],updatedAt:Date.now()};
     tasks.set(tab.id,state);await save(state);pump(state).catch(()=>{});return view(state);
   }
@@ -177,6 +197,7 @@
     })().then(result=>respond({ok:true,result})).catch(e=>respond({ok:false,error:e.message}));return true;
   });
   chrome.tabs.onRemoved.addListener(id=>{
+    reads.delete(id);
     const state=tasks.get(id);if(state){state.busy=false;tasks.delete(id);cleanup(state).catch(()=>{});}
     chrome.storage.session.remove([key(id),marker(id)]).catch(()=>{});
   });

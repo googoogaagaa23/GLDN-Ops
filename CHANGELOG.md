@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.59 - 2026-10-19
+
+- Start the Orders-left run before waiting on browser script responses. Check source account identity without first traversing every visible order, and retain usable status/Stop/Recount controls during startup.
+- Reduce DOM work by indexing order-link ancestry once and caching row, header, text and visibility evidence only within each snapshot. Fresh reads still detect saved-note changes.
+- Reuse the packaged reader; install it only if missing. Allow thirty seconds per browser response and reuse an outstanding request rather than queuing duplicate reads after a timeout.
+- Keep partial errors stable until an explicit Recount instead of automatically starting new readers. Preserve all native evidence, account/filter and no-marketplace-write safeguards.
+- Add regression and isolated desktop/mobile tests for delayed startup, missing-reader repair, stalled responses, no retry floods, and 1,501 orders across eight 200-row pages. Signed-in M0 completion remains pending.
+
 ## v3.12.58 - 2026-10-19
 
 - Fix Orders left to place timing out at zero checked while the native order table is already rendered. Inject the reader immediately and require stable native results instead of waiting for the browser's entire page load.

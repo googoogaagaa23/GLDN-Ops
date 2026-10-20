@@ -1,4 +1,12 @@
-GLDN Ops v3.12.58
+GLDN Ops v3.12.59
+
+v3.12.59 orders-left response timeout repair:
+- Start responds before reading the order table. The source tab supplies account identity; order rows are read in the background helper.
+- Larger native pages use less repeated DOM work. Existing readers are reused instead of reinstalled on every snapshot.
+- Slow browser responses have a thirty-second allowance. An outstanding request is reused, never piled up after a timeout.
+- Partial results remain visible with Recount available, without repeatedly restarting failed reads automatically.
+- Update & Reload, refresh eBay Orders, then choose Recount. Exact notes, cancellation, account and pagination checks are unchanged.
+- Desktop/mobile fixtures cover 1,501 orders, eight pages and an eleven-second delayed response. Signed-in M0 completion remains pending.
 
 v3.12.58 orders-left loading and tab recovery:
 - The native order table can be read while unrelated page resources are still loading.

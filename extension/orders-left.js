@@ -1,6 +1,6 @@
 (()=>{
   if(globalThis.GLDN_ORDERS_LEFT_UI)return;globalThis.GLDN_ORDERS_LEFT_UI=true;
-  const C=globalThis.GLDN_ORDERS_LEFT;let host,root,scope='',busy=false,haveState=false,lastSignal='',lastVisible=0,polling=false,checking=false,timer;
+  const C=globalThis.GLDN_ORDERS_LEFT;let host,root,scope='',busy=false,complete=false,haveState=false,lastSignal='',lastVisible=0,polling=false,checking=false,timer;
   const call=async(op)=>{const response=await chrome.runtime.sendMessage({type:'ordersLeft',op});if(!response?.ok)throw Error(response?.error||'The order count did not respond.');return response.result;};
   function mount(){
     const heading=[...document.querySelectorAll('h1')].find(el=>/orders/i.test(el.textContent)&&!el.closest('[id^="gldn-"]'));
@@ -19,7 +19,7 @@
   }
   function render(state){
     if(!state||state.scope!==scope)return;
-    busy=state.busy;haveState=true;const s=state.summary;
+    busy=state.busy;complete=state.complete;haveState=true;const s=state.summary;
     root.querySelector('output').textContent=state.complete?`${s.pending} ${s.pending===1?'order':'orders'}`:s.checked?`At least ${s.pending} ${s.pending===1?'order':'orders'}`:state.error?'Count incomplete':'Counting...';
     root.querySelector('.dates').replaceChildren(...s.groups.map(group=>{const line=document.createElement('span');line.className='date';line.textContent=group.label;return line;}));
     const details=[state.message,`${s.checked} orders checked across ${state.pages} ${state.pages===1?'page':'pages'}`,`${s.noted} with notes`,`${s.canceled} canceled`,s.unknown?`${s.unknown} awaiting verification`:'','Current eBay filters',state.checkedAt?'Checked '+new Date(state.checkedAt).toLocaleTimeString():'',state.error].filter(Boolean);
@@ -36,7 +36,7 @@
     root.querySelector('.status').textContent=message;root.querySelector('.status').classList.add('error');
     root.querySelector('output').textContent='Count unavailable';root.querySelector('.dates').replaceChildren();
     root.getElementById('refresh').disabled=false;root.getElementById('stop').hidden=true;
-    host.dataset.complete='false';host.removeAttribute('data-pending');busy=false;haveState=false;
+    host.dataset.complete='false';host.removeAttribute('data-pending');busy=false;complete=false;haveState=false;
   }
   async function tick(){
     if(checking)return;checking=true;
@@ -54,12 +54,11 @@
       if(!host?.isConnected||polling)return;polling=true;
       try{
         if(busy)await request('status');
-        else if(Date.now()-lastVisible>4000){
+        else if(complete&&haveState&&Date.now()-lastVisible>4000){
           lastVisible=Date.now();
           const page=globalThis.GLDN_ORDERS_LEFT_READER('read');
           const signature=JSON.stringify([page.account,page.range,page.rows]);
-          if(!haveState)await request('start');
-          else if(lastSignal!==signature)await request('visible');
+          if(lastSignal!==signature)await request('visible');
           lastSignal=signature;
         }
       }catch(e){invalidate(e.message);}

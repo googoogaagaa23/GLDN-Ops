@@ -1,8 +1,18 @@
 (()=>{
   'use strict';
   const C=globalThis.GLDN_ORDERS_LEFT;
-  const visible=el=>!!el&&!el.closest('[hidden],[aria-hidden="true"],[id^="gldn-"]')&&el.getClientRects().length>0;
-  const text=el=>C.text(el?.innerText||el?.textContent);
+  let cache;
+  function visible(el){
+    if(!el)return false;
+    if(cache?.visible.has(el))return cache.visible.get(el);
+    const value=!el.closest('[hidden],[aria-hidden="true"],[id^="gldn-"]')&&el.getClientRects().length>0;
+    cache?.visible.set(el,value);return value;
+  }
+  function text(el){
+    if(!el)return '';
+    if(cache?.text.has(el))return cache.text.get(el);
+    const value=C.text(el.innerText||el.textContent);cache?.text.set(el,value);return value;
+  }
   const all=(selector,root=document)=>[...root.querySelectorAll(selector)].filter(visible);
   const controls=root=>all('button,a,[role="button"],[role="menuitem"]',root);
   const signal=el=>C.text(el.getAttribute('aria-label')||el.getAttribute('title')||text(el));
@@ -19,10 +29,13 @@
     if(all('[role="progressbar"],[aria-busy="true"],.progress-spinner,[aria-label="Loading"]').length)throw Error('The eBay orders are still loading.');
   }
   function cells(row){
+    if(cache?.cells.has(row))return cache.cells.get(row);
     const table=row.closest('table,[role="grid"]');
-    const headers=table?[...table.querySelectorAll('thead th,[role="columnheader"]')].map(text):[];
+    let headers=table&&cache?.headers.get(table);
+    if(!headers){headers=table?[...table.querySelectorAll('thead th,[role="columnheader"]')].map(text):[];if(table)cache?.headers.set(table,headers);}
     const values=[...row.querySelectorAll(':scope > td,:scope > [role="gridcell"]')];
-    return pattern=>values[headers.findIndex(value=>pattern.test(value))]||null;
+    const find=pattern=>values[headers.findIndex(value=>pattern.test(value))]||null;
+    cache?.cells.set(row,find);return find;
   }
   function note(row){
     const labels=controls(row).map(signal);
@@ -48,7 +61,7 @@
   }
   function labeled(root,names){
     for(const el of all('dt,span,div,th,label',root)){
-      if(!names.test(text(el))||el.children.length>1)continue;
+      if(el.children.length>1||!names.test(text(el)))continue;
       const next=el.nextElementSibling;if(next&&C.date(text(next)))return C.date(text(next));
       if(el.parentElement&&el.parentElement.children.length<=3){const value=text(el.parentElement).replace(text(el),'').trim();if(C.date(value))return C.date(value);}
     }
@@ -61,13 +74,13 @@
     if(cell)return C.date(text(cell))||C.date(time?.getAttribute('datetime'));
     return labeled(row,/^(?:sold|date sold|order date)\s*:?$/i)||C.date(text(row).match(/\b(?:date sold|order date|sold)\s*:?\s*((?:[A-Za-z]{3,9}\s+\d{1,2}(?:,?\s+\d{4})?|\d{1,2}\/\d{1,2}(?:\/\d{4})?|today|yesterday))/i)?.[1]);
   }
-  function container(anchor,id){
+  function container(anchor,id,ancestry){
     let node=anchor.parentElement,best=null;
     for(let depth=0;node&&node!==document.body&&depth<12;depth++,node=node.parentElement){
-      const ids=new Set([...node.querySelectorAll('a[href]')].map(a=>C.orderUrl(a.href)?.id).filter(Boolean));
-      if(ids.size>1)break;
-      if(ids.has(id)&&node.matches('tr,[role="row"],article,li,[data-testid*="order"],.order-card,.orderCard,.order-row'))return node;
-      if(ids.has(id)&&(orderDate(node)||controls(node).some(el=>/^(?:add|edit|view)(?: (?:a|an|private|order))* note$/i.test(signal(el)))))best=node;
+      const ids=ancestry.get(node);
+      if(ids?.size>1)break;
+      if(ids?.has(id)&&node.matches('tr,[role="row"],article,li,[data-testid*="order"],.order-card,.orderCard,.order-row'))return node;
+      if(ids?.has(id)&&(orderDate(node)||controls(node).some(el=>/^(?:add|edit|view)(?: (?:a|an|private|order))* note$/i.test(signal(el)))))best=node;
     }
     return best;
   }
@@ -81,11 +94,20 @@
   }
   function snapshot(){
     if(!C.ordersUrl(location.href))throw Error('Open the eBay Orders page.');guard();
-    const rows=new Map();let unknownIds=0;
-    for(const anchor of all('a[href]')){
-      const parsed=C.orderUrl(anchor.href);if(!parsed)continue;
-      const row=container(anchor,parsed.id);if(!row){unknownIds++;continue;}
-      rows.set(parsed.id,{id:parsed.id,url:parsed.url,date:orderDate(row),note:note(row),canceled:canceled(row)});
+    const rows=new Map(),ancestry=new WeakMap(),rowValues=new WeakMap();let unknownIds=0;
+    const links=[...document.querySelectorAll('a[href]')].map(anchor=>({anchor,parsed:C.orderUrl(anchor.href)})).filter(value=>value.parsed);
+    // Index ancestors once instead of rescanning every surrounding subtree for each link.
+    for(const {anchor,parsed} of links){
+      let node=anchor.parentElement;
+      for(let depth=0;node&&node!==document.body&&depth<12;depth++,node=node.parentElement){
+        let ids=ancestry.get(node);if(!ids){ids=new Set();ancestry.set(node,ids);}if(ids.size<2)ids.add(parsed.id);
+      }
+    }
+    for(const {anchor,parsed} of links){
+      if(!visible(anchor))continue;
+      const row=container(anchor,parsed.id,ancestry);if(!row){unknownIds++;continue;}
+      let values=rowValues.get(row);if(!values){values={date:orderDate(row),note:note(row),canceled:canceled(row)};rowValues.set(row,values);}
+      rows.set(parsed.id,{id:parsed.id,url:parsed.url,...values});
     }
     const body=text(document.body),match=body.match(/\b(?:Results?|Orders?)\s*:?\s*([\d,]+)\s*[-\u2013]\s*([\d,]+)\s+(?:of|out of)\s+([\d,]+)/i);
     const range=match?{start:Number(match[1].replace(/,/g,'')),end:Number(match[2].replace(/,/g,'')),total:Number(match[3].replace(/,/g,''))}:null;
@@ -116,11 +138,18 @@
     return {id,url:parsed.url,account:account(),date:orderDate(document.body),note:saved,canceled:cancel};
   }
   globalThis.GLDN_ORDERS_LEFT_READER=(action,args={})=>{
-    if(action==='read')return snapshot();
-    if(action==='detail')return detail(args.id,args.openMenu===true);
-    if(!['first','previous','next'].includes(action))throw Error('Unknown order-count reader action.');
-    snapshot();const control=navigation()[action];if(!control||disabled(control))throw Error('The requested native order page is unavailable.');
-    if(control.tagName==='A'&&control.href&&C.scope(control.href)!==C.scope(location.href))throw Error('The pagination control changes the order filters.');
-    control.click();return {changed:true};
+    cache={text:new WeakMap(),visible:new WeakMap(),cells:new WeakMap(),headers:new WeakMap()};
+    try{
+      if(action==='identity'){
+        if(!C.ordersUrl(location.href))throw Error('Open the eBay Orders page.');guard();
+        return {scope:C.scope(location.href),account:account()};
+      }
+      if(action==='read')return snapshot();
+      if(action==='detail')return detail(args.id,args.openMenu===true);
+      if(!['first','previous','next'].includes(action))throw Error('Unknown order-count reader action.');
+      snapshot();const control=navigation()[action];if(!control||disabled(control))throw Error('The requested native order page is unavailable.');
+      if(control.tagName==='A'&&control.href&&C.scope(control.href)!==C.scope(location.href))throw Error('The pagination control changes the order filters.');
+      control.click();return {changed:true};
+    }finally{cache=null;}
   };
 })();

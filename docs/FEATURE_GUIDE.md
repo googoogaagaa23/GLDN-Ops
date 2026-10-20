@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.58. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.59. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -92,13 +92,14 @@ A total and oldest-first weekday/date groups such as Thursday, 10/15 50 orders l
 - Any saved note is the placed marker, even if it is not a GLDN profit note. An unsaved draft is not a saved note.
 - Switching tabs or moving the source or reader between windows in the same browser profile does not stop the saved run. Stable order rows can be read while other page resources load.
 - A remounted summary reconnects to its active read. Discarded readers reload once. If the browser freezes a reader, use Open reader to let it resume.
+- Slow browser responses have a thirty-second allowance. A pending request is reused rather than repeatedly queued. Partial failures wait for an explicit Recount instead of automatically restarting.
 - Missing note/status/date evidence, changed totals, repeated/skipped pages, unknown navigation or a background restart keeps the result partial.
 - The weekday comes from the actual order date and year. Prior-year groups include the year explicitly.
 - State stays in this Chrome profile and is not shared with the dashboard. Recount after account or filter changes.
 
 ### Evidence
 
-Core and background tests cover unique order counts, dates, cancellation and note rules, saved reader ownership, sender rejection, normal/incognito separation, discarded/frozen recovery and partial completion. Synthetic real-extension desktop/mobile Chromium checks read three pages, resolve hidden notes in exact details, count nine mixed orders and 235 larger-set orders, update a saved-note change, retain the visible source page and make zero marketplace submissions. Recovery checks deliberately hold a resource loading, select another tab, move the source between windows and remount the summary without restarting the run. Current signed-in validation remains pending because the affected browser is not exposed through browser control.
+Core/background tests cover counting rules, saved reader ownership, sender rejection, startup before a delayed identity response, pending-read deduplication, missing-reader repair and partial completion. Synthetic real-extension desktop/mobile Chromium checks count nine mixed orders, 235 orders and 1,501 orders across eight pages, resolve hidden notes, detect fresh saved-note changes and make zero marketplace submissions. Recovery checks hold resources loading, delay a response eleven seconds, switch tabs/windows, remount the summary and verify partial errors do not cause retry floods. M0's signed-in 1,501-result native list was observed through AnyDesk; completed signed-in count verification remains pending.
 
 
 <a id="offer-review"></a>
