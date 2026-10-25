@@ -1,4 +1,11 @@
-GLDN Ops v3.12.62
+GLDN Ops v3.12.63
+
+v3.12.63 Visible Orders counter:
+- Background Orders reader tabs show the original counter's results and a Return to Orders counter button. They never start a duplicate scan.
+- A completed reader left open keeps a read-only results view. Source, filter and normal/incognito checks remain enforced.
+- Startup and connection errors stay visible instead of leaving a blank section. The counter shows its installed version and reconnects after remounting.
+- Five-page coverage, date groups, Add Tracking / Check counts and saved-note/cancellation rules are unchanged. No marketplace action is submitted.
+- Update & Reload, then refresh eBay Orders. Computer 6 live completion remains pending.
 
 v3.12.62 Five-page Orders and keyword checks:
 - Orders left to place starts at page one and reads up to five pages under the current eBay filters. Five-page results are labeled, not claimed as the entire history.

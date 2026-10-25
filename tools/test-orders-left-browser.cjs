@@ -1,6 +1,6 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright');
-const root=path.resolve(__dirname,'..'),extension=path.join(root,'extension'),output=path.join(root,'.test-tmp','orders-left-v3.12.62');
+const root=path.resolve(__dirname,'..'),extension=path.join(root,'extension'),output=path.join(root,'.test-tmp','orders-left-v3.12.63');
 const C=require('../extension/orders-left-core.js');
 const number=n=>'01-00001-'+String(n).padStart(5,'0');
 const url='https://www.ebay.com/sh/ord/?filter=status:ALL_ORDERS&offset=4';
@@ -42,6 +42,25 @@ function detailHTML(value){
     await page.evaluate(()=>GLDN_ORDERS_LEFT_READER('next'));
     assert.equal(await page.evaluate(()=>window.pageClicks),1);assert.equal(await page.evaluate(()=>window.submitted),0);
     console.log(JSON.stringify({nativeNavigationSafety:true,unrelatedNumericButtonUntouched:true,standaloneIconSupported:true}));
+    await page.evaluate(()=>{
+      window.connectionRecovered=false;window.scanStarts=0;
+      const saved={scope:GLDN_ORDERS_LEFT.scope(location.href),busy:false,complete:true,pages:1,pageLimit:5,scanVersion:GLDN_ORDERS_LEFT.SCAN_VERSION,checkedAt:Date.now(),summary:GLDN_ORDERS_LEFT.summary([]),message:'Complete',hasReader:false};
+      window.chrome={runtime:{getURL:()=>'',getManifest:()=>({version:'3.12.63'}),sendMessage:async({op})=>{
+        if(op==='eligible')return window.connectionRecovered?{ok:true,result:{eligible:true,reader:false}}:{ok:false,error:'Fixture browser connection unavailable'};
+        if(op==='start')window.scanStarts++;
+        return {ok:true,result:saved};
+      }}};
+    });
+    await page.addScriptTag({path:path.join(extension,'orders-left.js')});
+    await page.waitForFunction(()=>document.querySelector('#gldn-orders-left')?.shadowRoot?.querySelector('.status.error'));
+    assert.equal(await page.locator('#gldn-orders-left output').textContent(),'Count unavailable');
+    assert.match(await page.locator('#gldn-orders-left .status').textContent(),/Fixture browser connection unavailable/);
+    await page.evaluate(()=>window.connectionRecovered=true);
+    await page.waitForFunction(()=>document.querySelector('#gldn-orders-left')?.dataset.complete==='true');
+    await page.locator('#gldn-orders-left').evaluate(el=>el.remove());
+    await page.waitForFunction(()=>document.querySelector('#gldn-orders-left')?.dataset.complete==='true');
+    assert.equal(await page.evaluate(()=>window.scanStarts),0,'Connection recovery and remount reconnect to existing results');
+    console.log(JSON.stringify({startupErrorVisible:true,connectionRecovery:true,remountReconnects:true,noDuplicateScan:true}));
   }finally{await probe.close();}
   const fixtureScript=ordersHTML(url).match(/<script>([\s\S]*?)<\/script>/)[1];
   fs.writeFileSync(path.join(output,'fixture-page.js'),fixtureScript);new Function(fixtureScript);
@@ -54,7 +73,7 @@ function detailHTML(value){
     chrome.tabs.update=async(id,options)=>{if(!options.url)return update(id,options);const done=new Promise(resolve=>globalThis.release[id]=resolve);globalThis.pending.push({id,url:options.url,marker:globalThis.markers[id]});await done;return chrome.tabs.get(id);};
     chrome.scripting.executeScript=async options=>{const tab=await chrome.tabs.get(options.target.tabId);if(tab.status==='loading')globalThis.loadingReads.push({id:tab.id,url:tab.url,immediate:options.injectImmediately===true});if(tab.url.includes('scenario=delayed')&&globalThis.markers[tab.id]&&options.args?.[0]==='read'&&globalThis.delayedReads++===0)await new Promise(resolve=>setTimeout(resolve,11000));return execute(options);};
     importScripts('orders-left-core.js','orders-left-background.js');`);
-  fs.writeFileSync(path.join(fixture,'manifest.json'),JSON.stringify({manifest_version:3,name:'GLDN orders left isolated fixture',version:'3.12.62',permissions:['storage','tabs','scripting'],host_permissions:['https://*.ebay.com/*'],background:{service_worker:'background.js'},content_scripts:[{matches:['https://*.ebay.com/*'],js:['orders-left-core.js','orders-left-reader.js','orders-left.js'],run_at:'document_idle'}],web_accessible_resources:[{resources:['icons/icon48.png'],matches:['https://*.ebay.com/*']}]}));
+  fs.writeFileSync(path.join(fixture,'manifest.json'),JSON.stringify({manifest_version:3,name:'GLDN orders left isolated fixture',version:'3.12.63',permissions:['storage','tabs','scripting'],host_permissions:['https://*.ebay.com/*'],background:{service_worker:'background.js'},content_scripts:[{matches:['https://*.ebay.com/*'],js:['orders-left-core.js','orders-left-reader.js','orders-left.js'],run_at:'document_idle'}],web_accessible_resources:[{resources:['icons/icon48.png'],matches:['https://*.ebay.com/*']}]}));
   const results=[];
   for(const viewport of [{width:1366,height:1000},{width:390,height:844}]){
     const profile=fs.mkdtempSync(path.join(output,'profile-'));
@@ -91,7 +110,23 @@ function detailHTML(value){
       await source.waitForFunction(()=>document.querySelector('#gldn-orders-left')?.dataset.complete==='true',{},{timeout:45000});
       assert.equal(Number(await panel.getAttribute('data-pending')),C.summary(large).pending);assert.match(await panel.locator('.status').textContent(),/235 orders checked across 3 pages/);
       await source.goto(url.replace('offset=4','scenario=volume'));
+      let readerPage;
+      for(let attempt=0;attempt<100&&!readerPage;attempt++){
+        readerPage=context.pages().find(page=>page!==source&&page.url().includes('scenario=volume')&&!page.isClosed());
+        if(!readerPage)await new Promise(resolve=>setTimeout(resolve,30));
+      }
+      assert.ok(readerPage);await readerPage.bringToFront();
+      await readerPage.waitForFunction(()=>document.querySelector('#gldn-orders-left')?.dataset.reader==='true',{},{timeout:15000});
+      assert.equal(await readerPage.locator('#gldn-orders-left #refresh').isVisible(),false);
+      assert.equal(await readerPage.locator('#gldn-orders-left #return').isVisible(),true);
       await source.waitForFunction(()=>document.querySelector('#gldn-orders-left')?.dataset.complete==='true',{},{timeout:60000});
+      await readerPage.waitForFunction(()=>document.querySelector('#gldn-orders-left')?.dataset.complete==='true',{},{timeout:15000});
+      assert.equal(await readerPage.locator('#gldn-orders-left').getAttribute('data-pending'),await panel.getAttribute('data-pending'));
+      await readerPage.screenshot({path:path.join(output,'reader-mirror-'+viewport.width+'.png'),fullPage:false});
+      const beforeReturn=await worker.evaluate(()=>globalThis.created.length);
+      await readerPage.locator('#gldn-orders-left #return').click();
+      const sourceActive=await worker.evaluate(async()=> (await chrome.tabs.query({active:true})).some(tab=>tab.url.includes('scenario=volume')&&!globalThis.markers[tab.id]));assert.equal(sourceActive,true);
+      assert.equal(await worker.evaluate(()=>globalThis.created.length),beforeReturn,'Mirroring/returning never starts another scan');
       assert.equal(Number(await panel.getAttribute('data-pending')),C.summary(volume.slice(0,1000)).pending);assert.match(await panel.locator('.status').textContent(),/First 5 pages read.*1000 orders checked across 5 pages/);
       assert.match(await panel.locator('output').textContent(),/first 5 pages/);
       const expectedKeywords=C.summary(volume.slice(0,1000).map(row=>({...row,keywords:C.keywordMatches(row.sample)}))).keywords;
@@ -138,7 +173,7 @@ function detailHTML(value){
       const createdAfterError=await worker.evaluate(()=>globalThis.created.length);await new Promise(resolve=>setTimeout(resolve,5500));
       assert.equal(await worker.evaluate(()=>globalThis.created.length),createdAfterError,'A partial read does not flood retries automatically');
       assert.equal(await panel.getAttribute('data-complete'),'false');assert.equal(await panel.locator('#refresh').isEnabled(),true);
-      results.push({viewport,pages:3,uniqueOrders:9,pending:5,canceled:2,noted:2,addTracking:2,check:3,notedOrdersIncludedInKeywords:true,hiddenDraftInjectedKeywordsExcluded:true,largeOrderCount:235,largePending:C.summary(large).pending,volumeOrders:1000,volumePages:5,volumePending:C.summary(volume.slice(0,1000)).pending,numberedPagination:true,iconPagination:true,nativeOffsetPagination:true,lazyFooterRecovered:true,snapshot200OrdersMs:benchmark.ms,elevenSecondResponseRecovered:true,noPartialRetryFlood:true,detailFallback:true,savedNoteUpdates:true,sourcePagePreserved:true,explicitEmpty:true,unknownNavigationPartial:true,slowLoadingDomRead:true,otherTabRemainsSelected:true,sourceWindowMove:true,remountResumesExistingRun:true,submissionCount:0});console.log(JSON.stringify(results.at(-1)));
+      results.push({viewport,pages:3,uniqueOrders:9,pending:5,canceled:2,noted:2,addTracking:2,check:3,notedOrdersIncludedInKeywords:true,hiddenDraftInjectedKeywordsExcluded:true,largeOrderCount:235,largePending:C.summary(large).pending,volumeOrders:1000,volumePages:5,volumePending:C.summary(volume.slice(0,1000)).pending,readerMirrorVisible:true,readerMirrorMatches:true,readerReturnToSource:true,noDuplicateReaderScan:true,startupErrorVisible:true,connectionRecovery:true,numberedPagination:true,iconPagination:true,nativeOffsetPagination:true,lazyFooterRecovered:true,snapshot200OrdersMs:benchmark.ms,elevenSecondResponseRecovered:true,noPartialRetryFlood:true,detailFallback:true,savedNoteUpdates:true,sourcePagePreserved:true,explicitEmpty:true,unknownNavigationPartial:true,slowLoadingDomRead:true,otherTabRemainsSelected:true,sourceWindowMove:true,remountResumesExistingRun:true,submissionCount:0});console.log(JSON.stringify(results.at(-1)));
     }catch(e){if(source){console.error(await source.locator('body').innerText());console.error(await source.locator('#gldn-orders-left .status').textContent().catch(()=>''));await source.screenshot({path:path.join(output,'failure-'+viewport.width+'.png'),fullPage:true});}throw e;}
     finally{running=false;await navigating;for(const route of held)await route.abort().catch(()=>{});await context.close();}
   }

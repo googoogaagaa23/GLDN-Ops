@@ -34,7 +34,7 @@ test('website, iframe and another extension cannot start or inspect a count',asy
 });
 test('reader tabs cannot recursively launch their own counts',async()=>{
   const h=harness();h.store['gldnOrdersLeftWorker:2']={owner:1};
-  assert.equal((await h.send('eligible')).result.eligible,false);assert.equal((await h.send('start')).ok,false);assert.equal(h.calls.length,0);
+  assert.equal((await h.send('eligible')).ok,false);assert.equal((await h.send('start')).ok,false);assert.equal(h.calls.length,0);
 });
 test('caller-supplied URLs cannot redirect the order reader',async()=>{
   const h=harness();await h.send('start',h.sender,{url:'https://evil.test/'});await h.finish();
@@ -157,4 +157,45 @@ test('a later starting page reveals lazy navigation before returning to the nati
   await h.send('start');const result=await h.finish();assert.equal(result.complete,true);assert.equal(stage,2);
   const actions=h.calls.filter(call=>call[0]==='script'&&call[1].target.tabId!==2).map(call=>call[1].args?.[0]);
   assert.ok(actions.indexOf('reveal-pagination')<actions.indexOf('first'));
+});
+
+function readerFixture({active=true,incognito=false}={}){
+  const h=harness(),tab={id:3,url:h.sender.tab.url,status:'complete',windowId:17,incognito};h.tabs.set(3,tab);
+  h.store['gldnOrdersLeft:2']={owner:2,scope:C.scope(tab.url),incognito:false,run:'known-run',index:active?3:null,detail:null,busy:false,complete:true,rows:{[h.snapshot.rows[0].id]:h.snapshot.rows[0]},pages:1,pageLimit:5,scanVersion:C.SCAN_VERSION};
+  h.store['gldnOrdersLeftView:3']={owner:2,kind:'index',scope:C.scope(tab.url)};
+  if(active)h.store['gldnOrdersLeftWorker:3']={owner:2,run:'known-run',kind:'index'};
+  return {...h,readerSender:{id:'gldn',frameId:0,tab}};
+}
+
+test('reader tabs mirror existing results and return to their verified source without starting scans',async()=>{
+  const h=readerFixture();const context=await h.send('eligible',h.readerSender);
+  assert.equal(context.ok,true);assert.equal(context.result.eligible,false);assert.equal(context.result.reader,true);assert.equal(context.result.state.summary.pending,1);
+  assert.equal((await h.send('start',h.readerSender)).ok,false);
+  assert.equal((await h.send('reader-return',h.readerSender)).ok,true);assert.equal(h.tabs.get(2).active,true);
+  assert.equal(h.calls.filter(call=>call[0]==='create'||call[0]==='script').length,0);
+});
+
+test('completed active readers keep a results view after the working marker has been cleaned',async()=>{
+  const h=readerFixture({active:false});const context=await h.send('eligible',h.readerSender);
+  assert.equal(context.result.reader,true);assert.equal(context.result.state.complete,true);
+  assert.equal((await h.send('start',h.readerSender)).ok,false);assert.equal(h.calls.length,0);
+});
+
+test('a closed source releases an orphaned reader instead of hiding its panel forever',async()=>{
+  const h=readerFixture();h.tabs.delete(2);const context=await h.send('eligible',h.readerSender);
+  assert.equal(context.result.eligible,true);assert.equal(context.result.reader,false);
+  assert.equal(h.store['gldnOrdersLeftWorker:3'],undefined);assert.equal(h.store['gldnOrdersLeftView:3'],undefined);
+});
+
+test('reader mirrors reject forged ownership, changed filters and incognito crossings',async()=>{
+  for(const change of [h=>{h.store['gldnOrdersLeftWorker:3'].run='wrong';},h=>{h.tabs.get(2).url+='&period=30_DAYS';},h=>{h.tabs.get(3).incognito=true;}]){
+    const h=readerFixture();change(h);assert.equal((await h.send('eligible',h.readerSender)).ok,false);assert.equal((await h.send('reader-return',h.readerSender)).ok,false);
+    assert.equal(h.calls.filter(call=>call[0]==='update'||call[0]==='create').length,0);
+  }
+});
+
+test('restarted reader views expose a partial result instead of a perpetually busy or missing panel',async()=>{
+  const h=readerFixture();h.store['gldnOrdersLeft:2'].busy=true;
+  const context=await h.send('eligible',h.readerSender);assert.equal(context.result.reader,true);assert.equal(context.result.state.busy,false);assert.equal(context.result.state.complete,false);
+  assert.match(context.result.state.error,/restarted/);
 });

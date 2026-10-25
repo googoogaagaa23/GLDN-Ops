@@ -1,6 +1,6 @@
 (()=>{
   'use strict';
-  const C=globalThis.GLDN_ORDERS_LEFT,key=id=>'gldnOrdersLeft:'+id,marker=id=>'gldnOrdersLeftWorker:'+id;
+  const C=globalThis.GLDN_ORDERS_LEFT,key=id=>'gldnOrdersLeft:'+id,marker=id=>'gldnOrdersLeftWorker:'+id,viewKey=id=>'gldnOrdersLeftView:'+id;
   const tasks=new Map(),reads=new Map();
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   function bounded(promise,message,ms=30000){
@@ -28,12 +28,32 @@
     }
     return bounded(pending.promise,'The reader tab did not respond to the order read.');
   }
-  async function source(sender){
+  async function senderTab(sender){
     if(sender.id!==chrome.runtime.id||(sender.frameId||0)!==0||!Number.isInteger(sender.tab?.id)||!C.ordersUrl(sender.tab.url))throw Error('The count must start from this eBay Orders tab.');
-    if((await chrome.storage.session.get(marker(sender.tab.id)))[marker(sender.tab.id)])throw Error('A background reader cannot start another count.');
     const tab=await chrome.tabs.get(sender.tab.id);
     if(C.scope(tab.url)!==C.scope(sender.tab.url))throw Error('The eBay order filters changed.');
     return tab;
+  }
+  async function source(sender){
+    const tab=await senderTab(sender);
+    if((await chrome.storage.session.get(marker(tab.id)))[marker(tab.id)]||(await chrome.storage.session.get(viewKey(tab.id)))[viewKey(tab.id)])throw Error('A background reader cannot start another count.');
+    return tab;
+  }
+  async function readerView(sender){
+    const tab=await senderTab(sender),active=(await chrome.storage.session.get(marker(tab.id)))[marker(tab.id)],saved=(await chrome.storage.session.get(viewKey(tab.id)))[viewKey(tab.id)],proof=saved||active;
+    if(!proof)return null;
+    if(!Number.isInteger(proof.owner)||proof.owner===tab.id||proof.kind!=='index')throw Error('The saved order-reader identity is invalid.');
+    let owner;
+    try{owner=await chrome.tabs.get(proof.owner);}catch{
+      await chrome.storage.session.remove([marker(tab.id),viewKey(tab.id)]);return null;
+    }
+    const state=tasks.get(owner.id)||(await chrome.storage.session.get(key(owner.id)))[key(owner.id)];
+    if(!state||C.scope(owner.url)!==state.scope||C.scope(tab.url)!==state.scope||saved&&saved.scope!==state.scope)throw Error('The background Orders view no longer matches its original Orders tab.');
+    if(Boolean(tab.incognito)!==Boolean(owner.incognito)||Boolean(tab.incognito)!==Boolean(state.incognito))throw Error('The order reader changed browser profiles.');
+    if(active&&(active.owner!==owner.id||active.run!==state.run||active.kind!=='index'||state.index!==tab.id))throw Error('The saved order-reader identity no longer matches this count.');
+    if(!saved)await chrome.storage.session.set({[viewKey(tab.id)]:{owner:owner.id,kind:'index',scope:state.scope}});
+    if(state.busy&&!tasks.has(owner.id)){state.busy=false;state.complete=false;state.message='Partial read';state.error='The background reader restarted. Return to Orders and Recount to finish.';await save(state);}
+    return {owner,state};
   }
   const save=state=>chrome.storage.session.set({[key(state.owner)]:structuredClone(state)});
   function view(state){
@@ -72,6 +92,7 @@
     const tab=await chrome.tabs.create({url:'about:blank',active:false,windowId:state.windowId,openerTabId:state.owner});
     state[kind]=tab.id;
     await chrome.storage.session.set({[marker(tab.id)]:{owner:state.owner,run:state.run,kind}});await save(state);
+    if(kind==='index')await chrome.storage.session.set({[viewKey(tab.id)]:{owner:state.owner,kind:'index',scope:state.scope}});
     await chrome.tabs.update(tab.id,{url,active:false});return tab.id;
   }
   async function settled(state,id,action,args={},predicate=()=>true,maxMs=90000){
@@ -181,7 +202,14 @@
     (async()=>{
       if(message.op==='eligible'){
         if(sender.id!==chrome.runtime.id||(sender.frameId||0)!==0||!C.ordersUrl(sender.tab?.url))return {eligible:false};
-        return {eligible:!(await chrome.storage.session.get(marker(sender.tab.id)))[marker(sender.tab.id)]};
+        const reader=await readerView(sender);
+        return reader?{eligible:false,reader:true,state:view(reader.state)}:{eligible:true,reader:false};
+      }
+      if(message.op==='reader-return'){
+        const reader=await readerView(sender);if(!reader)throw Error('The original Orders tab is no longer available.');
+        await chrome.tabs.update(reader.owner.id,{active:true});
+        if(chrome.windows?.update)await chrome.windows.update(reader.owner.windowId,{focused:true});
+        return view(reader.state);
       }
       const tab=await source(sender);
       if(message.op==='start')return start(tab);
@@ -210,6 +238,6 @@
   chrome.tabs.onRemoved.addListener(id=>{
     reads.delete(id);
     const state=tasks.get(id);if(state){state.busy=false;tasks.delete(id);cleanup(state).catch(()=>{});}
-    chrome.storage.session.remove([key(id),marker(id)]).catch(()=>{});
+    chrome.storage.session.remove([key(id),marker(id),viewKey(id)]).catch(()=>{});
   });
 })();

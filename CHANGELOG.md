@@ -1,5 +1,13 @@
 # GLDN Ops Changelog
 
+## v3.12.63 - 2026-10-25
+
+- Keep Orders left to place visible in owned background Orders tabs. Mirror the original counter and offer Return to Orders counter without launching a second scan.
+- Retain a read-only view when a completed reader stays open. Verify its source, filters and normal/incognito identity; release orphaned readers when their source closes.
+- Mount the counter before the browser handshake and show connection/startup errors instead of silently hiding the section. Keep polling so remounts and recovered connections can reconnect.
+- Show the installed version beside the counter. Preserve the first-five-page scope, Add Tracking / Check counts and all no-marketplace-write safeguards.
+- Add reader-view ownership/restart regressions and desktop/mobile real-extension checks for visible mirrored results and returning without another scan. Computer 6 live completion remains pending.
+
 ## v3.12.62 - 2026-10-20
 
 - Scan the first five native eBay Orders pages, or all available pages when fewer exist, for the selected filters. Label the five-page boundary instead of presenting it as the entire order history.

@@ -1,7 +1,9 @@
 # GLDN Ops Master Feature Matrix
 
-Last updated: 2026-10-20
-Current local manifest: 3.12.62
+Last updated: 2026-10-25
+Current local manifest: 3.12.63
+
+v3.12.63 keeps the Orders counter visible in background Orders readers, mirrors source results and returns to the original tab without another scan. Completed readers retain a verified read-only view; orphaned sources and background restarts are handled explicitly. Mounting precedes the browser handshake, making startup errors visible, and the installed version is shown. Ownership/filter/profile regressions and desktop/mobile real-extension reader-view checks preserve five-page/keyword behavior with zero submissions. Signed-in Computer 6 five-page completion remains pending, not LIVE PASS.
 
 v3.12.62 bounds Orders-left and new Add Tracking / Check results to the first five native pages under current filters. Native numbered, icon and same-filter offset navigation plus lazy-footer recovery advance the owned reader without moving the source. Keyword matches include noted orders, exclude cancellations/hidden/injected/draft text, deduplicate by order and expose exact review links. Core/background and desktop/mobile real-extension fixtures cover the five-page boundary, 1,000 checked orders, keyword totals and existing recovery with zero submissions. The affected signed-in M0 list is not exposed; live completion remains pending, not LIVE PASS.
 
@@ -13,7 +15,7 @@ v3.12.59 repairs Orders-left startup and script response timeouts. Startup is ac
 
 | ID | Feature | Expected Result | Implementation | Automated Evidence | Live Evidence | Status | Next Gate |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| E-17 | Orders left to place | First-five-page per-date note-free order counts plus separate Add Tracking / Check matches | Native range/identity checks, numbered/icon/offset navigation, lazy-footer recovery, exact detail fallback, deduplicated keywords, review links and manual Recount/Stop; no marketplace writes | Core/background regressions and desktop/mobile real-extension synthetic 9/235/1000-order fixtures, first-five boundary, keyword/draft/cancellation cases, delayed responses and no retry floods | User screenshot shows partial 200-order/page-one result; updated signed-in M0 completion not yet proven | PARTIAL | Verify first-five-page counts, keyword matches and note markers in signed-in M0 after updating |
+| E-17 | Orders left to place | First-five-page per-date note-free order counts plus separate Add Tracking / Check matches | Native range/identity checks, numbered/icon/offset navigation, lazy-footer recovery, exact detail fallback, deduplicated keywords, review links, Recount/Stop and verified reader mirrors/Return; visible startup errors; no marketplace writes | Core/background regressions and desktop/mobile real-extension synthetic 9/235/1000-order fixtures, reader mirroring/Return without duplicate scans, first-five boundary, keyword/draft/cancellation cases, delayed responses and no retry floods | Computer 6 read orders on v3.12.62, then a reader tab lacked the section; signed-in v3.12.63 completion not yet proven | PARTIAL | Verify visible source/reader panels, Return and first-five-page counts in signed-in Computer 6 after updating |
 
 v3.12.56 puts Offer insights directly on native pending eBay offers, with an optional separate view. The reported public buyer page was inspected across both 200-per-page ranges: the header reported 235 entries while 227 distinct readable ratings were exposed (222 positive, 4 neutral, 1 negative). Native loading markers and range boundaries now gate pagination; all-pages-read and exact total reconciliation are separate states. Synthetic desktop/mobile real-extension-API checks reproduce those ranges and counts, verify same-source-tab/window ownership, retained native controls, no separate review tab, failed refresh clearing and navigation rebinding. Both separate-view fixture sizes also pass. No current signed-in end-to-end/video gate is claimed; publication at user request is not LIVE PASS.
 

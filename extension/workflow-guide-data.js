@@ -1,6 +1,6 @@
 globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
-  "version": "3.12.62",
-  "updated": "2026-10-20",
+  "version": "3.12.63",
+  "updated": "2026-10-25",
   "safetyRule": "Final marketplace actions require explicit action-time approval. GLDN Ops must stop before eBay Continue, eBay Save, final listing Submit, purchase, or any equivalent irreversible action unless the operator approves that exact action.",
   "statusDefinitions": {
     "LIVE PASS": "Current signed-in evidence and exact readback prove the documented result.",
@@ -23,8 +23,9 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "Choose the eBay status, search and period filters that should be included."
       ],
       "steps": [
-        "Open eBay Orders. The Orders left to place section appears automatically under the heading.",
+        "Open eBay Orders. The Orders left to place section appears automatically under the heading with the installed extension version.",
         "Wait for First 5 pages read or a verified earlier end. GLDN starts at page one and reads up to five pages under current filters in inactive helper tabs, without moving the visible page.",
+        "Opening a background Orders reader shows the original counter's results. Use Return to Orders counter to reach the original tab; no second scan is launched.",
         "Read each weekday/date group. An order with any saved note is excluded from orders left, and canceled/cancelled orders are ignored. Several items in one order count once.",
         "Expand Add Tracking or Check for separate keyword counts and date/order links. Keyword results include noted orders but exclude cancellations, hidden text and unsaved drafts. Opening a review link makes no order changes.",
         "Notes, dates or status hidden by the list are checked on the exact native order details. No note is created or edited.",
@@ -45,7 +46,7 @@ globalThis.GLDN_WORKFLOW_GUIDE_CATALOG = Object.freeze({
         "The weekday comes from the actual order date and year. Prior-year groups include the year explicitly.",
         "State stays in this Chrome profile and is not shared with the dashboard. Recount after account or filter changes."
       ],
-      "evidence": "Core/background tests cover first-five-page completion without a sixth-page read, keyword/deduplication/cancellation rules, safe review links, saved reader ownership, response reuse and incomplete evidence. Synthetic real-extension desktop/mobile Chromium checks read nine mixed orders over three pages, 235 over three pages and the first 1,000 of 1,501 orders over five pages. Native numbered, icon, same-filter offset and lazy-footer pagination are covered. Keyword tests exclude hidden/injected/draft text and include noted orders. Existing held-resource, eleven-second response, window move, remount, saved-note refresh and partial/no-retry-flood checks remain covered with zero marketplace submissions. The affected signed-in M0 list is not exposed by the connected browser; signed-in completion remains pending."
+      "evidence": "Core/background tests cover first-five-page completion without a sixth-page read, keyword/deduplication/cancellation rules, safe review links, saved reader ownership, response reuse and incomplete evidence. Reader-view regressions cover mirrored/retained results, Return without duplicate scans, closed sources, restarts and forged/filter/incognito identity failures. Synthetic real-extension desktop/mobile Chromium checks read nine mixed orders over three pages, 235 over three pages and the first 1,000 of 1,501 orders over five pages, including visible reader mirrors and Return. Native numbered, icon, same-filter offset and lazy-footer pagination are covered. Keyword tests exclude hidden/injected/draft text and include noted orders. Held-resource, eleven-second response, window move, remount, saved-note refresh and partial/no-retry-flood checks remain covered with zero marketplace submissions. Computer 6 was observed reading orders on v3.12.62; signed-in v3.12.63 five-page completion remains pending."
     },
     {
       "id": "offer-review",
