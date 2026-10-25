@@ -11,6 +11,8 @@ importScripts(
   'offer-review-background.js',
   'orders-left-core.js',
   'orders-left-background.js',
+  'order-links-core.js',
+  'order-links-background.js',
   'ops-health-core.js',
   'ops-health-background.js',
   'variation-core.js',

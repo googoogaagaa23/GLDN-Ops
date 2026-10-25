@@ -1,6 +1,6 @@
 # GLDN Ops Feature Guide
 
-Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.63. Do not edit the generated Markdown or extension HTML directly.
+Generated from `docs/GUIDE_CATALOG.json` for GLDN Ops v3.12.64. Do not edit the generated Markdown or extension HTML directly.
 
 GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshmark, Walmart, EcomSniper, or the shared Tasks sheet.
 
@@ -17,6 +17,7 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 
 ## Feature Index
 
+- [Amazon and Trackerbot Order Links](#order-links) - **PARTIAL**
 - [Orders left to place](#orders-left) - **PARTIAL**
 - [Offer Review](#offer-review) - **PARTIAL**
 - [Price +$0.10](#price-increase) - **PARTIAL**
@@ -53,6 +54,54 @@ GLDN Ops assists marketplace workflows. It does not replace eBay, Amazon, Poshma
 - [Diagnostics, Backup, and Interface Settings](#diagnostics) - **PARTIAL**
 - [Feature Tour, Themes, and Universal Access](#onboarding-interface) - **PARTIAL**
 - [Walmart Order Helper](#walmart) - **IMPLEMENTED, UNPROVEN**
+
+<a id="order-links"></a>
+## Amazon and Trackerbot Order Links
+
+**Matrix:** E-18
+
+**Evidence status:** PARTIAL
+
+**Purpose:** Find the exact supplier order in Trackerbot and request opening in the mapped Amazon Chrome profile on this same computer.
+
+### Prerequisites
+
+- Open the intended eBay order-details or return page.
+- Sign into the intended Trackerbot account in the eBay Chrome profile.
+- Run the latest GLDN Ops Setup once on this computer for helper v1.2.0; extension-only updates cannot add this helper capability.
+- Know which Chrome profile belongs to each Amazon note label, such as TIFF.
+
+### Exact Steps
+
+1. Open an eBay order or return. Order links appears near the heading.
+2. Choose Profiles, enter the Amazon note label and select its Chrome profile on this same computer. Add the Trackerbot supplier email when known, then Save mapping.
+3. Choose Open Trackerbot to search its native Orders page by this exact eBay order ID and highlight matching rows.
+4. Choose Find Amazon order. GLDN uses a cached exact link or reads Trackerbot's supplier order ID/email. Return pages recover the original saved note/SKU from the linked order.
+5. The helper requests the canonical Amazon order-details page in the mapped profile. Verify that Amazon is signed into the expected account and that the order is correct.
+6. If an exact supplier order is unavailable, GLDN may open a clearly labeled exact-ASIN purchase-history search in the mapped profile for manual review.
+
+### Approval Stop
+
+This workflow never uploads/converts tracking, sends messages, edits orders or notes, starts returns/refunds, cancels or purchases anything. Only read-only navigation and local mapping/link storage are performed.
+
+### Expected Output
+
+An exact Trackerbot search and a profile-targeted Amazon opening request, or a clearly labeled purchase-history search. An opening request is not verified Amazon sign-in or order-access proof.
+
+### Failure Recovery
+
+- If the helper endpoint is missing, use Latest computer helper setup once on this computer. Update & Reload alone updates only the extension.
+- Mappings are local to this computer. Chrome display names, Google accounts and Amazon accounts are not assumed equivalent.
+- Multiple supplier orders, conflicting saved order IDs, note/email disagreement, missing mapped profiles and changed eBay pages stop without guessing.
+- Trackerbot demo pages are not accepted as purchase evidence. Sign-in/verification requires manual action in the opened tab.
+- When no exact order ID is available, a single exact ASIN can open a manual history search. Multiple products remain manual review.
+- Minimal links and mappings are stored in local app data, not the shared dashboard or replaceable install directory. Passwords and buyer addresses are not stored.
+- Trackerbot may report lost access to supplier accounts; matching fields can be missing until that connection is restored separately.
+
+### Evidence
+
+Core/background tests cover exact IDs, note labels, SKU decoding, cached links, conflicts, source changes, helper failures and caller boundaries. Isolated desktop/mobile real-extension Chromium checks exercise mapping, native Trackerbot search/loading, return-note recovery and no marketplace writes. PowerShell mock-launch tests verify quoted same-computer profile arguments, canonical URLs and persistence after install-root replacement. The user's reported wine-tote example was manually matched in real signed-in Trackerbot, confirming supplier ID/email fields. The new extension's complete signed-in Amazon-profile route and formal video proof remain pending.
+
 
 <a id="orders-left"></a>
 ## Orders left to place

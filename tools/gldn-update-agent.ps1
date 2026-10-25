@@ -64,6 +64,7 @@ function Initialize-AgentControlConfig {
 
 $script:AgentControlToken = Initialize-AgentControlConfig
 . (Join-Path $PSScriptRoot 'gldn-control-pairing.ps1')
+. (Join-Path $PSScriptRoot 'gldn-order-links.ps1')
 $script:AgentControlCommands = @()
 $script:AgentControlResults = @{}
 $script:AgentControlAllowedHosts = @("ebay.com", "amazon.com", "poshmark.com", "ecomsniper.io")
@@ -732,6 +733,11 @@ try {
       }
       $body = if ($request.body) { $request.body | ConvertFrom-Json } else { $null }
       switch ($route) {
+        "GET /v1/order-links/config" { Send-HttpJson $request 200 (Get-OrderLinksConfig ([string]$request.headers['x-gldn-extension-id'])) }
+        "POST /v1/order-links/mapping" { Send-HttpJson $request 200 (Set-OrderLinksMapping $body ([string]$request.headers['x-gldn-extension-id'])) }
+        "POST /v1/order-links/remember" { Send-HttpJson $request 200 (Remember-OrderLink $body ([string]$request.headers['x-gldn-extension-id'])) }
+        "POST /v1/order-links/lookup" { Send-HttpJson $request 200 (Get-OrderLink $body ([string]$request.headers['x-gldn-extension-id'])) }
+        "POST /v1/order-links/open" { Send-HttpJson $request 200 (Open-OrderLink $body ([string]$request.headers['x-gldn-extension-id'])) }
         "GET /v1/installations" { Send-HttpJson $request 200 (Get-AgentInstallations) }
         "POST /v1/control/pair-start" { Send-HttpJson $request 200 (Start-AgentPairing $body ([string]$request.headers['x-gldn-extension-id'])) }
         "POST /v1/control/pair-status" { Send-HttpJson $request 200 (Get-AgentPairingStatus $body ([string]$request.headers['x-gldn-extension-id'])) }

@@ -1,4 +1,14 @@
-GLDN Ops v3.12.63
+GLDN Ops v3.12.64
+
+v3.12.64 Amazon and Trackerbot order links:
+- Find Amazon order and Open Trackerbot appear on eBay order-details and return pages.
+- Trackerbot is searched by the exact eBay order ID. Supplier order ID and email are read from that row, not from product-title guesses or converted tracking numbers.
+- Use Profiles to map a note label such as TIFF to an existing Chrome profile on this same computer. Optional supplier email checks catch account conflicts.
+- Profile-aware opening requires the new computer helper (v1.2.0). Run the latest GLDN Ops Setup once on each computer; an extension-only update cannot add this helper capability.
+- Exact saved links are reused. Missing matches can open a clearly labeled ASIN purchase-history search in the mapped profile. Multiple/conflicting records stop for review.
+- Mappings and order links stay in this computer's local app data and survive helper reinstalls. No passwords, buyer addresses or dashboard records are saved by this feature.
+- No tracking upload/conversion, order edit, return, refund or purchase is submitted. An opening request is not proof of Amazon sign-in or access.
+- The reported wine-tote order was found manually in the real Trackerbot account. Full signed-in extension-to-Amazon routing remains pending.
 
 v3.12.63 Visible Orders counter:
 - Background Orders reader tabs show the original counter's results and a Return to Orders counter button. They never start a duplicate scan.

@@ -58,6 +58,12 @@ $requiredFiles = @(
   "extension\orders-left-background.js",
   "extension\orders-left-reader.js",
   "extension\orders-left.js",
+  "extension\order-links-core.js",
+  "extension\order-links-background.js",
+  "extension\order-links-reader.js",
+  "extension\order-links.js",
+  "tools\gldn-order-links.ps1",
+  "tests\order-links-router-fixture.ps1",
   "extension\guide.html",
   "extension\workflow-guide-data.js",
   "extension\workflow-guide.js",
@@ -289,6 +295,8 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) { throw 'Cross-profile pairing fixture failed.' }
 & (Join-Path $repoRoot 'tests\chrome-policy-fixture.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'Chrome policy fixture failed.' }
+& (Join-Path $repoRoot 'tests\order-links-router-fixture.ps1')
+if ($LASTEXITCODE -ne 0) { throw 'Same-computer order routing fixture failed.' }
 
 $dashboardHash = (Get-FileHash -Algorithm SHA256 (Join-Path $repoRoot "dashboard\GLDN_Ops_Dashboard_Code.gs")).Hash
 $embeddedHash = (Get-FileHash -Algorithm SHA256 (Join-Path $repoRoot "extension\dashboard_apps_script\Code.gs")).Hash

@@ -1,5 +1,14 @@
 # GLDN Ops Changelog
 
+## v3.12.64 - 2026-10-25
+
+- Add Find Amazon order, Open Trackerbot and Profiles directly to eBay order-details and return pages. Recover the original order's saved note/SKU when a return omits them.
+- Search Trackerbot's native UI by exact eBay order ID and read its supplier order ID/email. Wait for loading overlays; duplicate shipment rows deduplicate while multiple supplier orders require manual review.
+- Add same-computer Chrome profile routing to helper v1.2.0. Save explicit label/profile mappings, optionally cross-check supplier email, and open only a canonical Amazon order-details URL or exact-ASIN purchase-history search. No arbitrary command or URL is accepted.
+- Keep mappings and minimal order links in local app data outside the replaceable install folder. Conflicting saved IDs, profile/email disagreements, missing profiles and changed source orders stop without opening a guessed account.
+- Preserve no-marketplace-write behavior and expose missing-helper/sign-in/timeout boundaries. The computer helper needs the latest Setup once per computer; extension-only updates cannot install the new helper code.
+- Add core/background, isolated desktop/mobile real-extension and mock-launch PowerShell tests. The user's reported example was manually matched in signed-in Trackerbot; full signed-in profile routing and formal live-video proof remain pending.
+
 ## v3.12.63 - 2026-10-25
 
 - Keep Orders left to place visible in owned background Orders tabs. Mirror the original counter and offer Return to Orders counter without launching a second scan.
